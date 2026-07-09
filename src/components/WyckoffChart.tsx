@@ -154,7 +154,7 @@ export default function WyckoffChart({ symbol, candles, loading, onRefresh }: Wy
     mainChart.timeScale().subscribeVisibleTimeRangeChange((range) => {
       if (isSyncing) return;
       isSyncing = true;
-      weisChart.timeScale().setVisibleTimeRange(range || null);
+      weisChart.timeScale().setVisibleRange(range || null);
       updateDrawingCoordinates();
       isSyncing = false;
     });
@@ -162,7 +162,7 @@ export default function WyckoffChart({ symbol, candles, loading, onRefresh }: Wy
     weisChart.timeScale().subscribeVisibleTimeRangeChange((range) => {
       if (isSyncing) return;
       isSyncing = true;
-      mainChart.timeScale().setVisibleTimeRange(range || null);
+      mainChart.timeScale().setVisibleRange(range || null);
       isSyncing = false;
     });
 
