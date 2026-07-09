@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType, CandlestickSeries, HistogramSeries, LineSeries } from 'lightweight-charts';
-import { Square, PenTool, Trash2, XCircle } from 'lucide-react';
+import { Square, PenTool, Trash2, XCircle, RefreshCw } from 'lucide-react';
 
 interface Candle {
   time: number;
