@@ -215,11 +215,10 @@ class LocalTraderHandler:
             print(f"[FIX] Real balance updated from CollateralReport: {balance} {currency}")
 
     def send_position_request(self):
-        numeric_account = "".join(filter(str.isdigit, str(self.sender_comp_id)))
         fields = [
             ("710", f"ReqPos-{int(time.time())}"),  # PosReqID
-            ("263", "1"),  # SubscriptionRequestType: 1 (Snapshot)
-            ("1", numeric_account)  # Account ID
+            ("724", "0"),  # PosReqType: 0 (Positions)
+            ("263", "1")  # SubscriptionRequestType: 1 (Snapshot)
         ]
         self.send_message("AN", fields)
 
