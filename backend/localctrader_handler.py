@@ -217,8 +217,7 @@ class LocalTraderHandler:
     def send_position_request(self):
         fields = [
             ("710", f"ReqPos-{int(time.time())}"),  # PosReqID
-            ("724", "0"),  # PosReqType: 0 (Positions)
-            ("263", "1")  # SubscriptionRequestType: 1 (Snapshot)
+            ("724", "0")  # PosReqType: 0 (Positions)
         ]
         self.send_message("AN", fields)
 
