@@ -152,17 +152,17 @@ export default function WyckoffChart({ symbol, candles, loading, onRefresh }: Wy
     // Synced scrolling and zooming
     let isSyncing = false;
     mainChart.timeScale().subscribeVisibleTimeRangeChange((range) => {
-      if (isSyncing) return;
+      if (isSyncing || !range) return;
       isSyncing = true;
-      weisChart.timeScale().setVisibleRange(range || null);
+      weisChart.timeScale().setVisibleRange(range);
       updateDrawingCoordinates();
       isSyncing = false;
     });
 
     weisChart.timeScale().subscribeVisibleTimeRangeChange((range) => {
-      if (isSyncing) return;
+      if (isSyncing || !range) return;
       isSyncing = true;
-      mainChart.timeScale().setVisibleRange(range || null);
+      mainChart.timeScale().setVisibleRange(range);
       isSyncing = false;
     });
 
