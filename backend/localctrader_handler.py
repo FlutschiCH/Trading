@@ -21,7 +21,18 @@ class LocalTraderHandler:
         self.sender_comp_id = "live.ftmo.17151091"
         self.target_comp_id = "cServer"
         self.sender_sub_id = "TRADE"
-        self.password = os.environ.get("CTRADER_FIX_PASSWORD", "YOUR_PASSWORD_HERE")
+        # Try loading password from config file
+        config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "localctrader_config.json")
+        if os.path.exists(config_path):
+            try:
+                with open(config_path, "r") as f:
+                    config_data = json.load(f)
+                    self.password = config_data.get("password", "YOUR_PASSWORD_HERE")
+            except Exception as e:
+                print(f"[FIX] Failed to read localctrader_config.json: {str(e)}")
+                self.password = "YOUR_PASSWORD_HERE"
+        else:
+            self.password = os.environ.get("CTRADER_FIX_PASSWORD", "YOUR_PASSWORD_HERE")
         
         self.account_info = {
             "balance": 10000.0,
