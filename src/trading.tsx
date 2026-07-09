@@ -37,7 +37,7 @@ export default function Trading() {
   const fetchCandles = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:8080/api/candles/historical', {
+      const response = await fetch('http://localhost:8751/api/candles/historical', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
