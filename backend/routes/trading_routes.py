@@ -97,6 +97,8 @@ def risk():
             RISK_LIMITS['min_stop_loss_pct'] = float(payload['min_stop_loss_pct'])
         if 'max_stop_loss_pct' in payload:
             RISK_LIMITS['max_stop_loss_pct'] = float(payload['max_stop_loss_pct'])
+        if 'max_daily_loss_pct' in payload:
+            RISK_LIMITS['max_daily_loss_pct'] = float(payload['max_daily_loss_pct'])
         return jsonify({"status": "success", "risk_limits": RISK_LIMITS})
     else:
         return jsonify({"status": "success", "risk_limits": RISK_LIMITS})

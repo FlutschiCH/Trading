@@ -142,6 +142,7 @@ export default function App() {
             pnl,
             outcome,
             time: new Date(c.time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            timestamp: c.time,
           });
           activeTrade = null;
         }
@@ -193,6 +194,7 @@ export default function App() {
         pnl,
         outcome: pnl >= 0 ? 'WIN' : 'LOSS',
         time: 'Open',
+        timestamp: finalCandle.time,
       });
     }
     
@@ -205,12 +207,62 @@ export default function App() {
     const grossLosses = Math.abs(completedTrades.filter(t => t.pnl < 0).reduce((acc, t) => acc + t.pnl, 0));
     const profitFactor = grossLosses > 0 ? grossProfits / grossLosses : grossProfits > 0 ? 99.9 : 0;
     
+    // Calculate Max Drawdown and Max Daily Loss
+    let runningBalance = 100000;
+    let peakBal = runningBalance;
+    let maxDrawdown = 0;
+    
+    const dayPnlMap: { [day: string]: number } = {};
+    const dayStartBalMap: { [day: string]: number } = {};
+    
+    for (let j = 0; j < completedTrades.length; j++) {
+      const t = completedTrades[j];
+      const tradeTimeSec = t.timestamp || 0;
+      const dateStr = new Date(tradeTimeSec * 1000).toISOString().split('T')[0];
+      
+      if (dayStartBalMap[dateStr] === undefined) {
+        dayStartBalMap[dateStr] = runningBalance;
+        dayPnlMap[dateStr] = 0;
+      }
+      
+      runningBalance += t.pnl;
+      dayPnlMap[dateStr] += t.pnl;
+      
+      if (runningBalance > peakBal) {
+        peakBal = runningBalance;
+      }
+      const dd = ((peakBal - runningBalance) / peakBal) * 100;
+      if (dd > maxDrawdown) {
+        maxDrawdown = dd;
+      }
+    }
+    
+    let maxDailyLoss = 0;
+    let dailyLossBreached = false;
+    
+    Object.keys(dayStartBalMap).forEach(day => {
+      const startB = dayStartBalMap[day];
+      const dayLoss = dayPnlMap[day];
+      if (dayLoss < 0 && startB > 0) {
+        const lossPct = (Math.abs(dayLoss) / startB) * 100;
+        if (lossPct > maxDailyLoss) {
+          maxDailyLoss = lossPct;
+        }
+        if (lossPct >= 5.0) {
+          dailyLossBreached = true;
+        }
+      }
+    });
+    
     setBacktestResults({
       trades: completedTrades.reverse(),
       winRate,
       netPnl,
       profitFactor,
       totalTrades,
+      maxDrawdown,
+      maxDailyLoss,
+      dailyLossBreached,
     });
   };
 
@@ -889,7 +941,33 @@ export default function App() {
                     <span style={{ color: '#9ca3af' }}>Profit Factor:</span>
                     <span style={{ color: '#ffffff', fontWeight: 'bold' }}>{backtestResults.profitFactor.toFixed(2)}</span>
                   </div>
+                  <div style={styles.walletRow}>
+                    <span style={{ color: '#9ca3af' }}>Max Drawdown:</span>
+                    <span style={{ color: '#ffffff', fontWeight: 'bold' }}>{backtestResults.maxDrawdown.toFixed(2)}%</span>
+                  </div>
+                  <div style={styles.walletRow}>
+                    <span style={{ color: '#9ca3af' }}>Max Daily Loss:</span>
+                    <span style={{ color: backtestResults.maxDailyLoss >= 5.0 ? '#ef4444' : '#ffffff', fontWeight: 'bold' }}>
+                      {backtestResults.maxDailyLoss.toFixed(2)}%
+                    </span>
+                  </div>
                 </div>
+
+                {backtestResults.dailyLossBreached && (
+                  <div style={{
+                    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                    border: '1px solid #ef4444',
+                    borderRadius: '8px',
+                    padding: '8px',
+                    color: '#ef4444',
+                    fontSize: '11px',
+                    fontWeight: 'bold',
+                    textAlign: 'center',
+                    marginTop: '4px'
+                  }}>
+                    ⚠️ FTMO 5% Daily Loss Rule Breached!
+                  </div>
+                )}
 
                 <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#9ca3af', marginTop: '4px' }}>
                   Backtest Trade Log

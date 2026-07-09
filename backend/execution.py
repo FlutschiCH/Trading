@@ -76,7 +76,8 @@ class IBTSocketClient:
 RISK_LIMITS = {
     "max_notional": 100000.0,
     "min_stop_loss_pct": 0.5,
-    "max_stop_loss_pct": 5.0
+    "max_stop_loss_pct": 5.0,
+    "max_daily_loss_pct": 5.0
 }
 
 def execute_signal(signal_data: dict) -> dict:
@@ -122,6 +123,35 @@ def execute_signal(signal_data: dict) -> dict:
             "status": "REJECTED",
             "message": f"Stop loss distance of {sl_pct:.2f}% is outside bounds ({min_sl:.2f}% - {max_sl:.2f}%)."
         }
+
+    # 3. Enforce FTMO Daily Loss Safeguard based on daily committed risk
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        today_str = datetime.utcnow().strftime("%Y-%m-%d")
+        cursor.execute("SELECT entry_price, stop_loss, qty FROM trades WHERE timestamp LIKE ? AND status = 'EXECUTED'", (f"{today_str}%",))
+        rows = cursor.fetchall()
+        conn.close()
+        
+        committed_risk = 0.0
+        for entry_p, stop_l, q in rows:
+            if stop_l is not None:
+                committed_risk += float(q) * abs(float(entry_p) - float(stop_l))
+        
+        current_risk = qty * sl_distance
+        total_risk = committed_risk + current_risk
+        
+        start_balance = 100000.0  # Mock FTMO account size
+        max_daily_loss = start_balance * (RISK_LIMITS.get("max_daily_loss_pct", 5.0) / 100.0)
+        
+        if total_risk > max_daily_loss:
+            return {
+                "status": "REJECTED",
+                "message": f"Daily committed risk limit exceeded (FTMO 5% Daily Loss safeguard): ${total_risk:.2f} > ${max_daily_loss:.2f}"
+            }
+    except Exception as e:
+        # Proceed if database check fails to avoid blocking trades due to query issues
+        pass
 
     # Save to SQLite DB
     conn = sqlite3.connect(DB_PATH)
