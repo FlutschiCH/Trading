@@ -105,7 +105,7 @@ export default function WyckoffChart({ symbol, candles, loading, onRefresh }: Wy
       height: 380,
     });
 
-    const candlestickSeries = mainChart.addSeries(CandlestickSeries, {
+    const candlestickSeries = mainChart.addCandlestickSeries({
       upColor: '#10b981',
       downColor: '#ef4444',
       borderVisible: false,
@@ -114,14 +114,14 @@ export default function WyckoffChart({ symbol, candles, loading, onRefresh }: Wy
     });
 
     // Reference channels for Wyckoff TR high and TR low
-    const trHighSeries = mainChart.addSeries(LineSeries, {
+    const trHighSeries = mainChart.addLineSeries({
       color: '#f59e0b',
       lineWidth: 1.5,
       lineStyle: 1, // Dashed
       title: 'TR High',
     });
 
-    const trLowSeries = mainChart.addSeries(LineSeries, {
+    const trLowSeries = mainChart.addLineSeries({
       color: '#f59e0b',
       lineWidth: 1.5,
       lineStyle: 1, // Dashed
@@ -142,7 +142,7 @@ export default function WyckoffChart({ symbol, candles, loading, onRefresh }: Wy
       height: 140,
     });
 
-    const weisSeries = weisChart.addSeries(HistogramSeries, {
+    const weisSeries = weisChart.addHistogramSeries({
       color: '#26a69a',
       priceFormat: {
         type: 'volume',
