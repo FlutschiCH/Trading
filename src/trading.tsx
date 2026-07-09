@@ -49,7 +49,7 @@ export default function Trading() {
 
   // cTrader Connection States
   const [isConnectedOpenAPI, setIsConnectedOpenAPI] = useState(true);
-  const [isConnectedFIX, setIsConnectedFIX] = useState(false);
+  const [isConnectedFIX, setIsConnectedFIX] = useState(true);
   const [connecting, setConnecting] = useState(false);
 
   // cTrader OpenAPI Credentials

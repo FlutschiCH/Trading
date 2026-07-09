@@ -21,7 +21,7 @@ class LocalTraderHandler:
         self.sender_comp_id = "live.ftmo.17151091"
         self.target_comp_id = "cServer"
         self.sender_sub_id = "TRADE"
-        self.password = "password123"  # Will be overridden or inputted by user
+        self.password = os.environ.get("CTRADER_FIX_PASSWORD", "YOUR_PASSWORD_HERE")
         
         self.account_info = {
             "balance": 10000.0,
@@ -32,6 +32,9 @@ class LocalTraderHandler:
             "broker": "FTMO FIX API"
         }
         self.positions = []
+        
+        # Automatically connect on startup
+        self.connect()
 
     def format_fix_message(self, msg_type, fields):
         # Base headers
