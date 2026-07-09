@@ -241,7 +241,7 @@ export default function Trading() {
 
     const currentPrice = candles.length > 0 ? candles[candles.length - 1].close : 57450;
     try {
-      const response = await fetch(`http://localhost:8751/api/${platform === 'mt5' ? 'metatrader' : 'ctrader'}/order', {
+      const response = await fetch(`http://localhost:8751/api/${platform === 'mt5' ? 'metatrader' : 'ctrader'}/order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
