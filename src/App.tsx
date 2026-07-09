@@ -69,12 +69,18 @@ export default function App() {
   const [backtestRR, setBacktestRR] = useState('2');
   const [backtestSize, setBacktestSize] = useState('1');
   const [lookbackWindow, setLookbackWindow] = useState('20');
+  const [backtestBalance, setBacktestBalance] = useState('10000');
+  const [backtestRiskPct, setBacktestRiskPct] = useState('1.0');
+  const [useRiskSizing, setUseRiskSizing] = useState(true);
   const [backtestResults, setBacktestResults] = useState<{
     trades: any[];
     winRate: number;
     netPnl: number;
     profitFactor: number;
     totalTrades: number;
+    maxDrawdown: number;
+    maxDailyLoss: number;
+    dailyLossBreached: boolean;
   } | null>(null);
 
   const runBacktest = () => {
@@ -83,9 +89,12 @@ export default function App() {
     const slPips = parseFloat(backtestSL) || 50;
     const rr = parseFloat(backtestRR) || 2;
     const size = parseFloat(backtestSize) || 1;
+    const initialBalance = parseFloat(backtestBalance) || 10000;
+    const riskPct = parseFloat(backtestRiskPct) || 1.0;
     
     let activeTrade: any = null;
     const completedTrades: any[] = [];
+    let currentBalance = initialBalance;
     
     const symUpper = symbol.toUpperCase();
     let pipVal = 1.0;
@@ -144,6 +153,7 @@ export default function App() {
             time: new Date(c.time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             timestamp: c.time,
           });
+          currentBalance += pnl;
           activeTrade = null;
         }
       }
@@ -169,12 +179,18 @@ export default function App() {
           const slPrice = tradeType === 'BUY' ? (entryPrice - slDistance) : (entryPrice + slDistance);
           const tpPrice = tradeType === 'BUY' ? (entryPrice + slDistance * rr) : (entryPrice - slDistance * rr);
           
+          let tradeQty = size;
+          if (useRiskSizing) {
+            const riskAmount = currentBalance * (riskPct / 100);
+            tradeQty = slDistance > 0 ? (riskAmount / slDistance) : size;
+          }
+          
           activeTrade = {
             type: tradeType,
             entryPrice,
             slPrice,
             tpPrice,
-            qty: size,
+            qty: tradeQty,
             entryIndex: i,
           };
         }
@@ -196,6 +212,7 @@ export default function App() {
         time: 'Open',
         timestamp: finalCandle.time,
       });
+      currentBalance += pnl;
     }
     
     const totalTrades = completedTrades.length;
@@ -208,7 +225,7 @@ export default function App() {
     const profitFactor = grossLosses > 0 ? grossProfits / grossLosses : grossProfits > 0 ? 99.9 : 0;
     
     // Calculate Max Drawdown and Max Daily Loss
-    let runningBalance = 100000;
+    let runningBalance = initialBalance;
     let peakBal = runningBalance;
     let maxDrawdown = 0;
     
@@ -268,7 +285,7 @@ export default function App() {
 
   useEffect(() => {
     runBacktest();
-  }, [candles, backtestSL, backtestRR, backtestSize, lookbackWindow]);
+  }, [candles, backtestSL, backtestRR, backtestSize, lookbackWindow, backtestBalance, backtestRiskPct, useRiskSizing]);
 
   // Fetch symbols and timeframes metadata on mount
   useEffect(() => {
@@ -871,16 +888,54 @@ export default function App() {
             
             <div style={styles.tradeForm}>
               <div style={styles.formGroup}>
-                <label style={{ color: '#9ca3af', fontSize: '12px' }}>Quantity (Size)</label>
+                <label style={{ color: '#9ca3af', fontSize: '12px' }}>Starting Balance ($)</label>
                 <input 
                   type="number" 
-                  value={backtestSize} 
-                  onChange={(e) => setBacktestSize(e.target.value)}
+                  value={backtestBalance} 
+                  onChange={(e) => setBacktestBalance(e.target.value)}
                   style={styles.input}
-                  step="0.1"
-                  min="0.1"
+                  min="100"
                 />
               </div>
+
+              <div style={styles.formGroup}>
+                <label style={{ color: '#9ca3af', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={useRiskSizing}
+                    onChange={(e) => setUseRiskSizing(e.target.checked)}
+                    style={{ cursor: 'pointer' }}
+                  />
+                  Auto Calculate Size by Risk
+                </label>
+              </div>
+
+              {useRiskSizing ? (
+                <div style={styles.formGroup}>
+                  <label style={{ color: '#9ca3af', fontSize: '12px' }}>Risk % per Trade</label>
+                  <input 
+                    type="number" 
+                    value={backtestRiskPct} 
+                    onChange={(e) => setBacktestRiskPct(e.target.value)}
+                    style={styles.input}
+                    step="0.1"
+                    min="0.1"
+                    max="10.0"
+                  />
+                </div>
+              ) : (
+                <div style={styles.formGroup}>
+                  <label style={{ color: '#9ca3af', fontSize: '12px' }}>Quantity (Size)</label>
+                  <input 
+                    type="number" 
+                    value={backtestSize} 
+                    onChange={(e) => setBacktestSize(e.target.value)}
+                    style={styles.input}
+                    step="0.1"
+                    min="0.1"
+                  />
+                </div>
+              )}
 
               <div style={styles.formGroup}>
                 <label style={{ color: '#9ca3af', fontSize: '12px' }}>Stop Loss (Pips/Points)</label>
