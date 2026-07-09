@@ -45,7 +45,7 @@ export default function Trading() {
   const [loading, setLoading] = useState(true);
 
   // cTrader Connection State
-  const [isConnected, setIsConnected] = useState(false);
+  const [isConnected, setIsConnected] = useState(true);
   const [connecting, setConnecting] = useState(false);
   const [ctToken, setCtToken] = useState('17151091');
   const [ctAccountId, setCtAccountId] = useState('flutschich@gmail.com');
@@ -156,6 +156,8 @@ export default function Trading() {
   // Regular updates when connected
   useEffect(() => {
     if (!isConnected) return;
+    fetchAccountData();
+    fetchPositionData();
     const interval = setInterval(() => {
       fetchAccountData();
       fetchPositionData();

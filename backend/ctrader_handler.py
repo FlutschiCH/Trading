@@ -4,9 +4,9 @@ import requests
 
 class CTraderHandler:
     def __init__(self):
-        self.connected = False
-        self.access_token = None
-        self.account_id = None
+        self.connected = True
+        self.access_token = '17151091'
+        self.account_id = 'flutschich@gmail.com'
         self.mock_positions = []
         self.mock_account_info = {
             "balance": 25000.0,
