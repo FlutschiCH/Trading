@@ -1,6 +1,6 @@
 flask
 flask-cors
 gevent
-ctrader-open-api
-protobuf
-python-dotenv
+numpy
+pandas
+sympy
