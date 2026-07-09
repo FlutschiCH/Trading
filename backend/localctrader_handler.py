@@ -59,8 +59,9 @@ class LocalTraderHandler:
             ("8", "FIX.4.4"),
             ("35", msg_type),
             ("49", self.sender_comp_id),
+            ("50", self.sender_sub_id),
             ("56", self.target_comp_id),
-            ("57", self.sender_sub_id),
+            ("57", "TRADE"),
             ("34", str(self.seq_num)),
             ("52", sending_time)
         ]
