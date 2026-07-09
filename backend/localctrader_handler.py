@@ -185,6 +185,10 @@ class LocalTraderHandler:
         # TestRequest (MsgType 1)
         if msg_type == "1":
             self.send_message("0", [])
+        # Logout (MsgType 5)
+        elif msg_type == "5":
+            reason = msg.get("58", "No reason code/text returned by cTrader.")
+            print(f"\n[FIX LOGOUT] Server rejected connection. Reason: {reason}\n")
         # CollateralReport (MsgType B)
         elif msg_type == "B":
             balance = float(msg.get("894", 0.0))
