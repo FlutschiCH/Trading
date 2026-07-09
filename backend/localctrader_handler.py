@@ -18,7 +18,7 @@ class LocalTraderHandler:
         # FIX API Credentials
         self.host = "live-uk-eqx-01.p.c-trader.com"
         self.port = 5212
-        self.sender_comp_id = "live.ftmo.17151091"
+        self.sender_comp_id = os.environ.get("CTRADER_FIX_SENDER_COMP_ID", "live.ftmo.17151091")
         self.target_comp_id = "cServer"
         self.sender_sub_id = "TRADE"
         # Try loading password from config file
