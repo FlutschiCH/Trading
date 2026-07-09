@@ -272,6 +272,23 @@ export default function Trading() {
           }}>
             cTrader OpenAPI {isConnected ? 'CONNECTED' : 'DISCONNECTED'}
           </span>
+          <a
+            href="https://trader.ftmo.com/accounts-overview"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              ...styles.badge,
+              backgroundColor: 'rgba(59, 130, 246, 0.1)',
+              color: '#3b82f6',
+              borderColor: 'rgba(59, 130, 246, 0.2)',
+              textDecoration: 'none',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center'
+            }}
+          >
+            FTMO Accounts Overview
+          </a>
         </div>
 
         <div style={styles.statsBar}>
