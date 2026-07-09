@@ -198,6 +198,12 @@ class LocalTraderHandler:
         elif msg_type == "5":
             reason = msg.get("58", "No reason code/text returned by cTrader.")
             print(f"\n[FIX LOGOUT] Server rejected connection. Reason: {reason}\n")
+        # Reject (MsgType 3)
+        elif msg_type == "3":
+            ref_tag = msg.get("371", "Unknown Tag")
+            reason = msg.get("58", "No reason provided")
+            ref_msg_type = msg.get("372", "Unknown MsgType")
+            print(f"\n[FIX REJECT] Server rejected MsgType {ref_msg_type} (tag: {ref_tag}). Reason: {reason}\n")
         # CollateralReport (MsgType B)
         elif msg_type == "B":
             balance = float(msg.get("894", 0.0))
