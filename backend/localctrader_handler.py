@@ -35,7 +35,7 @@ class LocalTraderHandler:
                 print(f"[FIX] Failed to read .env file directly: {str(e)}")
 
         self.sender_comp_id = env_vars.get("CTRADER_FIX_SENDER_COMP_ID", "live.ftmo.17151091")
-        self.target_comp_id = "cServer"
+        self.target_comp_id = "CSERVER"
         self.sender_sub_id = "TRADE"
         self.password = env_vars.get("CTRADER_FIX_PASSWORD", "")
         
