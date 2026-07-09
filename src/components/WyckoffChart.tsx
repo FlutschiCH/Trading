@@ -102,6 +102,17 @@ export default function WyckoffChart({ symbol, candles, loading, onRefresh }: Wy
         vertLines: { color: '#1f2937' },
         horzLines: { color: '#1f2937' },
       },
+      handleScroll: {
+        mouseWheel: true,
+        pressedMouseMove: true,
+        horzTouchDrag: true,
+        vertTouchDrag: false,
+      },
+      handleScale: {
+        mouseWheel: true,
+        pinch: true,
+        axisPressedMouseMove: true,
+      },
       width: chartContainerRef.current.clientWidth,
       height: 380,
     });
@@ -141,6 +152,17 @@ export default function WyckoffChart({ symbol, candles, loading, onRefresh }: Wy
       grid: {
         vertLines: { color: '#1f2937' },
         horzLines: { color: '#1f2937' },
+      },
+      handleScroll: {
+        mouseWheel: true,
+        pressedMouseMove: true,
+        horzTouchDrag: true,
+        vertTouchDrag: false,
+      },
+      handleScale: {
+        mouseWheel: true,
+        pinch: true,
+        axisPressedMouseMove: true,
       },
       width: weisContainerRef.current.clientWidth,
       height: 140,
