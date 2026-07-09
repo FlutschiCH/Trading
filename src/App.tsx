@@ -82,6 +82,7 @@ export default function App() {
     maxDailyLoss: number;
     dailyLossBreached: boolean;
   } | null>(null);
+  const [selectedTrade, setSelectedTrade] = useState<any>(null);
 
   const runBacktest = () => {
     if (!candles || candles.length === 0) return;
@@ -116,7 +117,30 @@ export default function App() {
         let pnl = 0;
         let outcome: 'WIN' | 'LOSS' = 'LOSS';
         
-        if (activeTrade.type === 'BUY') {
+        // Check for opposite sweep signals to negate/exit the current position
+        const isBullishVSA = c.vsa_patterns && (c.vsa_patterns.includes('Shakeout/Spring') || c.vsa_patterns.includes('Stopping Volume') || c.vsa_patterns.includes('No Supply'));
+        const isBearishVSA = c.vsa_patterns && (c.vsa_patterns.includes('Upthrust') || c.vsa_patterns.includes('No Demand'));
+        
+        let shouldBuy = false;
+        let shouldSell = false;
+        
+        if (c.sweep_low !== undefined) {
+          shouldBuy = !!isBullishVSA && c.low < c.sweep_low && c.close > c.sweep_low;
+        }
+        if (c.sweep_high !== undefined) {
+          shouldSell = !!isBearishVSA && c.high > c.sweep_high && c.close < c.sweep_high;
+        }
+
+        const oppositeSignal = (activeTrade.type === 'BUY' && shouldSell) || (activeTrade.type === 'SELL' && shouldBuy);
+
+        if (oppositeSignal) {
+          exitPrice = c.close;
+          pnl = activeTrade.type === 'BUY' 
+            ? (exitPrice - activeTrade.entryPrice) * activeTrade.qty
+            : (activeTrade.entryPrice - exitPrice) * activeTrade.qty;
+          outcome = pnl >= 0 ? 'WIN' : 'LOSS';
+          closed = true;
+        } else if (activeTrade.type === 'BUY') {
           if (c.low <= activeTrade.slPrice) {
             exitPrice = activeTrade.slPrice;
             pnl = (exitPrice - activeTrade.entryPrice) * activeTrade.qty;
@@ -152,6 +176,8 @@ export default function App() {
             outcome,
             time: new Date(c.time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             timestamp: c.time,
+            slPrice: activeTrade.slPrice,
+            tpPrice: activeTrade.tpPrice,
           });
           currentBalance += pnl;
           activeTrade = null;
@@ -211,6 +237,8 @@ export default function App() {
         outcome: pnl >= 0 ? 'WIN' : 'LOSS',
         time: 'Open',
         timestamp: finalCandle.time,
+        slPrice: activeTrade.slPrice,
+        tpPrice: activeTrade.tpPrice,
       });
       currentBalance += pnl;
     }
@@ -271,8 +299,9 @@ export default function App() {
       }
     });
     
+    const reversedTrades = completedTrades.reverse();
     setBacktestResults({
-      trades: completedTrades.reverse(),
+      trades: reversedTrades,
       winRate,
       netPnl,
       profitFactor,
@@ -281,6 +310,12 @@ export default function App() {
       maxDailyLoss,
       dailyLossBreached,
     });
+
+    if (reversedTrades.length > 0) {
+      setSelectedTrade(reversedTrades[0]);
+    } else {
+      setSelectedTrade(null);
+    }
   };
 
   useEffect(() => {
@@ -771,6 +806,9 @@ export default function App() {
               candles={candles} 
               loading={loading} 
               onRefresh={fetchCandles} 
+              entryPrice={selectedTrade?.entryPrice}
+              slPrice={selectedTrade?.slPrice}
+              tpPrice={selectedTrade?.tpPrice}
             />
           </div>
 
@@ -1029,7 +1067,17 @@ export default function App() {
                 </span>
                 <div style={styles.positionsList}>
                   {backtestResults.trades.map((trade) => (
-                    <div key={trade.id} style={styles.positionRow}>
+                    <div 
+                      key={trade.id} 
+                      onClick={() => setSelectedTrade(trade)}
+                      style={{
+                        ...styles.positionRow,
+                        cursor: 'pointer',
+                        border: selectedTrade?.id === trade.id ? '1.5px solid #3b82f6' : '1px solid #1f2937',
+                        transform: selectedTrade?.id === trade.id ? 'scale(1.02)' : 'scale(1)',
+                        transition: 'all 0.15s'
+                      }}
+                    >
                       <div style={styles.posDetails}>
                         <span style={styles.posSide(trade.type === 'BUY')}>
                           {trade.type} @ {trade.entryPrice.toFixed(2)}

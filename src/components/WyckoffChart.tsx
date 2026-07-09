@@ -20,9 +20,12 @@ interface WyckoffChartProps {
   candles: Candle[];
   loading: boolean;
   onRefresh: () => void;
+  entryPrice?: number;
+  slPrice?: number;
+  tpPrice?: number;
 }
 
-export default function WyckoffChart({ symbol, candles, loading, onRefresh }: WyckoffChartProps) {
+export default function WyckoffChart({ symbol, candles, loading, onRefresh, entryPrice, slPrice, tpPrice }: WyckoffChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const weisContainerRef = useRef<HTMLDivElement>(null);
   
@@ -34,6 +37,10 @@ export default function WyckoffChart({ symbol, candles, loading, onRefresh }: Wy
   const weisSeriesRef = useRef<any>(null);
   const trHighSeriesRef = useRef<any>(null);
   const trLowSeriesRef = useRef<any>(null);
+
+  const entryLineRef = useRef<any>(null);
+  const slLineRef = useRef<any>(null);
+  const tpLineRef = useRef<any>(null);
 
   // Drawing Tools State
   const [activeTool, setActiveTool] = useState<'none' | 'trendline' | 'rectangle' | 'delete'>('none');
@@ -285,6 +292,54 @@ export default function WyckoffChart({ symbol, candles, loading, onRefresh }: Wy
 
     updateDrawingCoordinates();
   }, [candles]);
+
+  useEffect(() => {
+    if (candlestickSeriesRef.current) {
+      if (entryLineRef.current) {
+        candlestickSeriesRef.current.removePriceLine(entryLineRef.current);
+        entryLineRef.current = null;
+      }
+      if (slLineRef.current) {
+        candlestickSeriesRef.current.removePriceLine(slLineRef.current);
+        slLineRef.current = null;
+      }
+      if (tpLineRef.current) {
+        candlestickSeriesRef.current.removePriceLine(tpLineRef.current);
+        tpLineRef.current = null;
+      }
+
+      if (entryPrice) {
+        entryLineRef.current = candlestickSeriesRef.current.createPriceLine({
+          price: entryPrice,
+          color: '#3b82f6',
+          lineWidth: 2,
+          lineStyle: 2, // Dotted
+          axisLabelVisible: true,
+          title: 'Entry',
+        });
+      }
+      if (slPrice) {
+        slLineRef.current = candlestickSeriesRef.current.createPriceLine({
+          price: slPrice,
+          color: '#ef4444',
+          lineWidth: 2,
+          lineStyle: 1, // Dashed
+          axisLabelVisible: true,
+          title: 'SL',
+        });
+      }
+      if (tpPrice) {
+        tpLineRef.current = candlestickSeriesRef.current.createPriceLine({
+          price: tpPrice,
+          color: '#10b981',
+          lineWidth: 2,
+          lineStyle: 1, // Dashed
+          axisLabelVisible: true,
+          title: 'TP',
+        });
+      }
+    }
+  }, [entryPrice, slPrice, tpPrice, candles]);
 
   const handleSVGMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
     if (activeTool === 'none' || activeTool === 'delete') return;
