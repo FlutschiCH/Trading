@@ -113,6 +113,9 @@ export default function WyckoffChart({ symbol, candles, loading, onRefresh }: Wy
         pinch: true,
         axisPressedMouseMove: true,
       },
+      timeScale: {
+        fixRightEdge: false,
+      },
       width: chartContainerRef.current.clientWidth,
       height: 380,
     });
@@ -163,6 +166,9 @@ export default function WyckoffChart({ symbol, candles, loading, onRefresh }: Wy
         mouseWheel: true,
         pinch: true,
         axisPressedMouseMove: true,
+      },
+      timeScale: {
+        fixRightEdge: false,
       },
       width: weisContainerRef.current.clientWidth,
       height: 140,
