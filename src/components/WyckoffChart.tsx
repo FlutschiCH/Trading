@@ -181,13 +181,13 @@ export default function WyckoffChart({ symbol, candles, loading, onRefresh }: Wy
       },
     });
 
-    // Synced scrolling and zooming
+    // Synced scrolling and zooming via Logical Range
     let isSyncing = false;
-    mainChart.timeScale().subscribeVisibleTimeRangeChange((range) => {
+    mainChart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
       if (isSyncing || !range) return;
       isSyncing = true;
       try {
-        weisChart.timeScale().setVisibleRange(range);
+        weisChart.timeScale().setVisibleLogicalRange(range);
       } catch (e) {
         // Ignored: handles internal null-value conversion when charts are loading/empty
       }
@@ -195,11 +195,11 @@ export default function WyckoffChart({ symbol, candles, loading, onRefresh }: Wy
       isSyncing = false;
     });
 
-    weisChart.timeScale().subscribeVisibleTimeRangeChange((range) => {
+    weisChart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
       if (isSyncing || !range) return;
       isSyncing = true;
       try {
-        mainChart.timeScale().setVisibleRange(range);
+        mainChart.timeScale().setVisibleLogicalRange(range);
       } catch (e) {
         // Ignored: handles internal null-value conversion when charts are loading/empty
       }
