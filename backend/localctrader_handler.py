@@ -216,8 +216,7 @@ class LocalTraderHandler:
 
     def send_position_request(self):
         fields = [
-            ("710", f"ReqPos-{int(time.time())}"),  # PosReqID
-            ("724", "0")  # PosReqType: 0 (Positions)
+            ("710", f"ReqPos-{int(time.time())}")  # PosReqID
         ]
         self.send_message("AN", fields)
 
