@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Activity } from 'lucide-react';
-import WyckoffChart from './components/WyckoffChart';
-import Dashboard from './components/Dashboard';
+import WyckoffChart from './components/WyckoffChart.tsx';
+import Dashboard from './components/Dashboard.tsx';
 import './App.css';
 
 interface Candle {
