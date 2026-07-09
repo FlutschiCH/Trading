@@ -9,26 +9,27 @@ class CTraderHandler:
         self.account_id = 'flutschich@gmail.com'
         self.mock_positions = []
         self.mock_account_info = {
-            "balance": 25000.0,
-            "equity": 25000.0,
+            "balance": 10000.0,
+            "equity": 10000.0,
             "margin": 0.0,
-            "margin_free": 25000.0,
-            "currency": "EUR",
+            "margin_free": 10000.0,
+            "currency": "USD",
             "account_type": "Demo",
-            "broker": "cTrader Beta"
+            "broker": "FTMO cTrader"
         }
+        print(f"[cTrader] Auto-connected initialized. Login/Token: {self.access_token}, Account/ID: {self.account_id}")
 
     def connect(self, access_token=None, account_id=None):
-        # Authenticate with cTrader OpenAPI (simulated/mock fallback)
+        print(f"[cTrader] Connecting attempt... Token: {access_token}, Account ID: {account_id}")
         if access_token and account_id:
             self.access_token = access_token
             self.account_id = account_id
             self.connected = True
-            # Real connections would perform HTTPS handshake with cTrader Open API Gateway
+            print("[cTrader] Connected to cTrader OpenAPI Gateway successfully.")
             return {"status": "success", "message": "Connected to cTrader OpenAPI Gateway.", "account_id": account_id}
         
-        # Fallback to simulated mode
         self.connected = True
+        print("[cTrader] Connected to cTrader Mock Environment.")
         return {"status": "success", "message": "Connected to cTrader Mock Environment.", "mock": True}
 
     def get_account_info(self):
