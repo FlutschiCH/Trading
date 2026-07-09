@@ -40,10 +40,10 @@ class LocalTraderHandler:
         self.password = env_vars.get("CTRADER_FIX_PASSWORD", "")
         
         self.account_info = {
-            "balance": 10000.0,
-            "equity": 10000.0,
+            "balance": 0.0,
+            "equity": 0.0,
             "margin": 0.0,
-            "margin_free": 10000.0,
+            "margin_free": 0.0,
             "currency": "USD",
             "broker": "FTMO FIX API"
         }
@@ -209,3 +209,31 @@ class LocalTraderHandler:
             
         self.send_message("D", fields)
         return {"status": "success", "message": f"FIX Order {cl_ord_id} submitted."}
+
+if __name__ == '__main__':
+    # Test connection to the local cTrader windows app C# bridge
+    import requests
+    local_bridge = "http://localhost:8752"
+    print(f"\n[cTrader Test] Attempting to read balance from cTrader Windows App via local bridge ({local_bridge})...")
+    try:
+        r = requests.get(f"{local_bridge}/account", timeout=2.0)
+        if r.status_code == 200:
+            data = r.json()
+            print("\n" + "="*50)
+            print("  SUCCESSFULLY CONNECTED TO CTRADER WINDOWS APP!")
+            print(f"  Broker:   {data.get('broker')}")
+            print(f"  Balance:  {data.get('balance')} {data.get('currency')}")
+            print(f"  Equity:   {data.get('equity')} {data.get('currency')}")
+            print(f"  Free Margin: {data.get('margin_free')} {data.get('currency')}")
+            print("="*50 + "\n")
+        else:
+            print(f"[Error] Local bridge returned status code: {r.status_code}")
+    except Exception as e:
+        print("\n" + "!"*50)
+        print("  COULD NOT CONNECT TO CTRADER WINDOWS APP BRIDGE!")
+        print("  Please make sure you have:")
+        print("  1. Opened cTrader desktop/windows app.")
+        print("  2. Added the C# robot from 'LocalTraderBridge.cs' in the Automate tab.")
+        print("  3. Started the LocalTraderBridge bot to open http://localhost:8752.")
+        print("  Connection error details:", str(e))
+        print("!"*50 + "\n")
