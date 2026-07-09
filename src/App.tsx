@@ -103,7 +103,7 @@ export default function App() {
           body: JSON.stringify({
             symbol: symbol.replace('BINANCE:', ''),
             interval: timeframe,
-            limit: 100,
+            limit: 500,
           }),
         });
         const result = await response.json();
