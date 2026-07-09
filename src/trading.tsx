@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowUpRight, RefreshCw, Shield, Wallet, Activity, Key, Server, User } from 'lucide-react';
+import { ArrowUpRight, RefreshCw, Shield, Wallet, Activity, Key, Server, User, Globe } from 'lucide-react';
 import { createChart, ColorType, CandlestickSeries } from 'lightweight-charts';
 import type { ISeriesApi } from 'lightweight-charts';
 
@@ -12,26 +12,32 @@ interface Candle {
   volume: number;
 }
 
-interface MT5Account {
+interface AccountInfo {
   balance: number;
   equity: number;
   margin: number;
   margin_free: number;
   currency: string;
-  lever: number;
-  server: string;
-  login: number;
+  lever?: number;
+  server?: string;
+  login?: number;
+  account_type?: string;
+  broker?: string;
 }
 
-interface MT5Position {
-  ticket: number;
+interface Position {
+  ticket?: number;
+  position_id?: number;
   symbol: string;
-  type: string;
+  type?: string;
+  trade_side?: string;
   volume: number;
-  price_open: number;
-  sl: number | null;
-  tp: number | null;
-  profit: number;
+  price_open?: number;
+  entry_price?: number;
+  sl?: number | null;
+  tp?: number | null;
+  profit?: number;
+  unrealized_profit?: number;
 }
 
 export default function Trading() {
@@ -40,6 +46,7 @@ export default function Trading() {
   const candlestickSeriesRef = useRef<ISeriesApi<'Candlestick'>>(null);
   
   const [symbol, setSymbol] = useState('BINANCE:BTCUSDT');
+  const [platform, setPlatform] = useState<'mt5' | 'ctrader'>('mt5');
   const [tradeType, setTradeType] = useState<'buy' | 'sell'>('buy');
   const [orderType, setOrderType] = useState<'market' | 'limit' | 'stop'>('market');
   const [price, setPrice] = useState('57450.00');
@@ -47,14 +54,22 @@ export default function Trading() {
   const [candles, setCandles] = useState<Candle[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // MetaTrader State
-  const [mt5Connected, setMt5Connected] = useState(false);
-  const [mt5Connecting, setMt5Connecting] = useState(false);
+  // Platform Connection State
+  const [connectedPlatforms, setConnectedPlatforms] = useState({ mt5: false, ctrader: false });
+  const [connecting, setConnecting] = useState(false);
+  
+  // MT5 Credentials
   const [mt5Login, setMt5Login] = useState('12345678');
   const [mt5Password, setMt5Password] = useState('demo123');
   const [mt5Server, setMt5Server] = useState('Demo-Server');
-  const [accountInfo, setAccountInfo] = useState<MT5Account | null>(null);
-  const [openPositions, setOpenPositions] = useState<MT5Position[]>([]);
+  
+  // cTrader Credentials
+  const [ctToken, setCtToken] = useState('ct-token-xyz123');
+  const [ctAccountId, setCtAccountId] = useState('9876543');
+
+  // Account & Positions
+  const [accounts, setAccounts] = useState<{ mt5: AccountInfo | null; ctrader: AccountInfo | null }>({ mt5: null, ctrader: null });
+  const [positions, setPositions] = useState<{ mt5: Position[]; ctrader: Position[] }>({ mt5: [], ctrader: [] });
   
   const [recentTrades, setRecentTrades] = useState([
     { id: 1, type: 'buy', amount: '0.045', price: '57,432.10', time: '15:04:12' },
@@ -62,7 +77,7 @@ export default function Trading() {
     { id: 3, type: 'buy', amount: '0.015', price: '57,428.50', time: '15:03:20' },
   ]);
 
-  // Fetch candle data from Python backend
+  // Fetch candles
   const fetchCandles = async () => {
     setLoading(true);
     try {
@@ -90,65 +105,68 @@ export default function Trading() {
     }
   };
 
-  // Connect to MetaTrader
-  const connectMetaTrader = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    setMt5Connecting(true);
+  // Connect to active platform
+  const handleConnect = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setConnecting(true);
     try {
-      const response = await fetch('http://localhost:8751/api/metatrader/connect', {
+      const endpoint = platform === 'mt5' ? 'metatrader/connect' : 'ctrader/connect';
+      const body = platform === 'mt5' 
+        ? { login: mt5Login, password: mt5Password, server: mt5Server }
+        : { access_token: ctToken, account_id: ctAccountId };
+
+      const response = await fetch(`http://localhost:8751/api/${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          login: mt5Login,
-          password: mt5Password,
-          server: mt5Server,
-        }),
+        body: JSON.stringify(body),
       });
       const result = await response.json();
       if (result.status === 'success') {
-        setMt5Connected(true);
-        fetchAccountInfo();
-        fetchPositions();
+        setConnectedPlatforms(prev => ({ ...prev, [platform]: true }));
+        fetchAccountData();
+        fetchPositionData();
       } else {
-        alert('MetaTrader connection failed: ' + result.message);
+        alert(`${platform.toUpperCase()} connection failed: ` + result.message);
       }
     } catch (error) {
-      console.error('Error connecting to MT5:', error);
-      alert('Error connecting to MetaTrader backend.');
+      console.error('Connection error:', error);
+      alert('Error contacting backend server.');
     } finally {
-      setMt5Connecting(false);
+      setConnecting(false);
     }
   };
 
-  // Fetch MetaTrader Account Information
-  const fetchAccountInfo = async () => {
+  // Fetch account data
+  const fetchAccountData = async () => {
+    if (!connectedPlatforms[platform]) return;
     try {
-      const response = await fetch('http://localhost:8751/api/metatrader/account', {
+      const response = await fetch(`http://localhost:8751/api/${platform === 'mt5' ? 'metatrader' : 'ctrader'}/account`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
       const result = await response.json();
       if (result.status === 'success') {
-        setAccountInfo(result.data);
+        setAccounts(prev => ({ ...prev, [platform]: result.data }));
       }
     } catch (error) {
-      console.error('Error fetching account info:', error);
+      console.error('Account data error:', error);
     }
   };
 
-  // Fetch MetaTrader Open Positions
-  const fetchPositions = async () => {
+  // Fetch position data
+  const fetchPositionData = async () => {
+    if (!connectedPlatforms[platform]) return;
     try {
-      const response = await fetch('http://localhost:8751/api/metatrader/positions', {
+      const response = await fetch(`http://localhost:8751/api/${platform === 'mt5' ? 'metatrader' : 'ctrader'}/positions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
       const result = await response.json();
       if (result.status === 'success') {
-        setOpenPositions(result.data);
+        setPositions(prev => ({ ...prev, [platform]: result.data }));
       }
     } catch (error) {
-      console.error('Error fetching positions:', error);
+      console.error('Positions data error:', error);
     }
   };
 
@@ -156,17 +174,16 @@ export default function Trading() {
     fetchCandles();
   }, [symbol]);
 
-  // Periodic polling for MT5 data if connected
+  // Periodic polling
   useEffect(() => {
-    if (!mt5Connected) return;
     const interval = setInterval(() => {
-      fetchAccountInfo();
-      fetchPositions();
-    }, 3000);
+      fetchAccountData();
+      fetchPositionData();
+    }, 4000);
     return () => clearInterval(interval);
-  }, [mt5Connected]);
+  }, [connectedPlatforms, platform]);
 
-  // Initialize chart
+  // Chart setup
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -215,17 +232,16 @@ export default function Trading() {
     };
   }, []);
 
-  // Send real/mock order to MT5
   const handleExecuteTrade = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!mt5Connected) {
-      alert('Please connect to MetaTrader first.');
+    if (!connectedPlatforms[platform]) {
+      alert(`Please connect to ${platform.toUpperCase()} first.`);
       return;
     }
 
     const currentPrice = candles.length > 0 ? candles[candles.length - 1].close : 57450;
     try {
-      const response = await fetch('http://localhost:8751/api/metatrader/order', {
+      const response = await fetch(`http://localhost:8751/api/${platform === 'mt5' ? 'metatrader' : 'ctrader'}/order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -245,8 +261,8 @@ export default function Trading() {
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
         };
         setRecentTrades([newTrade, ...recentTrades.slice(0, 4)]);
-        fetchAccountInfo();
-        fetchPositions();
+        fetchAccountData();
+        fetchPositionData();
       } else {
         alert('Order execution failed: ' + result.message);
       }
@@ -255,9 +271,9 @@ export default function Trading() {
     }
   };
 
-  const getCleanCoinName = () => {
-    return symbol.split(':')[1]?.replace('USDT', '') || 'BTC';
-  };
+  const activeAccount = accounts[platform];
+  const activePositions = positions[platform];
+  const isConnected = connectedPlatforms[platform];
 
   return (
     <div style={styles.container}>
@@ -268,13 +284,30 @@ export default function Trading() {
           <span style={styles.logoText}>NEXUS<span style={styles.logoHighlight}>TRADE</span></span>
           <span style={{
             ...styles.badge,
-            backgroundColor: mt5Connected ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-            color: mt5Connected ? '#10b981' : '#ef4444',
-            borderColor: mt5Connected ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'
+            backgroundColor: isConnected ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+            color: isConnected ? '#10b981' : '#ef4444',
+            borderColor: isConnected ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'
           }}>
-            {mt5Connected ? 'MT5 CONNECTED' : 'MT5 DISCONNECTED'}
+            {platform.toUpperCase()} {isConnected ? 'CONNECTED' : 'DISCONNECTED'}
           </span>
         </div>
+
+        {/* Platform Selection */}
+        <div style={styles.platformTabs}>
+          <button 
+            style={{ ...styles.platformBtn, ...(platform === 'mt5' ? styles.platformBtnActive : {}) }}
+            onClick={() => setPlatform('mt5')}
+          >
+            MetaTrader 5
+          </button>
+          <button 
+            style={{ ...styles.platformBtn, ...(platform === 'ctrader' ? styles.platformBtnActive : {}) }}
+            onClick={() => setPlatform('ctrader')}
+          >
+            cTrader OpenAPI
+          </button>
+        </div>
+
         <div style={styles.statsBar}>
           <div style={styles.statItem}>
             <span style={styles.statLabel}>Pair</span>
@@ -289,22 +322,15 @@ export default function Trading() {
               <option value="BINANCE:ADAUSDT">ADA / USDT</option>
             </select>
           </div>
-          <div style={styles.statItem}>
-            <span style={styles.statLabel}>Last Price</span>
-            <span style={styles.statValueUp}>
-              ${candles.length > 0 ? candles[candles.length - 1].close.toLocaleString(undefined, { minimumFractionDigits: 2 }) : '57,450.00'} 
-              <ArrowUpRight size={14} style={{ display: 'inline' }} />
-            </span>
-          </div>
-          {accountInfo && (
+          {activeAccount && (
             <>
               <div style={styles.statItem}>
-                <span style={styles.statLabel}>MT5 Balance</span>
-                <span style={styles.statValue}>${accountInfo.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                <span style={styles.statLabel}>Balance</span>
+                <span style={styles.statValue}>${activeAccount.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
               </div>
               <div style={styles.statItem}>
                 <span style={styles.statLabel}>Equity</span>
-                <span style={styles.statValue}>${accountInfo.equity.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                <span style={styles.statValue}>${activeAccount.equity.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
               </div>
             </>
           )}
@@ -313,7 +339,6 @@ export default function Trading() {
 
       {/* Main Panel layout */}
       <main style={styles.mainLayout}>
-        {/* Left Side: Python backend chart */}
         <section style={styles.chartSection}>
           <div style={styles.chartWrapper}>
             {loading && <div style={styles.loadingOverlay}>Fetching candles from Python backend...</div>}
@@ -321,27 +346,41 @@ export default function Trading() {
           </div>
         </section>
 
-        {/* Right Side: Command / Order Panel */}
+        {/* Right Side: Control Panels */}
         <section style={styles.panelSection}>
-          {/* Connection to MT5 Panel */}
-          {!mt5Connected ? (
+          {!isConnected ? (
             <div style={styles.orderCard}>
-              <div style={styles.cardHeader}>MetaTrader 5 Login</div>
-              <form onSubmit={connectMetaTrader} style={{ ...styles.cardContent, gap: '12px' }}>
-                <div style={styles.formGroup}>
-                  <label style={styles.formLabel}><User size={12} style={{ display: 'inline', marginRight: 4 }} /> Login ID</label>
-                  <input type="text" value={mt5Login} onChange={(e) => setMt5Login(e.target.value)} style={styles.formInput} required />
-                </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.formLabel}><Key size={12} style={{ display: 'inline', marginRight: 4 }} /> Password</label>
-                  <input type="password" value={mt5Password} onChange={(e) => setMt5Password(e.target.value)} style={styles.formInput} required />
-                </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.formLabel}><Server size={12} style={{ display: 'inline', marginRight: 4 }} /> Server</label>
-                  <input type="text" value={mt5Server} onChange={(e) => setMt5Server(e.target.value)} style={styles.formInput} required />
-                </div>
-                <button type="submit" disabled={mt5Connecting} style={{ ...styles.actionButton, backgroundColor: '#3b82f6' }}>
-                  {mt5Connecting ? 'Connecting...' : 'Connect to MT5'}
+              <div style={styles.cardHeader}>{platform === 'mt5' ? 'MetaTrader 5 Credentials' : 'cTrader OpenAPI Access'}</div>
+              <form onSubmit={handleConnect} style={{ ...styles.cardContent, gap: '12px' }}>
+                {platform === 'mt5' ? (
+                  <>
+                    <div style={styles.formGroup}>
+                      <label style={styles.formLabel}><User size={12} style={{ display: 'inline', marginRight: 4 }} /> Login ID</label>
+                      <input type="text" value={mt5Login} onChange={(e) => setMt5Login(e.target.value)} style={styles.formInput} required />
+                    </div>
+                    <div style={styles.formGroup}>
+                      <label style={styles.formLabel}><Key size={12} style={{ display: 'inline', marginRight: 4 }} /> Password</label>
+                      <input type="password" value={mt5Password} onChange={(e) => setMt5Password(e.target.value)} style={styles.formInput} required />
+                    </div>
+                    <div style={styles.formGroup}>
+                      <label style={styles.formLabel}><Server size={12} style={{ display: 'inline', marginRight: 4 }} /> Server</label>
+                      <input type="text" value={mt5Server} onChange={(e) => setMt5Server(e.target.value)} style={styles.formInput} required />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div style={styles.formGroup}>
+                      <label style={styles.formLabel}><Key size={12} style={{ display: 'inline', marginRight: 4 }} /> OpenAPI Bearer Token</label>
+                      <input type="text" value={ctToken} onChange={(e) => setCtToken(e.target.value)} style={styles.formInput} required />
+                    </div>
+                    <div style={styles.formGroup}>
+                      <label style={styles.formLabel}><Globe size={12} style={{ display: 'inline', marginRight: 4 }} /> cTrader Account ID</label>
+                      <input type="text" value={ctAccountId} onChange={(e) => setCtAccountId(e.target.value)} style={styles.formInput} required />
+                    </div>
+                  </>
+                )}
+                <button type="submit" disabled={connecting} style={{ ...styles.actionButton, backgroundColor: '#3b82f6' }}>
+                  {connecting ? 'Connecting...' : `Connect to ${platform.toUpperCase()}`}
                 </button>
               </form>
             </div>
@@ -350,52 +389,37 @@ export default function Trading() {
               <div style={styles.tradeTypeTabs}>
                 <button 
                   onClick={() => setTradeType('buy')} 
-                  style={{
-                    ...styles.tabButton, 
-                    ...(tradeType === 'buy' ? styles.buyTabActive : {})
-                  }}
+                  style={{ ...styles.tabButton, ...(tradeType === 'buy' ? styles.buyTabActive : {}) }}
                 >
                   BUY
                 </button>
                 <button 
                   onClick={() => setTradeType('sell')} 
-                  style={{
-                    ...styles.tabButton, 
-                    ...(tradeType === 'sell' ? styles.sellTabActive : {})
-                  }}
+                  style={{ ...styles.tabButton, ...(tradeType === 'sell' ? styles.sellTabActive : {}) }}
                 >
                   SELL
                 </button>
               </div>
 
               <div style={styles.cardContent}>
-                {/* Account info */}
                 <div style={styles.walletContainer}>
                   <div style={styles.walletRow}>
-                    <div style={styles.walletLabel}>
-                      <Wallet size={14} style={{ marginRight: 6 }} /> Margin Free:
-                    </div>
-                    <div style={styles.walletValue}>${accountInfo?.margin_free?.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+                    <div style={styles.walletLabel}>Available Margin:</div>
+                    <div style={styles.walletValue}>${activeAccount?.margin_free?.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
                   </div>
                   <div style={styles.walletRow}>
-                    <div style={styles.walletLabel}>
-                      <Wallet size={14} style={{ marginRight: 6 }} /> Used Margin:
-                    </div>
-                    <div style={styles.walletValue}>${accountInfo?.margin?.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+                    <div style={styles.walletLabel}>Active Margin:</div>
+                    <div style={styles.walletValue}>${activeAccount?.margin?.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
                   </div>
                 </div>
 
-                {/* Order type configuration */}
                 <div style={styles.orderTypeTabs}>
-                  {(['market', 'limit', 'stop'] as const).map((type) => (
+                  {(['market', 'limit'] as const).map((type) => (
                     <button
                       key={type}
                       type="button"
                       onClick={() => setOrderType(type)}
-                      style={{
-                        ...styles.orderTypeBtn,
-                        ...(orderType === type ? styles.orderTypeBtnActive : {})
-                      }}
+                      style={{ ...styles.orderTypeBtn, ...(orderType === type ? styles.orderTypeBtnActive : {}) }}
                     >
                       {type.toUpperCase()}
                     </button>
@@ -418,7 +442,7 @@ export default function Trading() {
                   )}
 
                   <div style={styles.formGroup}>
-                    <label style={styles.formLabel}>Amount (Lots)</label>
+                    <label style={styles.formLabel}>{platform === 'mt5' ? 'Volume (Lots)' : 'Amount (Units)'}</label>
                     <input 
                       type="number" 
                       value={amount} 
@@ -430,21 +454,6 @@ export default function Trading() {
                     />
                   </div>
 
-                  {/* Percentage helpers */}
-                  <div style={styles.percentRow}>
-                    {['0.1', '0.5', '1.0', '5.0'].map((pct) => (
-                      <button
-                        key={pct}
-                        type="button"
-                        onClick={() => setAmount(pct)}
-                        style={styles.percentBtn}
-                      >
-                        {pct} Lot
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Main Action Button */}
                   <button 
                     type="submit" 
                     style={{
@@ -452,45 +461,39 @@ export default function Trading() {
                       ...(tradeType === 'buy' ? styles.actionButtonBuy : styles.actionButtonSell)
                     }}
                   >
-                    MT5 {tradeType.toUpperCase()} {getCleanCoinName()}
+                    Execute {platform.toUpperCase()} Order
                   </button>
                 </form>
-
-                {/* Security info */}
-                <div style={styles.securityNote}>
-                  <Shield size={12} style={{ marginRight: 6, color: '#10b981' }} />
-                  <span>MetaTrader 5 STP Direct Execution.</span>
-                </div>
               </div>
             </div>
           )}
 
-          {/* Active MT5 Positions */}
-          {mt5Connected && (
+          {/* Positions panel */}
+          {isConnected && (
             <div style={styles.tradesCard}>
               <div style={styles.tradesHeader}>
-                <span>Active Positions ({openPositions.length})</span>
-                <RefreshCw size={14} style={{ cursor: 'pointer', color: '#9ca3af' }} onClick={fetchPositions} />
+                <span>Active Positions ({activePositions.length})</span>
+                <RefreshCw size={14} style={{ cursor: 'pointer', color: '#9ca3af' }} onClick={fetchPositionData} />
               </div>
               <div style={styles.tradesList}>
-                {openPositions.length === 0 ? (
+                {activePositions.length === 0 ? (
                   <div style={{ color: '#6b7280', fontSize: '12px', textAlign: 'center', marginTop: '16px' }}>No active positions.</div>
                 ) : (
-                  openPositions.map((pos) => (
-                    <div key={pos.ticket} style={tradeRowStyle(pos.type)}>
+                  activePositions.map((pos, idx) => (
+                    <div key={pos.ticket || pos.position_id || idx} style={tradeRowStyle(pos.type || pos.trade_side || 'buy')}>
                       <span style={{ 
                         ...styles.tradeTypeBadge, 
-                        color: pos.type === 'buy' ? '#10b981' : '#ef4444' 
+                        color: (pos.type || pos.trade_side)?.toLowerCase() === 'buy' ? '#10b981' : '#ef4444' 
                       }}>
-                        {pos.type.toUpperCase()}
+                        {(pos.type || pos.trade_side)?.toUpperCase()}
                       </span>
                       <span style={styles.tradeAmount}>{pos.volume} {pos.symbol}</span>
-                      <span style={styles.tradePrice}>@ {pos.price_open}</span>
+                      <span style={styles.tradePrice}>@ {pos.price_open || pos.entry_price}</span>
                       <span style={{ 
                         fontWeight: 'bold', 
-                        color: pos.profit >= 0 ? '#10b981' : '#ef4444' 
+                        color: (pos.profit ?? pos.unrealized_profit ?? 0) >= 0 ? '#10b981' : '#ef4444' 
                       }}>
-                        ${pos.profit.toFixed(2)}
+                        ${(pos.profit ?? pos.unrealized_profit ?? 0).toFixed(2)}
                       </span>
                     </div>
                   ))
@@ -506,11 +509,11 @@ export default function Trading() {
 
 const tradeRowStyle = (type: string) => ({
   ...styles.tradeRow,
-  borderLeft: `3px solid ${type === 'buy' ? '#10b981' : '#ef4444'}`,
+  borderLeft: `3px solid ${type.toLowerCase() === 'buy' ? '#10b981' : '#ef4444'}`,
   paddingLeft: '8px',
 });
 
-// Inline Styles for a Modern Glassmorphism/Dark Theme UI
+// Styles
 const styles = {
   container: {
     display: 'flex',
@@ -554,6 +557,28 @@ const styles = {
     borderRadius: '12px',
     fontWeight: 'bold',
     marginLeft: '8px',
+  },
+  platformTabs: {
+    display: 'flex',
+    gap: '4px',
+    backgroundColor: '#1f2937',
+    padding: '3px',
+    borderRadius: '6px',
+  },
+  platformBtn: {
+    backgroundColor: 'transparent',
+    border: 'none',
+    color: '#9ca3af',
+    padding: '6px 16px',
+    borderRadius: '4px',
+    fontSize: '13px',
+    fontWeight: 'bold',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+  },
+  platformBtnActive: {
+    backgroundColor: '#3b82f6',
+    color: '#ffffff',
   },
   statsBar: {
     display: 'flex',
@@ -765,24 +790,6 @@ const styles = {
     cursor: 'pointer',
     transition: 'all 0.2s',
   },
-  calcContainer: {
-    backgroundColor: 'rgba(59, 130, 246, 0.05)',
-    border: '1px dashed rgba(59, 130, 246, 0.2)',
-    padding: '12px',
-    borderRadius: '6px',
-    fontSize: '13px',
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: '6px',
-  },
-  calcRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-  },
-  calcValue: {
-    fontWeight: '600',
-    color: '#ffffff',
-  },
   actionButton: {
     padding: '14px',
     border: 'none',
@@ -800,13 +807,6 @@ const styles = {
   actionButtonSell: {
     backgroundColor: '#ef4444',
     boxShadow: '0 4px 14px rgba(239, 68, 68, 0.3)',
-  },
-  securityNote: {
-    display: 'flex',
-    alignItems: 'center',
-    fontSize: '11px',
-    color: '#9ca3af',
-    justifyContent: 'center',
   },
   tradesCard: {
     backgroundColor: '#111827',
