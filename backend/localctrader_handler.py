@@ -154,30 +154,46 @@ class LocalTraderHandler:
                 
                 buffer += data.decode('ascii', errors='ignore')
                 while "\x01" in buffer:
-                    # Basic parser
                     parts = buffer.split("\x01")
-                    # Reconstruct buffer if incomplete
                     buffer = parts[-1]
-                    messages = parts[:-1]
+                    fields = parts[:-1]
                     
-                    # Log message received
-                    self.last_received_time = time.time()
-                    print(f"[FIX IN] Message fragments: {messages[:5]}")
-                    
-                    # Handle Heartbeat Request TestRequest (MsgType 1)
-                    for item in messages:
-                        if "35=1" in item:
-                            # Send Heartbeat MsgType 0
-                            self.send_message("0", [])
+                    current_msg = {}
+                    for field in fields:
+                        if "=" not in field:
+                            continue
+                        k, v = field.split("=", 1)
+                        if k == "8" and current_msg:
+                            self.handle_parsed_message(current_msg)
+                            current_msg = {}
+                        current_msg[k] = v
+                    if current_msg:
+                        self.handle_parsed_message(current_msg)
                             
             except socket.timeout:
-                # Send Heartbeat if quiet
                 if time.time() - self.last_sent_time > self.heartbeat_interval:
                     self.send_message("0", [])
             except Exception as e:
                 print(f"[FIX LOOP ERROR] {str(e)}")
                 self.connected = False
                 break
+
+    def handle_parsed_message(self, msg):
+        msg_type = msg.get("35")
+        print(f"[FIX IN] MsgType: {msg_type}")
+        
+        # TestRequest (MsgType 1)
+        if msg_type == "1":
+            self.send_message("0", [])
+        # CollateralReport (MsgType B)
+        elif msg_type == "B":
+            balance = float(msg.get("894", 0.0))
+            currency = msg.get("15", "USD")
+            self.account_info["balance"] = balance
+            self.account_info["equity"] = balance
+            self.account_info["margin_free"] = balance
+            self.account_info["currency"] = currency
+            print(f"[FIX] Real balance updated from CollateralReport: {balance} {currency}")
 
     def get_account_info(self):
         # Retrieve account details. In FIX we can check CollateralInquiry/Report (MsgType BB)
@@ -211,29 +227,25 @@ class LocalTraderHandler:
         return {"status": "success", "message": f"FIX Order {cl_ord_id} submitted."}
 
 if __name__ == '__main__':
-    # Test connection to the local cTrader windows app C# bridge
-    import requests
-    local_bridge = "http://localhost:8752"
-    print(f"\n[cTrader Test] Attempting to read balance from cTrader Windows App via local bridge ({local_bridge})...")
-    try:
-        r = requests.get(f"{local_bridge}/account", timeout=2.0)
-        if r.status_code == 200:
-            data = r.json()
-            print("\n" + "="*50)
-            print("  SUCCESSFULLY CONNECTED TO CTRADER WINDOWS APP!")
-            print(f"  Broker:   {data.get('broker')}")
-            print(f"  Balance:  {data.get('balance')} {data.get('currency')}")
-            print(f"  Equity:   {data.get('equity')} {data.get('currency')}")
-            print(f"  Free Margin: {data.get('margin_free')} {data.get('currency')}")
-            print("="*50 + "\n")
-        else:
-            print(f"[Error] Local bridge returned status code: {r.status_code}")
-    except Exception as e:
-        print("\n" + "!"*50)
-        print("  COULD NOT CONNECT TO CTRADER WINDOWS APP BRIDGE!")
-        print("  Please make sure you have:")
-        print("  1. Opened cTrader desktop/windows app.")
-        print("  2. Added the C# robot from 'LocalTraderBridge.cs' in the Automate tab.")
-        print("  3. Started the LocalTraderBridge bot to open http://localhost:8752.")
-        print("  Connection error details:", str(e))
-        print("!"*50 + "\n")
+    # Test connection to the cTrader FIX API SSL gateway directly
+    print("\n" + "="*60)
+    print("  [FIX TEST] Connecting directly to cTrader FIX API...")
+    print("="*60)
+    
+    handler = LocalTraderHandler()
+    
+    # Wait for background thread to receive and parse the initial logon response and CollateralReport
+    time.sleep(3.0)
+    
+    if handler.connected:
+        print("\n" + "="*60)
+        print("  SUCCESSFULLY AUTHENTICATED WITH CTRADER FIX API!")
+        print(f"  Account ID (SenderCompID): {handler.sender_comp_id}")
+        print(f"  Live Balance:              {handler.account_info['balance']} {handler.account_info['currency']}")
+        print(f"  Live Equity:               {handler.account_info['equity']} {handler.account_info['currency']}")
+        print("="*60 + "\n")
+    else:
+        print("\n" + "!"*60)
+        print("  CTRADER FIX API CONNECTION FAILED OR CLOSED.")
+        print("  Please check your credentials in backend/.env")
+        print("!"*60 + "\n")
