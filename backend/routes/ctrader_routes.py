@@ -3,6 +3,14 @@ from ctrader_handler import CTraderHandler
 
 ctrader_routes = Blueprint('ctrader_routes', __name__)
 
+@ctrader_routes.route('/ctrader/symbols', methods=['GET'])
+def get_symbols():
+    return jsonify(CTraderHandler.get_symbols())
+
+@ctrader_routes.route('/ctrader/timeframes', methods=['GET'])
+def get_timeframes():
+    return jsonify(CTraderHandler.get_timeframes())
+
 @ctrader_routes.route('/ctrader/account', methods=['GET', 'POST'])
 @ctrader_routes.route('/localctrader/account', methods=['GET', 'POST'])
 def account():

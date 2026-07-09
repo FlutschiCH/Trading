@@ -119,6 +119,33 @@ class CTraderHandler:
         return fields
 
     @classmethod
+    def get_symbols(cls) -> dict:
+        standard_symbols = [
+            "BTCUSD", "ETHUSD", "EURUSD", "GBPUSD", "USDJPY", 
+            "AUDUSD", "USDCAD", "XAUUSD", "US30", "GER40"
+        ]
+        try:
+            cls._client.connect_and_logon()
+            req_id = f"SEC-{int(time.time())}"
+            response = cls._client.send_request("x", [f"320={req_id}", "559=4"])
+            if response:
+                symbols = []
+                for item in response.split("\x01"):
+                    if item.startswith("55="):
+                        sym = item.split("=", 1)[1]
+                        if sym not in symbols:
+                            symbols.append(sym)
+                if symbols:
+                    return {"status": "success", "data": symbols}
+        except Exception:
+            pass
+        return {"status": "success", "data": standard_symbols}
+
+    @classmethod
+    def get_timeframes(cls) -> dict:
+        return {"status": "success", "data": ["1m", "5m", "15m", "30m", "1h", "4h", "1d"]}
+
+    @classmethod
     def get_account(cls) -> dict:
         # Connect to FIX and query Collateral
         try:

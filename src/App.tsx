@@ -37,7 +37,15 @@ interface Position {
 }
 
 export default function App() {
-  const [symbol, setSymbol] = useState('BINANCE:BTCUSDT');
+  const [availableSymbols, setAvailableSymbols] = useState<string[]>([
+    'BTCUSD', 'ETHUSD', 'EURUSD', 'GBPUSD', 'USDJPY', 
+    'AUDUSD', 'USDCAD', 'XAUUSD', 'US30', 'GER40'
+  ]);
+  const [availableTimeframes, setAvailableTimeframes] = useState<string[]>([
+    '1m', '5m', '15m', '30m', '1h', '4h', '1d'
+  ]);
+  const [symbol, setSymbol] = useState('BTCUSD');
+  const [timeframe, setTimeframe] = useState('15m');
   const [tradeType, setTradeType] = useState<'buy' | 'sell'>('buy');
   const [orderType, setOrderType] = useState<'market' | 'limit'>('market');
   const [price, setPrice] = useState('57450.00');
@@ -54,6 +62,35 @@ export default function App() {
   const [accountInfo, setAccountInfo] = useState<AccountInfo | null>(null);
   const [openPositions, setOpenPositions] = useState<Position[]>([]);
 
+  // Fetch symbols and timeframes metadata on mount
+  useEffect(() => {
+    const loadMetadata = async () => {
+      try {
+        const symRes = await fetch('http://localhost:8751/api/ctrader/symbols');
+        const symData = await symRes.json();
+        if (symData.status === 'success' && symData.data) {
+          setAvailableSymbols(symData.data);
+          if (symData.data.length > 0 && !symData.data.includes(symbol)) {
+            setSymbol(symData.data[0]);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to load symbols:', e);
+      }
+
+      try {
+        const tfRes = await fetch('http://localhost:8751/api/ctrader/timeframes');
+        const tfData = await tfRes.json();
+        if (tfData.status === 'success' && tfData.data) {
+          setAvailableTimeframes(tfData.data);
+        }
+      } catch (e) {
+        console.error('Failed to load timeframes:', e);
+      }
+    };
+    loadMetadata();
+  }, []);
+
   // Fetch candle data and analyze on Flask backend
   const fetchCandles = async () => {
     setLoading(true);
@@ -65,7 +102,7 @@ export default function App() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             symbol: symbol.replace('BINANCE:', ''),
-            interval: '15m',
+            interval: timeframe,
             limit: 100,
           }),
         });
@@ -166,7 +203,7 @@ export default function App() {
 
   useEffect(() => {
     fetchCandles();
-  }, [symbol]);
+  }, [symbol, timeframe]);
 
   useEffect(() => {
     const isConnected = connectionMode === 'openapi' ? isConnectedOpenAPI : isConnectedFIX;
@@ -468,16 +505,28 @@ export default function App() {
           </div>
 
           <div style={styles.pairGroup}>
-            <span style={{ color: '#9ca3af' }}>Trading Pair</span>
+            <span style={{ color: '#9ca3af' }}>Symbol</span>
             <select 
               value={symbol} 
               onChange={(e) => setSymbol(e.target.value)}
               style={styles.pairSelect}
             >
-              <option value="BINANCE:BTCUSDT">BTC / USDT</option>
-              <option value="BINANCE:ETHUSDT">ETH / USDT</option>
-              <option value="BINANCE:SOLUSDT">SOL / USDT</option>
-              <option value="BINANCE:ADAUSDT">ADA / USDT</option>
+              {availableSymbols.map(sym => (
+                <option key={sym} value={sym}>{sym}</option>
+              ))}
+            </select>
+          </div>
+
+          <div style={styles.pairGroup}>
+            <span style={{ color: '#9ca3af' }}>Timeframe</span>
+            <select 
+              value={timeframe} 
+              onChange={(e) => setTimeframe(e.target.value)}
+              style={styles.pairSelect}
+            >
+              {availableTimeframes.map(tf => (
+                <option key={tf} value={tf}>{tf}</option>
+              ))}
             </select>
           </div>
         </div>
