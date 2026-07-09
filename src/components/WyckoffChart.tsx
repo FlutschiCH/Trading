@@ -289,33 +289,130 @@ export default function WyckoffChart({ symbol, candles, loading, onRefresh }: Wy
     setDrawingPreview(null);
   };
 
+  // Vanilla CSS styles matching the original trading.tsx theme
+  const styles = {
+    container: {
+      display: 'flex',
+      flexDirection: 'column' as const,
+      gap: '16px',
+      backgroundColor: '#111827',
+      border: '1px solid #1f2937',
+      borderRadius: '12px',
+      padding: '16px',
+    },
+    toolbar: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      borderBottom: '1px solid #1f2937',
+      paddingBottom: '12px',
+    },
+    toolsGroup: {
+      display: 'flex',
+      gap: '8px',
+      alignItems: 'center',
+    },
+    symbolBadge: {
+      color: '#d1d5db',
+      fontWeight: 'bold',
+      fontSize: '14px',
+      backgroundColor: '#1f2937',
+      padding: '6px 12px',
+      borderRadius: '8px',
+    },
+    btn: (active: boolean, isDelete: boolean = false) => ({
+      padding: '6px 12px',
+      borderRadius: '8px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '6px',
+      fontSize: '12px',
+      fontWeight: 'bold',
+      border: 'none',
+      cursor: 'pointer',
+      transition: 'all 0.2s',
+      backgroundColor: active ? (isDelete ? '#ef4444' : '#3b82f6') : '#1f2937',
+      color: active ? '#ffffff' : '#9ca3af',
+    }),
+    clearBtn: {
+      padding: '6px 12px',
+      backgroundColor: 'rgba(239, 68, 68, 0.1)',
+      color: '#ef4444',
+      border: '1px solid rgba(239, 68, 68, 0.2)',
+      borderRadius: '8px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '6px',
+      fontSize: '12px',
+      fontWeight: 'bold' as const,
+      cursor: 'pointer',
+      transition: 'all 0.2s',
+    },
+    refreshBtn: {
+      color: '#9ca3af',
+      backgroundColor: '#1f2937',
+      border: 'none',
+      padding: '8px',
+      borderRadius: '8px',
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      transition: 'all 0.2s',
+    },
+    chartWrapper: {
+      position: 'relative' as const,
+      display: 'flex',
+      flexDirection: 'column' as const,
+      gap: '8px',
+      backgroundColor: '#0b0f19',
+      border: '1px solid #1f2937',
+      borderRadius: '8px',
+      overflow: 'hidden',
+    },
+    loadingOverlay: {
+      position: 'absolute' as const,
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(11, 15, 25, 0.8)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      color: '#3b82f6',
+      fontWeight: 'bold',
+      zIndex: 30,
+    }
+  };
+
   return (
-    <div className="flex flex-col gap-4 bg-gray-900 border border-gray-800 rounded-xl p-4">
+    <div style={styles.container}>
       {/* Chart controls toolbar */}
-      <div className="flex justify-between items-center border-b border-gray-800 pb-3">
-        <div className="flex gap-2">
-          <span className="text-gray-300 font-bold text-sm bg-gray-800 px-3 py-1.5 rounded-lg">{symbol}</span>
+      <div style={styles.toolbar}>
+        <div style={styles.toolsGroup}>
+          <span style={styles.symbolBadge}>{symbol}</span>
           <button 
-            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 text-xs font-bold transition ${activeTool === 'rectangle' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
+            style={styles.btn(activeTool === 'rectangle')}
             onClick={() => setActiveTool(activeTool === 'rectangle' ? 'none' : 'rectangle')}
           >
             <Square size={14} /> Draw Rectangle
           </button>
           <button 
-            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 text-xs font-bold transition ${activeTool === 'trendline' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
+            style={styles.btn(activeTool === 'trendline')}
             onClick={() => setActiveTool(activeTool === 'trendline' ? 'none' : 'trendline')}
           >
             <PenTool size={14} /> Draw Trendline
           </button>
           <button 
-            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 text-xs font-bold transition ${activeTool === 'delete' ? 'bg-red-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
+            style={styles.btn(activeTool === 'delete', true)}
             onClick={() => setActiveTool(activeTool === 'delete' ? 'none' : 'delete')}
           >
             <Trash2 size={14} /> Delete Selected
           </button>
           {drawings.length > 0 && (
             <button 
-              className="px-3 py-1.5 bg-red-950 text-red-400 hover:bg-red-900 hover:text-white rounded-lg flex items-center gap-1.5 text-xs font-bold transition"
+              style={styles.clearBtn}
               onClick={() => setDrawings([])}
             >
               <XCircle size={14} /> Clear Canvas
@@ -325,7 +422,7 @@ export default function WyckoffChart({ symbol, candles, loading, onRefresh }: Wy
 
         <button 
           onClick={onRefresh}
-          className="text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700 p-2 rounded-lg transition"
+          style={styles.refreshBtn}
           title="Refresh chart data"
         >
           <RefreshCw size={16} />
@@ -333,21 +430,25 @@ export default function WyckoffChart({ symbol, candles, loading, onRefresh }: Wy
       </div>
 
       {/* Charts Panels wrapper */}
-      <div className="relative flex flex-col gap-2 bg-gray-950 border border-gray-800 rounded-lg overflow-hidden">
+      <div style={styles.chartWrapper}>
         {loading && (
-          <div className="absolute inset-0 bg-gray-950/80 flex items-center justify-center text-blue-500 font-bold z-30">
+          <div style={styles.loadingOverlay}>
             Fetching analyzed Wyckoff & Weis Wave data...
           </div>
         )}
 
         {/* Main price panel */}
-        <div className="relative" style={{ height: 380 }}>
+        <div style={{ position: 'relative', height: 380 }}>
           <div ref={chartContainerRef} style={{ width: '100%', height: '100%' }} />
 
           {/* SVG overlays */}
           <svg
-            className="absolute inset-0"
             style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
               zIndex: activeTool !== 'none' ? 10 : 1,
               pointerEvents: activeTool !== 'none' ? 'auto' : 'none',
               cursor: activeTool === 'delete' ? 'crosshair' : activeTool !== 'none' ? 'cell' : 'default',

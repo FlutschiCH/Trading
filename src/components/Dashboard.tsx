@@ -107,7 +107,6 @@ export default function Dashboard() {
     return signatureArray.map(b => b.toString(16).padStart(2, '0')).join('');
   };
 
-  // Dispatch webhook payload with signature
   const fireMockWebhook = async () => {
     const payload = {
       signal_id: mockSignalId,
@@ -120,14 +119,10 @@ export default function Dashboard() {
     };
 
     const bodyText = JSON.stringify(payload);
-    
-    // Default shared secret: 8f9e23c14a5d6b7e8c9d0e1f2a3b4c5d
     const secretStr = "8f9e23c14a5d6b7e8c9d0e1f2a3b4c5d";
     
     try {
       addLog('info', `Filing Mock Webhook Signal ${mockSignalId}...`, payload);
-      
-      // Calculate HMAC signature
       const signatureHex = await calculateHMACSignature(secretStr, bodyText);
       
       const response = await fetch('http://localhost:8080/api/webhook', {
@@ -143,7 +138,6 @@ export default function Dashboard() {
       const result = await response.json();
       if (response.ok) {
         addLog('success', `Webhook Accepted & Executed! Ref: ${result.message || 'SQLite Recorded'}`, result);
-        // Generate new signal ID for next test
         setMockSignalId('sig_' + Math.floor(Math.random() * 1000000));
       } else {
         addLog('warning', `Webhook Rejected: ${result.message || 'Validation failed'}`, result);
@@ -157,150 +151,308 @@ export default function Dashboard() {
     fetchRisk();
   }, []);
 
+  // Shared Inline Styles
+  const styles = {
+    container: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+      gap: '24px',
+      backgroundColor: '#111827',
+      border: '1px solid #1f2937',
+      borderRadius: '12px',
+      padding: '16px',
+    },
+    column: {
+      display: 'flex',
+      flexDirection: 'column' as const,
+      gap: '24px',
+    },
+    card: {
+      backgroundColor: '#0b0f19',
+      border: '1px solid #1f2937',
+      borderRadius: '8px',
+      padding: '16px',
+    },
+    header: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: '12px',
+    },
+    title: {
+      color: '#e5e7eb',
+      fontWeight: 'bold',
+      fontSize: '14px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+      margin: 0,
+    },
+    formGrid: {
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr',
+      gap: '12px',
+      fontSize: '12px',
+    },
+    formGroup: {
+      display: 'flex',
+      flexDirection: 'column' as const,
+      gap: '4px',
+    },
+    label: {
+      color: '#9ca3af',
+    },
+    input: {
+      backgroundColor: '#1f2937',
+      border: '1px solid #374151',
+      borderRadius: '6px',
+      padding: '6px 10px',
+      color: '#ffffff',
+      outline: 'none',
+      fontSize: '12px',
+    },
+    btn: (color: string) => ({
+      width: '100%',
+      marginTop: '16px',
+      backgroundColor: color,
+      color: '#ffffff',
+      fontWeight: 'bold' as const,
+      padding: '8px',
+      borderRadius: '6px',
+      border: 'none',
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: '8px',
+      fontSize: '12px',
+      transition: 'all 0.2s',
+    }),
+    refreshBtn: {
+      backgroundColor: 'transparent',
+      border: 'none',
+      color: '#9ca3af',
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+    },
+    streamWrapper: {
+      display: 'flex',
+      flexDirection: 'column' as const,
+      height: '100%',
+    },
+    streamList: {
+      flex: 1,
+      overflowY: 'auto' as const,
+      maxHeight: '360px',
+      display: 'flex',
+      flexDirection: 'column' as const,
+      gap: '8px',
+      paddingRight: '4px',
+    },
+    noLogs: {
+      color: '#4b5563',
+      fontSize: '12px',
+      textAlign: 'center' as const,
+      padding: '80px 0',
+    },
+    logCard: {
+      backgroundColor: '#1f2937',
+      border: '1px solid #374151',
+      borderRadius: '6px',
+      padding: '10px',
+      display: 'flex',
+      gap: '10px',
+      alignItems: 'flex-start',
+      fontSize: '12px',
+    },
+    logHeader: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: '4px',
+    },
+    logTime: {
+      color: '#6b7280',
+      fontFamily: 'monospace',
+      fontSize: '10px',
+    },
+    logBadge: (type: string) => {
+      const colors: any = {
+        success: '#10b981',
+        error: '#ef4444',
+        warning: '#f59e0b',
+        info: '#3b82f6',
+      };
+      return {
+        fontSize: '9px',
+        fontWeight: 'bold' as const,
+        textTransform: 'uppercase' as const,
+        color: colors[type] || '#9ca3af',
+      };
+    },
+    logText: {
+      color: '#d1d5db',
+      margin: 0,
+      lineHeight: '1.4',
+    },
+    logPre: {
+      marginTop: '6px',
+      padding: '6px',
+      backgroundColor: '#0b0f19',
+      borderRadius: '4px',
+      fontSize: '10px',
+      fontFamily: 'monospace',
+      color: '#6b7280',
+      overflowX: 'auto' as const,
+      whiteSpace: 'pre-wrap' as const,
+    }
+  };
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-900 border border-gray-800 rounded-xl p-4">
+    <div style={styles.container}>
       {/* Left panel: Simulation Tool & Risk HUD */}
-      <div className="flex flex-col gap-6">
+      <div style={styles.column}>
         
         {/* Simulation Tool */}
-        <div className="bg-gray-950 border border-gray-800 rounded-lg p-4">
-          <h3 className="text-gray-200 font-bold text-sm mb-3 flex items-center gap-2">
-            <ShieldAlert className="text-blue-500" size={16} /> Signal & Webhook Simulator
+        <div style={styles.card}>
+          <h3 style={styles.title}>
+            <ShieldAlert style={{ color: '#3b82f6' }} size={16} /> Signal & Webhook Simulator
           </h3>
-          <div className="grid grid-cols-2 gap-3 text-xs">
-            <div className="flex flex-col gap-1">
-              <label className="text-gray-400">Signal ID</label>
+          <div style={{ ...styles.formGrid, marginTop: '12px' }}>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Signal ID</label>
               <input 
                 type="text" 
                 value={mockSignalId} 
                 onChange={(e) => setMockSignalId(e.target.value)} 
-                className="bg-gray-900 border border-gray-800 rounded px-2.5 py-1.5 text-white" 
+                style={styles.input} 
               />
             </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-gray-400">Token Header</label>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Token Header</label>
               <input 
                 type="text" 
                 value={webhookToken} 
                 onChange={(e) => setWebhookToken(e.target.value)} 
-                className="bg-gray-900 border border-gray-800 rounded px-2.5 py-1.5 text-white" 
+                style={styles.input} 
               />
             </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-gray-400">Symbol</label>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Symbol</label>
               <input 
                 type="text" 
                 value={mockSymbol} 
                 onChange={(e) => setMockSymbol(e.target.value)} 
-                className="bg-gray-900 border border-gray-800 rounded px-2.5 py-1.5 text-white" 
+                style={styles.input} 
               />
             </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-gray-400">Action</label>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Action</label>
               <select 
                 value={mockAction} 
                 onChange={(e) => setMockAction(e.target.value)} 
-                className="bg-gray-900 border border-gray-800 rounded px-2.5 py-1.5 text-white"
+                style={styles.input}
               >
                 <option value="BUY">BUY / SPRING</option>
                 <option value="SELL">SELL / UPTHRUST</option>
               </select>
             </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-gray-400">Quantity</label>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Quantity</label>
               <input 
                 type="number" 
                 value={mockQty} 
                 onChange={(e) => setMockQty(e.target.value)} 
-                className="bg-gray-900 border border-gray-800 rounded px-2.5 py-1.5 text-white" 
+                style={styles.input} 
               />
             </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-gray-400">Price (USD)</label>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Price (USD)</label>
               <input 
                 type="number" 
                 value={mockPrice} 
                 onChange={(e) => setMockPrice(e.target.value)} 
-                className="bg-gray-900 border border-gray-800 rounded px-2.5 py-1.5 text-white" 
+                style={styles.input} 
               />
             </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-gray-400">Stop Loss</label>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Stop Loss</label>
               <input 
                 type="number" 
                 value={mockStopLoss} 
                 onChange={(e) => setMockStopLoss(e.target.value)} 
-                className="bg-gray-900 border border-gray-800 rounded px-2.5 py-1.5 text-white" 
+                style={styles.input} 
               />
             </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-gray-400">Take Profit</label>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Take Profit</label>
               <input 
                 type="number" 
                 value={mockTakeProfit} 
                 onChange={(e) => setMockTakeProfit(e.target.value)} 
-                className="bg-gray-900 border border-gray-800 rounded px-2.5 py-1.5 text-white" 
+                style={styles.input} 
               />
             </div>
           </div>
           <button 
             onClick={fireMockWebhook}
-            className="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded flex items-center justify-center gap-2 text-xs transition"
+            style={styles.btn('#3b82f6')}
           >
             <Send size={12} /> Fire Signed Webhook Signal
           </button>
         </div>
 
         {/* Risk Parameters HUD */}
-        <div className="bg-gray-950 border border-gray-800 rounded-lg p-4">
-          <div className="flex justify-between items-center mb-3">
-            <h3 className="text-gray-200 font-bold text-sm flex items-center gap-2">
-              <Sliders className="text-yellow-500" size={16} /> Risk Configuration HUD
+        <div style={styles.card}>
+          <div style={styles.header}>
+            <h3 style={styles.title}>
+              <Sliders style={{ color: '#f59e0b' }} size={16} /> Risk Configuration HUD
             </h3>
             <button 
               onClick={fetchRisk} 
               disabled={loadingRisk}
-              className="text-gray-400 hover:text-white transition disabled:opacity-50"
+              style={styles.refreshBtn}
             >
               <RefreshCw size={14} className={loadingRisk ? 'animate-spin' : ''} />
             </button>
           </div>
-          <form onSubmit={handleUpdateRisk} className="flex flex-col gap-3 text-xs">
-            <div className="flex flex-col gap-1">
-              <label className="text-gray-400">Max Single-Trade Notional Limit ($)</label>
+          <form onSubmit={handleUpdateRisk} style={{ ...styles.formGroup, fontSize: '12px' }}>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Max Single-Trade Notional Limit ($)</label>
               <input 
                 type="number" 
                 value={riskLimits.max_notional} 
                 onChange={(e) => setRiskLimits({ ...riskLimits, max_notional: parseFloat(e.target.value) })}
-                className="bg-gray-900 border border-gray-800 rounded px-2.5 py-1.5 text-white" 
+                style={styles.input} 
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1">
-                <label className="text-gray-400">Min Stop Loss Limit (%)</label>
+            <div style={{ ...styles.formGrid, marginTop: '12px' }}>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Min Stop Loss Limit (%)</label>
                 <input 
                   type="number" 
                   step="0.1"
                   value={riskLimits.min_stop_loss_pct} 
                   onChange={(e) => setRiskLimits({ ...riskLimits, min_stop_loss_pct: parseFloat(e.target.value) })}
-                  className="bg-gray-900 border border-gray-800 rounded px-2.5 py-1.5 text-white" 
+                  style={styles.input} 
                 />
               </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-gray-400">Max Stop Loss Limit (%)</label>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Max Stop Loss Limit (%)</label>
                 <input 
                   type="number" 
                   step="0.1"
                   value={riskLimits.max_stop_loss_pct} 
                   onChange={(e) => setRiskLimits({ ...riskLimits, max_stop_loss_pct: parseFloat(e.target.value) })}
-                  className="bg-gray-900 border border-gray-800 rounded px-2.5 py-1.5 text-white" 
+                  style={styles.input} 
                 />
               </div>
             </div>
             <button 
               type="submit" 
               disabled={loadingRisk}
-              className="w-full mt-2 bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-2 rounded text-xs transition disabled:opacity-50"
+              style={styles.btn('#d97706')}
             >
               Update Risk Safeguards
             </button>
@@ -310,34 +462,36 @@ export default function Dashboard() {
       </div>
 
       {/* Right panel: Live Alert Stream */}
-      <div className="bg-gray-950 border border-gray-800 rounded-lg p-4 flex flex-col h-full">
-        <h3 className="text-gray-200 font-bold text-sm mb-3">Live Desk Security & Alert Stream</h3>
-        <div className="flex-1 overflow-y-auto max-h-[360px] flex flex-col gap-2 pr-1">
-          {logs.length === 0 ? (
-            <div className="text-gray-600 text-xs text-center py-20">
-              No webhook triggers or validation alerts received yet.
-            </div>
-          ) : (
-            logs.map((log) => (
-              <div key={log.id} className="bg-gray-900 border border-gray-800 rounded p-2.5 flex items-start gap-2.5 text-xs">
-                {log.type === 'success' && <CheckCircle2 className="text-green-500 flex-shrink-0 mt-0.5" size={14} />}
-                {log.type === 'error' && <XCircle className="text-red-500 flex-shrink-0 mt-0.5" size={14} />}
-                {(log.type === 'info' || log.type === 'warning') && <ShieldAlert className={`${log.type === 'warning' ? 'text-yellow-500' : 'text-blue-500'} flex-shrink-0 mt-0.5`} size={14} />}
-                <div className="flex-1 min-w-0">
-                  <div className="flex justify-between items-center gap-2 mb-0.5">
-                    <span className="text-gray-500 font-mono text-[10px]">{log.timestamp}</span>
-                    <span className={`text-[9px] uppercase font-bold tracking-wider ${log.type === 'success' ? 'text-green-500' : log.type === 'error' ? 'text-red-500' : log.type === 'warning' ? 'text-yellow-500' : 'text-blue-500'}`}>{log.type}</span>
-                  </div>
-                  <p className="text-gray-300 font-medium break-words leading-relaxed">{log.message}</p>
-                  {log.payload && (
-                    <pre className="mt-1.5 p-1.5 bg-gray-950 rounded text-[10px] font-mono text-gray-500 overflow-x-auto max-w-full">
-                      {JSON.stringify(log.payload, null, 2)}
-                    </pre>
-                  )}
-                </div>
+      <div style={styles.card}>
+        <div style={styles.streamWrapper}>
+          <h3 style={{ ...styles.title, marginBottom: '12px' }}>Live Desk Security & Alert Stream</h3>
+          <div style={styles.streamList}>
+            {logs.length === 0 ? (
+              <div style={styles.noLogs}>
+                No webhook triggers or validation alerts received yet.
               </div>
-            ))
-          )}
+            ) : (
+              logs.map((log) => (
+                <div key={log.id} style={styles.logCard}>
+                  {log.type === 'success' && <CheckCircle2 style={{ color: '#10b981', flexShrink: 0, marginTop: 2 }} size={14} />}
+                  {log.type === 'error' && <XCircle style={{ color: '#ef4444', flexShrink: 0, marginTop: 2 }} size={14} />}
+                  {(log.type === 'info' || log.type === 'warning') && <ShieldAlert style={{ color: log.type === 'warning' ? '#f59e0b' : '#3b82f6', flexShrink: 0, marginTop: 2 }} size={14} />}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={styles.logHeader}>
+                      <span style={styles.logTime}>{log.timestamp}</span>
+                      <span style={styles.logBadge(log.type)}>{log.type}</span>
+                    </div>
+                    <p style={styles.logText}>{log.message}</p>
+                    {log.payload && (
+                      <pre style={styles.logPre}>
+                        {JSON.stringify(log.payload, null, 2)}
+                      </pre>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </div>
     </div>

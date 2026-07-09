@@ -182,42 +182,275 @@ export default function App() {
 
   const currentConnected = connectionMode === 'openapi' ? isConnectedOpenAPI : isConnectedFIX;
 
+  // Shared Inline Styles
+  const styles = {
+    container: {
+      minHeight: '100vh',
+      backgroundColor: '#0b0f19',
+      color: '#f3f4f6',
+      display: 'flex',
+      flexDirection: 'column' as const,
+      fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    },
+    header: {
+      backgroundColor: '#111827',
+      borderBottom: '1px solid #1f2937',
+      padding: '16px 24px',
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: '16px',
+      flexWrap: 'wrap' as const,
+    },
+    logoSection: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '12px',
+    },
+    logoText: {
+      fontWeight: 'bold',
+      fontSize: '20px',
+      letterSpacing: '1px',
+    },
+    logoHighlight: {
+      color: '#3b82f6',
+    },
+    statusBadge: {
+      fontSize: '10px',
+      fontWeight: 'bold',
+      padding: '2px 8px',
+      borderRadius: '12px',
+      border: '1px solid',
+      backgroundColor: currentConnected ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+      color: currentConnected ? '#10b981' : '#ef4444',
+      borderColor: currentConnected ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+    },
+    controlsSection: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '16px',
+    },
+    modeTabs: {
+      backgroundColor: '#0b0f19',
+      border: '1px solid #1f2937',
+      borderRadius: '8px',
+      padding: '4px',
+      display: 'flex',
+      gap: '4px',
+    },
+    modeBtn: (active: boolean) => ({
+      backgroundColor: active ? '#3b82f6' : 'transparent',
+      color: active ? '#ffffff' : '#9ca3af',
+      padding: '6px 12px',
+      borderRadius: '6px',
+      border: 'none',
+      cursor: 'pointer',
+      fontSize: '12px',
+      fontWeight: 'bold',
+      transition: 'all 0.2s',
+    }),
+    pairGroup: {
+      display: 'flex',
+      flexDirection: 'column' as const,
+      gap: '2px',
+      textAlign: 'right' as const,
+      fontSize: '12px',
+    },
+    pairSelect: {
+      backgroundColor: '#0b0f19',
+      border: '1px solid #1f2937',
+      borderRadius: '6px',
+      padding: '4px 8px',
+      color: '#ffffff',
+      fontWeight: 'bold',
+      cursor: 'pointer',
+      outline: 'none',
+    },
+    mainLayout: {
+      flex: 1,
+      padding: '24px',
+      display: 'flex',
+      flexDirection: 'column' as const,
+      gap: '24px',
+    },
+    topPane: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+      gap: '24px',
+    },
+    chartCol: {
+      gridColumn: 'span 3',
+      '@media (max-width: 1024px)': {
+        gridColumn: 'span 1',
+      }
+    },
+    orderCard: {
+      backgroundColor: '#111827',
+      border: '1px solid #1f2937',
+      borderRadius: '12px',
+      padding: '16px',
+      display: 'flex',
+      flexDirection: 'column' as const,
+      gap: '16px',
+    },
+    cardTitle: {
+      color: '#e5e7eb',
+      fontWeight: 'bold',
+      fontSize: '14px',
+      borderBottom: '1px solid #1f2937',
+      paddingBottom: '8px',
+      margin: 0,
+    },
+    tradeTypeTabs: {
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr',
+      gap: '8px',
+    },
+    tradeTypeBtn: (active: boolean, isBuy: boolean) => ({
+      padding: '8px',
+      borderRadius: '6px',
+      fontWeight: 'bold' as const,
+      fontSize: '12px',
+      border: 'none',
+      cursor: 'pointer',
+      transition: 'all 0.2s',
+      backgroundColor: active ? (isBuy ? '#10b981' : '#ef4444') : '#1f2937',
+      color: active ? '#ffffff' : '#9ca3af',
+    }),
+    walletContainer: {
+      backgroundColor: '#0b0f19',
+      border: '1px solid #1f2937',
+      borderRadius: '8px',
+      padding: '10px',
+      fontSize: '12px',
+      display: 'flex',
+      flexDirection: 'column' as const,
+      gap: '4px',
+    },
+    walletRow: {
+      display: 'flex',
+      justifyContent: 'space-between',
+    },
+    tradeForm: {
+      display: 'flex',
+      flexDirection: 'column' as const,
+      gap: '12px',
+      fontSize: '12px',
+    },
+    orderTypeTabs: {
+      backgroundColor: '#0b0f19',
+      border: '1px solid #1f2937',
+      borderRadius: '8px',
+      padding: '4px',
+      display: 'flex',
+      gap: '4px',
+    },
+    orderTypeBtn: (active: boolean) => ({
+      flex: 1,
+      padding: '4px',
+      borderRadius: '6px',
+      fontSize: '10px',
+      border: 'none',
+      cursor: 'pointer',
+      backgroundColor: active ? '#1f2937' : 'transparent',
+      color: active ? '#ffffff' : '#9ca3af',
+      fontWeight: 'bold',
+      transition: 'all 0.2s',
+    }),
+    formGroup: {
+      display: 'flex',
+      flexDirection: 'column' as const,
+      gap: '4px',
+    },
+    input: {
+      backgroundColor: '#0b0f19',
+      border: '1px solid #1f2937',
+      borderRadius: '6px',
+      padding: '6px 10px',
+      color: '#ffffff',
+      outline: 'none',
+    },
+    submitBtn: (isBuy: boolean) => ({
+      width: '100%',
+      marginTop: '8px',
+      padding: '10px',
+      borderRadius: '8px',
+      fontWeight: 'bold' as const,
+      border: 'none',
+      cursor: 'pointer',
+      backgroundColor: isBuy ? '#10b981' : '#ef4444',
+      color: '#ffffff',
+      boxShadow: `0 4px 14px ${isBuy ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`,
+      transition: 'all 0.2s',
+    }),
+    positionsList: {
+      marginTop: '8px',
+      display: 'flex',
+      flexDirection: 'column' as const,
+      gap: '8px',
+      maxHeight: '140px',
+      overflowY: 'auto' as const,
+    },
+    positionRow: {
+      backgroundColor: '#0b0f19',
+      border: '1px solid #1f2937',
+      borderRadius: '6px',
+      padding: '8px',
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    posDetails: {
+      display: 'flex',
+      flexDirection: 'column' as const,
+      gap: '2px',
+    },
+    posSide: (isBuy: boolean) => ({
+      fontWeight: 'bold' as const,
+      color: isBuy ? '#10b981' : '#ef4444',
+    }),
+    posPnl: (isProfit: boolean) => ({
+      fontWeight: 'bold' as const,
+      color: isProfit ? '#10b981' : '#ef4444',
+    })
+  };
+
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100 flex flex-col font-sans">
+    <div style={styles.container}>
       
       {/* Upper Navigation Desk Bar */}
-      <header className="bg-gray-900 border-b border-gray-800 px-6 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-        <div className="flex items-center gap-3">
-          <Activity size={28} className="text-blue-500 animate-pulse" />
-          <span className="font-extrabold text-xl tracking-wider">WYCKOFF<span className="text-blue-500">DESK</span></span>
-          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${currentConnected ? 'bg-green-950/40 text-green-400 border-green-800' : 'bg-red-950/40 text-red-400 border-red-800'}`}>
+      <header style={styles.header}>
+        <div style={styles.logoSection}>
+          <Activity size={28} style={{ color: '#3b82f6' }} />
+          <span style={styles.logoText}>WYCKOFF<span style={styles.logoHighlight}>DESK</span></span>
+          <span style={styles.statusBadge}>
             cTrader {connectionMode.toUpperCase()} {currentConnected ? 'ONLINE' : 'OFFLINE'}
           </span>
         </div>
 
         {/* Workspace controls */}
-        <div className="flex items-center gap-4">
-          <div className="bg-gray-950 border border-gray-800 rounded-lg p-1 flex gap-1 text-xs font-semibold">
+        <div style={styles.controlsSection}>
+          <div style={styles.modeTabs}>
             <button 
-              className={`px-3 py-1.5 rounded transition ${connectionMode === 'fix' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}
+              style={styles.modeBtn(connectionMode === 'fix')}
               onClick={() => setConnectionMode('fix')}
             >
               FIX API
             </button>
             <button 
-              className={`px-3 py-1.5 rounded transition ${connectionMode === 'openapi' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}
+              style={styles.modeBtn(connectionMode === 'openapi')}
               onClick={() => setConnectionMode('openapi')}
             >
               OpenAPI
             </button>
           </div>
 
-          <div className="flex flex-col gap-0.5 text-right text-xs">
-            <span className="text-gray-400">Trading Pair</span>
+          <div style={styles.pairGroup}>
+            <span style={{ color: '#9ca3af' }}>Trading Pair</span>
             <select 
               value={symbol} 
               onChange={(e) => setSymbol(e.target.value)}
-              className="bg-gray-950 border border-gray-800 rounded px-2 py-1 text-white font-bold cursor-pointer outline-none"
+              style={styles.pairSelect}
             >
               <option value="BINANCE:BTCUSDT">BTC / USDT</option>
               <option value="BINANCE:ETHUSDT">ETH / USDT</option>
@@ -229,11 +462,11 @@ export default function App() {
       </header>
 
       {/* Main Grid View */}
-      <main className="flex-1 p-6 flex flex-col gap-6">
+      <main style={styles.mainLayout}>
         
         {/* Top pane: Chart & Trade Entry */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <div className="lg:col-span-3">
+        <div style={styles.topPane}>
+          <div style={{ gridColumn: 'span 3' }}>
             <WyckoffChart 
               symbol={symbol} 
               candles={candles} 
@@ -243,76 +476,76 @@ export default function App() {
           </div>
 
           {/* Trade Execution Panel */}
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex flex-col gap-4">
-            <h3 className="text-gray-200 font-bold text-sm border-b border-gray-800 pb-2">Manual Order Entry</h3>
+          <div style={styles.orderCard}>
+            <h3 style={styles.cardTitle}>Manual Order Entry</h3>
             
-            <div className="grid grid-cols-2 gap-2">
+            <div style={styles.tradeTypeTabs}>
               <button 
                 onClick={() => setTradeType('buy')}
-                className={`py-2 rounded font-bold text-xs transition ${tradeType === 'buy' ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-400'}`}
+                style={styles.tradeTypeBtn(tradeType === 'buy', true)}
               >
                 BUY
               </button>
               <button 
                 onClick={() => setTradeType('sell')}
-                className={`py-2 rounded font-bold text-xs transition ${tradeType === 'sell' ? 'bg-red-600 text-white' : 'bg-gray-800 text-gray-400'}`}
+                style={styles.tradeTypeBtn(tradeType === 'sell', false)}
               >
                 SELL
               </button>
             </div>
 
             {accountInfo && (
-              <div className="bg-gray-950 border border-gray-800 rounded-lg p-2.5 text-xs flex flex-col gap-1">
-                <div className="flex justify-between text-gray-400">
-                  <span>Balance:</span>
-                  <span className="text-white font-bold">{accountInfo.balance} {accountInfo.currency}</span>
+              <div style={styles.walletContainer}>
+                <div style={styles.walletRow}>
+                  <span style={{ color: '#9ca3af' }}>Balance:</span>
+                  <span style={{ color: '#ffffff', fontWeight: 'bold' }}>{accountInfo.balance} {accountInfo.currency}</span>
                 </div>
-                <div className="flex justify-between text-gray-400">
-                  <span>Free Margin:</span>
-                  <span className="text-white font-bold">{accountInfo.margin_free} {accountInfo.currency}</span>
+                <div style={styles.walletRow}>
+                  <span style={{ color: '#9ca3af' }}>Free Margin:</span>
+                  <span style={{ color: '#ffffff', fontWeight: 'bold' }}>{accountInfo.margin_free} {accountInfo.currency}</span>
                 </div>
               </div>
             )}
 
-            <form onSubmit={handleExecuteTrade} className="flex flex-col gap-3 text-xs">
-              <div className="bg-gray-950 border border-gray-800 rounded-lg p-1 flex gap-1 font-semibold">
+            <form onSubmit={handleExecuteTrade} style={styles.tradeForm}>
+              <div style={styles.orderTypeTabs}>
                 <button
                   type="button"
                   onClick={() => setOrderType('market')}
-                  className={`flex-1 py-1 rounded text-[10px] transition ${orderType === 'market' ? 'bg-gray-800 text-white' : 'text-gray-400'}`}
+                  style={styles.orderTypeBtn(orderType === 'market')}
                 >
                   MARKET
                 </button>
                 <button
                   type="button"
                   onClick={() => setOrderType('limit')}
-                  className={`flex-1 py-1 rounded text-[10px] transition ${orderType === 'limit' ? 'bg-gray-800 text-white' : 'text-gray-400'}`}
+                  style={styles.orderTypeBtn(orderType === 'limit')}
                 >
                   LIMIT
                 </button>
               </div>
 
               {orderType === 'limit' && (
-                <div className="flex flex-col gap-1">
-                  <label className="text-gray-400">Limit Price (USDT)</label>
+                <div style={styles.formGroup}>
+                  <label style={{ color: '#9ca3af' }}>Limit Price (USDT)</label>
                   <input 
                     type="number" 
                     value={price} 
                     onChange={(e) => setPrice(e.target.value)}
-                    className="bg-gray-950 border border-gray-800 rounded px-2.5 py-1.5 text-white"
+                    style={styles.input}
                     step="0.01"
                     required
                   />
                 </div>
               )}
 
-              <div className="flex flex-col gap-1">
-                <label className="text-gray-400">Order Quantity</label>
+              <div style={styles.formGroup}>
+                <label style={{ color: '#9ca3af' }}>Order Quantity</label>
                 <input 
                   type="number" 
                   value={amount} 
                   onChange={(e) => setAmount(e.target.value)}
-                  className="bg-gray-950 border border-gray-800 rounded px-2.5 py-1.5 text-white"
+                  style={styles.input}
                   step="0.01"
                   min="0.01"
                   required
@@ -321,7 +554,7 @@ export default function App() {
 
               <button 
                 type="submit" 
-                className={`w-full mt-2 py-2.5 rounded font-bold text-white shadow-lg transition ${tradeType === 'buy' ? 'bg-green-600 hover:bg-green-700 shadow-green-950/20' : 'bg-red-600 hover:bg-red-700 shadow-red-950/20'}`}
+                style={styles.submitBtn(tradeType === 'buy')}
               >
                 Submit Order
               </button>
@@ -329,21 +562,23 @@ export default function App() {
 
             {/* Position Display */}
             {openPositions.length > 0 && (
-              <div className="mt-2 flex flex-col gap-2 flex-1 overflow-y-auto max-h-[140px]">
-                <span className="text-xs font-bold text-gray-400 flex items-center justify-between">
-                  <span>Positions ({openPositions.length})</span>
+              <div style={{ marginTop: '8px' }}>
+                <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#9ca3af' }}>
+                  Positions ({openPositions.length})
                 </span>
-                {openPositions.map((pos) => (
-                  <div key={pos.position_id} className="bg-gray-950 border border-gray-800 rounded p-2 text-xs flex justify-between items-center">
-                    <div className="flex flex-col">
-                      <span className={`font-bold ${pos.trade_side === 'BUY' ? 'text-green-400' : 'text-red-400'}`}>{pos.trade_side} {pos.volume}</span>
-                      <span className="text-[10px] text-gray-500">{pos.symbol}</span>
+                <div style={styles.positionsList}>
+                  {openPositions.map((pos) => (
+                    <div key={pos.position_id} style={styles.positionRow}>
+                      <div style={styles.posDetails}>
+                        <span style={styles.posSide(pos.trade_side === 'BUY')}>{pos.trade_side} {pos.volume}</span>
+                        <span style={{ fontSize: '10px', color: '#6b7280' }}>{pos.symbol}</span>
+                      </div>
+                      <span style={styles.posPnl(pos.unrealized_profit >= 0)}>
+                        ${pos.unrealized_profit.toFixed(2)}
+                      </span>
                     </div>
-                    <span className={`font-bold ${pos.unrealized_profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                      ${pos.unrealized_profit.toFixed(2)}
-                    </span>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
           </div>
