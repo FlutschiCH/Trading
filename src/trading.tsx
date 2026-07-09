@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, ArrowDownRight, RefreshCw, Shield, Wallet, Activity } from 'lucide-react';
-import { createChart, ColorType, ISeriesApi } from 'lightweight-charts';
+import { createChart, ColorType } from 'lightweight-charts';
+import type { ISeriesApi } from 'lightweight-charts';
 
 interface Candle {
   time: number;
