@@ -124,7 +124,7 @@ class CTraderHandler:
             print(f"[cTrader] Sending ProtoOAAccountAuthReq for account ID: {numeric_account_id}...")
             acc_auth = ProtoOAAccountAuthReq()
             acc_auth.accessToken = self.access_token
-            acc_auth.ctraderAccountId = int(numeric_account_id)
+            acc_auth.ctidTraderAccountId = int(numeric_account_id)
             
             self.send_proto_message(2102, acc_auth.SerializeToString())
             
@@ -142,7 +142,7 @@ class CTraderHandler:
             # 3. Request Trader Details (Balance)
             print("[cTrader] Sending ProtoOATraderReq...")
             trader_req = ProtoOATraderReq()
-            trader_req.ctraderAccountId = int(numeric_account_id)
+            trader_req.ctidTraderAccountId = int(numeric_account_id)
             self.send_proto_message(2115, trader_req.SerializeToString())
             
             resp = self.read_proto_message()
