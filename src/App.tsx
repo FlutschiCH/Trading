@@ -60,7 +60,7 @@ export default function App() {
     try {
       let rawCandles: Candle[] = [];
       try {
-        const response = await fetch('http://localhost:8080/api/candles/historical', {
+        const response = await fetch('http://localhost:8751/api/candles/historical', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -80,7 +80,7 @@ export default function App() {
       if (rawCandles.length > 0) {
         // Send to Flask analyze endpoint for VSA patterns & Weis Wave aggregation
         try {
-          const analysisResponse = await fetch('http://localhost:8080/api/analyze', {
+          const analysisResponse = await fetch('http://localhost:8751/api/analyze', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ candles: rawCandles }),

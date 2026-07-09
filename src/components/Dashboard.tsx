@@ -39,7 +39,7 @@ export default function Dashboard() {
   const fetchRisk = async () => {
     setLoadingRisk(true);
     try {
-      const response = await fetch('http://localhost:8080/api/risk');
+      const response = await fetch('http://localhost:8751/api/risk');
       const result = await response.json();
       if (result.status === 'success') {
         setRiskLimits(result.risk_limits);
@@ -57,7 +57,7 @@ export default function Dashboard() {
     e.preventDefault();
     setLoadingRisk(true);
     try {
-      const response = await fetch('http://localhost:8080/api/risk', {
+      const response = await fetch('http://localhost:8751/api/risk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(riskLimits),
@@ -125,7 +125,7 @@ export default function Dashboard() {
       addLog('info', `Filing Mock Webhook Signal ${mockSignalId}...`, payload);
       const signatureHex = await calculateHMACSignature(secretStr, bodyText);
       
-      const response = await fetch('http://localhost:8080/api/webhook', {
+      const response = await fetch('http://localhost:8751/api/webhook', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
