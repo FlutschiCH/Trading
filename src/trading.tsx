@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowUpRight, RefreshCw, Shield, Wallet, Activity, Key, Globe } from 'lucide-react';
+import { ArrowUpRight, RefreshCw, Shield, Wallet, Activity, Key, Globe, Lock, Terminal } from 'lucide-react';
 import { createChart, ColorType, CandlestickSeries } from 'lightweight-charts';
 import type { ISeriesApi } from 'lightweight-charts';
 
@@ -44,11 +44,21 @@ export default function Trading() {
   const [candles, setCandles] = useState<Candle[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // cTrader Connection State
-  const [isConnected, setIsConnected] = useState(true);
+  // Connection mode: 'openapi' or 'fix'
+  const [connectionMode, setConnectionMode] = useState<'openapi' | 'fix'>('fix');
+
+  // cTrader Connection States
+  const [isConnectedOpenAPI, setIsConnectedOpenAPI] = useState(true);
+  const [isConnectedFIX, setIsConnectedFIX] = useState(false);
   const [connecting, setConnecting] = useState(false);
+
+  // cTrader OpenAPI Credentials
   const [ctToken, setCtToken] = useState('17151091');
   const [ctAccountId, setCtAccountId] = useState('flutschich@gmail.com');
+
+  // cTrader FIX API Credentials
+  const [fixSenderID, setFixSenderID] = useState('live.ftmo.17151091');
+  const [fixPassword, setFixPassword] = useState('');
 
   // Account & Positions data
   const [accountInfo, setAccountInfo] = useState<AccountInfo | null>(null);
@@ -88,26 +98,32 @@ export default function Trading() {
     }
   };
 
-  // Connect to cTrader
+  // Connect to cTrader (OpenAPI or FIX API)
   const handleConnect = async (e: React.FormEvent) => {
     e.preventDefault();
     setConnecting(true);
     try {
-      const response = await fetch('http://localhost:8751/api/ctrader/connect', {
+      const endpoint = connectionMode === 'openapi' ? 'ctrader/connect' : 'localctrader/connect';
+      const body = connectionMode === 'openapi' 
+        ? { access_token: ctToken, account_id: ctAccountId }
+        : { password: fixPassword };
+
+      const response = await fetch(`http://localhost:8751/api/${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          access_token: ctToken,
-          account_id: ctAccountId,
-        }),
+        body: JSON.stringify(body),
       });
       const result = await response.json();
       if (result.status === 'success') {
-        setIsConnected(true);
+        if (connectionMode === 'openapi') {
+          setIsConnectedOpenAPI(true);
+        } else {
+          setIsConnectedFIX(true);
+        }
         fetchAccountData();
         fetchPositionData();
       } else {
-        alert('cTrader connection failed: ' + result.message);
+        alert(`${connectionMode.toUpperCase()} Connection failed: ` + result.message);
       }
     } catch (error) {
       console.error('Connection error:', error);
@@ -117,10 +133,13 @@ export default function Trading() {
     }
   };
 
-  // Fetch cTrader account stats
+  // Fetch account stats
   const fetchAccountData = async () => {
+    const isConnected = connectionMode === 'openapi' ? isConnectedOpenAPI : isConnectedFIX;
+    if (!isConnected) return;
     try {
-      const response = await fetch('http://localhost:8751/api/ctrader/account', {
+      const endpoint = connectionMode === 'openapi' ? 'ctrader/account' : 'localctrader/account';
+      const response = await fetch(`http://localhost:8751/api/${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -133,10 +152,13 @@ export default function Trading() {
     }
   };
 
-  // Fetch cTrader active positions
+  // Fetch active positions
   const fetchPositionData = async () => {
+    const isConnected = connectionMode === 'openapi' ? isConnectedOpenAPI : isConnectedFIX;
+    if (!isConnected) return;
     try {
-      const response = await fetch('http://localhost:8751/api/ctrader/positions', {
+      const endpoint = connectionMode === 'openapi' ? 'ctrader/positions' : 'localctrader/positions';
+      const response = await fetch(`http://localhost:8751/api/${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -155,15 +177,16 @@ export default function Trading() {
 
   // Regular updates when connected
   useEffect(() => {
+    const isConnected = connectionMode === 'openapi' ? isConnectedOpenAPI : isConnectedFIX;
     if (!isConnected) return;
     fetchAccountData();
     fetchPositionData();
     const interval = setInterval(() => {
       fetchAccountData();
       fetchPositionData();
-    }, 3000);
+    }, 4000);
     return () => clearInterval(interval);
-  }, [isConnected]);
+  }, [isConnectedOpenAPI, isConnectedFIX, connectionMode]);
 
   // Chart setup
   useEffect(() => {
@@ -216,14 +239,16 @@ export default function Trading() {
 
   const handleExecuteTrade = async (e: React.FormEvent) => {
     e.preventDefault();
+    const isConnected = connectionMode === 'openapi' ? isConnectedOpenAPI : isConnectedFIX;
     if (!isConnected) {
-      alert('Please connect to cTrader first.');
+      alert(`Please connect to cTrader ${connectionMode.toUpperCase()} first.`);
       return;
     }
 
     const currentPrice = candles.length > 0 ? candles[candles.length - 1].close : 57450;
     try {
-      const response = await fetch('http://localhost:8751/api/ctrader/order', {
+      const endpoint = connectionMode === 'openapi' ? 'ctrader/order' : 'localctrader/order';
+      const response = await fetch(`http://localhost:8751/api/${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -257,6 +282,8 @@ export default function Trading() {
     return symbol.split(':')[1]?.replace('USDT', '') || 'BTC';
   };
 
+  const currentConnected = connectionMode === 'openapi' ? isConnectedOpenAPI : isConnectedFIX;
+
   return (
     <div style={styles.container}>
       {/* Top Header/Bar */}
@@ -266,26 +293,37 @@ export default function Trading() {
           <span style={styles.logoText}>NEXUS<span style={styles.logoHighlight}>TRADE</span></span>
           <span style={{
             ...styles.badge,
-            backgroundColor: isConnected ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-            color: isConnected ? '#10b981' : '#ef4444',
-            borderColor: isConnected ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'
+            backgroundColor: currentConnected ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+            color: currentConnected ? '#10b981' : '#ef4444',
+            borderColor: currentConnected ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'
           }}>
-            cTrader OpenAPI {isConnected ? 'CONNECTED' : 'DISCONNECTED'}
+            cTrader {connectionMode.toUpperCase()} {currentConnected ? 'CONNECTED' : 'DISCONNECTED'}
           </span>
+        </div>
+
+        {/* API Switch Tabs */}
+        <div style={styles.modeTabs}>
+          <button 
+            style={{ ...styles.modeBtn, ...(connectionMode === 'fix' ? styles.modeBtnActive : {}) }}
+            onClick={() => setConnectionMode('fix')}
+          >
+            FIX API Mode (FTMO)
+          </button>
+          <button 
+            style={{ ...styles.modeBtn, ...(connectionMode === 'openapi' ? styles.modeBtnActive : {}) }}
+            onClick={() => setConnectionMode('openapi')}
+          >
+            OpenAPI Mode
+          </button>
+        </div>
+
+        {/* Links */}
+        <div style={{ display: 'flex', gap: '8px' }}>
           <a
             href="https://trader.ftmo.com/accounts-overview"
             target="_blank"
             rel="noopener noreferrer"
-            style={{
-              ...styles.badge,
-              backgroundColor: 'rgba(59, 130, 246, 0.1)',
-              color: '#3b82f6',
-              borderColor: 'rgba(59, 130, 246, 0.2)',
-              textDecoration: 'none',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center'
-            }}
+            style={styles.headerLink}
           >
             FTMO Accounts Overview
           </a>
@@ -293,16 +331,7 @@ export default function Trading() {
             href="https://openapi.ctrader.com/apps"
             target="_blank"
             rel="noopener noreferrer"
-            style={{
-              ...styles.badge,
-              backgroundColor: 'rgba(59, 130, 246, 0.1)',
-              color: '#3b82f6',
-              borderColor: 'rgba(59, 130, 246, 0.2)',
-              textDecoration: 'none',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center'
-            }}
+            style={styles.headerLink}
           >
             cTrader OpenAPI Apps
           </a>
@@ -355,20 +384,35 @@ export default function Trading() {
 
         {/* Right Side: Control Panels */}
         <section style={styles.panelSection}>
-          {!isConnected ? (
+          {!currentConnected ? (
             <div style={styles.orderCard}>
-              <div style={styles.cardHeader}>cTrader OpenAPI Credentials</div>
+              <div style={styles.cardHeader}>{connectionMode === 'openapi' ? 'cTrader OpenAPI Credentials' : 'cTrader FIX API Access'}</div>
               <form onSubmit={handleConnect} style={{ ...styles.cardContent, gap: '12px' }}>
-                <div style={styles.formGroup}>
-                  <label style={styles.formLabel}><Key size={12} style={{ display: 'inline', marginRight: 4 }} /> OpenAPI Bearer Token</label>
-                  <input type="text" value={ctToken} onChange={(e) => setCtToken(e.target.value)} style={styles.formInput} required />
-                </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.formLabel}><Globe size={12} style={{ display: 'inline', marginRight: 4 }} /> Account ID</label>
-                  <input type="text" value={ctAccountId} onChange={(e) => setCtAccountId(e.target.value)} style={styles.formInput} required />
-                </div>
+                {connectionMode === 'openapi' ? (
+                  <>
+                    <div style={styles.formGroup}>
+                      <label style={styles.formLabel}><Key size={12} style={{ display: 'inline', marginRight: 4 }} /> OpenAPI Bearer Token</label>
+                      <input type="text" value={ctToken} onChange={(e) => setCtToken(e.target.value)} style={styles.formInput} required />
+                    </div>
+                    <div style={styles.formGroup}>
+                      <label style={styles.formLabel}><Globe size={12} style={{ display: 'inline', marginRight: 4 }} /> Account ID</label>
+                      <input type="text" value={ctAccountId} onChange={(e) => setCtAccountId(e.target.value)} style={styles.formInput} required />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div style={styles.formGroup}>
+                      <label style={styles.formLabel}><Terminal size={12} style={{ display: 'inline', marginRight: 4 }} /> SenderCompID</label>
+                      <input type="text" value={fixSenderID} onChange={(e) => setFixSenderID(e.target.value)} style={styles.formInput} required disabled />
+                    </div>
+                    <div style={styles.formGroup}>
+                      <label style={styles.formLabel}><Lock size={12} style={{ display: 'inline', marginRight: 4 }} /> FIX Password</label>
+                      <input type="password" value={fixPassword} onChange={(e) => setFixPassword(e.target.value)} style={styles.formInput} required placeholder="Enter cTrader account password" />
+                    </div>
+                  </>
+                )}
                 <button type="submit" disabled={connecting} style={{ ...styles.actionButton, backgroundColor: '#3b82f6' }}>
-                  {connecting ? 'Connecting...' : 'Connect to cTrader'}
+                  {connecting ? 'Connecting...' : `Login to cTrader ${connectionMode.toUpperCase()}`}
                 </button>
               </form>
             </div>
@@ -430,7 +474,7 @@ export default function Trading() {
                   )}
 
                   <div style={styles.formGroup}>
-                    <label style={styles.formLabel}>Amount (Units)</label>
+                    <label style={styles.formLabel}>{connectionMode === 'fix' ? 'Quantity (Lots)' : 'Amount (Units)'}</label>
                     <input 
                       type="number" 
                       value={amount} 
@@ -449,7 +493,7 @@ export default function Trading() {
                       ...(tradeType === 'buy' ? styles.actionButtonBuy : styles.actionButtonSell)
                     }}
                   >
-                    Execute cTrader Order
+                    Execute {connectionMode.toUpperCase()} Order
                   </button>
                 </form>
               </div>
@@ -457,18 +501,18 @@ export default function Trading() {
           )}
 
           {/* Positions panel */}
-          {isConnected && (
+          {currentConnected && (
             <div style={styles.tradesCard}>
               <div style={styles.tradesHeader}>
-                <span>cTrader Active Positions ({openPositions.length})</span>
+                <span>Active Positions ({openPositions.length})</span>
                 <RefreshCw size={14} style={{ cursor: 'pointer', color: '#9ca3af' }} onClick={fetchPositionData} />
               </div>
               <div style={styles.tradesList}>
                 {openPositions.length === 0 ? (
                   <div style={{ color: '#6b7280', fontSize: '12px', textAlign: 'center', marginTop: '16px' }}>No active positions.</div>
                 ) : (
-                  openPositions.map((pos) => (
-                    <div key={pos.position_id} style={tradeRowStyle(pos.trade_side)}>
+                  openPositions.map((pos, idx) => (
+                    <div key={pos.position_id || idx} style={tradeRowStyle(pos.trade_side)}>
                       <span style={{ 
                         ...styles.tradeTypeBadge, 
                         color: pos.trade_side.toUpperCase() === 'BUY' ? '#10b981' : '#ef4444' 
@@ -550,6 +594,41 @@ const styles = {
     borderRadius: '12px',
     fontWeight: 'bold',
     marginLeft: '8px',
+  },
+  modeTabs: {
+    display: 'flex',
+    gap: '4px',
+    backgroundColor: '#1f2937',
+    padding: '3px',
+    borderRadius: '6px',
+  },
+  modeBtn: {
+    backgroundColor: 'transparent',
+    border: 'none',
+    color: '#9ca3af',
+    padding: '6px 16px',
+    borderRadius: '4px',
+    fontSize: '13px',
+    fontWeight: 'bold',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+  },
+  modeBtnActive: {
+    backgroundColor: '#3b82f6',
+    color: '#ffffff',
+  },
+  headerLink: {
+    fontSize: '11px',
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    color: '#3b82f6',
+    border: '1px solid rgba(59, 130, 246, 0.2)',
+    padding: '2px 8px',
+    borderRadius: '12px',
+    fontWeight: 'bold' as const,
+    textDecoration: 'none',
+    cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
   },
   statsBar: {
     display: 'flex',
