@@ -84,7 +84,7 @@ class CTraderHandler:
             self.connected = True
             return {"status": "success", "message": "Simulation fallback."}
 
-        host = "live.ctraderapi.com"
+        host = "demo.ctraderapi.com"
         port = 5035
 
         print(f"[cTrader] Connecting TCP SSL to {host}:{port}...")
