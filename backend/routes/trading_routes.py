@@ -81,3 +81,54 @@ def analyze():
     candles = payload.get('candles', [])
     result = TradingHandler.analyze_market_data(candles)
     return jsonify(result)
+
+@trading_routes.route('/risk', methods=['GET', 'POST'])
+def risk():
+    """
+    Exposes a form to read, display, and update active risk variables via Flask API calls.
+    """
+    from execution import RISK_LIMITS
+    if request.method == 'POST':
+        payload = request.get_json(silent=True) or {}
+        if 'max_notional' in payload:
+            RISK_LIMITS['max_notional'] = float(payload['max_notional'])
+        if 'min_stop_loss_pct' in payload:
+            RISK_LIMITS['min_stop_loss_pct'] = float(payload['min_stop_loss_pct'])
+        if 'max_stop_loss_pct' in payload:
+            RISK_LIMITS['max_stop_loss_pct'] = float(payload['max_stop_loss_pct'])
+        return jsonify({"status": "success", "risk_limits": RISK_LIMITS})
+    else:
+        return jsonify({"status": "success", "risk_limits": RISK_LIMITS})
+
+@trading_routes.route('/candles/historical', methods=['POST'])
+def historical_candles():
+    """
+    Mock endpoint mirroring historical candle loading when port 8751 is unreachable.
+    """
+    import random
+    payload = request.get_json(silent=True) or {}
+    symbol = payload.get('symbol', 'BTCUSDT')
+    limit = int(payload.get('limit', 100))
+    
+    # Generate mock candlestick data
+    base_time = int(time.time()) - (limit * 15 * 60)
+    last_close = 57450.0
+    candles = []
+    for i in range(limit):
+        change = (random.random() - 0.49) * 200
+        open_p = last_close
+        close_p = open_p + change
+        high_p = max(open_p, close_p) + random.random() * 50
+        low_p = min(open_p, close_p) - random.random() * 50
+        volume = random.randint(100, 1600)
+        candles.append({
+            "time": base_time + (i * 15 * 60),
+            "open": open_p,
+            "high": high_p,
+            "low": low_p,
+            "close": close_p,
+            "volume": volume
+        })
+        last_close = close_p
+    return jsonify({"status": "success", "data": candles})
+

@@ -72,6 +72,13 @@ class IBTSocketClient:
             # Fallback to simulated local success/dispatch for testing purposes
             return {"status": "simulated_dispatch", "broker_ref": f"SIM-IB-{datetime.now().microsecond}", "info": str(e)}
 
+# Configurable Risk Limits
+RISK_LIMITS = {
+    "max_notional": 100000.0,
+    "min_stop_loss_pct": 0.5,
+    "max_stop_loss_pct": 5.0
+}
+
 def execute_signal(signal_data: dict) -> dict:
     """
     Enforces risk limits, verifies stop loss, logs order details, and routes order to SQLite & mock Interactive Brokers.
@@ -89,15 +96,16 @@ def execute_signal(signal_data: dict) -> dict:
     if take_profit is not None:
         take_profit = float(take_profit)
 
-    # 1. Enforce portfolio limits: Single trade notional limit: $100,000 USD
+    # 1. Enforce portfolio limits: Single trade notional limit
     notional = qty * entry_price
-    if notional > 100000.0:
+    max_notional = RISK_LIMITS["max_notional"]
+    if notional > max_notional:
         return {
             "status": "REJECTED",
-            "message": f"Single trade notional limit exceeded: ${notional:.2f} > $100,000.00"
+            "message": f"Single trade notional limit exceeded: ${notional:.2f} > ${max_notional:.2f}"
         }
 
-    # 2. Stop-loss distance boundary: Must be between 0.5% and 5.0% of the entry price
+    # 2. Stop-loss distance boundary: Must be between min and max SL percentages
     if stop_loss is None:
         return {
             "status": "REJECTED",
@@ -107,10 +115,12 @@ def execute_signal(signal_data: dict) -> dict:
     sl_distance = abs(entry_price - stop_loss)
     sl_pct = (sl_distance / entry_price) * 100.0
     
-    if sl_pct < 0.5 or sl_pct > 5.0:
+    min_sl = RISK_LIMITS["min_stop_loss_pct"]
+    max_sl = RISK_LIMITS["max_stop_loss_pct"]
+    if sl_pct < min_sl or sl_pct > max_sl:
         return {
             "status": "REJECTED",
-            "message": f"Stop loss distance of {sl_pct:.2f}% is outside bounds (0.5% - 5.0%)."
+            "message": f"Stop loss distance of {sl_pct:.2f}% is outside bounds ({min_sl:.2f}% - {max_sl:.2f}%)."
         }
 
     # Save to SQLite DB

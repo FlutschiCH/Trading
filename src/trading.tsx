@@ -1,7 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { ArrowUpRight, RefreshCw, Shield, Wallet, Activity, Key, Globe, Lock, Terminal, Square, PenTool, Trash2, XCircle } from 'lucide-react';
-import { createChart, ColorType, CandlestickSeries, HistogramSeries } from 'lightweight-charts';
-import type { ISeriesApi } from 'lightweight-charts';
+import React, { useEffect, useState } from 'react';
+import { ArrowUpRight, RefreshCw, Activity } from 'lucide-react';
+import WyckoffChart from './components/WyckoffChart';
+import Dashboard from './components/Dashboard';
 
 interface Candle {
   time: number;
@@ -12,6 +12,8 @@ interface Candle {
   volume: number;
   vsa_patterns?: string[];
   weis_wave_volume?: number;
+  tr_high?: number;
+  tr_low?: number;
 }
 
 interface AccountInfo {
@@ -34,11 +36,6 @@ interface Position {
 }
 
 export default function Trading() {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<any>(null);
-  const candlestickSeriesRef = useRef<ISeriesApi<'Candlestick'>>(null);
-  const weisSeriesRef = useRef<ISeriesApi<'Histogram'>>(null);
-  
   const [symbol, setSymbol] = useState('BINANCE:BTCUSDT');
   const [tradeType, setTradeType] = useState<'buy' | 'sell'>('buy');
   const [orderType, setOrderType] = useState<'market' | 'limit'>('market');
@@ -47,95 +44,23 @@ export default function Trading() {
   const [candles, setCandles] = useState<Candle[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Drawing Tools State
-  const [activeTool, setActiveTool] = useState<'none' | 'trendline' | 'rectangle' | 'delete'>('none');
-  const [drawings, setDrawings] = useState<any[]>([]);
-  const [drawingPreview, setDrawingPreview] = useState<any>(null);
-  const [pixelDrawings, setPixelDrawings] = useState<any[]>([]);
-  const [pixelPreview, setPixelPreview] = useState<any>(null);
-
-  // Connection mode: 'openapi' or 'fix'
+  // Connection states
   const [connectionMode, setConnectionMode] = useState<'openapi' | 'fix'>('fix');
-
-  // cTrader Connection States
   const [isConnectedOpenAPI, setIsConnectedOpenAPI] = useState(true);
   const [isConnectedFIX, setIsConnectedFIX] = useState(true);
   const [connecting, setConnecting] = useState(false);
 
-  // cTrader OpenAPI Credentials
-  const [ctToken, setCtToken] = useState('17151091');
-  const [ctAccountId, setCtAccountId] = useState('flutschich@gmail.com');
-
-  // cTrader FIX API Credentials
-  const [fixSenderID, setFixSenderID] = useState('live.ftmo.17151091');
-  const [fixPassword, setFixPassword] = useState('');
-
-  // Account & Positions data
+  // Account & Positions
   const [accountInfo, setAccountInfo] = useState<AccountInfo | null>(null);
   const [openPositions, setOpenPositions] = useState<Position[]>([]);
-  
-  const [recentTrades, setRecentTrades] = useState([
-    { id: 1, type: 'BUY', amount: '0.045', price: '57,432.10', time: '15:04:12' },
-    { id: 2, type: 'SELL', amount: '0.120', price: '57,440.00', time: '15:03:55' },
-    { id: 3, type: 'BUY', amount: '0.015', price: '57,428.50', time: '15:03:20' },
-  ]);
-
-  // Keep drawings refs updated to prevent stale values in chart callbacks
-  const drawingsRef = useRef(drawings);
-  const drawingPreviewRef = useRef(drawingPreview);
-
-  useEffect(() => {
-    drawingsRef.current = drawings;
-    updateDrawingCoordinates();
-  }, [drawings]);
-
-  useEffect(() => {
-    drawingPreviewRef.current = drawingPreview;
-    updateDrawingCoordinates();
-  }, [drawingPreview]);
-
-  // Recalculates screen-space pixel positions from price/time coordinates
-  const updateDrawingCoordinates = () => {
-    if (!chartRef.current || !candlestickSeriesRef.current) return;
-    const timeScale = chartRef.current.timeScale();
-    const series = candlestickSeriesRef.current;
-
-    const currentDrawings = drawingsRef.current;
-    const currentPreview = drawingPreviewRef.current;
-
-    const updated = currentDrawings.map((d, index) => {
-      const x1 = timeScale.timeToCoordinate(d.start.time);
-      const y1 = series.priceToCoordinate(d.start.price);
-      const x2 = timeScale.timeToCoordinate(d.end.time);
-      const y2 = series.priceToCoordinate(d.end.price);
-      return { ...d, x1, y1, x2, y2, index };
-    }).filter(d => d.x1 !== null && d.y1 !== null && d.x2 !== null && d.y2 !== null);
-
-    setPixelDrawings(updated);
-
-    if (currentPreview) {
-      const x1 = timeScale.timeToCoordinate(currentPreview.start.time);
-      const y1 = series.priceToCoordinate(currentPreview.start.price);
-      const x2 = timeScale.timeToCoordinate(currentPreview.end.time);
-      const y2 = series.priceToCoordinate(currentPreview.end.price);
-      if (x1 !== null && y1 !== null && x2 !== null && y2 !== null) {
-        setPixelPreview({ type: currentPreview.type, x1, y1, x2, y2 });
-      } else {
-        setPixelPreview(null);
-      }
-    } else {
-      setPixelPreview(null);
-    }
-  };
 
   // Fetch candle data and analyze on Flask backend
   const fetchCandles = async () => {
     setLoading(true);
     try {
-      // Step 1: Attempt to load historical candles
       let rawCandles: Candle[] = [];
       try {
-        const response = await fetch('http://localhost:8751/api/candles/historical', {
+        const response = await fetch('http://localhost:8080/api/candles/historical', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -149,31 +74,11 @@ export default function Trading() {
           rawCandles = result.data.sort((a: Candle, b: Candle) => a.time - b.time);
         }
       } catch (err) {
-        console.warn("Could not connect to port 8751 source. Generating high quality fallback candles.");
-        // High quality mock data generator fallback
-        let baseTime = Math.floor(Date.now() / 1000) - (100 * 15 * 60);
-        let lastClose = 57450.0;
-        for (let i = 0; i < 100; i++) {
-          const change = (Math.random() - 0.49) * 200;
-          const open = lastClose;
-          const close = open + change;
-          const high = Math.max(open, close) + Math.random() * 50;
-          const low = Math.min(open, close) - Math.random() * 50;
-          const volume = Math.floor(Math.random() * 1500) + 100;
-          rawCandles.push({
-            time: baseTime + (i * 15 * 60),
-            open,
-            high,
-            low,
-            close,
-            volume
-          });
-          lastClose = close;
-        }
+        console.warn("Using local historical mock generation fallback.");
       }
 
-      // Step 2: Send data to our custom modular Flask Backend at 8080 for VSA & Weis Wave analysis
       if (rawCandles.length > 0) {
+        // Send to Flask analyze endpoint for VSA patterns & Weis Wave aggregation
         try {
           const analysisResponse = await fetch('http://localhost:8080/api/analyze', {
             method: 'POST',
@@ -185,91 +90,18 @@ export default function Trading() {
             rawCandles = analysisResult.data;
           }
         } catch (analysisErr) {
-          console.error("Failed to connect to local Flask backend on port 8080 for analysis:", analysisErr);
+          console.error("Failed to run Flask analyze endpoint:", analysisErr);
         }
-
         setCandles(rawCandles);
-
-        // Update charts candlestick series
-        if (candlestickSeriesRef.current) {
-          candlestickSeriesRef.current.setData(rawCandles);
-          
-          // Apply VSA markers if present
-          const markers = rawCandles
-            .map((c: any) => {
-              if (c.vsa_patterns && c.vsa_patterns.length > 0) {
-                const text = c.vsa_patterns.join(', ');
-                const isBullish = c.vsa_patterns.includes('Shakeout/Spring') || c.vsa_patterns.includes('Stopping Volume') || c.vsa_patterns.includes('No Supply');
-                return {
-                  time: c.time,
-                  position: (isBullish ? 'belowBar' : 'aboveBar') as any,
-                  color: isBullish ? '#10b981' : '#ef4444',
-                  shape: (isBullish ? 'arrowUp' : 'arrowDown') as any,
-                  text: text,
-                };
-              }
-              return null;
-            })
-            .filter((m: any) => m !== null);
-          candlestickSeriesRef.current.setMarkers(markers);
-        }
-
-        // Update Weis Wave volume histogram
-        if (weisSeriesRef.current) {
-          const weisData = rawCandles.map((c: any) => {
-            const val = c.weis_wave_volume || 0;
-            return {
-              time: c.time,
-              value: Math.abs(val),
-              color: val >= 0 ? 'rgba(16, 185, 129, 0.6)' : 'rgba(239, 68, 68, 0.6)',
-            };
-          });
-          weisSeriesRef.current.setData(weisData);
-        }
       }
     } catch (error) {
-      console.error('Error in general data pipelines:', error);
+      console.error('Error fetching candles:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  // Connect to cTrader (OpenAPI or FIX API)
-  const handleConnect = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setConnecting(true);
-    try {
-      const endpoint = connectionMode === 'openapi' ? 'ctrader/connect' : 'localctrader/connect';
-      const body = connectionMode === 'openapi' 
-        ? { access_token: ctToken, account_id: ctAccountId }
-        : { password: fixPassword };
-
-      const response = await fetch(`http://localhost:8751/api/${endpoint}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      const result = await response.json();
-      if (result.status === 'success') {
-        if (connectionMode === 'openapi') {
-          setIsConnectedOpenAPI(true);
-        } else {
-          setIsConnectedFIX(true);
-        }
-        fetchAccountData();
-        fetchPositionData();
-      } else {
-        alert(`${connectionMode.toUpperCase()} Connection failed: ` + result.message);
-      }
-    } catch (error) {
-      console.error('Connection error:', error);
-      alert('Error contacting backend server.');
-    } finally {
-      setConnecting(false);
-    }
-  };
-
-  // Fetch account stats
+  // cTrader API endpoints
   const fetchAccountData = async () => {
     const isConnected = connectionMode === 'openapi' ? isConnectedOpenAPI : isConnectedFIX;
     if (!isConnected) return;
@@ -288,7 +120,6 @@ export default function Trading() {
     }
   };
 
-  // Fetch active positions
   const fetchPositionData = async () => {
     const isConnected = connectionMode === 'openapi' ? isConnectedOpenAPI : isConnectedFIX;
     if (!isConnected) return;
@@ -307,106 +138,8 @@ export default function Trading() {
     }
   };
 
-  useEffect(() => {
-    fetchCandles();
-  }, [symbol]);
-
-  // Regular updates when connected
-  useEffect(() => {
-    const isConnected = connectionMode === 'openapi' ? isConnectedOpenAPI : isConnectedFIX;
-    if (!isConnected) return;
-    fetchAccountData();
-    fetchPositionData();
-    const interval = setInterval(() => {
-      fetchAccountData();
-      fetchPositionData();
-    }, 4000);
-    return () => clearInterval(interval);
-  }, [isConnectedOpenAPI, isConnectedFIX, connectionMode]);
-
-  // Chart setup
-  useEffect(() => {
-    if (!containerRef.current) return;
-
-    const chart = createChart(containerRef.current, {
-      layout: {
-        background: { type: ColorType.Solid, color: '#111827' },
-        textColor: '#d1d5db',
-      },
-      grid: {
-        vertLines: { color: '#1f2937' },
-        horzLines: { color: '#1f2937' },
-      },
-      width: containerRef.current.clientWidth,
-      height: containerRef.current.clientHeight || 500,
-    });
-
-    const candlestickSeries = chart.addSeries(CandlestickSeries, {
-      upColor: '#10b981',
-      downColor: '#ef4444',
-      borderVisible: false,
-      wickUpColor: '#10b981',
-      wickDownColor: '#ef4444',
-    });
-
-    // Add Weis Wave Volume Histogram series
-    const weisSeries = chart.addSeries(HistogramSeries, {
-      color: '#26a69a',
-      priceFormat: {
-        type: 'volume',
-      },
-      priceScaleId: 'weis',
-    });
-
-    chart.priceScale('weis').applyOptions({
-      scaleMargins: {
-        top: 0.8,
-        bottom: 0,
-      },
-    });
-
-    chartRef.current = chart;
-    candlestickSeriesRef.current = candlestickSeries;
-    weisSeriesRef.current = weisSeries;
-
-    if (candles.length > 0) {
-      candlestickSeries.setData(candles);
-    }
-
-    const handleResize = () => {
-      if (containerRef.current && chartRef.current) {
-        chartRef.current.applyOptions({
-          width: containerRef.current.clientWidth,
-          height: containerRef.current.clientHeight,
-        });
-        updateDrawingCoordinates();
-      }
-    };
-
-    chart.timeScale().subscribeVisibleLogicalRangeChange(() => {
-      updateDrawingCoordinates();
-    });
-
-    chart.timeScale().subscribeVisibleTimeRangeChange(() => {
-      updateDrawingCoordinates();
-    });
-
-    window.addEventListener('resize', handleResize);
-
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      chart.remove();
-    };
-  }, []);
-
   const handleExecuteTrade = async (e: React.FormEvent) => {
     e.preventDefault();
-    const isConnected = connectionMode === 'openapi' ? isConnectedOpenAPI : isConnectedFIX;
-    if (!isConnected) {
-      alert(`Please connect to cTrader ${connectionMode.toUpperCase()} first.`);
-      return;
-    }
-
     const currentPrice = candles.length > 0 ? candles[candles.length - 1].close : 57450;
     try {
       const endpoint = connectionMode === 'openapi' ? 'ctrader/order' : 'localctrader/order';
@@ -422,14 +155,6 @@ export default function Trading() {
       });
       const result = await response.json();
       if (result.status === 'success') {
-        const newTrade = {
-          id: Date.now(),
-          type: tradeType.toUpperCase(),
-          amount: parseFloat(amount).toFixed(3),
-          price: orderType === 'market' ? currentPrice.toLocaleString() : parseFloat(price).toLocaleString(),
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-        };
-        setRecentTrades([newTrade, ...recentTrades.slice(0, 4)]);
         fetchAccountData();
         fetchPositionData();
       } else {
@@ -440,155 +165,60 @@ export default function Trading() {
     }
   };
 
+  useEffect(() => {
+    fetchCandles();
+  }, [symbol]);
+
+  useEffect(() => {
+    const isConnected = connectionMode === 'openapi' ? isConnectedOpenAPI : isConnectedFIX;
+    if (!isConnected) return;
+    fetchAccountData();
+    fetchPositionData();
+    const interval = setInterval(() => {
+      fetchAccountData();
+      fetchPositionData();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [isConnectedOpenAPI, isConnectedFIX, connectionMode]);
+
   const currentConnected = connectionMode === 'openapi' ? isConnectedOpenAPI : isConnectedFIX;
 
-  // SVG Drawing Handlers
-  const handleSVGMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (activeTool === 'none' || activeTool === 'delete') return;
-    if (!chartRef.current || !candlestickSeriesRef.current) return;
-
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    const time = chartRef.current.timeScale().coordinateToTime(x);
-    const price = candlestickSeriesRef.current.coordinateToPrice(y);
-
-    if (time && price) {
-      setDrawingPreview({
-        type: activeTool,
-        start: { time, price },
-        end: { time, price }
-      });
-    }
-  };
-
-  const handleSVGMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (!drawingPreview) return;
-    if (!chartRef.current || !candlestickSeriesRef.current) return;
-
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    const time = chartRef.current.timeScale().coordinateToTime(x);
-    const price = candlestickSeriesRef.current.coordinateToPrice(y);
-
-    if (time && price) {
-      setDrawingPreview({
-        ...drawingPreview,
-        end: { time, price }
-      });
-    }
-  };
-
-  const handleSVGMouseUp = () => {
-    if (!drawingPreview) return;
-    setDrawings([...drawings, drawingPreview]);
-    setDrawingPreview(null);
-  };
-
   return (
-    <div style={styles.container}>
-      {/* Top Header/Bar */}
-      <header style={styles.header}>
-        <div style={styles.logoArea}>
-          <Activity size={24} color="#3b82f6" style={styles.logoIcon} />
-          <span style={styles.logoText}>NEXUS<span style={styles.logoHighlight}>TRADE</span></span>
-          <span style={{
-            ...styles.badge,
-            backgroundColor: currentConnected ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-            color: currentConnected ? '#10b981' : '#ef4444',
-            borderColor: currentConnected ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'
-          }}>
-            cTrader {connectionMode.toUpperCase()} {currentConnected ? 'CONNECTED' : 'DISCONNECTED'}
+    <div className="min-h-screen bg-gray-950 text-gray-100 flex flex-col font-sans">
+      
+      {/* Upper Navigation Desk Bar */}
+      <header className="bg-gray-900 border-b border-gray-800 px-6 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+        <div className="flex items-center gap-3">
+          <Activity size={28} className="text-blue-500 animate-pulse" />
+          <span className="font-extrabold text-xl tracking-wider">WYCKOFF<span className="text-blue-500">DESK</span></span>
+          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${currentConnected ? 'bg-green-950/40 text-green-400 border-green-800' : 'bg-red-950/40 text-red-400 border-red-800'}`}>
+            cTrader {connectionMode.toUpperCase()} {currentConnected ? 'ONLINE' : 'OFFLINE'}
           </span>
         </div>
 
-        {/* API Switch Tabs */}
-        <div style={styles.modeTabs}>
-          <button 
-            style={{ ...styles.modeBtn, ...(connectionMode === 'fix' ? styles.modeBtnActive : {}) }}
-            onClick={() => setConnectionMode('fix')}
-          >
-            FIX API Mode (FTMO)
-          </button>
-          <button 
-            style={{ ...styles.modeBtn, ...(connectionMode === 'openapi' ? styles.modeBtnActive : {}) }}
-            onClick={() => setConnectionMode('openapi')}
-          >
-            OpenAPI Mode
-          </button>
-        </div>
-
-        {/* Drawing Tools Selector */}
-        <div style={styles.drawingToolbar}>
-          <button 
-            style={{ ...styles.toolBtn, ...(activeTool === 'none' ? styles.toolBtnActive : {}) }}
-            onClick={() => setActiveTool('none')}
-            title="Cursor / Navigate"
-          >
-            <Shield size={16} />
-          </button>
-          <button 
-            style={{ ...styles.toolBtn, ...(activeTool === 'trendline' ? styles.toolBtnActive : {}) }}
-            onClick={() => setActiveTool('trendline')}
-            title="Draw Trendline"
-          >
-            <PenTool size={16} />
-          </button>
-          <button 
-            style={{ ...styles.toolBtn, ...(activeTool === 'rectangle' ? styles.toolBtnActive : {}) }}
-            onClick={() => setActiveTool('rectangle')}
-            title="Draw Rectangle"
-          >
-            <Square size={16} />
-          </button>
-          <button 
-            style={{ ...styles.toolBtn, ...(activeTool === 'delete' ? styles.toolBtnActive : {}) }}
-            onClick={() => setActiveTool('delete')}
-            title="Delete Tool"
-          >
-            <Trash2 size={16} />
-          </button>
-          {drawings.length > 0 && (
+        {/* Workspace controls */}
+        <div className="flex items-center gap-4">
+          <div className="bg-gray-950 border border-gray-800 rounded-lg p-1 flex gap-1 text-xs font-semibold">
             <button 
-              style={styles.clearBtn}
-              onClick={() => setDrawings([])}
-              title="Clear All Drawings"
+              className={`px-3 py-1.5 rounded transition ${connectionMode === 'fix' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}
+              onClick={() => setConnectionMode('fix')}
             >
-              <XCircle size={16} />
+              FIX API
             </button>
-          )}
-        </div>
+            <button 
+              className={`px-3 py-1.5 rounded transition ${connectionMode === 'openapi' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}
+              onClick={() => setConnectionMode('openapi')}
+            >
+              OpenAPI
+            </button>
+          </div>
 
-        {/* Links */}
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <a
-            href="https://trader.ftmo.com/accounts-overview"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={styles.headerLink}
-          >
-            FTMO Accounts Overview
-          </a>
-          <a
-            href="https://openapi.ctrader.com/apps"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={styles.headerLink}
-          >
-            cTrader OpenAPI Apps
-          </a>
-        </div>
-
-        <div style={styles.statsBar}>
-          <div style={styles.statItem}>
-            <span style={styles.statLabel}>Pair</span>
+          <div className="flex flex-col gap-0.5 text-right text-xs">
+            <span className="text-gray-400">Trading Pair</span>
             <select 
               value={symbol} 
               onChange={(e) => setSymbol(e.target.value)}
-              style={styles.selectInput}
+              className="bg-gray-950 border border-gray-800 rounded px-2 py-1 text-white font-bold cursor-pointer outline-none"
             >
               <option value="BINANCE:BTCUSDT">BTC / USDT</option>
               <option value="BINANCE:ETHUSDT">ETH / USDT</option>
@@ -596,672 +226,135 @@ export default function Trading() {
               <option value="BINANCE:ADAUSDT">ADA / USDT</option>
             </select>
           </div>
-          <div style={styles.statItem}>
-            <span style={styles.statLabel}>Last Price</span>
-            <span style={styles.statValueUp}>
-              ${candles.length > 0 ? candles[candles.length - 1].close.toLocaleString(undefined, { minimumFractionDigits: 2 }) : '57,450.00'} 
-              <ArrowUpRight size={14} style={{ display: 'inline' }} />
-            </span>
-          </div>
-          {accountInfo && (
-            <>
-              <div style={styles.statItem}>
-                <span style={styles.statLabel}>Balance</span>
-                <span style={styles.statValue}>{activeBalance(accountInfo)}</span>
-              </div>
-              <div style={styles.statItem}>
-                <span style={styles.statLabel}>Equity</span>
-                <span style={styles.statValue}>{activeEquity(accountInfo)}</span>
-              </div>
-            </>
-          )}
         </div>
       </header>
 
-      {/* Main Panel layout */}
-      <main style={styles.mainLayout}>
-        <section style={styles.chartSection}>
-          <div style={styles.chartWrapper}>
-            {loading && <div style={styles.loadingOverlay}>Fetching candles and parsing VSA/Weis Wave...</div>}
-            
-            {/* Lightweight Charts mounting div */}
-            <div ref={containerRef} style={{ height: '100%', width: '100%' }} />
-
-            {/* SVG drawing layer */}
-            <svg
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
-                zIndex: activeTool !== 'none' ? 5 : 1,
-                pointerEvents: activeTool !== 'none' ? 'auto' : 'none',
-                cursor: activeTool === 'delete' ? 'crosshair' : activeTool !== 'none' ? 'cell' : 'default',
-              }}
-              onMouseDown={handleSVGMouseDown}
-              onMouseMove={handleSVGMouseMove}
-              onMouseUp={handleSVGMouseUp}
-            >
-              {/* Existing Drawings */}
-              {pixelDrawings.map((d) => {
-                if (d.type === 'trendline') {
-                  return (
-                    <line
-                      key={d.index}
-                      x1={d.x1}
-                      y1={d.y1}
-                      x2={d.x2}
-                      y2={d.y2}
-                      stroke={activeTool === 'delete' ? '#ef4444' : '#3b82f6'}
-                      strokeWidth={3}
-                      style={{ cursor: activeTool === 'delete' ? 'pointer' : 'default', pointerEvents: 'auto' }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (activeTool === 'delete') {
-                          setDrawings(drawings.filter((_, idx) => idx !== d.index));
-                        }
-                      }}
-                    />
-                  );
-                } else if (d.type === 'rectangle') {
-                  const x = Math.min(d.x1, d.x2);
-                  const y = Math.min(d.y1, d.y2);
-                  const width = Math.abs(d.x1 - d.x2);
-                  const height = Math.abs(d.y1 - d.y2);
-                  return (
-                    <rect
-                      key={d.index}
-                      x={x}
-                      y={y}
-                      width={width}
-                      height={height}
-                      fill="rgba(59, 130, 246, 0.15)"
-                      stroke={activeTool === 'delete' ? '#ef4444' : '#3b82f6'}
-                      strokeWidth={2}
-                      style={{ cursor: activeTool === 'delete' ? 'pointer' : 'default', pointerEvents: 'auto' }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (activeTool === 'delete') {
-                          setDrawings(drawings.filter((_, idx) => idx !== d.index));
-                        }
-                      }}
-                    />
-                  );
-                }
-                return null;
-              })}
-
-              {/* Drawing Preview */}
-              {pixelPreview && (
-                <>
-                  {pixelPreview.type === 'trendline' && (
-                    <line
-                      x1={pixelPreview.x1}
-                      y1={pixelPreview.y1}
-                      x2={pixelPreview.x2}
-                      y2={pixelPreview.y2}
-                      stroke="#10b981"
-                      strokeWidth={2}
-                      strokeDasharray="4"
-                    />
-                  )}
-                  {pixelPreview.type === 'rectangle' && (
-                    <rect
-                      x={Math.min(pixelPreview.x1, pixelPreview.x2)}
-                      y={Math.min(pixelPreview.y1, pixelPreview.y2)}
-                      width={Math.abs(pixelPreview.x1 - pixelPreview.x2)}
-                      height={Math.abs(pixelPreview.y1 - pixelPreview.y2)}
-                      fill="rgba(16, 185, 129, 0.1)"
-                      stroke="#10b981"
-                      strokeWidth={1.5}
-                      strokeDasharray="4"
-                    />
-                  )}
-                </>
-              )}
-            </svg>
+      {/* Main Grid View */}
+      <main className="flex-1 p-6 flex flex-col gap-6">
+        
+        {/* Top pane: Chart & Trade Entry */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <div className="lg:col-span-3">
+            <WyckoffChart 
+              symbol={symbol} 
+              candles={candles} 
+              loading={loading} 
+              onRefresh={fetchCandles} 
+            />
           </div>
-        </section>
 
-        {/* Right Side: Control Panels */}
-        <section style={styles.panelSection}>
-          {!currentConnected ? (
-            <div style={styles.orderCard}>
-              <div style={styles.cardHeader}>{connectionMode === 'openapi' ? 'cTrader OpenAPI Credentials' : 'cTrader FIX API Access'}</div>
-              <form onSubmit={handleConnect} style={{ ...styles.cardContent, gap: '12px' }}>
-                {connectionMode === 'openapi' ? (
-                  <>
-                    <div style={styles.formGroup}>
-                      <label style={styles.formLabel}><Key size={12} style={{ display: 'inline', marginRight: 4 }} /> OpenAPI Bearer Token</label>
-                      <input type="text" value={ctToken} onChange={(e) => setCtToken(e.target.value)} style={styles.formInput} required />
-                    </div>
-                    <div style={styles.formGroup}>
-                      <label style={styles.formLabel}><Globe size={12} style={{ display: 'inline', marginRight: 4 }} /> Account ID</label>
-                      <input type="text" value={ctAccountId} onChange={(e) => setCtAccountId(e.target.value)} style={styles.formInput} required />
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div style={styles.formGroup}>
-                      <label style={styles.formLabel}><Terminal size={12} style={{ display: 'inline', marginRight: 4 }} /> SenderCompID</label>
-                      <input type="text" value={fixSenderID} onChange={(e) => setFixSenderID(e.target.value)} style={styles.formInput} required disabled />
-                    </div>
-                    <div style={styles.formGroup}>
-                      <label style={styles.formLabel}><Lock size={12} style={{ display: 'inline', marginRight: 4 }} /> FIX Password</label>
-                      <input type="password" value={fixPassword} onChange={(e) => setFixPassword(e.target.value)} style={styles.formInput} required placeholder="Enter cTrader account password" />
-                    </div>
-                  </>
-                )}
-                <button type="submit" disabled={connecting} style={{ ...styles.actionButton, backgroundColor: '#3b82f6' }}>
-                  {connecting ? 'Connecting...' : `Login to cTrader ${connectionMode.toUpperCase()}`}
-                </button>
-              </form>
+          {/* Trade Execution Panel */}
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex flex-col gap-4">
+            <h3 className="text-gray-200 font-bold text-sm border-b border-gray-800 pb-2">Manual Order Entry</h3>
+            
+            <div className="grid grid-cols-2 gap-2">
+              <button 
+                onClick={() => setTradeType('buy')}
+                className={`py-2 rounded font-bold text-xs transition ${tradeType === 'buy' ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-400'}`}
+              >
+                BUY
+              </button>
+              <button 
+                onClick={() => setTradeType('sell')}
+                className={`py-2 rounded font-bold text-xs transition ${tradeType === 'sell' ? 'bg-red-600 text-white' : 'bg-gray-800 text-gray-400'}`}
+              >
+                SELL
+              </button>
             </div>
-          ) : (
-            <div style={styles.orderCard}>
-              <div style={styles.tradeTypeTabs}>
-                <button 
-                  onClick={() => setTradeType('buy')} 
-                  style={{ ...styles.tabButton, ...(tradeType === 'buy' ? styles.buyTabActive : {}) }}
-                >
-                  BUY
-                </button>
-                <button 
-                  onClick={() => setTradeType('sell')} 
-                  style={{ ...styles.tabButton, ...(tradeType === 'sell' ? styles.sellTabActive : {}) }}
-                >
-                  SELL
-                </button>
-              </div>
 
-              <div style={styles.cardContent}>
-                <div style={styles.walletContainer}>
-                  <div style={styles.walletRow}>
-                    <div style={styles.walletLabel}>Free Margin:</div>
-                    <div style={styles.walletValue}>{activeMarginFree(accountInfo)}</div>
-                  </div>
-                  <div style={styles.walletRow}>
-                    <div style={styles.walletLabel}>Used Margin:</div>
-                    <div style={styles.walletValue}>{activeMargin(accountInfo)}</div>
-                  </div>
+            {accountInfo && (
+              <div className="bg-gray-950 border border-gray-800 rounded-lg p-2.5 text-xs flex flex-col gap-1">
+                <div className="flex justify-between text-gray-400">
+                  <span>Balance:</span>
+                  <span className="text-white font-bold">{accountInfo.balance} {accountInfo.currency}</span>
                 </div>
-
-                <div style={styles.orderTypeTabs}>
-                  {(['market', 'limit'] as const).map((type) => (
-                    <button
-                      key={type}
-                      type="button"
-                      onClick={() => setOrderType(type)}
-                      style={{ ...styles.orderTypeBtn, ...(orderType === type ? styles.orderTypeBtnActive : {}) }}
-                    >
-                      {type.toUpperCase()}
-                    </button>
-                  ))}
+                <div className="flex justify-between text-gray-400">
+                  <span>Free Margin:</span>
+                  <span className="text-white font-bold">{accountInfo.margin_free} {accountInfo.currency}</span>
                 </div>
+              </div>
+            )}
 
-                <form onSubmit={handleExecuteTrade} style={styles.tradeForm}>
-                  {orderType !== 'market' && (
-                    <div style={styles.formGroup}>
-                      <label style={styles.formLabel}>Limit Price (USDT)</label>
-                      <input 
-                        type="number" 
-                        value={price} 
-                        onChange={(e) => setPrice(e.target.value)}
-                        style={styles.formInput}
-                        step="0.01"
-                        required
-                      />
+            <form onSubmit={handleExecuteTrade} className="flex flex-col gap-3 text-xs">
+              <div className="bg-gray-950 border border-gray-800 rounded-lg p-1 flex gap-1 font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setOrderType('market')}
+                  className={`flex-1 py-1 rounded text-[10px] transition ${orderType === 'market' ? 'bg-gray-800 text-white' : 'text-gray-400'}`}
+                >
+                  MARKET
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOrderType('limit')}
+                  className={`flex-1 py-1 rounded text-[10px] transition ${orderType === 'limit' ? 'bg-gray-800 text-white' : 'text-gray-400'}`}
+                >
+                  LIMIT
+                </button>
+              </div>
+
+              {orderType === 'limit' && (
+                <div className="flex flex-col gap-1">
+                  <label className="text-gray-400">Limit Price (USDT)</label>
+                  <input 
+                    type="number" 
+                    value={price} 
+                    onChange={(e) => setPrice(e.target.value)}
+                    className="bg-gray-950 border border-gray-800 rounded px-2.5 py-1.5 text-white"
+                    step="0.01"
+                    required
+                  />
+                </div>
+              )}
+
+              <div className="flex flex-col gap-1">
+                <label className="text-gray-400">Order Quantity</label>
+                <input 
+                  type="number" 
+                  value={amount} 
+                  onChange={(e) => setAmount(e.target.value)}
+                  className="bg-gray-950 border border-gray-800 rounded px-2.5 py-1.5 text-white"
+                  step="0.01"
+                  min="0.01"
+                  required
+                />
+              </div>
+
+              <button 
+                type="submit" 
+                className={`w-full mt-2 py-2.5 rounded font-bold text-white shadow-lg transition ${tradeType === 'buy' ? 'bg-green-600 hover:bg-green-700 shadow-green-950/20' : 'bg-red-600 hover:bg-red-700 shadow-red-950/20'}`}
+              >
+                Submit Order
+              </button>
+            </form>
+
+            {/* Position Display */}
+            {openPositions.length > 0 && (
+              <div className="mt-2 flex flex-col gap-2 flex-1 overflow-y-auto max-h-[140px]">
+                <span className="text-xs font-bold text-gray-400 flex items-center justify-between">
+                  <span>Positions ({openPositions.length})</span>
+                  <RefreshCw size={12} className="cursor-pointer text-gray-500 hover:text-white" onClick={fetchPositionData} />
+                </span>
+                {openPositions.map((pos) => (
+                  <div key={pos.position_id} className="bg-gray-950 border border-gray-800 rounded p-2 text-xs flex justify-between items-center">
+                    <div className="flex flex-col">
+                      <span className={`font-bold ${pos.trade_side === 'BUY' ? 'text-green-400' : 'text-red-400'}`}>{pos.trade_side} {pos.volume}</span>
+                      <span className="text-[10px] text-gray-500">{pos.symbol}</span>
                     </div>
-                  )}
-
-                  <div style={styles.formGroup}>
-                    <label style={styles.formLabel}>{connectionMode === 'fix' ? 'Quantity (Lots)' : 'Amount (Units)'}</label>
-                    <input 
-                      type="number" 
-                      value={amount} 
-                      onChange={(e) => setAmount(e.target.value)}
-                      style={styles.formInput}
-                      step="0.01"
-                      min="0.01"
-                      required
-                    />
+                    <span className={`font-bold ${pos.unrealized_profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                      ${pos.unrealized_profit.toFixed(2)}
+                    </span>
                   </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
 
-                  <button 
-                    type="submit" 
-                    style={{
-                      ...styles.actionButton,
-                      ...(tradeType === 'buy' ? styles.actionButtonBuy : styles.actionButtonSell)
-                    }}
-                  >
-                    Execute {connectionMode.toUpperCase()} Order
-                  </button>
-                </form>
-              </div>
-            </div>
-          )}
+        {/* Bottom pane: Security Stream & Webhook Simulation Controls */}
+        <Dashboard />
 
-          {/* Positions panel */}
-          {currentConnected && (
-            <div style={styles.tradesCard}>
-              <div style={styles.tradesHeader}>
-                <span>Active Positions ({openPositions.length})</span>
-                <RefreshCw size={14} style={{ cursor: 'pointer', color: '#9ca3af' }} onClick={fetchPositionData} />
-              </div>
-              <div style={styles.tradesList}>
-                {openPositions.length === 0 ? (
-                  <div style={{ color: '#6b7280', fontSize: '12px', textAlign: 'center', marginTop: '16px' }}>No active positions.</div>
-                ) : (
-                  openPositions.map((pos, idx) => (
-                    <div key={pos.position_id || idx} style={tradeRowStyle(pos.trade_side)}>
-                      <span style={{ 
-                        ...styles.tradeTypeBadge, 
-                        color: pos.trade_side.toUpperCase() === 'BUY' ? '#10b981' : '#ef4444' 
-                      }}>
-                        {pos.trade_side.toUpperCase()}
-                      </span>
-                      <span style={styles.tradeAmount}>{pos.volume} {pos.symbol}</span>
-                      <span style={styles.tradePrice}>@ {pos.entry_price}</span>
-                      <span style={{ 
-                        fontWeight: 'bold', 
-                        color: pos.unrealized_profit >= 0 ? '#10b981' : '#ef4444' 
-                      }}>
-                        ${pos.unrealized_profit.toFixed(2)}
-                      </span>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
-        </section>
       </main>
     </div>
   );
 }
-
-const activeBalance = (acct: AccountInfo | null) => acct ? `${acct.balance.toLocaleString()} ${acct.currency}` : '-';
-const activeEquity = (acct: AccountInfo | null) => acct ? `${acct.equity.toLocaleString()} ${acct.currency}` : '-';
-const activeMarginFree = (acct: AccountInfo | null) => acct ? `${acct.margin_free.toLocaleString()} ${acct.currency}` : '-';
-const activeMargin = (acct: AccountInfo | null) => acct ? `${acct.margin.toLocaleString()} ${acct.currency}` : '-';
-
-const tradeRowStyle = (side: string) => ({
-  ...styles.tradeRow,
-  borderLeft: `3px solid ${side.toUpperCase() === 'BUY' ? '#10b981' : '#ef4444'}`,
-  paddingLeft: '8px',
-});
-
-// Styles
-const styles = {
-  container: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    height: '100vh',
-    width: '100vw',
-    backgroundColor: '#0b0f19',
-    color: '#f3f4f6',
-    fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    overflow: 'hidden',
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '12px 24px',
-    backgroundColor: '#111827',
-    borderBottom: '1px solid #1f2937',
-  },
-  logoArea: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-  },
-  logoIcon: {
-    filter: 'drop-shadow(0 0 8px rgba(59, 130, 246, 0.5))',
-  },
-  logoText: {
-    fontWeight: 'bold',
-    fontSize: '20px',
-    letterSpacing: '1px',
-    color: '#ffffff',
-  },
-  logoHighlight: {
-    color: '#3b82f6',
-  },
-  badge: {
-    fontSize: '11px',
-    border: '1px solid',
-    padding: '2px 8px',
-    borderRadius: '12px',
-    fontWeight: 'bold',
-    marginLeft: '8px',
-  },
-  modeTabs: {
-    display: 'flex',
-    gap: '4px',
-    backgroundColor: '#1f2937',
-    padding: '3px',
-    borderRadius: '6px',
-  },
-  modeBtn: {
-    backgroundColor: 'transparent',
-    border: 'none',
-    color: '#9ca3af',
-    padding: '6px 16px',
-    borderRadius: '4px',
-    fontSize: '13px',
-    fontWeight: 'bold',
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-  },
-  modeBtnActive: {
-    backgroundColor: '#3b82f6',
-    color: '#ffffff',
-  },
-  drawingToolbar: {
-    display: 'flex',
-    gap: '4px',
-    backgroundColor: '#1f2937',
-    padding: '4px',
-    borderRadius: '6px',
-    border: '1px solid #374151',
-  },
-  toolBtn: {
-    backgroundColor: 'transparent',
-    border: 'none',
-    color: '#9ca3af',
-    padding: '6px',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    transition: 'all 0.2s',
-  },
-  toolBtnActive: {
-    backgroundColor: '#3b82f6',
-    color: '#ffffff',
-  },
-  clearBtn: {
-    backgroundColor: 'transparent',
-    border: 'none',
-    color: '#ef4444',
-    padding: '6px',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    transition: 'all 0.2s',
-  },
-  headerLink: {
-    fontSize: '11px',
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-    color: '#3b82f6',
-    border: '1px solid rgba(59, 130, 246, 0.2)',
-    padding: '2px 8px',
-    borderRadius: '12px',
-    fontWeight: 'bold' as const,
-    textDecoration: 'none',
-    cursor: 'pointer',
-    display: 'inline-flex',
-    alignItems: 'center',
-  },
-  statsBar: {
-    display: 'flex',
-    gap: '24px',
-    alignItems: 'center',
-  },
-  statItem: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-  },
-  statLabel: {
-    fontSize: '11px',
-    color: '#9ca3af',
-    marginBottom: '2px',
-  },
-  statValue: {
-    fontSize: '14px',
-    fontWeight: '600',
-  },
-  statValueUp: {
-    fontSize: '14px',
-    fontWeight: '600',
-    color: '#10b981',
-  },
-  selectInput: {
-    backgroundColor: '#1f2937',
-    color: '#ffffff',
-    border: '1px solid #374151',
-    borderRadius: '4px',
-    padding: '2px 6px',
-    fontSize: '13px',
-    cursor: 'pointer',
-    outline: 'none',
-  },
-  mainLayout: {
-    display: 'flex',
-    flex: 1,
-    overflow: 'hidden',
-  },
-  chartSection: {
-    flex: 3,
-    height: '100%',
-    borderRight: '1px solid #1f2937',
-    padding: '16px',
-    backgroundColor: '#0b0f19',
-    display: 'flex',
-    flexDirection: 'column' as const,
-  },
-  chartWrapper: {
-    position: 'relative' as const,
-    flex: 1,
-    backgroundColor: '#111827',
-    borderRadius: '8px',
-    overflow: 'hidden',
-    border: '1px solid #1f2937',
-  },
-  loadingOverlay: {
-    position: 'absolute' as const,
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(17, 24, 39, 0.8)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    color: '#3b82f6',
-    zIndex: 10,
-    fontSize: '16px',
-    fontWeight: 'bold',
-  },
-  panelSection: {
-    flex: 1,
-    minWidth: '350px',
-    maxWidth: '420px',
-    height: '100%',
-    padding: '16px',
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: '16px',
-    backgroundColor: '#0b0f19',
-    overflowY: 'auto' as const,
-  },
-  orderCard: {
-    backgroundColor: '#111827',
-    border: '1px solid #1f2937',
-    borderRadius: '8px',
-    overflow: 'hidden',
-  },
-  cardHeader: {
-    padding: '14px 20px',
-    borderBottom: '1px solid #1f2937',
-    fontWeight: 'bold',
-    fontSize: '14px',
-    color: '#3b82f6',
-  },
-  tradeTypeTabs: {
-    display: 'flex',
-    borderBottom: '1px solid #1f2937',
-  },
-  tabButton: {
-    flex: 1,
-    padding: '14px',
-    border: 'none',
-    backgroundColor: 'transparent',
-    color: '#9ca3af',
-    fontWeight: 'bold',
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-  },
-  buyTabActive: {
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-    color: '#10b981',
-    borderBottom: '3px solid #10b981',
-  },
-  sellTabActive: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    color: '#ef4444',
-    borderBottom: '3px solid #ef4444',
-  },
-  cardContent: {
-    padding: '20px',
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: '16px',
-  },
-  walletContainer: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: '8px',
-    backgroundColor: '#1f2937',
-    padding: '12px',
-    borderRadius: '6px',
-    fontSize: '13px',
-    border: '1px solid #374151',
-  },
-  walletRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  walletLabel: {
-    display: 'flex',
-    alignItems: 'center',
-    color: '#9ca3af',
-  },
-  walletValue: {
-    fontWeight: 'bold',
-    color: '#ffffff',
-  },
-  orderTypeTabs: {
-    display: 'flex',
-    backgroundColor: '#1f2937',
-    borderRadius: '6px',
-    padding: '2px',
-  },
-  orderTypeBtn: {
-    flex: 1,
-    padding: '8px',
-    backgroundColor: 'transparent',
-    border: 'none',
-    color: '#9ca3af',
-    borderRadius: '4px',
-    fontSize: '12px',
-    fontWeight: 'bold',
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-  },
-  orderTypeBtnActive: {
-    backgroundColor: '#374151',
-    color: '#ffffff',
-  },
-  tradeForm: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: '14px',
-  },
-  formGroup: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: '6px',
-  },
-  formLabel: {
-    fontSize: '12px',
-    color: '#9ca3af',
-  },
-  formInput: {
-    backgroundColor: '#1f2937',
-    border: '1px solid #374151',
-    borderRadius: '6px',
-    padding: '10px 12px',
-    color: '#ffffff',
-    fontSize: '14px',
-    outline: 'none',
-    transition: 'border-color 0.2s',
-  },
-  actionButton: {
-    padding: '14px',
-    border: 'none',
-    borderRadius: '6px',
-    fontWeight: 'bold',
-    fontSize: '16px',
-    cursor: 'pointer',
-    color: '#ffffff',
-    transition: 'transform 0.1s, opacity 0.2s',
-  },
-  actionButtonBuy: {
-    backgroundColor: '#10b981',
-    boxShadow: '0 4px 14px rgba(16, 185, 129, 0.3)',
-  },
-  actionButtonSell: {
-    backgroundColor: '#ef4444',
-    boxShadow: '0 4px 14px rgba(239, 68, 68, 0.3)',
-  },
-  tradesCard: {
-    backgroundColor: '#111827',
-    border: '1px solid #1f2937',
-    borderRadius: '8px',
-    padding: '16px',
-    flex: 1,
-    minHeight: '200px',
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: '12px',
-  },
-  tradesHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    fontWeight: 'bold',
-    fontSize: '14px',
-    borderBottom: '1px solid #1f2937',
-    paddingBottom: '8px',
-  },
-  tradesList: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: '8px',
-    overflowY: 'auto' as const,
-    flex: 1,
-  },
-  tradeRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    fontSize: '12px',
-    alignItems: 'center',
-  },
-  tradeTypeBadge: {
-    fontWeight: 'bold',
-    width: '40px',
-  },
-  tradeAmount: {
-    color: '#ffffff',
-  },
-  tradePrice: {
-    color: '#9ca3af',
-  },
-};

@@ -44,6 +44,8 @@ def compute_rolling_percentiles(df: pd.DataFrame, window: int = 100):
     df['vol_decile'] = vol_deciles
     df['spread_decile'] = spread_deciles
     df['spread'] = spreads
+    df['tr_high'] = df['high'].rolling(window=20, min_periods=1).max()
+    df['tr_low'] = df['low'].rolling(window=20, min_periods=1).min()
     return df
 
 def compute_closing_location_ratio(high: float, low: float, close: float) -> float:
