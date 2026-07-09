@@ -116,11 +116,15 @@ class LocalTraderHandler:
             self.ssl_socket = context.wrap_socket(raw_socket, server_hostname=self.host)
             self.ssl_socket.connect((self.host, self.port))
             
-            # Send Logon message
+            # Extract numeric account ID for the Username (tag 553)
+            numeric_username = "".join(filter(str.isdigit, str(self.sender_comp_id)))
+            if not numeric_username:
+                numeric_username = "17151091"
+
             logon_fields = [
                 ("98", "0"),  # No encryption
                 ("108", str(self.heartbeat_interval)),
-                ("553", self.sender_comp_id),  # Username
+                ("553", numeric_username),  # Username (must be numeric integer ID)
                 ("554", self.password)  # cTrader password tag
             ]
             
