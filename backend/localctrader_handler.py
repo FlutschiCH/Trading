@@ -72,7 +72,7 @@ class LocalTraderHandler:
         
         # Calculate body length
         body_str = ""
-        for tag, val in all_fields[2:]:
+        for tag, val in all_fields[1:]:
             body_str += f"{tag}={val}\x01"
             
         # Add body length tag 9
