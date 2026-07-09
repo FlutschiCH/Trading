@@ -154,7 +154,11 @@ export default function WyckoffChart({ symbol, candles, loading, onRefresh }: Wy
     mainChart.timeScale().subscribeVisibleTimeRangeChange((range) => {
       if (isSyncing || !range) return;
       isSyncing = true;
-      weisChart.timeScale().setVisibleRange(range);
+      try {
+        weisChart.timeScale().setVisibleRange(range);
+      } catch (e) {
+        // Ignored: handles internal null-value conversion when charts are loading/empty
+      }
       updateDrawingCoordinates();
       isSyncing = false;
     });
@@ -162,7 +166,11 @@ export default function WyckoffChart({ symbol, candles, loading, onRefresh }: Wy
     weisChart.timeScale().subscribeVisibleTimeRangeChange((range) => {
       if (isSyncing || !range) return;
       isSyncing = true;
-      mainChart.timeScale().setVisibleRange(range);
+      try {
+        mainChart.timeScale().setVisibleRange(range);
+      } catch (e) {
+        // Ignored: handles internal null-value conversion when charts are loading/empty
+      }
       isSyncing = false;
     });
 
