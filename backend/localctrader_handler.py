@@ -18,21 +18,26 @@ class LocalTraderHandler:
         # FIX API Credentials
         self.host = "live-uk-eqx-01.p.c-trader.com"
         self.port = 5212
-        self.sender_comp_id = os.environ.get("CTRADER_FIX_SENDER_COMP_ID", "live.ftmo.17151091")
+        # Read .env file directly to get credentials
+        env_vars = {}
+        env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+        if os.path.exists(env_path):
+            try:
+                with open(env_path, "r") as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line or line.startswith("#"):
+                            continue
+                        if "=" in line:
+                            k, v = line.split("=", 1)
+                            env_vars[k.strip()] = v.strip()
+            except Exception as e:
+                print(f"[FIX] Failed to read .env file directly: {str(e)}")
+
+        self.sender_comp_id = env_vars.get("CTRADER_FIX_SENDER_COMP_ID", "live.ftmo.17151091")
         self.target_comp_id = "cServer"
         self.sender_sub_id = "TRADE"
-        # Try loading password from config file
-        config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "localctrader_config.json")
-        if os.path.exists(config_path):
-            try:
-                with open(config_path, "r") as f:
-                    config_data = json.load(f)
-                    self.password = config_data.get("password", "YOUR_PASSWORD_HERE")
-            except Exception as e:
-                print(f"[FIX] Failed to read localctrader_config.json: {str(e)}")
-                self.password = "YOUR_PASSWORD_HERE"
-        else:
-            self.password = os.environ.get("CTRADER_FIX_PASSWORD", "YOUR_PASSWORD_HERE")
+        self.password = env_vars.get("CTRADER_FIX_PASSWORD", "")
         
         self.account_info = {
             "balance": 10000.0,
