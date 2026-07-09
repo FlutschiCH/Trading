@@ -225,6 +225,22 @@ export default function App() {
       color: currentConnected ? '#10b981' : '#ef4444',
       borderColor: currentConnected ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
     },
+    linkBtn: {
+      fontSize: '11px',
+      backgroundColor: 'rgba(59, 130, 246, 0.1)',
+      color: '#3b82f6',
+      border: '1px solid rgba(59, 130, 246, 0.2)',
+      padding: '4px 10px',
+      borderRadius: '12px',
+      fontWeight: 'bold' as const,
+      textDecoration: 'none',
+      cursor: 'pointer',
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '4px',
+      transition: 'all 0.2s',
+      marginLeft: '8px',
+    },
     controlsSection: {
       display: 'flex',
       alignItems: 'center',
@@ -426,6 +442,12 @@ export default function App() {
           <span style={styles.statusBadge}>
             cTrader {connectionMode.toUpperCase()} {currentConnected ? 'ONLINE' : 'OFFLINE'}
           </span>
+          <a href="https://openapi.ctrader.com/apps" target="_blank" rel="noopener noreferrer" style={styles.linkBtn}>
+            cTrader Apps
+          </a>
+          <a href="https://gemini.google.com/app/71d33e33a84aa328" target="_blank" rel="noopener noreferrer" style={styles.linkBtn}>
+            Wyckoff Prompt
+          </a>
         </div>
 
         {/* Workspace controls */}
