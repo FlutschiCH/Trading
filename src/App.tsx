@@ -62,6 +62,146 @@ export default function App() {
   const [accountInfo, setAccountInfo] = useState<AccountInfo | null>(null);
   const [openPositions, setOpenPositions] = useState<Position[]>([]);
 
+  // Backtester states
+  const [backtestSL, setBacktestSL] = useState('50');
+  const [backtestRR, setBacktestRR] = useState('2');
+  const [backtestSize, setBacktestSize] = useState('1');
+  const [backtestResults, setBacktestResults] = useState<{
+    trades: any[];
+    winRate: number;
+    netPnl: number;
+    profitFactor: number;
+    totalTrades: number;
+  } | null>(null);
+
+  const runBacktest = () => {
+    if (!candles || candles.length === 0) return;
+    
+    const slPips = parseFloat(backtestSL) || 50;
+    const rr = parseFloat(backtestRR) || 2;
+    const size = parseFloat(backtestSize) || 1;
+    
+    let activeTrade: any = null;
+    const completedTrades: any[] = [];
+    
+    const symUpper = symbol.toUpperCase();
+    let pipVal = 1.0;
+    if (symUpper.includes('JPY')) {
+      pipVal = 0.01;
+    } else if (
+      (symUpper.includes('EUR') || symUpper.includes('USD') || symUpper.includes('GBP') || symUpper.includes('AUD') || symUpper.includes('CAD')) &&
+      !symUpper.includes('BTC') && !symUpper.includes('ETH') && !symUpper.includes('SOL')
+    ) {
+      pipVal = 0.0001;
+    }
+
+    for (let i = 0; i < candles.length; i++) {
+      const c = candles[i];
+      
+      if (activeTrade) {
+        let closed = false;
+        let exitPrice = c.close;
+        let pnl = 0;
+        let outcome: 'WIN' | 'LOSS' = 'LOSS';
+        
+        if (activeTrade.type === 'BUY') {
+          if (c.low <= activeTrade.slPrice) {
+            exitPrice = activeTrade.slPrice;
+            pnl = (exitPrice - activeTrade.entryPrice) * activeTrade.qty;
+            outcome = 'LOSS';
+            closed = true;
+          } else if (c.high >= activeTrade.tpPrice) {
+            exitPrice = activeTrade.tpPrice;
+            pnl = (exitPrice - activeTrade.entryPrice) * activeTrade.qty;
+            outcome = 'WIN';
+            closed = true;
+          }
+        } else {
+          if (c.high >= activeTrade.slPrice) {
+            exitPrice = activeTrade.slPrice;
+            pnl = (activeTrade.entryPrice - exitPrice) * activeTrade.qty;
+            outcome = 'LOSS';
+            closed = true;
+          } else if (c.low <= activeTrade.tpPrice) {
+            exitPrice = activeTrade.tpPrice;
+            pnl = (activeTrade.entryPrice - exitPrice) * activeTrade.qty;
+            outcome = 'WIN';
+            closed = true;
+          }
+        }
+        
+        if (closed) {
+          completedTrades.push({
+            id: completedTrades.length + 1,
+            type: activeTrade.type,
+            entryPrice: activeTrade.entryPrice,
+            exitPrice,
+            pnl,
+            outcome,
+            time: new Date(c.time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          });
+          activeTrade = null;
+        }
+      }
+      
+      if (!activeTrade && c.vsa_patterns && c.vsa_patterns.length > 0) {
+        const isBullish = c.vsa_patterns.includes('Shakeout/Spring') || c.vsa_patterns.includes('Stopping Volume') || c.vsa_patterns.includes('No Supply');
+        const tradeType = isBullish ? 'BUY' : 'SELL';
+        
+        const entryPrice = c.close;
+        const slDistance = slPips * pipVal;
+        const slPrice = isBullish ? (entryPrice - slDistance) : (entryPrice + slDistance);
+        const tpPrice = isBullish ? (entryPrice + slDistance * rr) : (entryPrice - slDistance * rr);
+        
+        activeTrade = {
+          type: tradeType,
+          entryPrice,
+          slPrice,
+          tpPrice,
+          qty: size,
+          entryIndex: i,
+        };
+      }
+    }
+    
+    if (activeTrade) {
+      const finalCandle = candles[candles.length - 1];
+      const pnl = activeTrade.type === 'BUY' 
+        ? (finalCandle.close - activeTrade.entryPrice) * activeTrade.qty
+        : (activeTrade.entryPrice - finalCandle.close) * activeTrade.qty;
+      completedTrades.push({
+        id: completedTrades.length + 1,
+        type: activeTrade.type,
+        entryPrice: activeTrade.entryPrice,
+        exitPrice: finalCandle.close,
+        pnl,
+        outcome: pnl >= 0 ? 'WIN' : 'LOSS',
+        time: 'Open',
+      });
+    }
+    
+    const totalTrades = completedTrades.length;
+    const wins = completedTrades.filter(t => t.outcome === 'WIN').length;
+    const winRate = totalTrades > 0 ? (wins / totalTrades) * 100 : 0;
+    const netPnl = completedTrades.reduce((acc, t) => acc + t.pnl, 0);
+    
+    const grossProfits = completedTrades.filter(t => t.pnl > 0).reduce((acc, t) => acc + t.pnl, 0);
+    const grossLosses = Math.abs(completedTrades.filter(t => t.pnl < 0).reduce((acc, t) => acc + t.pnl, 0));
+    const profitFactor = grossLosses > 0 ? grossProfits / grossLosses : grossProfits > 0 ? 99.9 : 0;
+    
+    setBacktestResults({
+      trades: completedTrades.reverse(),
+      winRate,
+      netPnl,
+      profitFactor,
+      totalTrades,
+    });
+  };
+
+  useEffect(() => {
+    runBacktest();
+  }, [candles, backtestSL, backtestRR, backtestSize]);
+
   // Fetch symbols and timeframes metadata on mount
   useEffect(() => {
     const loadMetadata = async () => {
@@ -646,6 +786,96 @@ export default function App() {
                       </div>
                       <span style={styles.posPnl(pos.unrealized_profit >= 0)}>
                         ${pos.unrealized_profit.toFixed(2)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Backtester Control Card */}
+          <div style={styles.orderCard}>
+            <h3 style={styles.cardTitle}>Wyckoff Backtester Desk</h3>
+            
+            <div style={styles.tradeForm}>
+              <div style={styles.formGroup}>
+                <label style={{ color: '#9ca3af', fontSize: '12px' }}>Quantity (Size)</label>
+                <input 
+                  type="number" 
+                  value={backtestSize} 
+                  onChange={(e) => setBacktestSize(e.target.value)}
+                  style={styles.input}
+                  step="0.1"
+                  min="0.1"
+                />
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={{ color: '#9ca3af', fontSize: '12px' }}>Stop Loss (Pips/Points)</label>
+                <input 
+                  type="number" 
+                  value={backtestSL} 
+                  onChange={(e) => setBacktestSL(e.target.value)}
+                  style={styles.input}
+                  min="1"
+                />
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={{ color: '#9ca3af', fontSize: '12px' }}>Risk to Reward (RR Ratio)</label>
+                <input 
+                  type="number" 
+                  value={backtestRR} 
+                  onChange={(e) => setBacktestRR(e.target.value)}
+                  style={styles.input}
+                  step="0.1"
+                  min="0.5"
+                />
+              </div>
+            </div>
+
+            {backtestResults && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={styles.walletContainer}>
+                  <div style={styles.walletRow}>
+                    <span style={{ color: '#9ca3af' }}>Total Trades:</span>
+                    <span style={{ color: '#ffffff', fontWeight: 'bold' }}>{backtestResults.totalTrades}</span>
+                  </div>
+                  <div style={styles.walletRow}>
+                    <span style={{ color: '#9ca3af' }}>Win Rate:</span>
+                    <span style={{ color: backtestResults.winRate >= 50 ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>
+                      {backtestResults.winRate.toFixed(1)}%
+                    </span>
+                  </div>
+                  <div style={styles.walletRow}>
+                    <span style={{ color: '#9ca3af' }}>Net Profit:</span>
+                    <span style={{ color: backtestResults.netPnl >= 0 ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>
+                      ${backtestResults.netPnl.toFixed(2)}
+                    </span>
+                  </div>
+                  <div style={styles.walletRow}>
+                    <span style={{ color: '#9ca3af' }}>Profit Factor:</span>
+                    <span style={{ color: '#ffffff', fontWeight: 'bold' }}>{backtestResults.profitFactor.toFixed(2)}</span>
+                  </div>
+                </div>
+
+                <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#9ca3af', marginTop: '4px' }}>
+                  Backtest Trade Log
+                </span>
+                <div style={styles.positionsList}>
+                  {backtestResults.trades.map((trade) => (
+                    <div key={trade.id} style={styles.positionRow}>
+                      <div style={styles.posDetails}>
+                        <span style={styles.posSide(trade.type === 'BUY')}>
+                          {trade.type} @ {trade.entryPrice.toFixed(2)}
+                        </span>
+                        <span style={{ fontSize: '10px', color: '#6b7280' }}>
+                          Exit: {trade.exitPrice.toFixed(2)} | {trade.time}
+                        </span>
+                      </div>
+                      <span style={styles.posPnl(trade.pnl >= 0)}>
+                        {trade.pnl >= 0 ? '+' : ''}${trade.pnl.toFixed(2)}
                       </span>
                     </div>
                   ))}
