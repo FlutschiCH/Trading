@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { createChart, ColorType, CandlestickSeries, HistogramSeries, LineSeries } from 'lightweight-charts';
+import { createChart, ColorType, CandlestickSeries, HistogramSeries, LineSeries, createSeriesMarkers } from 'lightweight-charts';
 import { Square, PenTool, Trash2, XCircle, RefreshCw } from 'lucide-react';
 
 interface Candle {
@@ -30,6 +30,7 @@ export default function WyckoffChart({ symbol, candles, loading, onRefresh }: Wy
   const weisChartRef = useRef<any>(null);
   
   const candlestickSeriesRef = useRef<any>(null);
+  const markersPluginRef = useRef<any>(null);
   const weisSeriesRef = useRef<any>(null);
   const trHighSeriesRef = useRef<any>(null);
   const trLowSeriesRef = useRef<any>(null);
@@ -105,7 +106,7 @@ export default function WyckoffChart({ symbol, candles, loading, onRefresh }: Wy
       height: 380,
     });
 
-    const candlestickSeries = mainChart.addCandlestickSeries({
+    const candlestickSeries = mainChart.addSeries(CandlestickSeries, {
       upColor: '#10b981',
       downColor: '#ef4444',
       borderVisible: false,
@@ -113,15 +114,18 @@ export default function WyckoffChart({ symbol, candles, loading, onRefresh }: Wy
       wickDownColor: '#ef4444',
     });
 
+    // Create the markers plugin for the candlestick series
+    const markersPlugin = createSeriesMarkers(candlestickSeries);
+
     // Reference channels for Wyckoff TR high and TR low
-    const trHighSeries = mainChart.addLineSeries({
+    const trHighSeries = mainChart.addSeries(LineSeries, {
       color: '#f59e0b',
       lineWidth: 1.5,
       lineStyle: 1, // Dashed
       title: 'TR High',
     });
 
-    const trLowSeries = mainChart.addLineSeries({
+    const trLowSeries = mainChart.addSeries(LineSeries, {
       color: '#f59e0b',
       lineWidth: 1.5,
       lineStyle: 1, // Dashed
@@ -142,7 +146,7 @@ export default function WyckoffChart({ symbol, candles, loading, onRefresh }: Wy
       height: 140,
     });
 
-    const weisSeries = weisChart.addHistogramSeries({
+    const weisSeries = weisChart.addSeries(HistogramSeries, {
       color: '#26a69a',
       priceFormat: {
         type: 'volume',
@@ -178,6 +182,7 @@ export default function WyckoffChart({ symbol, candles, loading, onRefresh }: Wy
     chartRef.current = mainChart;
     weisChartRef.current = weisChart;
     candlestickSeriesRef.current = candlestickSeries;
+    markersPluginRef.current = markersPlugin;
     weisSeriesRef.current = weisSeries;
     trHighSeriesRef.current = trHighSeries;
     trLowSeriesRef.current = trLowSeries;
@@ -225,7 +230,9 @@ export default function WyckoffChart({ symbol, candles, loading, onRefresh }: Wy
           return null;
         })
         .filter((m) => m !== null);
-      candlestickSeriesRef.current.setMarkers(markers);
+      if (markersPluginRef.current) {
+        markersPluginRef.current.setMarkers(markers);
+      }
     }
 
     // Set TR High & Low channels
