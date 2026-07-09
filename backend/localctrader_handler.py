@@ -192,8 +192,8 @@ class LocalTraderHandler:
             self.send_message("0", [])
         # Logon ACK (MsgType A)
         elif msg_type == "A":
-            print("[FIX] Logon Acknowledged by server. Sending CollateralInquiry...")
-            self.send_collateral_inquiry()
+            print("[FIX] Logon Acknowledged by server. Sending RequestForPositions (AN)...")
+            self.send_position_request()
         # Logout (MsgType 5)
         elif msg_type == "5":
             reason = msg.get("58", "No reason code/text returned by cTrader.")
@@ -214,12 +214,14 @@ class LocalTraderHandler:
             self.account_info["currency"] = currency
             print(f"[FIX] Real balance updated from CollateralReport: {balance} {currency}")
 
-    def send_collateral_inquiry(self):
-        inquiry_fields = [
-            ("11", f"Inq-{int(time.time())}"),  # CollInquiryID
-            ("263", "1")  # SubscriptionRequestType: 1 (Snapshot)
+    def send_position_request(self):
+        numeric_account = "".join(filter(str.isdigit, str(self.sender_comp_id)))
+        fields = [
+            ("710", f"ReqPos-{int(time.time())}"),  # PosReqID
+            ("263", "1"),  # SubscriptionRequestType: 1 (Snapshot)
+            ("1", numeric_account)  # Account ID
         ]
-        self.send_message("GD", inquiry_fields)
+        self.send_message("AN", fields)
 
     def get_account_info(self):
         # Retrieve account details. In FIX we can check CollateralInquiry/Report (MsgType BB)
