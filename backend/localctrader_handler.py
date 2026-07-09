@@ -5,6 +5,8 @@ import time
 import threading
 from datetime import datetime
 
+import requests
+
 class LocalTraderHandler:
     def __init__(self):
         self.connected = False
@@ -221,11 +223,28 @@ class LocalTraderHandler:
         self.send_message("AN", fields)
 
     def get_account_info(self):
-        # Retrieve account details. In FIX we can check CollateralInquiry/Report (MsgType BB)
-        # We also maintain local fallback sync
+        # cTrader's FIX API does not support balance queries.
+        # We attempt to query the local C# Automate Bridge if it is running in your windows app.
+        try:
+            r = requests.get("http://localhost:8752/account", timeout=0.5)
+            if r.status_code == 200:
+                data = r.json()
+                self.account_info["balance"] = data.get("balance", 0.0)
+                self.account_info["equity"] = data.get("equity", 0.0)
+                self.account_info["margin_free"] = data.get("margin_free", 0.0)
+                self.account_info["currency"] = data.get("currency", "USD")
+                self.account_info["broker"] = f"Local cTrader ({data.get('broker')})"
+        except Exception:
+            pass
         return {"status": "success", "data": self.account_info}
 
     def get_positions(self):
+        try:
+            r = requests.get("http://localhost:8752/positions", timeout=0.5)
+            if r.status_code == 200:
+                self.positions = r.json()
+        except Exception:
+            pass
         return {"status": "success", "data": self.positions}
 
     def place_order(self, symbol, order_type, volume, price=None):
