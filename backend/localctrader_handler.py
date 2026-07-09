@@ -120,6 +120,7 @@ class LocalTraderHandler:
             logon_fields = [
                 ("98", "0"),  # No encryption
                 ("108", str(self.heartbeat_interval)),
+                ("553", self.sender_comp_id),  # Username
                 ("554", self.password)  # cTrader password tag
             ]
             
