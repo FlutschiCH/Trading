@@ -245,14 +245,13 @@ export default function WyckoffChart({ symbol, candles, loading, onRefresh }: Wy
       const markers = candles
         .map((c) => {
           if (c.vsa_patterns && c.vsa_patterns.length > 0) {
-            const text = c.vsa_patterns.join(', ');
             const isBullish = c.vsa_patterns.includes('Shakeout/Spring') || c.vsa_patterns.includes('Stopping Volume') || c.vsa_patterns.includes('No Supply');
             return {
               time: c.time,
               position: (isBullish ? 'belowBar' : 'aboveBar') as any,
               color: isBullish ? '#10b981' : '#ef4444',
               shape: (isBullish ? 'arrowUp' : 'arrowDown') as any,
-              text: text,
+              text: isBullish ? 'BUY' : 'SELL',
             };
           }
           return null;
