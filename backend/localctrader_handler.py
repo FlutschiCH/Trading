@@ -215,6 +215,37 @@ class LocalTraderHandler:
             self.account_info["margin_free"] = balance
             self.account_info["currency"] = currency
             print(f"[FIX] Real balance updated from CollateralReport: {balance} {currency}")
+        # PositionReport (MsgType AP)
+        elif msg_type == "AP":
+            pos_id = msg.get("721", msg.get("710", "1"))
+            symbol = msg.get("55", "EURUSD")
+            long_qty = float(msg.get("704", 0.0))
+            short_qty = float(msg.get("705", 0.0))
+            volume = long_qty if long_qty > 0 else short_qty
+            side = "BUY" if long_qty > 0 else "SELL"
+            price = float(msg.get("730", 0.0))
+            
+            if volume > 0:
+                exists = False
+                for p in self.positions:
+                    if p["position_id"] == pos_id:
+                        p["volume"] = volume
+                        p["entry_price"] = price
+                        p["trade_side"] = side
+                        exists = True
+                        break
+                if not exists:
+                    self.positions.append({
+                        "position_id": int(pos_id) if pos_id.isdigit() else pos_id,
+                        "symbol": symbol,
+                        "trade_side": side,
+                        "volume": volume,
+                        "entry_price": price,
+                        "unrealized_profit": 0.0
+                    })
+            else:
+                self.positions = [p for p in self.positions if str(p["position_id"]) != str(pos_id)]
+            print(f"[FIX] Updated active positions list. Total: {len(self.positions)}")
 
     def send_position_request(self):
         fields = [
@@ -224,27 +255,11 @@ class LocalTraderHandler:
 
     def get_account_info(self):
         # cTrader's FIX API does not support balance queries.
-        # We attempt to query the local C# Automate Bridge if it is running in your windows app.
-        try:
-            r = requests.get("http://localhost:8752/account", timeout=0.5)
-            if r.status_code == 200:
-                data = r.json()
-                self.account_info["balance"] = data.get("balance", 0.0)
-                self.account_info["equity"] = data.get("equity", 0.0)
-                self.account_info["margin_free"] = data.get("margin_free", 0.0)
-                self.account_info["currency"] = data.get("currency", "USD")
-                self.account_info["broker"] = f"Local cTrader ({data.get('broker')})"
-        except Exception:
-            pass
         return {"status": "success", "data": self.account_info}
 
     def get_positions(self):
-        try:
-            r = requests.get("http://localhost:8752/positions", timeout=0.5)
-            if r.status_code == 200:
-                self.positions = r.json()
-        except Exception:
-            pass
+        if self.connected:
+            self.send_position_request()
         return {"status": "success", "data": self.positions}
 
     def place_order(self, symbol, order_type, volume, price=None):
