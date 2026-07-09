@@ -47,8 +47,8 @@ export default function Trading() {
   // cTrader Connection State
   const [isConnected, setIsConnected] = useState(false);
   const [connecting, setConnecting] = useState(false);
-  const [ctToken, setCtToken] = useState('ct-token-xyz123');
-  const [ctAccountId, setCtAccountId] = useState('9876543');
+  const [ctToken, setCtToken] = useState('17151091');
+  const [ctAccountId, setCtAccountId] = useState('flutschich@gmail.com');
 
   // Account & Positions data
   const [accountInfo, setAccountInfo] = useState<AccountInfo | null>(null);
