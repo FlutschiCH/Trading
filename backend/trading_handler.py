@@ -14,7 +14,7 @@ class TradingHandler:
         return execute_signal(signal_data)
 
     @staticmethod
-    def analyze_market_data(bars_list: list) -> dict:
+    def analyze_market_data(bars_list: list, lookback: int = 20) -> dict:
         """
         Takes raw candlestick data, runs Wyckoff VSA and Weis Wave Volume analysis,
         and returns the annotated dataset.
@@ -30,7 +30,7 @@ class TradingHandler:
                 df[col] = df[col].astype(float)
         
         # Calculate VSA patterns
-        patterns = analyze_vsa_patterns(df)
+        patterns = analyze_vsa_patterns(df, lookback=lookback)
         df['vsa_patterns'] = patterns
         
         # Calculate Weis Wave Volume

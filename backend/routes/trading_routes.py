@@ -79,7 +79,8 @@ def analyze():
     """
     payload = request.get_json(silent=True) or {}
     candles = payload.get('candles', [])
-    result = TradingHandler.analyze_market_data(candles)
+    lookback = int(payload.get('lookback', 20))
+    result = TradingHandler.analyze_market_data(candles, lookback=lookback)
     return jsonify(result)
 
 @trading_routes.route('/risk', methods=['GET', 'POST'])

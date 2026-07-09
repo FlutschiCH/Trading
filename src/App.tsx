@@ -15,6 +15,8 @@ interface Candle {
   weis_wave_volume?: number;
   tr_high?: number;
   tr_low?: number;
+  sweep_high?: number;
+  sweep_low?: number;
 }
 
 interface AccountInfo {
@@ -66,6 +68,7 @@ export default function App() {
   const [backtestSL, setBacktestSL] = useState('50');
   const [backtestRR, setBacktestRR] = useState('2');
   const [backtestSize, setBacktestSize] = useState('1');
+  const [lookbackWindow, setLookbackWindow] = useState('20');
   const [backtestResults, setBacktestResults] = useState<{
     trades: any[];
     winRate: number;
@@ -144,23 +147,36 @@ export default function App() {
         }
       }
       
-      if (!activeTrade && c.vsa_patterns && c.vsa_patterns.length > 0) {
-        const isBullish = c.vsa_patterns.includes('Shakeout/Spring') || c.vsa_patterns.includes('Stopping Volume') || c.vsa_patterns.includes('No Supply');
-        const tradeType = isBullish ? 'BUY' : 'SELL';
+      if (!activeTrade) {
+        const isBullishVSA = c.vsa_patterns && (c.vsa_patterns.includes('Shakeout/Spring') || c.vsa_patterns.includes('Stopping Volume') || c.vsa_patterns.includes('No Supply'));
+        const isBearishVSA = c.vsa_patterns && (c.vsa_patterns.includes('Upthrust') || c.vsa_patterns.includes('No Demand'));
         
-        const entryPrice = c.close;
-        const slDistance = slPips * pipVal;
-        const slPrice = isBullish ? (entryPrice - slDistance) : (entryPrice + slDistance);
-        const tpPrice = isBullish ? (entryPrice + slDistance * rr) : (entryPrice - slDistance * rr);
+        let shouldBuy = false;
+        let shouldSell = false;
         
-        activeTrade = {
-          type: tradeType,
-          entryPrice,
-          slPrice,
-          tpPrice,
-          qty: size,
-          entryIndex: i,
-        };
+        if (c.sweep_low !== undefined) {
+          shouldBuy = !!isBullishVSA && c.low < c.sweep_low && c.close > c.sweep_low;
+        }
+        if (c.sweep_high !== undefined) {
+          shouldSell = !!isBearishVSA && c.high > c.sweep_high && c.close < c.sweep_high;
+        }
+        
+        if (shouldBuy || shouldSell) {
+          const tradeType = shouldBuy ? 'BUY' : 'SELL';
+          const entryPrice = c.close;
+          const slDistance = slPips * pipVal;
+          const slPrice = tradeType === 'BUY' ? (entryPrice - slDistance) : (entryPrice + slDistance);
+          const tpPrice = tradeType === 'BUY' ? (entryPrice + slDistance * rr) : (entryPrice - slDistance * rr);
+          
+          activeTrade = {
+            type: tradeType,
+            entryPrice,
+            slPrice,
+            tpPrice,
+            qty: size,
+            entryIndex: i,
+          };
+        }
       }
     }
     
@@ -200,7 +216,7 @@ export default function App() {
 
   useEffect(() => {
     runBacktest();
-  }, [candles, backtestSL, backtestRR, backtestSize]);
+  }, [candles, backtestSL, backtestRR, backtestSize, lookbackWindow]);
 
   // Fetch symbols and timeframes metadata on mount
   useEffect(() => {
@@ -260,7 +276,10 @@ export default function App() {
           const analysisResponse = await fetch('http://localhost:8751/api/analyze', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ candles: rawCandles }),
+            body: JSON.stringify({ 
+              candles: rawCandles,
+              lookback: parseInt(lookbackWindow) || 20
+            }),
           });
           const analysisResult = await analysisResponse.json();
           if (analysisResult.status === 'success') {
@@ -343,7 +362,7 @@ export default function App() {
 
   useEffect(() => {
     fetchCandles();
-  }, [symbol, timeframe]);
+  }, [symbol, timeframe, lookbackWindow]);
 
   useEffect(() => {
     const isConnected = connectionMode === 'openapi' ? isConnectedOpenAPI : isConnectedFIX;
@@ -831,6 +850,18 @@ export default function App() {
                   style={styles.input}
                   step="0.1"
                   min="0.5"
+                />
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={{ color: '#9ca3af', fontSize: '12px' }}>Sweep Lookback (Bars)</label>
+                <input 
+                  type="number" 
+                  value={lookbackWindow} 
+                  onChange={(e) => setLookbackWindow(e.target.value)}
+                  style={styles.input}
+                  min="5"
+                  max="200"
                 />
               </div>
             </div>

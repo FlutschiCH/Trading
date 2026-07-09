@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-def compute_rolling_percentiles(df: pd.DataFrame, window: int = 100):
+def compute_rolling_percentiles(df: pd.DataFrame, window: int = 100, lookback: int = 20):
     """
     Computes standard rolling percentile ranks over a window of 100 bars for Volume and Spread.
     Maps percentiles directly to shared integer deciles (1 to 10).
@@ -9,6 +9,8 @@ def compute_rolling_percentiles(df: pd.DataFrame, window: int = 100):
     if len(df) < 2:
         df['vol_decile'] = 10
         df['spread_decile'] = 10
+        df['sweep_high'] = df['high']
+        df['sweep_low'] = df['low']
         return df
 
     # S_t = H_t - L_t
@@ -44,8 +46,14 @@ def compute_rolling_percentiles(df: pd.DataFrame, window: int = 100):
     df['vol_decile'] = vol_deciles
     df['spread_decile'] = spread_deciles
     df['spread'] = spreads
-    df['tr_high'] = df['high'].rolling(window=20, min_periods=1).max()
-    df['tr_low'] = df['low'].rolling(window=20, min_periods=1).min()
+    df['sweep_high'] = df['high'].shift(1).rolling(window=lookback, min_periods=1).max()
+    df['sweep_low'] = df['low'].shift(1).rolling(window=lookback, min_periods=1).min()
+    # Backfill the first element where shift(1) is NaN
+    df['sweep_high'] = df['sweep_high'].fillna(df['high'])
+    df['sweep_low'] = df['sweep_low'].fillna(df['low'])
+    
+    df['tr_high'] = df['high'].rolling(window=lookback, min_periods=1).max()
+    df['tr_low'] = df['low'].rolling(window=lookback, min_periods=1).min()
     return df
 
 def compute_closing_location_ratio(high: float, low: float, close: float) -> float:
@@ -58,7 +66,7 @@ def compute_closing_location_ratio(high: float, low: float, close: float) -> flo
         return 0.0
     return ((close - low) - (high - close)) / spread
 
-def analyze_vsa_patterns(df: pd.DataFrame) -> list:
+def analyze_vsa_patterns(df: pd.DataFrame, lookback: int = 20) -> list:
     """
     Programmatically codifies detection rules for the 5 core Wyckoff VSA patterns:
     No Demand (ND), No Supply (NS), Upthrust (UT), Shakeout/Spring (SO), and Stopping Volume (STV).
@@ -68,7 +76,7 @@ def analyze_vsa_patterns(df: pd.DataFrame) -> list:
         return [[] for _ in range(len(df))]
     
     # Pre-calculate rolling percentiles and deciles
-    df = compute_rolling_percentiles(df)
+    df = compute_rolling_percentiles(df, lookback=lookback)
     
     # Calculate log returns
     closes = df['close'].values
