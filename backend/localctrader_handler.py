@@ -185,7 +185,7 @@ class LocalTraderHandler:
 
     def handle_parsed_message(self, msg):
         msg_type = msg.get("35")
-        print(f"[FIX IN] MsgType: {msg_type}")
+        print(f"[FIX IN] MsgType: {msg_type} fields: {msg}")
         
         # TestRequest (MsgType 1)
         if msg_type == "1":
