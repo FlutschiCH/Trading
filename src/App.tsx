@@ -943,12 +943,12 @@ export default function App() {
                   </div>
                   <div style={styles.walletRow}>
                     <span style={{ color: '#9ca3af' }}>Max Drawdown:</span>
-                    <span style={{ color: '#ffffff', fontWeight: 'bold' }}>{backtestResults.maxDrawdown.toFixed(2)}%</span>
+                    <span style={{ color: '#ffffff', fontWeight: 'bold' }}>{(backtestResults.maxDrawdown ?? 0).toFixed(2)}%</span>
                   </div>
                   <div style={styles.walletRow}>
                     <span style={{ color: '#9ca3af' }}>Max Daily Loss:</span>
-                    <span style={{ color: backtestResults.maxDailyLoss >= 5.0 ? '#ef4444' : '#ffffff', fontWeight: 'bold' }}>
-                      {backtestResults.maxDailyLoss.toFixed(2)}%
+                    <span style={{ color: (backtestResults.maxDailyLoss ?? 0) >= 5.0 ? '#ef4444' : '#ffffff', fontWeight: 'bold' }}>
+                      {(backtestResults.maxDailyLoss ?? 0).toFixed(2)}%
                     </span>
                   </div>
                 </div>
