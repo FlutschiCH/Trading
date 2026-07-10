@@ -270,10 +270,6 @@ export default function WyckoffChart({
       isSyncing = false;
     });
 
-    // Re-compute SVG overlay Y coordinates when price scale (right axis) is dragged
-    mainChart.priceScale('right').subscribeVisiblePriceRangeChange(() => {
-      updateDrawingCoordinates();
-    });
 
     weisChart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
       if (isSyncing || !range) return;
