@@ -118,6 +118,10 @@ export default function App() {
   });
   const [dragOverId, setDragOverId] = useState<string | null>(null);
 
+  // Live strategy states
+  const [liveStrategy, setLiveStrategy] = useState<any>(null);
+  const [isDeploying, setIsDeploying] = useState(false);
+
   const handleDragStart = (e: React.DragEvent, id: string) => {
     const target = e.target as HTMLElement;
     // Don't drag if clicking buttons/inputs/selects
@@ -278,6 +282,42 @@ export default function App() {
     }
   };
 
+  const deployLiveStrategy = async () => {
+    setIsDeploying(true);
+    try {
+      const response = await fetch('http://localhost:8751/api/live/strategy', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          symbol,
+          timeframe,
+          slVal: parseFloat(backtestSL) || 1.0,
+          slType: backtestSLType,
+          rr: parseFloat(backtestRR) || 2.0,
+          size: parseFloat(backtestSize) || 1.0,
+          useRiskSizing,
+          riskPct: parseFloat(backtestRiskPct) || 1.0,
+          useBreakEven,
+          beTriggerR: parseFloat(backtestBE) || 1.0,
+          lookbackWindow: parseInt(lookbackWindow) || 20,
+          status: 'active'
+        }),
+      });
+      const result = await response.json();
+      if (result.status === 'success') {
+        setLiveStrategy(result.strategy);
+        alert(`Successfully deployed strategy to cTrader Live execution!\nSymbol: ${symbol}\nTimeframe: ${timeframe}`);
+      }
+    } catch (e) {
+      console.error("Failed to deploy strategy to live execution:", e);
+      alert("Failed to deploy strategy. Is backend running?");
+    } finally {
+      setIsDeploying(false);
+    }
+  };
+
   useEffect(() => {
     runBacktest();
   }, [candles, symbol, backtestSL, backtestSLType, backtestRR, backtestSize, lookbackWindow, backtestBalance, backtestRiskPct, useRiskSizing, backtestBE, useBreakEven]);
@@ -306,6 +346,16 @@ export default function App() {
         }
       } catch (e) {
         console.error('Failed to load timeframes:', e);
+      }
+
+      try {
+        const stratRes = await fetch('http://localhost:8751/api/live/strategy');
+        const stratData = await stratRes.json();
+        if (stratData.status === 'success' && stratData.strategy) {
+          setLiveStrategy(stratData.strategy);
+        }
+      } catch (e) {
+        console.error('Failed to load live strategy:', e);
       }
     };
     loadMetadata();
@@ -981,7 +1031,38 @@ export default function App() {
                     onDragStart={(e) => handleDragStart(e, 'backtester')}
                     style={headerStyle}
                   >
-                    <span>⚙️ Wyckoff Backtester Desk</span>
+                    <span>
+                      ⚙️ Wyckoff Backtester Desk
+                      {liveStrategy && liveStrategy.symbol === symbol && liveStrategy.timeframe === timeframe ? (
+                        <span style={{
+                          marginLeft: '8px',
+                          fontSize: '9px',
+                          color: '#10b981',
+                          backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                          border: '1px solid #10b981',
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          fontWeight: 'bold',
+                          verticalAlign: 'middle',
+                        }}>
+                          ● LIVE RUNNING
+                        </span>
+                      ) : (
+                        <span style={{
+                          marginLeft: '8px',
+                          fontSize: '9px',
+                          color: '#9ca3af',
+                          backgroundColor: 'rgba(156, 163, 175, 0.15)',
+                          border: '1px solid #9ca3af',
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          fontWeight: 'bold',
+                          verticalAlign: 'middle',
+                        }}>
+                          NOT DEPLOYED
+                        </span>
+                      )}
+                    </span>
                     <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header to Move</span>
                   </div>
                   <div className="no-drag" style={contentStyle}>
@@ -1118,6 +1199,26 @@ export default function App() {
                         />
                       </div>
                     </div>
+
+                    <button
+                      onClick={deployLiveStrategy}
+                      disabled={isDeploying}
+                      style={{
+                        width: '100%',
+                        padding: '10px',
+                        borderRadius: '8px',
+                        fontWeight: 'bold',
+                        border: 'none',
+                        cursor: isDeploying ? 'not-allowed' : 'pointer',
+                        backgroundColor: liveStrategy && liveStrategy.symbol === symbol && liveStrategy.timeframe === timeframe ? '#059669' : '#2563eb',
+                        color: '#ffffff',
+                        boxShadow: `0 4px 14px ${liveStrategy && liveStrategy.symbol === symbol && liveStrategy.timeframe === timeframe ? 'rgba(16, 185, 129, 0.2)' : 'rgba(37, 99, 235, 0.2)'}`,
+                        transition: 'all 0.2s',
+                        marginTop: '12px',
+                      }}
+                    >
+                      {isDeploying ? 'Deploying...' : liveStrategy && liveStrategy.symbol === symbol && liveStrategy.timeframe === timeframe ? '✓ Strategy Deployed on cTrader Live' : '🚀 Deploy Strategy to Live (cTrader)'}
+                    </button>
 
                     {backtestResults && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
