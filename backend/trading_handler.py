@@ -74,10 +74,15 @@ class TradingHandler:
         current_balance = initial_balance
         
         sym_upper = symbol.upper()
+        # Distinguish crypto pairs from forex pairs containing USD/EUR/etc.
+        is_crypto = 'USDT' in sym_upper or 'BUSD' in sym_upper or any(x in sym_upper for x in ['BTC', 'ETH', 'SOL', 'LTC', 'XRP', 'ADA', 'DOT', 'DOGE', 'LINK', 'UNI'])
+        
         pip_val = 1.0
-        if 'JPY' in sym_upper:
+        if is_crypto:
+            pip_val = 1.0
+        elif 'JPY' in sym_upper:
             pip_val = 0.01
-        elif any(x in sym_upper for x in ['EUR', 'USD', 'GBP', 'AUD', 'CAD']) and not any(x in sym_upper for x in ['BTC', 'ETH', 'SOL']):
+        elif any(x in sym_upper for x in ['EUR', 'USD', 'GBP', 'AUD', 'CAD']):
             pip_val = 0.0001
 
         for i, c in enumerate(annotated_data):
