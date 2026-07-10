@@ -39,6 +39,25 @@ interface Position {
   unrealized_profit: number;
 }
 
+const formatDateTime = (timestampSec: number) => {
+  const d = new Date(timestampSec * 1000);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day} ${hours}:${minutes}`;
+};
+
+const getWeekNumber = (date: Date) => {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+  return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+};
+
 export default function App() {
   const [availableSymbols, setAvailableSymbols] = useState<string[]>([
     'BTCUSD', 'ETHUSD', 'EURUSD', 'GBPUSD', 'USDJPY', 
@@ -83,8 +102,11 @@ export default function App() {
     maxDailyLoss: number;
     dailyLossBreached: boolean;
     candles?: Candle[];
+    monthlyBreakdown?: { [month: string]: number };
+    weeklyBreakdown?: { [week: string]: number };
   } | null>(null);
   const [selectedTrade, setSelectedTrade] = useState<any>(null);
+  const [backtestTab, setBacktestTab] = useState<'trades' | 'weekly' | 'monthly'>('trades');
 
   const runBacktest = () => {
     if (!candles || candles.length === 0) return;
@@ -179,7 +201,7 @@ export default function App() {
             exitPrice,
             pnl,
             outcome,
-            time: new Date(c.time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            time: formatDateTime(c.time),
             timestamp: c.time,
             slPrice: activeTrade.slPrice,
             tpPrice: activeTrade.tpPrice,
@@ -305,6 +327,19 @@ export default function App() {
       }
     });
     
+    const monthlyBreakdown: { [month: string]: number } = {};
+    const weeklyBreakdown: { [week: string]: number } = {};
+    completedTrades.forEach((t) => {
+      if (t.timestamp) {
+        const d = new Date(t.timestamp * 1000);
+        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        monthlyBreakdown[monthKey] = (monthlyBreakdown[monthKey] || 0) + t.pnl;
+        
+        const weekKey = getWeekNumber(d);
+        weeklyBreakdown[weekKey] = (weeklyBreakdown[weekKey] || 0) + t.pnl;
+      }
+    });
+
     const reversedTrades = completedTrades.reverse();
     setBacktestResults({
       trades: reversedTrades,
@@ -316,6 +351,8 @@ export default function App() {
       maxDailyLoss,
       dailyLossBreached,
       candles: annotatedCandles,
+      monthlyBreakdown,
+      weeklyBreakdown,
     });
 
     if (reversedTrades.length > 0) {
@@ -1072,11 +1109,56 @@ export default function App() {
                   </div>
                 )}
 
-                <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#9ca3af', marginTop: '4px' }}>
-                  Backtest Trade Log
-                </span>
+                <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid #1f2937', paddingBottom: '4px', marginTop: '8px' }}>
+                  <button 
+                    onClick={() => setBacktestTab('trades')}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: backtestTab === 'trades' ? '#3b82f6' : '#9ca3af',
+                      fontWeight: 'bold',
+                      fontSize: '11px',
+                      cursor: 'pointer',
+                      borderBottom: backtestTab === 'trades' ? '2px solid #3b82f6' : 'none',
+                      paddingBottom: '2px'
+                    }}
+                  >
+                    Trades ({backtestResults.trades.length})
+                  </button>
+                  <button 
+                    onClick={() => setBacktestTab('weekly')}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: backtestTab === 'weekly' ? '#3b82f6' : '#9ca3af',
+                      fontWeight: 'bold',
+                      fontSize: '11px',
+                      cursor: 'pointer',
+                      borderBottom: backtestTab === 'weekly' ? '2px solid #3b82f6' : 'none',
+                      paddingBottom: '2px'
+                    }}
+                  >
+                    Weekly
+                  </button>
+                  <button 
+                    onClick={() => setBacktestTab('monthly')}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: backtestTab === 'monthly' ? '#3b82f6' : '#9ca3af',
+                      fontWeight: 'bold',
+                      fontSize: '11px',
+                      cursor: 'pointer',
+                      borderBottom: backtestTab === 'monthly' ? '2px solid #3b82f6' : 'none',
+                      paddingBottom: '2px'
+                    }}
+                  >
+                    Monthly
+                  </button>
+                </div>
+
                 <div style={styles.positionsList}>
-                  {backtestResults.trades.map((trade) => (
+                  {backtestTab === 'trades' && backtestResults.trades.map((trade) => (
                     <div 
                       key={trade.id} 
                       onClick={() => setSelectedTrade(trade)}
@@ -1101,6 +1183,30 @@ export default function App() {
                       </span>
                     </div>
                   ))}
+
+                  {backtestTab === 'weekly' && backtestResults.weeklyBreakdown && Object.keys(backtestResults.weeklyBreakdown).sort().reverse().map((week) => {
+                    const pnl = backtestResults.weeklyBreakdown![week];
+                    return (
+                      <div key={week} style={styles.positionRow}>
+                        <span style={{ fontWeight: 'bold', color: '#ffffff' }}>{week}</span>
+                        <span style={styles.posPnl(pnl >= 0)}>
+                          {pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}
+                        </span>
+                      </div>
+                    );
+                  })}
+
+                  {backtestTab === 'monthly' && backtestResults.monthlyBreakdown && Object.keys(backtestResults.monthlyBreakdown).sort().reverse().map((month) => {
+                    const pnl = backtestResults.monthlyBreakdown![month];
+                    return (
+                      <div key={month} style={styles.positionRow}>
+                        <span style={{ fontWeight: 'bold', color: '#ffffff' }}>{month}</span>
+                        <span style={styles.posPnl(pnl >= 0)}>
+                          {pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
