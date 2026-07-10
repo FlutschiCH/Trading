@@ -57,11 +57,6 @@ export default function WyckoffChart({
   const slLineRef = useRef<any>(null);
   const tpLineRef = useRef<any>(null);
 
-  // Trade level overlay LineSeries (3-bar segment lines per trade)
-  const tradeLevelEntrySeriesRef = useRef<any>(null);
-  const tradeLevelSLSeriesRef = useRef<any>(null);
-  const tradeLevelTPSeriesRef = useRef<any>(null);
-
   // Drawing Tools State
   const [activeTool, setActiveTool] = useState<'none' | 'trendline' | 'rectangle' | 'delete'>('none');
   const [drawings, setDrawings] = useState<any[]>([]);
@@ -75,8 +70,12 @@ export default function WyckoffChart({
   const tradesRef = useRef(trades);
   const onSelectTradeRef = useRef(onSelectTrade);
 
+  // Trade level SVG line segments (entry/SL/TP per trade)
+  const [tradeLevelLines, setTradeLevelLines] = useState<{ x1: number; x2: number; y: number; color: string; dash?: string }[]>([]);
+
   useEffect(() => {
     tradesRef.current = trades;
+    updateDrawingCoordinates();
   }, [trades]);
 
   useEffect(() => {
@@ -153,6 +152,39 @@ export default function WyckoffChart({
     } else {
       setSelectedTradeCoords(null);
     }
+
+    // Build SVG trade level lines (entry=blue, SL=red, TP=green) — 3 bars wide from entry
+    const currentTrades = tradesRef.current || [];
+    const realTrades = currentTrades.filter(
+      (t: any) => t.entryTimestamp && t.entryPrice && t.slPrice && t.tpPrice && t.exitReason !== 'Position still open'
+    );
+
+    const sortedCandleTimes = (candles || []).map((c: any) => c.time).sort((a: number, b: number) => a - b);
+    const SEGMENT_BARS = 3;
+    const newLines: { x1: number; x2: number; y: number; color: string }[] = [];
+
+    realTrades.forEach((trade: any) => {
+      const entryIdx = sortedCandleTimes.findIndex((t: number) => t === trade.entryTimestamp);
+      if (entryIdx === -1) return;
+
+      const segEndIdx = Math.min(entryIdx + SEGMENT_BARS - 1, sortedCandleTimes.length - 1);
+      const startTime = sortedCandleTimes[entryIdx];
+      const endTime = sortedCandleTimes[segEndIdx];
+
+      const x1 = timeScale.timeToCoordinate(startTime);
+      const x2 = timeScale.timeToCoordinate(endTime);
+      if (x1 === null || x2 === null) return;
+
+      const yEntry = series.priceToCoordinate(trade.entryPrice);
+      const ySL = series.priceToCoordinate(trade.slPrice);
+      const yTP = series.priceToCoordinate(trade.tpPrice);
+
+      if (yEntry !== null) newLines.push({ x1, x2, y: yEntry, color: '#3b82f6' });
+      if (ySL !== null) newLines.push({ x1, x2, y: ySL, color: '#ef4444' });
+      if (yTP !== null) newLines.push({ x1, x2, y: yTP, color: '#10b981' });
+    });
+
+    setTradeLevelLines(newLines);
   };
 
   // Sync Charts & Render Data
@@ -211,35 +243,6 @@ export default function WyckoffChart({
       lineWidth: 1.5,
       lineStyle: 1, // Dashed
       title: 'TR Low',
-    });
-
-    // Trade level overlay series: 3-bar segment lines for entry, SL, TP
-    const tradeLevelEntrySeries = mainChart.addSeries(LineSeries, {
-      color: '#3b82f6',
-      lineWidth: 2,
-      lineStyle: 0,
-      lastValueVisible: false,
-      priceLineVisible: false,
-      crosshairMarkerVisible: false,
-      title: '',
-    });
-    const tradeLevelSLSeries = mainChart.addSeries(LineSeries, {
-      color: '#ef4444',
-      lineWidth: 2,
-      lineStyle: 0,
-      lastValueVisible: false,
-      priceLineVisible: false,
-      crosshairMarkerVisible: false,
-      title: '',
-    });
-    const tradeLevelTPSeries = mainChart.addSeries(LineSeries, {
-      color: '#10b981',
-      lineWidth: 2,
-      lineStyle: 0,
-      lastValueVisible: false,
-      priceLineVisible: false,
-      crosshairMarkerVisible: false,
-      title: '',
     });
 
     // Initialize Weis Wave sub-panel
@@ -310,9 +313,6 @@ export default function WyckoffChart({
     weisSeriesRef.current = weisSeries;
     trHighSeriesRef.current = trHighSeries;
     trLowSeriesRef.current = trLowSeries;
-    tradeLevelEntrySeriesRef.current = tradeLevelEntrySeries;
-    tradeLevelSLSeriesRef.current = tradeLevelSLSeries;
-    tradeLevelTPSeriesRef.current = tradeLevelTPSeries;
 
     // Click Subscription to select trades/signals
     mainChart.subscribeClick((param) => {
@@ -421,74 +421,6 @@ export default function WyckoffChart({
         };
       });
       weisSeriesRef.current.setData(weisData);
-    }
-
-    // Draw 3-bar entry / SL / TP level segments per trade
-    if (
-      tradeLevelEntrySeriesRef.current &&
-      tradeLevelSLSeriesRef.current &&
-      tradeLevelTPSeriesRef.current &&
-      trades && trades.length > 0 &&
-      candles.length > 0
-    ) {
-      // Build a sorted index of candle times for lookup
-      const sortedTimes = candles.map(c => c.time).sort((a, b) => a - b);
-
-      const entryPoints: { time: number; value: number }[] = [];
-      const slPoints: { time: number; value: number }[] = [];
-      const tpPoints: { time: number; value: number }[] = [];
-
-      const SEGMENT_BARS = 3;
-
-      // Only draw for trades that have real entry/exit data
-      const realTrades = trades.filter(t => t.entryTimestamp && t.entryPrice && t.slPrice && t.tpPrice && t.exitReason !== 'Position still open');
-
-      realTrades.forEach((trade) => {
-        const entryIdx = sortedTimes.findIndex(t => t === trade.entryTimestamp);
-        if (entryIdx === -1) return;
-
-        // Gather the 3 bar timestamps from entry
-        const segmentTimes = sortedTimes.slice(entryIdx, entryIdx + SEGMENT_BARS);
-        if (segmentTimes.length === 0) return;
-
-        segmentTimes.forEach(t => {
-          entryPoints.push({ time: t, value: trade.entryPrice });
-          slPoints.push({ time: t, value: trade.slPrice });
-          tpPoints.push({ time: t, value: trade.tpPrice });
-        });
-
-        // Add NaN gap point after segment to break the line
-        const lastTime = segmentTimes[segmentTimes.length - 1];
-        const afterIdx = sortedTimes.indexOf(lastTime) + 1;
-        if (afterIdx < sortedTimes.length) {
-          const gapTime = sortedTimes[afterIdx];
-          entryPoints.push({ time: gapTime, value: NaN });
-          slPoints.push({ time: gapTime, value: NaN });
-          tpPoints.push({ time: gapTime, value: NaN });
-        }
-      });
-
-      // Sort by time to satisfy lightweight-charts ordering requirement
-      entryPoints.sort((a, b) => a.time - b.time);
-      slPoints.sort((a, b) => a.time - b.time);
-      tpPoints.sort((a, b) => a.time - b.time);
-
-      // Deduplicate by time (keep last value, favoring real values over NaN)
-      const dedup = (pts: { time: number; value: number }[]) => {
-        const map = new Map<number, number>();
-        pts.forEach(p => {
-          if (!map.has(p.time) || !isNaN(p.value)) map.set(p.time, p.value);
-        });
-        return Array.from(map.entries()).map(([time, value]) => ({ time, value })).sort((a, b) => a.time - b.time);
-      };
-
-      tradeLevelEntrySeriesRef.current.setData(dedup(entryPoints));
-      tradeLevelSLSeriesRef.current.setData(dedup(slPoints));
-      tradeLevelTPSeriesRef.current.setData(dedup(tpPoints));
-    } else if (tradeLevelEntrySeriesRef.current) {
-      tradeLevelEntrySeriesRef.current.setData([]);
-      tradeLevelSLSeriesRef.current.setData([]);
-      tradeLevelTPSeriesRef.current.setData([]);
     }
 
     updateDrawingCoordinates();
@@ -755,6 +687,21 @@ export default function WyckoffChart({
             onMouseMove={handleSVGMouseMove}
             onMouseUp={handleSVGMouseUp}
           >
+            {/* Trade level SVG lines: entry (blue), SL (red), TP (green) — 3 bars wide */}
+            {tradeLevelLines.map((line, i) => (
+              <line
+                key={`tl-${i}`}
+                x1={line.x1}
+                y1={line.y}
+                x2={line.x2}
+                y2={line.y}
+                stroke={line.color}
+                strokeWidth={2}
+                strokeOpacity={0.85}
+                style={{ pointerEvents: 'none' }}
+              />
+            ))}
+
             {/* Shaded Area for selected trade range */}
             {selectedTradeCoords && (
               <rect
