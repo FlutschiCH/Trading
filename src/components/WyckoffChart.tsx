@@ -344,7 +344,7 @@ export default function WyckoffChart({
             position: (trade.type === 'BUY' ? 'aboveBar' : 'belowBar') as any,
             color: isProfit ? '#10b981' : '#ef4444',
             shape: 'circle' as any,
-            text: `EXIT (${isProfit ? '+' : ''}${trade.pnl.toFixed(0)})`,
+            text: `EXIT (${isProfit ? '+' : ''}${trade.pnl.toFixed(2)})`,
           };
         })
         .filter((m) => m !== null);
