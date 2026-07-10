@@ -2,93 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType, CandlestickSeries, HistogramSeries, LineSeries, createSeriesMarkers } from 'lightweight-charts';
 import { Square, PenTool, Trash2, XCircle, RefreshCw } from 'lucide-react';
 
-// ── Native canvas primitive for 3-bar entry/SL/TP line segments ──────────────
-class TradeLevelRenderer {
-  private _lines: { x1: number; x2: number; y: number; color: string }[];
-  constructor(lines: { x1: number; x2: number; y: number; color: string }[]) {
-    this._lines = lines;
-  }
-  draw(target: any) {
-    target.useMediaCoordinatesSpace((scope: any) => {
-      const ctx: CanvasRenderingContext2D = scope.context;
-      this._lines.forEach(line => {
-        ctx.save();
-        ctx.strokeStyle = line.color;
-        ctx.lineWidth = 2;
-        ctx.globalAlpha = 0.9;
-        ctx.beginPath();
-        ctx.moveTo(line.x1, line.y);
-        ctx.lineTo(line.x2, line.y);
-        ctx.stroke();
-        ctx.restore();
-      });
-    });
-  }
-}
-
-class TradeLevelPrimitive {
-  private _trades: any[] = [];
-  private _candles: any[] = [];
-  private _series: any = null;
-  private _chart: any = null;
-  private static SEGMENT_BARS = 3;
-
-  attached(params: any) {
-    this._series = params.series;
-    this._chart = params.chart;
-  }
-  detached() {
-    this._series = null;
-    this._chart = null;
-  }
-
-  update(trades: any[], candles: any[]) {
-    this._trades = trades;
-    this._candles = candles;
-  }
-
-  private _computeLines() {
-    if (!this._series || !this._chart) return [];
-    const timeScale = this._chart.timeScale();
-
-    const sortedTimes = this._candles
-      .map((c: any) => Number(c.time))
-      .sort((a: number, b: number) => a - b);
-
-    const realTrades = this._trades.filter(
-      (t: any) => t.entryTimestamp && t.entryPrice && t.slPrice && t.tpPrice && t.exitReason !== 'Position still open'
-    );
-
-    const lines: { x1: number; x2: number; y: number; color: string }[] = [];
-
-    realTrades.forEach((trade: any) => {
-      const entryTs = Number(trade.entryTimestamp);
-      const entryIdx = sortedTimes.findIndex((t: number) => t === entryTs);
-      if (entryIdx === -1) return;
-
-      const segEndIdx = Math.min(entryIdx + TradeLevelPrimitive.SEGMENT_BARS - 1, sortedTimes.length - 1);
-      const x1 = timeScale.timeToCoordinate(sortedTimes[entryIdx]);
-      const x2 = timeScale.timeToCoordinate(sortedTimes[segEndIdx]);
-      if (x1 === null || x2 === null) return;
-
-      const yEntry = this._series.priceToCoordinate(trade.entryPrice);
-      const ySL   = this._series.priceToCoordinate(trade.slPrice);
-      const yTP   = this._series.priceToCoordinate(trade.tpPrice);
-
-      if (yEntry !== null) lines.push({ x1, x2, y: yEntry, color: '#3b82f6' });
-      if (ySL   !== null) lines.push({ x1, x2, y: ySL,    color: '#ef4444' });
-      if (yTP   !== null) lines.push({ x1, x2, y: yTP,    color: '#10b981' });
-    });
-
-    return lines;
-  }
-
-  // Called by lightweight-charts on every render frame — always up to date
-  paneViews() {
-    return [{ renderer: () => new TradeLevelRenderer(this._computeLines()), zOrder: () => 'normal' as const }];
-  }
-}
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Imports ───────────────────────────────────────────────────────────────
 
 
 interface Candle {
@@ -160,22 +74,16 @@ export default function WyckoffChart({
   const candlesRef = useRef(candles);
   const onSelectTradeRef = useRef(onSelectTrade);
 
-  // Trade level canvas primitive (entry/SL/TP per trade) — native lightweight-charts plugin
-  const tradeLevelPrimitiveRef = useRef<TradeLevelPrimitive | null>(null);
+  // References to dynamically generated trade level LineSeries
+  const dynamicLineSeriesRef = useRef<any[]>([]);
 
   useEffect(() => {
     tradesRef.current = trades;
-    if (tradeLevelPrimitiveRef.current) {
-      tradeLevelPrimitiveRef.current.update(trades, candlesRef.current);
-    }
     updateDrawingCoordinates();
   }, [trades]);
 
   useEffect(() => {
     candlesRef.current = candles;
-    if (tradeLevelPrimitiveRef.current) {
-      tradeLevelPrimitiveRef.current.update(tradesRef.current, candles);
-    }
   }, [candles]);
 
   useEffect(() => {
@@ -362,11 +270,6 @@ export default function WyckoffChart({
       isSyncing = false;
     });
 
-    // Attach the native TradeLevelPrimitive to the candlestick series
-    const tradeLevelPrimitive = new TradeLevelPrimitive();
-    candlestickSeries.attachPrimitive(tradeLevelPrimitive);
-    tradeLevelPrimitiveRef.current = tradeLevelPrimitive;
-
     // Re-compute SVG overlay Y coordinates when price scale (right axis) is dragged
     mainChart.priceScale('right').subscribeVisiblePriceRangeChange(() => {
       updateDrawingCoordinates();
@@ -420,6 +323,12 @@ export default function WyckoffChart({
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      dynamicLineSeriesRef.current.forEach((series) => {
+        try {
+          mainChart.removeSeries(series);
+        } catch (e) {}
+      });
+      dynamicLineSeriesRef.current = [];
       mainChart.remove();
       weisChart.remove();
     };
@@ -499,6 +408,59 @@ export default function WyckoffChart({
         };
       });
       weisSeriesRef.current.setData(weisData);
+    }
+
+    // Dynamic LineSeries creation for 3-bar trade entry/SL/TP levels
+    if (chartRef.current && candles.length > 0) {
+      // 1. Remove old trade level lines
+      dynamicLineSeriesRef.current.forEach((series) => {
+        try {
+          chartRef.current.removeSeries(series);
+        } catch (e) {
+          // Series might already be destroyed
+        }
+      });
+      dynamicLineSeriesRef.current = [];
+
+      // 2. Filter valid historical trades
+      const realTrades = (trades || []).filter(
+        (t) => t.entryTimestamp && t.entryPrice && t.slPrice && t.tpPrice && t.exitReason !== 'Position still open'
+      );
+
+      const sortedTimes = candles.map((c) => Number(c.time)).sort((a, b) => a - b);
+      const SEGMENT_BARS = 3;
+
+      realTrades.forEach((trade) => {
+        const entryTs = Number(trade.entryTimestamp);
+        const entryIdx = sortedTimes.findIndex((t) => t === entryTs);
+        if (entryIdx === -1) return;
+
+        const endIdx = Math.min(entryIdx + SEGMENT_BARS, sortedTimes.length);
+        const points = sortedTimes.slice(entryIdx, endIdx);
+        if (points.length === 0) return;
+
+        // Configurations for clean indicator segments
+        const entryData = points.map((p) => ({ time: p, value: trade.entryPrice }));
+        const slData = points.map((p) => ({ time: p, value: trade.slPrice }));
+        const tpData = points.map((p) => ({ time: p, value: trade.tpPrice }));
+
+        const addTradeLine = (data: any[], color: string) => {
+          const lineSeries = chartRef.current.addSeries(LineSeries, {
+            color,
+            lineWidth: 2,
+            lineStyle: 0, // Solid
+            lastValueVisible: false,
+            priceLineVisible: false,
+            crosshairMarkerVisible: false,
+          });
+          lineSeries.setData(data);
+          dynamicLineSeriesRef.current.push(lineSeries);
+        };
+
+        addTradeLine(entryData, '#3b82f6'); // blue
+        addTradeLine(slData, '#ef4444');    // red
+        addTradeLine(tpData, '#10b981');    // green
+      });
     }
 
     updateDrawingCoordinates();
