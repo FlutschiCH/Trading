@@ -82,16 +82,15 @@ export default function App() {
     maxDrawdown: number;
     maxDailyLoss: number;
     dailyLossBreached: boolean;
+    candles?: Candle[];
   } | null>(null);
   const [selectedTrade, setSelectedTrade] = useState<any>(null);
 
   const runBacktest = () => {
     if (!candles || candles.length === 0) return;
     
-    // Clear old signals
-    candles.forEach(c => {
-      c.backtest_signal = undefined;
-    });
+    // Copy the candles to avoid mutating the original state array in place
+    const annotatedCandles = candles.map(c => ({ ...c, backtest_signal: undefined }));
     
     const slPips = parseFloat(backtestSL) || 50;
     const rr = parseFloat(backtestRR) || 2;
@@ -114,8 +113,8 @@ export default function App() {
       pipVal = 0.0001;
     }
 
-    for (let i = 0; i < candles.length; i++) {
-      const c = candles[i];
+    for (let i = 0; i < annotatedCandles.length; i++) {
+      const c = annotatedCandles[i];
       
       if (activeTrade) {
         let closed = false;
@@ -231,7 +230,7 @@ export default function App() {
     }
     
     if (activeTrade) {
-      const finalCandle = candles[candles.length - 1];
+      const finalCandle = annotatedCandles[annotatedCandles.length - 1];
       const pnl = activeTrade.type === 'BUY' 
         ? (finalCandle.close - activeTrade.entryPrice) * activeTrade.qty
         : (activeTrade.entryPrice - finalCandle.close) * activeTrade.qty;
@@ -316,6 +315,7 @@ export default function App() {
       maxDrawdown,
       maxDailyLoss,
       dailyLossBreached,
+      candles: annotatedCandles,
     });
 
     if (reversedTrades.length > 0) {
@@ -755,6 +755,9 @@ export default function App() {
           <a href="https://gemini.google.com/app/71d33e33a84aa328" target="_blank" rel="noopener noreferrer" style={styles.linkBtn}>
             Wyckoff Prompt
           </a>
+          <a href="https://trader.ftmo.com/accounts-overview" target="_blank" rel="noopener noreferrer" style={styles.linkBtn}>
+            FTMO Overview
+          </a>
         </div>
 
         {/* Workspace controls */}
@@ -810,7 +813,7 @@ export default function App() {
           <div style={{ gridColumn: 'span 3' }}>
             <WyckoffChart 
               symbol={symbol} 
-              candles={candles} 
+              candles={backtestResults?.candles || candles} 
               loading={loading} 
               onRefresh={fetchCandles} 
               entryPrice={selectedTrade?.entryPrice}
