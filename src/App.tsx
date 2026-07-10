@@ -85,7 +85,8 @@ export default function App() {
   const [openPositions, setOpenPositions] = useState<Position[]>([]);
 
   // Backtester states
-  const [backtestSL, setBacktestSL] = useState('50');
+  const [backtestSL, setBacktestSL] = useState('1.0');
+  const [backtestSLType, setBacktestSLType] = useState<'pct' | 'price'>('pct');
   const [backtestRR, setBacktestRR] = useState('2');
   const [backtestSize, setBacktestSize] = useState('1');
   const [lookbackWindow, setLookbackWindow] = useState('20');
@@ -251,7 +252,8 @@ export default function App() {
         body: JSON.stringify({
           candles,
           symbol,
-          slPips: parseFloat(backtestSL) || 50,
+          slVal: parseFloat(backtestSL) || 1.0,
+          slType: backtestSLType,
           rr: parseFloat(backtestRR) || 2,
           size: parseFloat(backtestSize) || 1,
           initialBalance: parseFloat(backtestBalance) || 10000,
@@ -278,7 +280,7 @@ export default function App() {
 
   useEffect(() => {
     runBacktest();
-  }, [candles, symbol, backtestSL, backtestRR, backtestSize, lookbackWindow, backtestBalance, backtestRiskPct, useRiskSizing, backtestBE, useBreakEven]);
+  }, [candles, symbol, backtestSL, backtestSLType, backtestRR, backtestSize, lookbackWindow, backtestBalance, backtestRiskPct, useRiskSizing, backtestBE, useBreakEven]);
 
   // Fetch symbols and timeframes metadata on mount
   useEffect(() => {
@@ -1035,14 +1037,35 @@ export default function App() {
                       )}
 
                       <div style={styles.formGroup}>
-                        <label style={{ color: '#9ca3af', fontSize: '12px' }}>Stop Loss (Pips/Points)</label>
-                        <input 
-                          type="number" 
-                          value={backtestSL} 
-                          onChange={(e) => setBacktestSL(e.target.value)}
-                          style={styles.input}
-                          min="1"
-                        />
+                        <label style={{ color: '#9ca3af', fontSize: '12px' }}>Stop Loss</label>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <input 
+                            type="number" 
+                            value={backtestSL} 
+                            onChange={(e) => setBacktestSL(e.target.value)}
+                            style={{ ...styles.input, flexGrow: 1 }}
+                            step={backtestSLType === 'pct' ? '0.1' : '1'}
+                            min="0.01"
+                          />
+                          <select
+                            value={backtestSLType}
+                            onChange={(e) => {
+                              const newType = e.target.value as 'pct' | 'price';
+                              setBacktestSLType(newType);
+                              setBacktestSL(newType === 'pct' ? '1.0' : '200');
+                            }}
+                            style={{
+                              ...styles.input,
+                              width: '70px',
+                              backgroundColor: '#1f2937',
+                              cursor: 'pointer',
+                              padding: '0 8px',
+                            }}
+                          >
+                            <option value="pct">%</option>
+                            <option value="price">$</option>
+                          </select>
+                        </div>
                       </div>
 
                       <div style={styles.formGroup}>

@@ -91,7 +91,8 @@ def backtest():
     payload = request.get_json(silent=True) or {}
     candles = payload.get('candles', [])
     symbol = payload.get('symbol', 'BTCUSD')
-    sl_pips = float(payload.get('slPips', 50))
+    sl_val = float(payload.get('slVal', 1.0))
+    sl_type = payload.get('slType', 'pct')
     rr = float(payload.get('rr', 2.0))
     size = float(payload.get('size', 1.0))
     initial_balance = float(payload.get('initialBalance', 10000.0))
@@ -104,7 +105,8 @@ def backtest():
     result = TradingHandler.run_backtest(
         candles=candles,
         symbol=symbol,
-        sl_pips=sl_pips,
+        sl_val=sl_val,
+        sl_type=sl_type,
         rr=rr,
         size=size,
         initial_balance=initial_balance,

@@ -44,7 +44,8 @@ class TradingHandler:
     def run_backtest(
         candles: list,
         symbol: str,
-        sl_pips: float,
+        sl_val: float,
+        sl_type: str,
         rr: float,
         size: float,
         initial_balance: float,
@@ -122,7 +123,7 @@ class TradingHandler:
                 
                 # Check Break Even
                 if use_break_even and not active_trade.get('is_break_even', False):
-                    sl_distance = sl_pips * pip_val
+                    sl_distance = active_trade['sl_distance']
                     if active_trade['type'] == 'BUY':
                         if high_val >= active_trade['entry_price'] + sl_distance * be_trigger_r:
                             active_trade['sl_price'] = active_trade['entry_price']
@@ -200,7 +201,12 @@ class TradingHandler:
                     trade_type = 'BUY' if should_buy else 'SELL'
                     c['backtest_signal'] = trade_type
                     entry_price = close_val
-                    sl_distance = sl_pips * pip_val
+                    
+                    if sl_type == 'pct':
+                        sl_distance = entry_price * (sl_val / 100.0)
+                    else:
+                        sl_distance = sl_val
+                        
                     sl_price = entry_price - sl_distance if trade_type == 'BUY' else entry_price + sl_distance
                     tp_price = entry_price + sl_distance * rr if trade_type == 'BUY' else entry_price - sl_distance * rr
                     
@@ -217,7 +223,8 @@ class TradingHandler:
                         'qty': trade_qty,
                         'entry_index': i,
                         'entry_timestamp': int(c.get('time', 0)),
-                        'is_break_even': False
+                        'is_break_even': False,
+                        'sl_distance': sl_distance
                     }
 
         if active_trade:
