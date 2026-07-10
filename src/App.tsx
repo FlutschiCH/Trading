@@ -17,6 +17,7 @@ interface Candle {
   tr_low?: number;
   sweep_high?: number;
   sweep_low?: number;
+  backtest_signal?: 'BUY' | 'SELL';
 }
 
 interface AccountInfo {
@@ -86,6 +87,11 @@ export default function App() {
 
   const runBacktest = () => {
     if (!candles || candles.length === 0) return;
+    
+    // Clear old signals
+    candles.forEach(c => {
+      c.backtest_signal = undefined;
+    });
     
     const slPips = parseFloat(backtestSL) || 50;
     const rr = parseFloat(backtestRR) || 2;
@@ -200,6 +206,7 @@ export default function App() {
         
         if (shouldBuy || shouldSell) {
           const tradeType = shouldBuy ? 'BUY' : 'SELL';
+          c.backtest_signal = tradeType; // Assign signal only on execution
           const entryPrice = c.close;
           const slDistance = slPips * pipVal;
           const slPrice = tradeType === 'BUY' ? (entryPrice - slDistance) : (entryPrice + slDistance);

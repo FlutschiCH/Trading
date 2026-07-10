@@ -13,6 +13,7 @@ interface Candle {
   weis_wave_volume?: number;
   tr_high?: number;
   tr_low?: number;
+  backtest_signal?: 'BUY' | 'SELL';
 }
 
 interface WyckoffChartProps {
@@ -248,11 +249,11 @@ export default function WyckoffChart({ symbol, candles, loading, onRefresh, entr
     if (candlestickSeriesRef.current) {
       candlestickSeriesRef.current.setData(candles);
 
-      // VSA markers
+      // Signal markers
       const markers = candles
         .map((c) => {
-          if (c.vsa_patterns && c.vsa_patterns.length > 0) {
-            const isBullish = c.vsa_patterns.includes('Shakeout/Spring') || c.vsa_patterns.includes('Stopping Volume') || c.vsa_patterns.includes('No Supply');
+          if (c.backtest_signal) {
+            const isBullish = c.backtest_signal === 'BUY';
             return {
               time: c.time,
               position: (isBullish ? 'belowBar' : 'aboveBar') as any,
