@@ -185,7 +185,7 @@
 
 .dashboard-grid {
   display: grid;
-  grid-template-columns: 420px 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 24px;
   width: 100%;
 }

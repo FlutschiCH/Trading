@@ -940,7 +940,7 @@ export default function App() {
           {panelOrder.map((panelId) => {
             const isDragOver = dragOverId === panelId;
             const dragStyles = {
-              gridColumn: panelId === 'chart' ? '1 / -1' : 'auto',
+              gridColumn: panelId === 'chart' || panelId === 'dashboard' ? 'span 2' : 'span 1',
               border: isDragOver ? '2px dashed #3b82f6' : '1px solid #1f2937',
               borderRadius: '12px',
               backgroundColor: '#0f172a',
