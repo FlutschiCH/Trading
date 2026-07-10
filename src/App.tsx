@@ -59,6 +59,27 @@ const getWeekNumber = (date: Date) => {
 };
 
 export default function App() {
+  // Simple Password Protection Mode on Deployed Host
+  const isProdHost = window.location.hostname === 'trading.flutschi.ch';
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    if (!isProdHost) return true;
+    return sessionStorage.getItem('wyckoff_auth_token') === 'true';
+  });
+  const [authUsername, setAuthUsername] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authError, setAuthError] = useState('');
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (authUsername.trim().toLowerCase() === 'flutschi' && authPassword === 'Godzilla_12') {
+      sessionStorage.setItem('wyckoff_auth_token', 'true');
+      setIsAuthenticated(true);
+      setAuthError('');
+    } else {
+      setAuthError('Invalid username or password.');
+    }
+  };
+
   const [availableSymbols, setAvailableSymbols] = useState<string[]>([
     'BTCUSD', 'ETHUSD', 'EURUSD', 'GBPUSD', 'USDJPY', 
     'AUDUSD', 'USDCAD', 'XAUUSD', 'US30', 'GER40'
@@ -771,6 +792,108 @@ export default function App() {
       color: isProfit ? '#10b981' : '#ef4444',
     })
   };
+
+  if (!isAuthenticated) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        backgroundColor: '#030712',
+        backgroundImage: 'radial-gradient(ellipse at top, rgba(59, 130, 246, 0.15), transparent 60%)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        color: '#f8fafc',
+        fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+      }}>
+        <div style={{
+          backgroundColor: '#0f172a',
+          border: '1px solid #1e293b',
+          borderRadius: '16px',
+          boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5)',
+          width: '90%',
+          maxWidth: '400px',
+          padding: '32px',
+        }}>
+          <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+              <Activity size={32} style={{ color: '#3b82f6' }} />
+              <span style={{ fontSize: '24px', fontWeight: 'bold', letterSpacing: '0.05em' }}>
+                WYCKOFF<span style={{ color: '#3b82f6' }}>DESK</span>
+              </span>
+            </div>
+            <h2 style={{ fontSize: '14px', color: '#94a3b8', margin: 0, fontWeight: 'normal' }}>Secure Live Execution Station</h2>
+          </div>
+
+          <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label style={{ fontSize: '12px', color: '#94a3b8', fontWeight: '500' }}>Username</label>
+              <input 
+                type="text" 
+                value={authUsername}
+                onChange={(e) => setAuthUsername(e.target.value)}
+                placeholder="Enter username"
+                required
+                style={{
+                  backgroundColor: '#0b0f19',
+                  border: '1px solid #1e293b',
+                  borderRadius: '8px',
+                  padding: '10px 14px',
+                  color: '#ffffff',
+                  outline: 'none',
+                  fontSize: '14px',
+                }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label style={{ fontSize: '12px', color: '#94a3b8', fontWeight: '500' }}>Password</label>
+              <input 
+                type="password" 
+                value={authPassword}
+                onChange={(e) => setAuthPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+                style={{
+                  backgroundColor: '#0b0f19',
+                  border: '1px solid #1e293b',
+                  borderRadius: '8px',
+                  padding: '10px 14px',
+                  color: '#ffffff',
+                  outline: 'none',
+                  fontSize: '14px',
+                }}
+              />
+            </div>
+
+            {authError && (
+              <div style={{ color: '#ef4444', fontSize: '12px', textAlign: 'center', marginTop: '4px' }}>
+                ⚠️ {authError}
+              </div>
+            )}
+
+            <button 
+              type="submit"
+              style={{
+                width: '100%',
+                padding: '12px',
+                borderRadius: '8px',
+                fontWeight: 'bold',
+                border: 'none',
+                cursor: 'pointer',
+                backgroundColor: '#2563eb',
+                color: '#ffffff',
+                boxShadow: '0 4px 14px rgba(37, 99, 235, 0.3)',
+                fontSize: '14px',
+                marginTop: '8px'
+              }}
+            >
+              Sign In
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={styles.container}>
