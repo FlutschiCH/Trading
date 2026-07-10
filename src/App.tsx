@@ -111,69 +111,56 @@ export default function App() {
   const [showModal, setShowModal] = useState<boolean>(false);
   const [backtestTab, setBacktestTab] = useState<'trades' | 'weekly' | 'monthly'>('trades');
 
-  const [positions, setPositions] = useState<{ [key: string]: { x: number; y: number } }>(() => {
-    const saved = localStorage.getItem('wyckoff_desk_positions');
-    return saved ? JSON.parse(saved) : {
-      manualOrder: { x: 24, y: 920 },
-      backtester: { x: 430, y: 920 }
-    };
+  const [panelOrder, setPanelOrder] = useState<string[]>(() => {
+    const saved = localStorage.getItem('wyckoff_desk_panel_order');
+    return saved ? JSON.parse(saved) : ['chart', 'order', 'backtester', 'dashboard'];
   });
-  const [activeDrag, setActiveDrag] = useState<{
-    id: string;
-    startX: number;
-    startY: number;
-    startLeft: number;
-    startTop: number;
-  } | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
 
-  const handleMouseDown = (e: React.MouseEvent, id: string) => {
+  const handleDragStart = (e: React.DragEvent, id: string) => {
     const target = e.target as HTMLElement;
-    if (target.tagName === 'INPUT' || target.tagName === 'BUTTON' || target.tagName === 'SELECT' || target.closest('button') || target.closest('input')) {
+    // Don't drag if clicking buttons/inputs/selects
+    if (
+      target.tagName === 'INPUT' || 
+      target.tagName === 'BUTTON' || 
+      target.tagName === 'SELECT' || 
+      target.closest('button') || 
+      target.closest('input') || 
+      target.closest('select') ||
+      target.closest('.no-drag')
+    ) {
+      e.preventDefault();
       return;
     }
-    
-    e.preventDefault();
-    const pos = positions[id] || { x: 0, y: 0 };
-    setActiveDrag({
-      id,
-      startX: e.clientX,
-      startY: e.clientY,
-      startLeft: pos.x,
-      startTop: pos.y
-    });
+    e.dataTransfer.setData('text/plain', id);
+    e.dataTransfer.effectAllowed = 'move';
   };
 
-  useEffect(() => {
-    if (!activeDrag) return;
+  const handleDragOver = (e: React.DragEvent, id: string) => {
+    e.preventDefault();
+    if (dragOverId !== id) {
+      setDragOverId(id);
+    }
+  };
 
-    const handleMouseMove = (e: MouseEvent) => {
-      const dx = e.clientX - activeDrag.startX;
-      const dy = e.clientY - activeDrag.startY;
-      
-      setPositions(prev => {
-        const next = {
-          ...prev,
-          [activeDrag.id]: {
-            x: activeDrag.startLeft + dx,
-            y: activeDrag.startTop + dy
-          }
-        };
-        localStorage.setItem('wyckoff_desk_positions', JSON.stringify(next));
-        return next;
-      });
-    };
+  const handleDrop = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    const draggedId = e.dataTransfer.getData('text/plain');
+    if (!draggedId || draggedId === targetId) return;
 
-    const handleMouseUp = () => {
-      setActiveDrag(null);
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [activeDrag]);
+    setPanelOrder(prev => {
+      const next = [...prev];
+      const draggedIdx = next.indexOf(draggedId);
+      const targetIdx = next.indexOf(targetId);
+      if (draggedIdx !== -1 && targetIdx !== -1) {
+        next.splice(draggedIdx, 1);
+        next.splice(targetIdx, 0, draggedId);
+      }
+      localStorage.setItem('wyckoff_desk_panel_order', JSON.stringify(next));
+      return next;
+    });
+    setDragOverId(null);
+  };
 
   const runBacktest = () => {
     if (!candles || candles.length === 0) return;
@@ -733,8 +720,6 @@ export default function App() {
       display: 'flex',
       flexDirection: 'column' as const,
       gap: '24px',
-      position: 'relative',
-      minHeight: '1400px',
     },
     topPane: {
       display: 'grid',
@@ -967,444 +952,513 @@ export default function App() {
           />
         </div>
 
-        {/* Draggable Panels */}
-        <div style={{ position: 'relative', width: '100%', minHeight: '500px' }}>
+        {/* Dynamic Reorderable Dashboard Panels Grid */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))',
+          gap: '24px',
+          width: '100%',
+        }}>
+          {panelOrder.map((panelId) => {
+            const isDragOver = dragOverId === panelId;
+            const dragStyles = {
+              gridColumn: panelId === 'chart' || panelId === 'dashboard' ? '1 / -1' : 'auto',
+              border: isDragOver ? '2px dashed #3b82f6' : '1px solid #1f2937',
+              borderRadius: '12px',
+              backgroundColor: '#0f172a',
+              transition: 'all 0.2s',
+              opacity: isDragOver ? 0.75 : 1,
+              position: 'relative' as const,
+              overflow: 'hidden',
+            };
 
-          {/* Trade Execution Panel */}
-          <div style={{
-            ...styles.orderCard,
-            position: 'absolute',
-            left: positions.manualOrder?.x ?? 24,
-            top: positions.manualOrder?.y ?? 920,
-            width: '380px',
-            zIndex: activeDrag?.id === 'manualOrder' ? 100 : 10,
-          }}>
-            <h3 
-              onMouseDown={(e) => handleMouseDown(e, 'manualOrder')}
-              style={{
-                ...styles.cardTitle,
-                cursor: 'move',
-                userSelect: 'none',
-                backgroundColor: '#1f2937',
-                padding: '8px 12px',
-                margin: '-16px -16px 12px -16px',
-                borderTopLeftRadius: '12px',
-                borderTopRightRadius: '12px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}
-            >
-              <span>Manual Order Entry</span>
-              <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header</span>
-            </h3>
-            
-            <div style={styles.tradeTypeTabs}>
-              <button 
-                onClick={() => setTradeType('buy')}
-                style={styles.tradeTypeBtn(tradeType === 'buy', true)}
-              >
-                BUY
-              </button>
-              <button 
-                onClick={() => setTradeType('sell')}
-                style={styles.tradeTypeBtn(tradeType === 'sell', false)}
-              >
-                SELL
-              </button>
-            </div>
+            const headerStyle = {
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              backgroundColor: '#1e293b',
+              padding: '10px 16px',
+              cursor: 'grab',
+              userSelect: 'none' as const,
+              borderBottom: '1px solid #111827',
+              fontSize: '12px',
+              fontWeight: 'bold',
+              color: '#d1d5db',
+            };
 
-            {accountInfo && (
-              <div style={styles.walletContainer}>
-                <div style={styles.walletRow}>
-                  <span style={{ color: '#9ca3af' }}>Balance:</span>
-                  <span style={{ color: '#ffffff', fontWeight: 'bold' }}>{accountInfo.balance} {accountInfo.currency}</span>
-                </div>
-                <div style={styles.walletRow}>
-                  <span style={{ color: '#9ca3af' }}>Free Margin:</span>
-                  <span style={{ color: '#ffffff', fontWeight: 'bold' }}>{accountInfo.margin_free} {accountInfo.currency}</span>
-                </div>
-              </div>
-            )}
+            const contentStyle = {
+              padding: '16px',
+            };
 
-            <form onSubmit={handleExecuteTrade} style={styles.tradeForm}>
-              <div style={styles.orderTypeTabs}>
-                <button
-                  type="button"
-                  onClick={() => setOrderType('market')}
-                  style={styles.orderTypeBtn(orderType === 'market')}
+            if (panelId === 'chart') {
+              return (
+                <div
+                  key="chart"
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, 'chart')}
+                  onDragOver={(e) => handleDragOver(e, 'chart')}
+                  onDrop={(e) => handleDrop(e, 'chart')}
+                  style={dragStyles}
                 >
-                  MARKET
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setOrderType('limit')}
-                  style={styles.orderTypeBtn(orderType === 'limit')}
-                >
-                  LIMIT
-                </button>
-              </div>
-
-              {orderType === 'limit' && (
-                <div style={styles.formGroup}>
-                  <label style={{ color: '#9ca3af' }}>Limit Price (USDT)</label>
-                  <input 
-                    type="number" 
-                    value={price} 
-                    onChange={(e) => setPrice(e.target.value)}
-                    style={styles.input}
-                    step="0.01"
-                    required
-                  />
-                </div>
-              )}
-
-              <div style={styles.formGroup}>
-                <label style={{ color: '#9ca3af' }}>Order Quantity</label>
-                <input 
-                  type="number" 
-                  value={amount} 
-                  onChange={(e) => setAmount(e.target.value)}
-                  style={styles.input}
-                  step="0.01"
-                  min="0.01"
-                  required
-                />
-              </div>
-
-              <button 
-                type="submit" 
-                style={styles.submitBtn(tradeType === 'buy')}
-              >
-                Submit Order
-              </button>
-            </form>
-
-            {/* Position Display */}
-            {openPositions.length > 0 && (
-              <div style={{ marginTop: '8px' }}>
-                <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#9ca3af' }}>
-                  Positions ({openPositions.length})
-                </span>
-                <div style={styles.positionsList}>
-                  {openPositions.map((pos) => (
-                    <div key={pos.position_id} style={styles.positionRow}>
-                      <div style={styles.posDetails}>
-                        <span style={styles.posSide(pos.trade_side === 'BUY')}>{pos.trade_side} {pos.volume}</span>
-                        <span style={{ fontSize: '10px', color: '#6b7280' }}>{pos.symbol}</span>
-                      </div>
-                      <span style={styles.posPnl(pos.unrealized_profit >= 0)}>
-                        ${pos.unrealized_profit.toFixed(2)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Backtester Control Card */}
-          <div style={{
-            ...styles.orderCard,
-            position: 'absolute',
-            left: positions.backtester?.x ?? 430,
-            top: positions.backtester?.y ?? 920,
-            width: '420px',
-            zIndex: activeDrag?.id === 'backtester' ? 100 : 10,
-          }}>
-            <h3 
-              onMouseDown={(e) => handleMouseDown(e, 'backtester')}
-              style={{
-                ...styles.cardTitle,
-                cursor: 'move',
-                userSelect: 'none',
-                backgroundColor: '#1f2937',
-                padding: '8px 12px',
-                margin: '-16px -16px 12px -16px',
-                borderTopLeftRadius: '12px',
-                borderTopRightRadius: '12px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}
-            >
-              <span>Wyckoff Backtester Desk</span>
-              <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header</span>
-            </h3>
-            
-            <div style={styles.tradeForm}>
-              <div style={styles.formGroup}>
-                <label style={{ color: '#9ca3af', fontSize: '12px' }}>Starting Balance ($)</label>
-                <input 
-                  type="number" 
-                  value={backtestBalance} 
-                  onChange={(e) => setBacktestBalance(e.target.value)}
-                  style={styles.input}
-                  min="100"
-                />
-              </div>
-
-              <div style={styles.formGroup}>
-                <label style={{ color: '#9ca3af', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                  <input 
-                    type="checkbox" 
-                    checked={useRiskSizing}
-                    onChange={(e) => setUseRiskSizing(e.target.checked)}
-                    style={{ cursor: 'pointer' }}
-                  />
-                  Auto Calculate Size by Risk
-                </label>
-              </div>
-
-              {useRiskSizing ? (
-                <div style={styles.formGroup}>
-                  <label style={{ color: '#9ca3af', fontSize: '12px' }}>Risk % per Trade</label>
-                  <input 
-                    type="number" 
-                    value={backtestRiskPct} 
-                    onChange={(e) => setBacktestRiskPct(e.target.value)}
-                    style={styles.input}
-                    step="0.1"
-                    min="0.1"
-                    max="10.0"
-                  />
-                </div>
-              ) : (
-                <div style={styles.formGroup}>
-                  <label style={{ color: '#9ca3af', fontSize: '12px' }}>Quantity (Size)</label>
-                  <input 
-                    type="number" 
-                    value={backtestSize} 
-                    onChange={(e) => setBacktestSize(e.target.value)}
-                    style={styles.input}
-                    step="0.1"
-                    min="0.1"
-                  />
-                </div>
-              )}
-
-              <div style={styles.formGroup}>
-                <label style={{ color: '#9ca3af', fontSize: '12px' }}>Stop Loss (Pips/Points)</label>
-                <input 
-                  type="number" 
-                  value={backtestSL} 
-                  onChange={(e) => setBacktestSL(e.target.value)}
-                  style={styles.input}
-                  min="1"
-                />
-              </div>
-
-              <div style={styles.formGroup}>
-                <label style={{ color: '#9ca3af', fontSize: '12px' }}>Risk to Reward (RR Ratio)</label>
-                <input 
-                  type="number" 
-                  value={backtestRR} 
-                  onChange={(e) => setBacktestRR(e.target.value)}
-                  style={styles.input}
-                  step="0.1"
-                  min="0.5"
-                />
-              </div>
-
-              <div style={styles.formGroup}>
-                <label style={{ color: '#9ca3af', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                  <input 
-                    type="checkbox" 
-                    checked={useBreakEven}
-                    onChange={(e) => setUseBreakEven(e.target.checked)}
-                    style={{ cursor: 'pointer' }}
-                  />
-                  Enable Break Even (BE)
-                </label>
-              </div>
-
-              {useBreakEven && (
-                <div style={styles.formGroup}>
-                  <label style={{ color: '#9ca3af', fontSize: '12px' }}>BE Trigger (R-Ratio)</label>
-                  <input 
-                    type="number" 
-                    value={backtestBE} 
-                    onChange={(e) => setBacktestBE(e.target.value)}
-                    style={styles.input}
-                    step="0.1"
-                    min="0.1"
-                  />
-                </div>
-              )}
-
-              <div style={styles.formGroup}>
-                <label style={{ color: '#9ca3af', fontSize: '12px' }}>Sweep Lookback (Bars)</label>
-                <input 
-                  type="number" 
-                  value={lookbackWindow} 
-                  onChange={(e) => setLookbackWindow(e.target.value)}
-                  style={styles.input}
-                  min="5"
-                  max="200"
-                />
-              </div>
-            </div>
-
-            {backtestResults && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <div style={styles.walletContainer}>
-                  <div style={styles.walletRow}>
-                    <span style={{ color: '#9ca3af' }}>Total Trades:</span>
-                    <span style={{ color: '#ffffff', fontWeight: 'bold' }}>{backtestResults.totalTrades}</span>
+                  <div style={headerStyle}>
+                    <span>📊 Candlestick & Weis Wave Analysis Chart</span>
+                    <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header to Move</span>
                   </div>
-                  <div style={styles.walletRow}>
-                    <span style={{ color: '#9ca3af' }}>Win Rate:</span>
-                    <span style={{ color: backtestResults.winRate >= 50 ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>
-                      {backtestResults.winRate.toFixed(1)}%
-                    </span>
-                  </div>
-                  <div style={styles.walletRow}>
-                    <span style={{ color: '#9ca3af' }}>Net Profit:</span>
-                    <span style={{ color: backtestResults.netPnl >= 0 ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>
-                      ${backtestResults.netPnl.toFixed(2)}
-                    </span>
-                  </div>
-                  <div style={styles.walletRow}>
-                    <span style={{ color: '#9ca3af' }}>Profit Factor:</span>
-                    <span style={{ color: '#ffffff', fontWeight: 'bold' }}>{backtestResults.profitFactor.toFixed(2)}</span>
-                  </div>
-                  <div style={styles.walletRow}>
-                    <span style={{ color: '#9ca3af' }}>Max Drawdown:</span>
-                    <span style={{ color: '#ffffff', fontWeight: 'bold' }}>{(backtestResults.maxDrawdown ?? 0).toFixed(2)}%</span>
-                  </div>
-                  <div style={styles.walletRow}>
-                    <span style={{ color: '#9ca3af' }}>Max Daily Loss:</span>
-                    <span style={{ color: (backtestResults.maxDailyLoss ?? 0) >= 5.0 ? '#ef4444' : '#ffffff', fontWeight: 'bold' }}>
-                      {(backtestResults.maxDailyLoss ?? 0).toFixed(2)}%
-                    </span>
-                  </div>
-                </div>
-
-                {backtestResults.dailyLossBreached && (
-                  <div style={{
-                    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-                    border: '1px solid #ef4444',
-                    borderRadius: '8px',
-                    padding: '8px',
-                    color: '#ef4444',
-                    fontSize: '11px',
-                    fontWeight: 'bold',
-                    textAlign: 'center',
-                    marginTop: '4px'
-                  }}>
-                    ⚠️ FTMO 5% Daily Loss Rule Breached!
-                  </div>
-                )}
-
-                <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid #1f2937', paddingBottom: '4px', marginTop: '8px' }}>
-                  <button 
-                    onClick={() => setBacktestTab('trades')}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: backtestTab === 'trades' ? '#3b82f6' : '#9ca3af',
-                      fontWeight: 'bold',
-                      fontSize: '11px',
-                      cursor: 'pointer',
-                      borderBottom: backtestTab === 'trades' ? '2px solid #3b82f6' : 'none',
-                      paddingBottom: '2px'
-                    }}
-                  >
-                    Trades ({backtestResults.trades.length})
-                  </button>
-                  <button 
-                    onClick={() => setBacktestTab('weekly')}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: backtestTab === 'weekly' ? '#3b82f6' : '#9ca3af',
-                      fontWeight: 'bold',
-                      fontSize: '11px',
-                      cursor: 'pointer',
-                      borderBottom: backtestTab === 'weekly' ? '2px solid #3b82f6' : 'none',
-                      paddingBottom: '2px'
-                    }}
-                  >
-                    Weekly
-                  </button>
-                  <button 
-                    onClick={() => setBacktestTab('monthly')}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: backtestTab === 'monthly' ? '#3b82f6' : '#9ca3af',
-                      fontWeight: 'bold',
-                      fontSize: '11px',
-                      cursor: 'pointer',
-                      borderBottom: backtestTab === 'monthly' ? '2px solid #3b82f6' : 'none',
-                      paddingBottom: '2px'
-                    }}
-                  >
-                    Monthly
-                  </button>
-                </div>
-
-                <div style={styles.positionsList}>
-                  {backtestTab === 'trades' && backtestResults.trades.map((trade) => (
-                    <div 
-                      key={trade.id} 
-                      onClick={() => {
+                  <div className="no-drag" style={{ padding: '0px' }}>
+                    <WyckoffChart 
+                      symbol={symbol} 
+                      candles={backtestResults?.candles || candles} 
+                      loading={loading} 
+                      onRefresh={fetchCandles} 
+                      entryPrice={selectedTrade?.entryPrice}
+                      slPrice={selectedTrade?.slPrice}
+                      tpPrice={selectedTrade?.tpPrice}
+                      trades={backtestResults?.trades || []}
+                      selectedTrade={selectedTrade}
+                      onSelectTrade={(trade) => {
                         setSelectedTrade(trade);
                         setShowModal(true);
                       }}
-                      style={{
-                        ...styles.positionRow,
-                        cursor: 'pointer',
-                        border: selectedTrade?.id === trade.id ? '1.5px solid #3b82f6' : '1px solid #1f2937',
-                        transform: selectedTrade?.id === trade.id ? 'scale(1.02)' : 'scale(1)',
-                        transition: 'all 0.15s'
-                      }}
-                    >
-                      <div style={styles.posDetails}>
-                        <span style={styles.posSide(trade.type === 'BUY')}>
-                          {trade.type} @ {trade.entryPrice.toFixed(2)}
-                        </span>
-                        <span style={{ fontSize: '10px', color: '#6b7280' }}>
-                          Exit: {trade.exitPrice.toFixed(2)} | {trade.time}
-                        </span>
-                      </div>
-                      <span style={styles.posPnl(trade.pnl >= 0)}>
-                        {trade.pnl >= 0 ? '+' : ''}${trade.pnl.toFixed(2)}
-                      </span>
-                    </div>
-                  ))}
-
-                  {backtestTab === 'weekly' && backtestResults.weeklyBreakdown && Object.keys(backtestResults.weeklyBreakdown).sort().reverse().map((week) => {
-                    const pnl = backtestResults.weeklyBreakdown![week];
-                    return (
-                      <div key={week} style={styles.positionRow}>
-                        <span style={{ fontWeight: 'bold', color: '#ffffff' }}>{week}</span>
-                        <span style={styles.posPnl(pnl >= 0)}>
-                          {pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}
-                        </span>
-                      </div>
-                    );
-                  })}
-
-                  {backtestTab === 'monthly' && backtestResults.monthlyBreakdown && Object.keys(backtestResults.monthlyBreakdown).sort().reverse().map((month) => {
-                    const pnl = backtestResults.monthlyBreakdown![month];
-                    return (
-                      <div key={month} style={styles.positionRow}>
-                        <span style={{ fontWeight: 'bold', color: '#ffffff' }}>{month}</span>
-                        <span style={styles.posPnl(pnl >= 0)}>
-                          {pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}
-                        </span>
-                      </div>
-                    );
-                  })}
+                    />
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
-        </div>
+              );
+            }
 
-        {/* Bottom pane: Security Stream & Webhook Simulation Controls */}
-        <Dashboard />
+            if (panelId === 'order') {
+              return (
+                <div
+                  key="order"
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, 'order')}
+                  onDragOver={(e) => handleDragOver(e, 'order')}
+                  onDrop={(e) => handleDrop(e, 'order')}
+                  style={dragStyles}
+                >
+                  <div style={headerStyle}>
+                    <span>💼 Manual Order Execution Panel</span>
+                    <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header to Move</span>
+                  </div>
+                  <div className="no-drag" style={contentStyle}>
+                    <div style={styles.tradeTypeTabs}>
+                      <button 
+                        onClick={() => setTradeType('buy')}
+                        style={styles.tradeTypeBtn(tradeType === 'buy', true)}
+                      >
+                        BUY
+                      </button>
+                      <button 
+                        onClick={() => setTradeType('sell')}
+                        style={styles.tradeTypeBtn(tradeType === 'sell', false)}
+                      >
+                        SELL
+                      </button>
+                    </div>
+
+                    {accountInfo && (
+                      <div style={{ ...styles.walletContainer, marginTop: '12px' }}>
+                        <div style={styles.walletRow}>
+                          <span style={{ color: '#9ca3af' }}>Balance:</span>
+                          <span style={{ color: '#ffffff', fontWeight: 'bold' }}>{accountInfo.balance} {accountInfo.currency}</span>
+                        </div>
+                        <div style={styles.walletRow}>
+                          <span style={{ color: '#9ca3af' }}>Free Margin:</span>
+                          <span style={{ color: '#ffffff', fontWeight: 'bold' }}>{accountInfo.margin_free} {accountInfo.currency}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    <form onSubmit={handleExecuteTrade} style={{ ...styles.tradeForm, marginTop: '12px' }}>
+                      <div style={styles.orderTypeTabs}>
+                        <button
+                          type="button"
+                          onClick={() => setOrderType('market')}
+                          style={styles.orderTypeBtn(orderType === 'market')}
+                        >
+                          MARKET
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setOrderType('limit')}
+                          style={styles.orderTypeBtn(orderType === 'limit')}
+                        >
+                          LIMIT
+                        </button>
+                      </div>
+
+                      {orderType === 'limit' && (
+                        <div style={styles.formGroup}>
+                          <label style={{ color: '#9ca3af' }}>Limit Price (USDT)</label>
+                          <input 
+                            type="number" 
+                            value={price} 
+                            onChange={(e) => setPrice(e.target.value)}
+                            style={styles.input}
+                            step="0.01"
+                            required
+                          />
+                        </div>
+                      )}
+
+                      <div style={styles.formGroup}>
+                        <label style={{ color: '#9ca3af' }}>Order Quantity</label>
+                        <input 
+                          type="number" 
+                          value={amount} 
+                          onChange={(e) => setAmount(e.target.value)}
+                          style={styles.input}
+                          step="0.01"
+                          min="0.01"
+                          required
+                        />
+                      </div>
+
+                      <button 
+                        type="submit" 
+                        style={styles.submitBtn(tradeType === 'buy')}
+                      >
+                        Submit Order
+                      </button>
+                    </form>
+
+                    {/* Position Display */}
+                    {openPositions.length > 0 && (
+                      <div style={{ marginTop: '16px' }}>
+                        <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#9ca3af' }}>
+                          Positions ({openPositions.length})
+                        </span>
+                        <div style={styles.positionsList}>
+                          {openPositions.map((pos) => (
+                            <div key={pos.position_id} style={styles.positionRow}>
+                              <div style={styles.posDetails}>
+                                <span style={styles.posSide(pos.trade_side === 'BUY')}>{pos.trade_side} {pos.volume}</span>
+                                <span style={{ fontSize: '10px', color: '#6b7280' }}>{pos.symbol}</span>
+                              </div>
+                              <span style={styles.posPnl(pos.unrealized_profit >= 0)}>
+                                ${pos.unrealized_profit.toFixed(2)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            }
+
+            if (panelId === 'backtester') {
+              return (
+                <div
+                  key="backtester"
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, 'backtester')}
+                  onDragOver={(e) => handleDragOver(e, 'backtester')}
+                  onDrop={(e) => handleDrop(e, 'backtester')}
+                  style={dragStyles}
+                >
+                  <div style={headerStyle}>
+                    <span>⚙️ Wyckoff Backtester Desk</span>
+                    <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header to Move</span>
+                  </div>
+                  <div className="no-drag" style={contentStyle}>
+                    <div style={styles.tradeForm}>
+                      <div style={styles.formGroup}>
+                        <label style={{ color: '#9ca3af', fontSize: '12px' }}>Starting Balance ($)</label>
+                        <input 
+                          type="number" 
+                          value={backtestBalance} 
+                          onChange={(e) => setBacktestBalance(e.target.value)}
+                          style={styles.input}
+                          min="100"
+                        />
+                      </div>
+
+                      <div style={styles.formGroup}>
+                        <label style={{ color: '#9ca3af', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                          <input 
+                            type="checkbox" 
+                            checked={useRiskSizing}
+                            onChange={(e) => setUseRiskSizing(e.target.checked)}
+                            style={{ cursor: 'pointer' }}
+                          />
+                          Auto Calculate Size by Risk
+                        </label>
+                      </div>
+
+                      {useRiskSizing ? (
+                        <div style={styles.formGroup}>
+                          <label style={{ color: '#9ca3af', fontSize: '12px' }}>Risk % per Trade</label>
+                          <input 
+                            type="number" 
+                            value={backtestRiskPct} 
+                            onChange={(e) => setBacktestRiskPct(e.target.value)}
+                            style={styles.input}
+                            step="0.1"
+                            min="0.1"
+                            max="10.0"
+                          />
+                        </div>
+                      ) : (
+                        <div style={styles.formGroup}>
+                          <label style={{ color: '#9ca3af', fontSize: '12px' }}>Quantity (Size)</label>
+                          <input 
+                            type="number" 
+                            value={backtestSize} 
+                            onChange={(e) => setBacktestSize(e.target.value)}
+                            style={styles.input}
+                            step="0.1"
+                            min="0.1"
+                          />
+                        </div>
+                      )}
+
+                      <div style={styles.formGroup}>
+                        <label style={{ color: '#9ca3af', fontSize: '12px' }}>Stop Loss (Pips/Points)</label>
+                        <input 
+                          type="number" 
+                          value={backtestSL} 
+                          onChange={(e) => setBacktestSL(e.target.value)}
+                          style={styles.input}
+                          min="1"
+                        />
+                      </div>
+
+                      <div style={styles.formGroup}>
+                        <label style={{ color: '#9ca3af', fontSize: '12px' }}>Risk to Reward (RR Ratio)</label>
+                        <input 
+                          type="number" 
+                          value={backtestRR} 
+                          onChange={(e) => setBacktestRR(e.target.value)}
+                          style={styles.input}
+                          step="0.1"
+                          min="0.5"
+                        />
+                      </div>
+
+                      <div style={styles.formGroup}>
+                        <label style={{ color: '#9ca3af', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                          <input 
+                            type="checkbox" 
+                            checked={useBreakEven}
+                            onChange={(e) => setUseBreakEven(e.target.checked)}
+                            style={{ cursor: 'pointer' }}
+                          />
+                          Enable Break Even (BE)
+                        </label>
+                      </div>
+
+                      {useBreakEven && (
+                        <div style={styles.formGroup}>
+                          <label style={{ color: '#9ca3af', fontSize: '12px' }}>BE Trigger (R-Ratio)</label>
+                          <input 
+                            type="number" 
+                            value={backtestBE} 
+                            onChange={(e) => setBacktestBE(e.target.value)}
+                            style={styles.input}
+                            step="0.1"
+                            min="0.1"
+                          />
+                        </div>
+                      )}
+
+                      <div style={styles.formGroup}>
+                        <label style={{ color: '#9ca3af', fontSize: '12px' }}>Sweep Lookback (Bars)</label>
+                        <input 
+                          type="number" 
+                          value={lookbackWindow} 
+                          onChange={(e) => setLookbackWindow(e.target.value)}
+                          style={styles.input}
+                          min="5"
+                          max="200"
+                        />
+                      </div>
+                    </div>
+
+                    {backtestResults && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
+                        <div style={styles.walletContainer}>
+                          <div style={styles.walletRow}>
+                            <span style={{ color: '#9ca3af' }}>Total Trades:</span>
+                            <span style={{ color: '#ffffff', fontWeight: 'bold' }}>{backtestResults.totalTrades}</span>
+                          </div>
+                          <div style={styles.walletRow}>
+                            <span style={{ color: '#9ca3af' }}>Win Rate:</span>
+                            <span style={{ color: backtestResults.winRate >= 50 ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>
+                              {backtestResults.winRate.toFixed(1)}%
+                            </span>
+                          </div>
+                          <div style={styles.walletRow}>
+                            <span style={{ color: '#9ca3af' }}>Net Profit:</span>
+                            <span style={{ color: backtestResults.netPnl >= 0 ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>
+                              ${backtestResults.netPnl.toFixed(2)}
+                            </span>
+                          </div>
+                          <div style={styles.walletRow}>
+                            <span style={{ color: '#9ca3af' }}>Profit Factor:</span>
+                            <span style={{ color: '#ffffff', fontWeight: 'bold' }}>{backtestResults.profitFactor.toFixed(2)}</span>
+                          </div>
+                          <div style={styles.walletRow}>
+                            <span style={{ color: '#9ca3af' }}>Max Drawdown:</span>
+                            <span style={{ color: '#ffffff', fontWeight: 'bold' }}>{(backtestResults.maxDrawdown ?? 0).toFixed(2)}%</span>
+                          </div>
+                          <div style={styles.walletRow}>
+                            <span style={{ color: '#9ca3af' }}>Max Daily Loss:</span>
+                            <span style={{ color: (backtestResults.maxDailyLoss ?? 0) >= 5.0 ? '#ef4444' : '#ffffff', fontWeight: 'bold' }}>
+                              {(backtestResults.maxDailyLoss ?? 0).toFixed(2)}%
+                            </span>
+                          </div>
+                        </div>
+
+                        {backtestResults.dailyLossBreached && (
+                          <div style={{
+                            backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                            border: '1px solid #ef4444',
+                            borderRadius: '8px',
+                            padding: '8px',
+                            color: '#ef4444',
+                            fontSize: '11px',
+                            fontWeight: 'bold',
+                            textAlign: 'center',
+                            marginTop: '4px'
+                          }}>
+                            ⚠️ FTMO 5% Daily Loss Rule Breached!
+                          </div>
+                        )}
+
+                        <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid #1f2937', paddingBottom: '4px', marginTop: '8px' }}>
+                          <button 
+                            onClick={() => setBacktestTab('trades')}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: backtestTab === 'trades' ? '#3b82f6' : '#9ca3af',
+                              fontWeight: 'bold',
+                              fontSize: '11px',
+                              cursor: 'pointer',
+                              borderBottom: backtestTab === 'trades' ? '2px solid #3b82f6' : 'none',
+                              paddingBottom: '2px'
+                            }}
+                          >
+                            Trades ({backtestResults.trades.length})
+                          </button>
+                          <button 
+                            onClick={() => setBacktestTab('weekly')}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: backtestTab === 'weekly' ? '#3b82f6' : '#9ca3af',
+                              fontWeight: 'bold',
+                              fontSize: '11px',
+                              cursor: 'pointer',
+                              borderBottom: backtestTab === 'weekly' ? '2px solid #3b82f6' : 'none',
+                              paddingBottom: '2px'
+                            }}
+                          >
+                            Weekly
+                          </button>
+                          <button 
+                            onClick={() => setBacktestTab('monthly')}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: backtestTab === 'monthly' ? '#3b82f6' : '#9ca3af',
+                              fontWeight: 'bold',
+                              fontSize: '11px',
+                              cursor: 'pointer',
+                              borderBottom: backtestTab === 'monthly' ? '2px solid #3b82f6' : 'none',
+                              paddingBottom: '2px'
+                            }}
+                          >
+                            Monthly
+                          </button>
+                        </div>
+
+                        <div style={styles.positionsList}>
+                          {backtestTab === 'trades' && backtestResults.trades.map((trade) => (
+                            <div 
+                              key={trade.id} 
+                              onClick={() => {
+                                setSelectedTrade(trade);
+                                setShowModal(true);
+                              }}
+                              style={{
+                                ...styles.positionRow,
+                                cursor: 'pointer',
+                                border: selectedTrade?.id === trade.id ? '1.5px solid #3b82f6' : '1px solid #1f2937',
+                                transform: selectedTrade?.id === trade.id ? 'scale(1.02)' : 'scale(1)',
+                                transition: 'all 0.15s'
+                              }}
+                            >
+                              <div style={styles.posDetails}>
+                                <span style={styles.posSide(trade.type === 'BUY')}>
+                                  {trade.type} @ {trade.entryPrice.toFixed(2)}
+                                </span>
+                                <span style={{ fontSize: '10px', color: '#6b7280' }}>
+                                  Exit: {trade.exitPrice.toFixed(2)} | {trade.time}
+                                </span>
+                              </div>
+                              <span style={styles.posPnl(trade.pnl >= 0)}>
+                                {trade.pnl >= 0 ? '+' : ''}${trade.pnl.toFixed(2)}
+                              </span>
+                            </div>
+                          ))}
+
+                          {backtestTab === 'weekly' && backtestResults.weeklyBreakdown && Object.keys(backtestResults.weeklyBreakdown).sort().reverse().map((week) => {
+                            const pnl = backtestResults.weeklyBreakdown![week];
+                            return (
+                              <div key={week} style={styles.positionRow}>
+                                <span style={{ fontWeight: 'bold', color: '#ffffff' }}>{week}</span>
+                                <span style={styles.posPnl(pnl >= 0)}>
+                                  {pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}
+                                </span>
+                              </div>
+                            );
+                          })}
+
+                          {backtestTab === 'monthly' && backtestResults.monthlyBreakdown && Object.keys(backtestResults.monthlyBreakdown).sort().reverse().map((month) => {
+                            const pnl = backtestResults.monthlyBreakdown![month];
+                            return (
+                              <div key={month} style={styles.positionRow}>
+                                <span style={{ fontWeight: 'bold', color: '#ffffff' }}>{month}</span>
+                                <span style={styles.posPnl(pnl >= 0)}>
+                                  {pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            }
+
+            if (panelId === 'dashboard') {
+              return (
+                <div
+                  key="dashboard"
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, 'dashboard')}
+                  onDragOver={(e) => handleDragOver(e, 'dashboard')}
+                  onDrop={(e) => handleDrop(e, 'dashboard')}
+                  style={dragStyles}
+                >
+                  <div style={headerStyle}>
+                    <span>📡 cTrader Security Webhook Simulator & Realtime Log Stream</span>
+                    <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header to Move</span>
+                  </div>
+                  <div className="no-drag" style={{ padding: '0px' }}>
+                    <Dashboard />
+                  </div>
+                </div>
+              );
+            }
+
+            return null;
+          })}
+        </div>
 
       </main>
 
