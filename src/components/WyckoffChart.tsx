@@ -338,9 +338,13 @@ export default function WyckoffChart({
       const exitMarkers = (trades || [])
         .map((trade) => {
           if (!trade.exitTimestamp) return null;
+          // Skip "Position still open" or same-candle entry/exit (no real exit yet)
+          if (trade.exitReason === 'Position still open') return null;
+          if (trade.exitTimestamp === trade.entryTimestamp) return null;
           const isProfit = trade.pnl >= 0;
           return {
             time: trade.exitTimestamp,
+            // Flip position vs entry marker so they don't overlap
             position: (trade.type === 'BUY' ? 'aboveBar' : 'belowBar') as any,
             color: isProfit ? '#10b981' : '#ef4444',
             shape: 'circle' as any,
