@@ -1058,13 +1058,15 @@ export default function App() {
               return (
                 <div
                   key="chart"
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, 'chart')}
                   onDragOver={(e) => handleDragOver(e, 'chart')}
                   onDrop={(e) => handleDrop(e, 'chart')}
                   style={dragStyles}
                 >
-                  <div style={headerStyle}>
+                  <div 
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, 'chart')}
+                    style={headerStyle}
+                  >
                     <span>📊 Candlestick & Weis Wave Analysis Chart</span>
                     <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header to Move</span>
                   </div>
@@ -1094,13 +1096,15 @@ export default function App() {
               return (
                 <div
                   key="order"
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, 'order')}
                   onDragOver={(e) => handleDragOver(e, 'order')}
                   onDrop={(e) => handleDrop(e, 'order')}
                   style={dragStyles}
                 >
-                  <div style={headerStyle}>
+                  <div 
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, 'order')}
+                    style={headerStyle}
+                  >
                     <span>💼 Manual Order Execution Panel</span>
                     <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header to Move</span>
                   </div>
@@ -1217,13 +1221,15 @@ export default function App() {
               return (
                 <div
                   key="backtester"
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, 'backtester')}
                   onDragOver={(e) => handleDragOver(e, 'backtester')}
                   onDrop={(e) => handleDrop(e, 'backtester')}
                   style={dragStyles}
                 >
-                  <div style={headerStyle}>
+                  <div 
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, 'backtester')}
+                    style={headerStyle}
+                  >
                     <span>⚙️ Wyckoff Backtester Desk</span>
                     <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header to Move</span>
                   </div>
@@ -1506,13 +1512,15 @@ export default function App() {
               return (
                 <div
                   key="dashboard"
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, 'dashboard')}
                   onDragOver={(e) => handleDragOver(e, 'dashboard')}
                   onDrop={(e) => handleDrop(e, 'dashboard')}
                   style={dragStyles}
                 >
-                  <div style={headerStyle}>
+                  <div 
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, 'dashboard')}
+                    style={headerStyle}
+                  >
                     <span>📡 cTrader Security Webhook Simulator & Realtime Log Stream</span>
                     <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header to Move</span>
                   </div>
