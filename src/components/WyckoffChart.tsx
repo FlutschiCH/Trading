@@ -727,20 +727,6 @@ export default function WyckoffChart({
             onMouseMove={handleSVGMouseMove}
             onMouseUp={handleSVGMouseUp}
           >
-            {/* Trade level SVG lines: entry (blue), SL (red), TP (green) — 3 bars wide */}
-            {tradeLevelLines.map((line, i) => (
-              <line
-                key={`tl-${i}`}
-                x1={line.x1}
-                y1={line.y}
-                x2={line.x2}
-                y2={line.y}
-                stroke={line.color}
-                strokeWidth={2}
-                strokeOpacity={0.85}
-                style={{ pointerEvents: 'none' }}
-              />
-            ))}
 
             {/* Shaded Area for selected trade range */}
             {selectedTradeCoords && (
