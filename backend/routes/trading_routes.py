@@ -106,32 +106,68 @@ def risk():
 @trading_routes.route('/candles/historical', methods=['POST'])
 def historical_candles():
     """
-    Mock endpoint mirroring historical candle loading when port 8751 is unreachable.
+    Fetch historical candles from Binance for crypto, falling back to mock data for forex/indices.
     """
+    import urllib.request
+    import json
     import random
+    
     payload = request.get_json(silent=True) or {}
-    symbol = payload.get('symbol', 'BTCUSDT')
+    symbol = payload.get('symbol', 'BTCUSD')
+    timeframe = payload.get('timeframe') or payload.get('interval', '15m')
     limit = int(payload.get('limit', 100))
     
-    # Generate mock candlestick data
-    base_time = int(time.time()) - (limit * 15 * 60)
-    last_close = 57450.0
-    candles = []
-    for i in range(limit):
-        change = (random.random() - 0.49) * 200
-        open_p = last_close
-        close_p = open_p + change
-        high_p = max(open_p, close_p) + random.random() * 50
-        low_p = min(open_p, close_p) - random.random() * 50
-        volume = random.randint(100, 1600)
-        candles.append({
-            "time": base_time + (i * 15 * 60),
-            "open": open_p,
-            "high": high_p,
-            "low": low_p,
-            "close": close_p,
-            "volume": volume
-        })
-        last_close = close_p
-    return jsonify({"status": "success", "data": candles})
+    # Map timeframe to Binance interval formats
+    interval = timeframe
+    if timeframe not in ['1m', '3m', '5m', '15m', '30m', '1h', '2h', '4h', '6h', '8h', '12h', '1d', '3d', '1w', '1M']:
+        interval = '15m'
+        
+    # Map symbols to Binance formats (e.g. BTCUSD -> BTCUSDT, EURUSD -> EURUSDT)
+    binance_symbol = symbol.upper()
+    if binance_symbol.endswith('USD') and not binance_symbol.endswith('USDT'):
+        binance_symbol = binance_symbol[:-3] + 'USDT'
+    
+    url = f"https://api.binance.com/api/v3/klines?symbol={binance_symbol}&interval={interval}&limit={limit}"
+    
+    try:
+        req = urllib.request.Request(
+            url, 
+            headers={'User-Agent': 'Mozilla/5.0'}
+        )
+        with urllib.request.urlopen(req, timeout=5) as response:
+            data = json.loads(response.read().decode('utf-8'))
+            candles = []
+            for item in data:
+                candles.append({
+                    "time": int(item[0]) // 1000,
+                    "open": float(item[1]),
+                    "high": float(item[2]),
+                    "low": float(item[3]),
+                    "close": float(item[4]),
+                    "volume": float(item[5])
+                })
+            return jsonify({"status": "success", "data": candles})
+    except Exception as e:
+        print(f"Failed to fetch {binance_symbol} from Binance API: {e}. Falling back to mock data.", flush=True)
+        # Fallback to mock data
+        base_time = int(time.time()) - (limit * 15 * 60)
+        last_close = 57450.0 if 'BTC' in symbol else 1.1000 if 'EUR' in symbol else 100.0
+        candles = []
+        for i in range(limit):
+            change = (random.random() - 0.49) * (200 if 'BTC' in symbol else 0.0020 if 'EUR' in symbol else 0.5)
+            open_p = last_close
+            close_p = open_p + change
+            high_p = max(open_p, close_p) + (random.random() * (50 if 'BTC' in symbol else 0.0005 if 'EUR' in symbol else 0.1))
+            low_p = min(open_p, close_p) - (random.random() * (50 if 'BTC' in symbol else 0.0005 if 'EUR' in symbol else 0.1))
+            volume = random.randint(100, 1600)
+            candles.append({
+                "time": base_time + (i * 15 * 60),
+                "open": open_p,
+                "high": high_p,
+                "low": low_p,
+                "close": close_p,
+                "volume": volume
+            })
+            last_close = close_p
+        return jsonify({"status": "success", "data": candles})
 
