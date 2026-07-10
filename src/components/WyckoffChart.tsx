@@ -317,8 +317,8 @@ export default function WyckoffChart({
     if (candlestickSeriesRef.current) {
       candlestickSeriesRef.current.setData(candles);
 
-      // Signal markers
-      const markers = candles
+      // Signal markers (Entries)
+      const entryMarkers = candles
         .map((c) => {
           if (c.backtest_signal) {
             const isBullish = c.backtest_signal === 'BUY';
@@ -333,8 +333,31 @@ export default function WyckoffChart({
           return null;
         })
         .filter((m) => m !== null);
+
+      // Exit markers from backtested trades
+      const exitMarkers = (trades || [])
+        .map((trade) => {
+          if (!trade.exitTimestamp) return null;
+          const isProfit = trade.pnl >= 0;
+          return {
+            time: trade.exitTimestamp,
+            position: (trade.type === 'BUY' ? 'aboveBar' : 'belowBar') as any,
+            color: isProfit ? '#10b981' : '#ef4444',
+            shape: 'circle' as any,
+            text: `EXIT (${isProfit ? '+' : ''}${trade.pnl.toFixed(0)})`,
+          };
+        })
+        .filter((m) => m !== null);
+
+      // Merge and sort all markers by timestamp
+      const allMarkers = [...entryMarkers, ...exitMarkers].sort((a, b) => {
+        const timeA = typeof a.time === 'number' ? a.time : new Date(a.time).getTime();
+        const timeB = typeof b.time === 'number' ? b.time : new Date(b.time).getTime();
+        return timeA - timeB;
+      });
+
       if (markersPluginRef.current) {
-        markersPluginRef.current.setMarkers(markers);
+        markersPluginRef.current.setMarkers(allMarkers);
       }
     }
 
@@ -360,7 +383,7 @@ export default function WyckoffChart({
     }
 
     updateDrawingCoordinates();
-  }, [candles]);
+  }, [candles, trades]);
 
   useEffect(() => {
     if (candlestickSeriesRef.current) {
