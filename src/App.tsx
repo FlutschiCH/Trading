@@ -162,6 +162,83 @@ export default function App() {
     setDragOverId(null);
   };
 
+  const [cardWidths, setCardWidths] = useState<{ [key: string]: number }>(() => {
+    const saved = localStorage.getItem('wyckoff_desk_card_widths');
+    return saved ? JSON.parse(saved) : {};
+  });
+  const [activeResize, setActiveResize] = useState<{
+    id: string;
+    startX: number;
+    startWidth: number;
+  } | null>(null);
+
+  const handleResizeMouseDown = (e: React.MouseEvent, id: string, currentWidth: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setActiveResize({
+      id,
+      startX: e.clientX,
+      startWidth: currentWidth,
+    });
+  };
+
+  useEffect(() => {
+    if (!activeResize) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const dx = e.clientX - activeResize.startX;
+      const newWidth = Math.max(280, activeResize.startWidth + dx);
+      setCardWidths(prev => {
+        const next = {
+          ...prev,
+          [activeResize.id]: newWidth,
+        };
+        localStorage.setItem('wyckoff_desk_card_widths', JSON.stringify(next));
+        return next;
+      });
+    };
+
+    const handleMouseUp = () => {
+      setActiveResize(null);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [activeResize]);
+
+  const renderResizeHandle = (id: string) => (
+    <div
+      onMouseDown={(e) => {
+        const rect = e.currentTarget.parentElement?.getBoundingClientRect();
+        const currentWidth = rect ? rect.width : 400;
+        handleResizeMouseDown(e, id, currentWidth);
+      }}
+      style={{
+        position: 'absolute',
+        top: 0,
+        right: 0,
+        width: '6px',
+        height: '100%',
+        cursor: 'col-resize',
+        backgroundColor: activeResize?.id === id ? '#3b82f6' : 'transparent',
+        transition: 'background-color 0.2s',
+        zIndex: 100,
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.4)';
+      }}
+      onMouseLeave={(e) => {
+        if (activeResize?.id !== id) {
+          e.currentTarget.style.backgroundColor = 'transparent';
+        }
+      }}
+    />
+  );
+
   const runBacktest = () => {
     if (!candles || candles.length === 0) return;
     
@@ -936,15 +1013,24 @@ export default function App() {
 
 
         {/* Dynamic Reorderable Dashboard Panels Grid */}
-        <div className="dashboard-grid">
+        <div style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '24px',
+          width: '100%',
+        }}>
           {panelOrder.map((panelId) => {
             const isDragOver = dragOverId === panelId;
+            const defaultWidth = panelId === 'chart' || panelId === 'dashboard' ? 'calc(66.6% - 16px)' : 'calc(33.3% - 16px)';
             const dragStyles = {
-              gridColumn: panelId === 'chart' || panelId === 'dashboard' ? 'span 2' : 'span 1',
+              width: cardWidths[panelId] ? `${cardWidths[panelId]}px` : defaultWidth,
+              flexGrow: cardWidths[panelId] ? 0 : 1,
+              flexShrink: 1,
+              minWidth: '280px',
               border: isDragOver ? '2px dashed #3b82f6' : '1px solid #1f2937',
               borderRadius: '12px',
               backgroundColor: '#0f172a',
-              transition: 'all 0.2s',
+              transition: activeResize ? 'none' : 'border 0.2s, opacity 0.2s',
               opacity: isDragOver ? 0.75 : 1,
               position: 'relative' as const,
               overflow: 'hidden',
@@ -999,6 +1085,7 @@ export default function App() {
                       }}
                     />
                   </div>
+                  {renderResizeHandle('chart')}
                 </div>
               );
             }
@@ -1121,6 +1208,7 @@ export default function App() {
                       </div>
                     )}
                   </div>
+                  {renderResizeHandle('order')}
                 </div>
               );
             }
@@ -1409,6 +1497,7 @@ export default function App() {
                       </div>
                     )}
                   </div>
+                  {renderResizeHandle('backtester')}
                 </div>
               );
             }
@@ -1430,6 +1519,7 @@ export default function App() {
                   <div className="no-drag" style={{ padding: '0px' }}>
                     <Dashboard />
                   </div>
+                  {renderResizeHandle('dashboard')}
                 </div>
               );
             }
