@@ -76,6 +76,7 @@ export default function WyckoffChart({
 
   // References to dynamically generated trade level LineSeries
   const dynamicLineSeriesRef = useRef<any[]>([]);
+  const selectedTradePathSeriesRef = useRef<any>(null);
 
   useEffect(() => {
     tradesRef.current = trades;
@@ -96,6 +97,35 @@ export default function WyckoffChart({
   useEffect(() => {
     selectedTradeRef.current = selectedTrade;
     updateDrawingCoordinates();
+
+    if (selectedTradePathSeriesRef.current && chartRef.current) {
+      if (selectedTrade && selectedTrade.entryTimestamp && selectedTrade.exitTimestamp) {
+        const sortedTimes = (candlesRef.current || []).map(c => Number(c.time)).sort((a, b) => a - b);
+        const entryTs = Number(selectedTrade.entryTimestamp);
+        const exitTs = Number(selectedTrade.exitTimestamp);
+
+        const entryIdx = sortedTimes.indexOf(entryTs);
+        const exitIdx = sortedTimes.indexOf(exitTs);
+
+        if (entryIdx !== -1 && exitIdx !== -1) {
+          const pathPoints = sortedTimes.slice(entryIdx, exitIdx + 1).map((time, idx, arr) => {
+            const ratio = arr.length > 1 ? idx / (arr.length - 1) : 1;
+            const val = selectedTrade.entryPrice + (selectedTrade.exitPrice - selectedTrade.entryPrice) * ratio;
+            return { time, value: val };
+          });
+
+          const isProfit = selectedTrade.pnl >= 0;
+          selectedTradePathSeriesRef.current.applyOptions({
+            color: isProfit ? '#10b981' : '#ef4444',
+          });
+          selectedTradePathSeriesRef.current.setData(pathPoints);
+        } else {
+          selectedTradePathSeriesRef.current.setData([]);
+        }
+      } else {
+        selectedTradePathSeriesRef.current.setData([]);
+      }
+    }
   }, [selectedTrade]);
 
   useEffect(() => {
@@ -291,6 +321,17 @@ export default function WyckoffChart({
     trHighSeriesRef.current = trHighSeries;
     trLowSeriesRef.current = trLowSeries;
 
+    // Initialize selected trade path LineSeries
+    const selectedTradePathSeries = mainChart.addSeries(LineSeries, {
+      color: '#10b981',
+      lineWidth: 2,
+      lineStyle: 2, // Dotted
+      lastValueVisible: false,
+      priceLineVisible: false,
+      crosshairMarkerVisible: false,
+    });
+    selectedTradePathSeriesRef.current = selectedTradePathSeries;
+
     // Click Subscription to select trades/signals
     mainChart.subscribeClick((param) => {
       if (!param.time || !onSelectTradeRef.current || !tradesRef.current || tradesRef.current.length === 0) return;
@@ -325,6 +366,12 @@ export default function WyckoffChart({
         } catch (e) {}
       });
       dynamicLineSeriesRef.current = [];
+      if (selectedTradePathSeriesRef.current) {
+        try {
+          mainChart.removeSeries(selectedTradePathSeriesRef.current);
+        } catch (e) {}
+        selectedTradePathSeriesRef.current = null;
+      }
       mainChart.remove();
       weisChart.remove();
     };
