@@ -936,16 +936,11 @@ export default function App() {
 
 
         {/* Dynamic Reorderable Dashboard Panels Grid */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
-          gap: '24px',
-          width: '100%',
-        }}>
+        <div className="dashboard-grid">
           {panelOrder.map((panelId) => {
             const isDragOver = dragOverId === panelId;
             const dragStyles = {
-              gridColumn: panelId === 'chart' ? 'span 2' : panelId === 'dashboard' ? '1 / -1' : 'span 1',
+              gridColumn: panelId === 'dashboard' ? '1 / -1' : 'auto',
               border: isDragOver ? '2px dashed #3b82f6' : '1px solid #1f2937',
               borderRadius: '12px',
               backgroundColor: '#0f172a',

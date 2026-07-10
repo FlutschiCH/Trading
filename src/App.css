@@ -182,3 +182,21 @@
     border-right-color: var(--border);
   }
 }
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 420px 1fr;
+  gap: 24px;
+  width: 100%;
+}
+
+@media (max-width: 1024px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  /* Reset spans on smaller screens */
+  .dashboard-grid > div {
+    grid-column: 1 / -1 !important;
+  }
+}
