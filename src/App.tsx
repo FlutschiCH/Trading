@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Activity } from 'lucide-react';
+import { Activity, X, TrendingUp, TrendingDown, Clock, HelpCircle } from 'lucide-react';
 import WyckoffChart from './components/WyckoffChart.tsx';
 import Dashboard from './components/Dashboard.tsx';
 import './App.css';
@@ -106,6 +106,7 @@ export default function App() {
     weeklyBreakdown?: { [week: string]: number };
   } | null>(null);
   const [selectedTrade, setSelectedTrade] = useState<any>(null);
+  const [showModal, setShowModal] = useState<boolean>(false);
   const [backtestTab, setBacktestTab] = useState<'trades' | 'weekly' | 'monthly'>('trades');
 
   const runBacktest = () => {
@@ -143,6 +144,7 @@ export default function App() {
         let exitPrice = c.close;
         let pnl = 0;
         let outcome: 'WIN' | 'LOSS' = 'LOSS';
+        let exitReason = '';
         
         // Check for opposite sweep signals to negate/exit the current position
         const isBullishVSA = c.vsa_patterns && (c.vsa_patterns.includes('Shakeout/Spring') || c.vsa_patterns.includes('Stopping Volume') || c.vsa_patterns.includes('No Supply'));
@@ -167,17 +169,20 @@ export default function App() {
             : (activeTrade.entryPrice - exitPrice) * activeTrade.qty;
           outcome = pnl >= 0 ? 'WIN' : 'LOSS';
           closed = true;
+          exitReason = 'Closed by opposite sweep signal';
         } else if (activeTrade.type === 'BUY') {
           if (c.low <= activeTrade.slPrice) {
             exitPrice = activeTrade.slPrice;
             pnl = (exitPrice - activeTrade.entryPrice) * activeTrade.qty;
             outcome = 'LOSS';
             closed = true;
+            exitReason = 'Hit Stop Loss';
           } else if (c.high >= activeTrade.tpPrice) {
             exitPrice = activeTrade.tpPrice;
             pnl = (exitPrice - activeTrade.entryPrice) * activeTrade.qty;
             outcome = 'WIN';
             closed = true;
+            exitReason = 'Hit Take Profit';
           }
         } else {
           if (c.high >= activeTrade.slPrice) {
@@ -185,11 +190,13 @@ export default function App() {
             pnl = (activeTrade.entryPrice - exitPrice) * activeTrade.qty;
             outcome = 'LOSS';
             closed = true;
+            exitReason = 'Hit Stop Loss';
           } else if (c.low <= activeTrade.tpPrice) {
             exitPrice = activeTrade.tpPrice;
             pnl = (activeTrade.entryPrice - exitPrice) * activeTrade.qty;
             outcome = 'WIN';
             closed = true;
+            exitReason = 'Hit Take Profit';
           }
         }
         
@@ -205,6 +212,11 @@ export default function App() {
             timestamp: c.time,
             slPrice: activeTrade.slPrice,
             tpPrice: activeTrade.tpPrice,
+            entryTimestamp: activeTrade.entryTimestamp,
+            exitTimestamp: c.time,
+            exitReason,
+            duration: i - activeTrade.entryIndex + 1,
+            qty: activeTrade.qty,
           });
           currentBalance += pnl;
           activeTrade = null;
@@ -246,6 +258,7 @@ export default function App() {
             tpPrice,
             qty: tradeQty,
             entryIndex: i,
+            entryTimestamp: c.time,
           };
         }
       }
@@ -267,6 +280,11 @@ export default function App() {
         timestamp: finalCandle.time,
         slPrice: activeTrade.slPrice,
         tpPrice: activeTrade.tpPrice,
+        entryTimestamp: activeTrade.entryTimestamp,
+        exitTimestamp: finalCandle.time,
+        exitReason: 'Position still open',
+        duration: annotatedCandles.length - activeTrade.entryIndex,
+        qty: activeTrade.qty,
       });
       currentBalance += pnl;
     }
@@ -856,6 +874,12 @@ export default function App() {
               entryPrice={selectedTrade?.entryPrice}
               slPrice={selectedTrade?.slPrice}
               tpPrice={selectedTrade?.tpPrice}
+              trades={backtestResults?.trades || []}
+              selectedTrade={selectedTrade}
+              onSelectTrade={(trade) => {
+                setSelectedTrade(trade);
+                setShowModal(true);
+              }}
             />
           </div>
 
@@ -1161,7 +1185,10 @@ export default function App() {
                   {backtestTab === 'trades' && backtestResults.trades.map((trade) => (
                     <div 
                       key={trade.id} 
-                      onClick={() => setSelectedTrade(trade)}
+                      onClick={() => {
+                        setSelectedTrade(trade);
+                        setShowModal(true);
+                      }}
                       style={{
                         ...styles.positionRow,
                         cursor: 'pointer',
@@ -1217,6 +1244,155 @@ export default function App() {
         <Dashboard />
 
       </main>
+
+      {/* Trade Performance Detail Overlay */}
+      {showModal && selectedTrade && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(5, 7, 12, 0.85)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 9999,
+        }}>
+          <div style={{
+            backgroundColor: '#0f172a',
+            border: `2px solid ${selectedTrade.pnl >= 0 ? '#10b981' : '#ef4444'}`,
+            boxShadow: `0 0 25px ${selectedTrade.pnl >= 0 ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)'}`,
+            borderRadius: '16px',
+            width: '90%',
+            maxWidth: '480px',
+            padding: '24px',
+            position: 'relative',
+            color: '#f8fafc',
+          }}>
+            <button 
+              onClick={() => setShowModal(false)}
+              style={{
+                position: 'absolute',
+                top: '16px',
+                right: '16px',
+                background: 'none',
+                border: 'none',
+                color: '#94a3b8',
+                cursor: 'pointer',
+                padding: '4px',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: 'rgba(148, 163, 184, 0.05)'
+              }}
+            >
+              <X size={18} />
+            </button>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+              <span style={{
+                fontSize: '11px',
+                fontWeight: 'bold',
+                textTransform: 'uppercase',
+                letterSpacing: '1px',
+                padding: '3px 8px',
+                borderRadius: '6px',
+                backgroundColor: selectedTrade.type === 'BUY' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                color: selectedTrade.type === 'BUY' ? '#10b981' : '#ef4444'
+              }}>
+                {selectedTrade.type}
+              </span>
+              <h2 style={{ fontSize: '18px', fontWeight: 'bold', margin: 0, color: '#f1f5f9' }}>
+                Trade Performance Details
+              </h2>
+            </div>
+
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              backgroundColor: selectedTrade.pnl >= 0 ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
+              border: `1px solid ${selectedTrade.pnl >= 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)'}`,
+              borderRadius: '10px',
+              padding: '12px 16px',
+              marginBottom: '20px'
+            }}>
+              <div>
+                <span style={{ fontSize: '11px', color: '#94a3b8', display: 'block' }}>Net Profit/Loss</span>
+                <span style={{ fontSize: '20px', fontWeight: 'bold', color: selectedTrade.pnl >= 0 ? '#10b981' : '#ef4444' }}>
+                  {selectedTrade.pnl >= 0 ? '+' : ''}${selectedTrade.pnl.toFixed(2)}
+                </span>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <span style={{ fontSize: '11px', color: '#94a3b8', display: 'block' }}>Outcome</span>
+                <span style={{
+                  fontSize: '13px',
+                  fontWeight: 'bold',
+                  color: selectedTrade.pnl >= 0 ? '#10b981' : '#ef4444',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}>
+                  {selectedTrade.pnl >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                  {selectedTrade.outcome}
+                </span>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 24px', fontSize: '13px', marginBottom: '20px' }}>
+              <div>
+                <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Entry Price</span>
+                <span style={{ color: '#cbd5e1', fontWeight: '500' }}>${selectedTrade.entryPrice.toFixed(2)}</span>
+              </div>
+              <div>
+                <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Exit Price</span>
+                <span style={{ color: '#cbd5e1', fontWeight: '500' }}>${selectedTrade.exitPrice.toFixed(2)}</span>
+              </div>
+              <div>
+                <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Stop Loss</span>
+                <span style={{ color: '#ef4444', fontWeight: '500' }}>${selectedTrade.slPrice.toFixed(2)}</span>
+              </div>
+              <div>
+                <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Take Profit</span>
+                <span style={{ color: '#10b981', fontWeight: '500' }}>${selectedTrade.tpPrice.toFixed(2)}</span>
+              </div>
+              <div>
+                <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Quantity Size</span>
+                <span style={{ color: '#cbd5e1', fontWeight: '500' }}>{selectedTrade.qty.toFixed(4)}</span>
+              </div>
+              <div>
+                <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Time Closed</span>
+                <span style={{ color: '#cbd5e1', fontWeight: '500' }}>{selectedTrade.time}</span>
+              </div>
+            </div>
+
+            <div style={{ borderTop: '1px solid #1e293b', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px' }}>
+                <span style={{ color: '#64748b', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <Clock size={13} /> Duration
+                </span>
+                <span style={{ color: '#f1f5f9', fontWeight: '500' }}>
+                  {selectedTrade.duration} bars / candles
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px' }}>
+                <span style={{ color: '#64748b', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <HelpCircle size={13} /> Exit Reason
+                </span>
+                <span style={{
+                  color: selectedTrade.exitReason?.includes('Stop Loss') ? '#ef4444' : selectedTrade.exitReason?.includes('Take Profit') ? '#10b981' : '#f1f5f9',
+                  fontWeight: 'bold'
+                }}>
+                  {selectedTrade.exitReason || 'Unknown'}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

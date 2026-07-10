@@ -24,9 +24,23 @@ interface WyckoffChartProps {
   entryPrice?: number;
   slPrice?: number;
   tpPrice?: number;
+  trades?: any[];
+  selectedTrade?: any;
+  onSelectTrade?: (trade: any) => void;
 }
 
-export default function WyckoffChart({ symbol, candles, loading, onRefresh, entryPrice, slPrice, tpPrice }: WyckoffChartProps) {
+export default function WyckoffChart({ 
+  symbol, 
+  candles, 
+  loading, 
+  onRefresh, 
+  entryPrice, 
+  slPrice, 
+  tpPrice,
+  trades = [],
+  selectedTrade = null,
+  onSelectTrade
+}: WyckoffChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const weisContainerRef = useRef<HTMLDivElement>(null);
   
@@ -52,6 +66,25 @@ export default function WyckoffChart({ symbol, candles, loading, onRefresh, entr
 
   const drawingsRef = useRef(drawings);
   const drawingPreviewRef = useRef(drawingPreview);
+
+  const tradesRef = useRef(trades);
+  const onSelectTradeRef = useRef(onSelectTrade);
+
+  useEffect(() => {
+    tradesRef.current = trades;
+  }, [trades]);
+
+  useEffect(() => {
+    onSelectTradeRef.current = onSelectTrade;
+  }, [onSelectTrade]);
+
+  const [selectedTradeCoords, setSelectedTradeCoords] = useState<{ x1: number; x2: number; type: 'BUY' | 'SELL'; pnl: number } | null>(null);
+  const selectedTradeRef = useRef(selectedTrade);
+
+  useEffect(() => {
+    selectedTradeRef.current = selectedTrade;
+    updateDrawingCoordinates();
+  }, [selectedTrade]);
 
   useEffect(() => {
     drawingsRef.current = drawings;
@@ -93,6 +126,27 @@ export default function WyckoffChart({ symbol, candles, loading, onRefresh, entr
       }
     } else {
       setPixelPreview(null);
+    }
+
+    if (selectedTradeRef.current && selectedTradeRef.current.entryTimestamp) {
+      const xEntry = timeScale.timeToCoordinate(selectedTradeRef.current.entryTimestamp);
+      const lastCandleTime = candles && candles.length > 0 ? candles[candles.length - 1].time : 0;
+      const xExit = selectedTradeRef.current.exitTimestamp 
+        ? timeScale.timeToCoordinate(selectedTradeRef.current.exitTimestamp)
+        : (lastCandleTime ? timeScale.timeToCoordinate(lastCandleTime) : null);
+        
+      if (xEntry !== null && xExit !== null) {
+        setSelectedTradeCoords({
+          x1: xEntry,
+          x2: xExit,
+          type: selectedTradeRef.current.type,
+          pnl: selectedTradeRef.current.pnl
+        });
+      } else {
+        setSelectedTradeCoords(null);
+      }
+    } else {
+      setSelectedTradeCoords(null);
     }
   };
 
@@ -222,6 +276,20 @@ export default function WyckoffChart({ symbol, candles, loading, onRefresh, entr
     weisSeriesRef.current = weisSeries;
     trHighSeriesRef.current = trHighSeries;
     trLowSeriesRef.current = trLowSeries;
+
+    // Click Subscription to select trades/signals
+    mainChart.subscribeClick((param) => {
+      if (!param.time || !onSelectTradeRef.current || !tradesRef.current || tradesRef.current.length === 0) return;
+      const clickTime = param.time as number;
+      const foundTrade = tradesRef.current.find(t => 
+        t.entryTimestamp === clickTime || 
+        t.exitTimestamp === clickTime || 
+        t.timestamp === clickTime
+      );
+      if (foundTrade) {
+        onSelectTradeRef.current(foundTrade);
+      }
+    });
 
     const handleResize = () => {
       if (chartContainerRef.current && mainChart) {
@@ -555,6 +623,21 @@ export default function WyckoffChart({ symbol, candles, loading, onRefresh, entr
             onMouseMove={handleSVGMouseMove}
             onMouseUp={handleSVGMouseUp}
           >
+            {/* Shaded Area for selected trade range */}
+            {selectedTradeCoords && (
+              <rect
+                x={Math.min(selectedTradeCoords.x1, selectedTradeCoords.x2)}
+                y={0}
+                width={Math.max(1, Math.abs(selectedTradeCoords.x1 - selectedTradeCoords.x2))}
+                height={380}
+                fill={selectedTradeCoords.pnl >= 0 ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)'}
+                stroke={selectedTradeCoords.pnl >= 0 ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}
+                strokeWidth={1}
+                strokeDasharray="4 4"
+                style={{ pointerEvents: 'none' }}
+              />
+            )}
+
             {/* Draw active lines/rectangles */}
             {pixelDrawings.map((d) => {
               if (d.type === 'trendline') {
