@@ -68,6 +68,7 @@ export default function WyckoffChart({
   const drawingPreviewRef = useRef(drawingPreview);
 
   const tradesRef = useRef(trades);
+  const candlesRef = useRef(candles);
   const onSelectTradeRef = useRef(onSelectTrade);
 
   // Trade level SVG line segments (entry/SL/TP per trade)
@@ -77,6 +78,10 @@ export default function WyckoffChart({
     tradesRef.current = trades;
     updateDrawingCoordinates();
   }, [trades]);
+
+  useEffect(() => {
+    candlesRef.current = candles;
+  }, [candles]);
 
   useEffect(() => {
     onSelectTradeRef.current = onSelectTrade;
@@ -134,7 +139,7 @@ export default function WyckoffChart({
 
     if (selectedTradeRef.current && selectedTradeRef.current.entryTimestamp) {
       const xEntry = timeScale.timeToCoordinate(selectedTradeRef.current.entryTimestamp);
-      const lastCandleTime = candles && candles.length > 0 ? candles[candles.length - 1].time : 0;
+    const lastCandleTime = candlesRef.current && candlesRef.current.length > 0 ? candlesRef.current[candlesRef.current.length - 1].time : 0;
       const xExit = selectedTradeRef.current.exitTimestamp 
         ? timeScale.timeToCoordinate(selectedTradeRef.current.exitTimestamp)
         : (lastCandleTime ? timeScale.timeToCoordinate(lastCandleTime) : null);
@@ -159,12 +164,15 @@ export default function WyckoffChart({
       (t: any) => t.entryTimestamp && t.entryPrice && t.slPrice && t.tpPrice && t.exitReason !== 'Position still open'
     );
 
-    const sortedCandleTimes = (candles || []).map((c: any) => c.time).sort((a: number, b: number) => a - b);
+    // Use candlesRef so we always have the latest candle list (avoids stale closure)
+    const sortedCandleTimes = (candlesRef.current || []).map((c: any) => Number(c.time)).sort((a: number, b: number) => a - b);
     const SEGMENT_BARS = 3;
     const newLines: { x1: number; x2: number; y: number; color: string }[] = [];
 
     realTrades.forEach((trade: any) => {
-      const entryIdx = sortedCandleTimes.findIndex((t: number) => t === trade.entryTimestamp);
+      // Normalize to number for strict equality — backend returns int, chart times are numbers
+      const entryTs = Number(trade.entryTimestamp);
+      const entryIdx = sortedCandleTimes.findIndex((t: number) => t === entryTs);
       if (entryIdx === -1) return;
 
       const segEndIdx = Math.min(entryIdx + SEGMENT_BARS - 1, sortedCandleTimes.length - 1);
