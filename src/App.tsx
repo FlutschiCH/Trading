@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Activity, X, TrendingUp, TrendingDown, Clock, HelpCircle } from 'lucide-react';
 import WyckoffChart from './components/WyckoffChart.tsx';
 import Dashboard from './components/Dashboard.tsx';
@@ -121,6 +121,19 @@ export default function App() {
   // Live strategy states
   const [liveStrategy, setLiveStrategy] = useState<any>(null);
   const [isDeploying, setIsDeploying] = useState(false);
+
+  const lastNotifiedSignalRef = useRef<number>(0);
+
+  const triggerPWAEventNotification = (title: string, body: string) => {
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({
+        type: 'SHOW_NOTIFICATION',
+        payload: { title, body }
+      });
+    } else if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification(title, { body, icon: '/favicon.svg' });
+    }
+  };
 
   const handleDragStart = (e: React.DragEvent, id: string) => {
     const target = e.target as HTMLElement;
@@ -276,6 +289,19 @@ export default function App() {
         } else {
           setSelectedTrade(null);
         }
+
+        // Notify if a signal occurs on the latest candle
+        const analyzedCandles = res.data.candles || [];
+        if (analyzedCandles.length > 0) {
+          const lastCandle = analyzedCandles[analyzedCandles.length - 1];
+          if (lastCandle.backtest_signal && lastCandle.time !== lastNotifiedSignalRef.current) {
+            lastNotifiedSignalRef.current = lastCandle.time;
+            triggerPWAEventNotification(
+              `⚡ Wyckoff Signal Triggered!`,
+              `${lastCandle.backtest_signal} signal found on ${symbol} (${timeframe}) at price $${lastCandle.close.toFixed(2)}`
+            );
+          }
+        }
       }
     } catch (e) {
       console.error("Failed to run backtest on backend:", e);
@@ -356,6 +382,11 @@ export default function App() {
         }
       } catch (e) {
         console.error('Failed to load live strategy:', e);
+      }
+
+      // Request browser notification permissions
+      if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
       }
     };
     loadMetadata();
