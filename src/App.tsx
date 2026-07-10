@@ -1235,9 +1235,25 @@ export default function App() {
                               }}
                             >
                               <div style={styles.posDetails}>
-                                <span style={styles.posSide(trade.type === 'BUY')}>
-                                  {trade.type} @ {trade.entryPrice.toFixed(2)}
-                                </span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <span style={{
+                                    fontSize: '9px',
+                                    fontWeight: 'bold',
+                                    textTransform: 'uppercase',
+                                    padding: '2px 6px',
+                                    borderRadius: '4px',
+                                    border: `1.5px solid ${trade.type === 'BUY' ? '#10b981' : '#ef4444'}`,
+                                    backgroundColor: trade.type === 'BUY' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                                    color: trade.type === 'BUY' ? '#10b981' : '#ef4444',
+                                    display: 'inline-block',
+                                    lineHeight: '1',
+                                  }}>
+                                    {trade.type}
+                                  </span>
+                                  <span style={{ color: '#ffffff', fontWeight: 'bold' }}>
+                                    @{trade.entryPrice.toFixed(2)}
+                                  </span>
+                                </div>
                                 <span style={{ fontSize: '10px', color: '#6b7280' }}>
                                   Exit: {trade.exitPrice.toFixed(2)} | {trade.time}
                                 </span>
