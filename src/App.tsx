@@ -92,6 +92,8 @@ export default function App() {
   const [backtestBalance, setBacktestBalance] = useState('10000');
   const [backtestRiskPct, setBacktestRiskPct] = useState('1.0');
   const [useRiskSizing, setUseRiskSizing] = useState(true);
+  const [backtestBE, setBacktestBE] = useState('1.0');
+  const [useBreakEven, setUseBreakEven] = useState(true);
   const [backtestResults, setBacktestResults] = useState<{
     trades: any[];
     winRate: number;
@@ -145,6 +147,23 @@ export default function App() {
         let pnl = 0;
         let outcome: 'WIN' | 'LOSS' = 'LOSS';
         let exitReason = '';
+
+        // Check for Break Even trigger
+        if (useBreakEven && !activeTrade.isBreakEven) {
+          const beTriggerR = parseFloat(backtestBE) || 1.0;
+          const slDistance = slPips * pipVal;
+          if (activeTrade.type === 'BUY') {
+            if (c.high >= activeTrade.entryPrice + slDistance * beTriggerR) {
+              activeTrade.slPrice = activeTrade.entryPrice;
+              activeTrade.isBreakEven = true;
+            }
+          } else {
+            if (c.low <= activeTrade.entryPrice - slDistance * beTriggerR) {
+              activeTrade.slPrice = activeTrade.entryPrice;
+              activeTrade.isBreakEven = true;
+            }
+          }
+        }
         
         // Check for opposite sweep signals to negate/exit the current position
         const isBullishVSA = c.vsa_patterns && (c.vsa_patterns.includes('Shakeout/Spring') || c.vsa_patterns.includes('Stopping Volume') || c.vsa_patterns.includes('No Supply'));
@@ -176,7 +195,7 @@ export default function App() {
             pnl = (exitPrice - activeTrade.entryPrice) * activeTrade.qty;
             outcome = 'LOSS';
             closed = true;
-            exitReason = 'Hit Stop Loss';
+            exitReason = activeTrade.isBreakEven ? 'Hit Break Even' : 'Hit Stop Loss';
           } else if (c.high >= activeTrade.tpPrice) {
             exitPrice = activeTrade.tpPrice;
             pnl = (exitPrice - activeTrade.entryPrice) * activeTrade.qty;
@@ -190,7 +209,7 @@ export default function App() {
             pnl = (activeTrade.entryPrice - exitPrice) * activeTrade.qty;
             outcome = 'LOSS';
             closed = true;
-            exitReason = 'Hit Stop Loss';
+            exitReason = activeTrade.isBreakEven ? 'Hit Break Even' : 'Hit Stop Loss';
           } else if (c.low <= activeTrade.tpPrice) {
             exitPrice = activeTrade.tpPrice;
             pnl = (activeTrade.entryPrice - exitPrice) * activeTrade.qty;
@@ -382,7 +401,7 @@ export default function App() {
 
   useEffect(() => {
     runBacktest();
-  }, [candles, backtestSL, backtestRR, backtestSize, lookbackWindow, backtestBalance, backtestRiskPct, useRiskSizing]);
+  }, [candles, backtestSL, backtestRR, backtestSize, lookbackWindow, backtestBalance, backtestRiskPct, useRiskSizing, backtestBE, useBreakEven]);
 
   // Fetch symbols and timeframes metadata on mount
   useEffect(() => {
@@ -1074,6 +1093,32 @@ export default function App() {
                   min="0.5"
                 />
               </div>
+
+              <div style={styles.formGroup}>
+                <label style={{ color: '#9ca3af', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={useBreakEven}
+                    onChange={(e) => setUseBreakEven(e.target.checked)}
+                    style={{ cursor: 'pointer' }}
+                  />
+                  Enable Break Even (BE)
+                </label>
+              </div>
+
+              {useBreakEven && (
+                <div style={styles.formGroup}>
+                  <label style={{ color: '#9ca3af', fontSize: '12px' }}>BE Trigger (R-Ratio)</label>
+                  <input 
+                    type="number" 
+                    value={backtestBE} 
+                    onChange={(e) => setBacktestBE(e.target.value)}
+                    style={styles.input}
+                    step="0.1"
+                    min="0.1"
+                  />
+                </div>
+              )}
 
               <div style={styles.formGroup}>
                 <label style={{ color: '#9ca3af', fontSize: '12px' }}>Sweep Lookback (Bars)</label>
