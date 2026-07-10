@@ -239,297 +239,46 @@ export default function App() {
     />
   );
 
-  const runBacktest = () => {
+  const runBacktest = async () => {
     if (!candles || candles.length === 0) return;
     
-    // Copy the candles to avoid mutating the original state array in place
-    const annotatedCandles = candles.map(c => ({ ...c, backtest_signal: undefined }));
-    
-    const slPips = parseFloat(backtestSL) || 50;
-    const rr = parseFloat(backtestRR) || 2;
-    const size = parseFloat(backtestSize) || 1;
-    const initialBalance = parseFloat(backtestBalance) || 10000;
-    const riskPct = parseFloat(backtestRiskPct) || 1.0;
-    
-    let activeTrade: any = null;
-    const completedTrades: any[] = [];
-    let currentBalance = initialBalance;
-    
-    const symUpper = symbol.toUpperCase();
-    let pipVal = 1.0;
-    if (symUpper.includes('JPY')) {
-      pipVal = 0.01;
-    } else if (
-      (symUpper.includes('EUR') || symUpper.includes('USD') || symUpper.includes('GBP') || symUpper.includes('AUD') || symUpper.includes('CAD')) &&
-      !symUpper.includes('BTC') && !symUpper.includes('ETH') && !symUpper.includes('SOL')
-    ) {
-      pipVal = 0.0001;
-    }
-
-    for (let i = 0; i < annotatedCandles.length; i++) {
-      const c = annotatedCandles[i];
-      
-      if (activeTrade) {
-        let closed = false;
-        let exitPrice = c.close;
-        let pnl = 0;
-        let outcome: 'WIN' | 'LOSS' = 'LOSS';
-        let exitReason = '';
-
-        // Check for Break Even trigger
-        if (useBreakEven && !activeTrade.isBreakEven) {
-          const beTriggerR = parseFloat(backtestBE) || 1.0;
-          const slDistance = slPips * pipVal;
-          if (activeTrade.type === 'BUY') {
-            if (c.high >= activeTrade.entryPrice + slDistance * beTriggerR) {
-              activeTrade.slPrice = activeTrade.entryPrice;
-              activeTrade.isBreakEven = true;
-            }
-          } else {
-            if (c.low <= activeTrade.entryPrice - slDistance * beTriggerR) {
-              activeTrade.slPrice = activeTrade.entryPrice;
-              activeTrade.isBreakEven = true;
-            }
-          }
-        }
-        
-        // Check for opposite sweep signals to negate/exit the current position
-        const isBullishVSA = c.vsa_patterns && (c.vsa_patterns.includes('Shakeout/Spring') || c.vsa_patterns.includes('Stopping Volume') || c.vsa_patterns.includes('No Supply'));
-        const isBearishVSA = c.vsa_patterns && (c.vsa_patterns.includes('Upthrust') || c.vsa_patterns.includes('No Demand'));
-        
-        let shouldBuy = false;
-        let shouldSell = false;
-        
-        if (c.sweep_low !== undefined) {
-          shouldBuy = !!isBullishVSA && c.low < c.sweep_low && c.close > c.sweep_low;
-        }
-        if (c.sweep_high !== undefined) {
-          shouldSell = !!isBearishVSA && c.high > c.sweep_high && c.close < c.sweep_high;
-        }
-
-        const oppositeSignal = (activeTrade.type === 'BUY' && shouldSell) || (activeTrade.type === 'SELL' && shouldBuy);
-
-        if (oppositeSignal) {
-          exitPrice = c.close;
-          pnl = activeTrade.type === 'BUY' 
-            ? (exitPrice - activeTrade.entryPrice) * activeTrade.qty
-            : (activeTrade.entryPrice - exitPrice) * activeTrade.qty;
-          outcome = pnl >= 0 ? 'WIN' : 'LOSS';
-          closed = true;
-          exitReason = 'Closed by opposite sweep signal';
-        } else if (activeTrade.type === 'BUY') {
-          if (c.low <= activeTrade.slPrice) {
-            exitPrice = activeTrade.slPrice;
-            pnl = (exitPrice - activeTrade.entryPrice) * activeTrade.qty;
-            outcome = 'LOSS';
-            closed = true;
-            exitReason = activeTrade.isBreakEven ? 'Hit Break Even' : 'Hit Stop Loss';
-          } else if (c.high >= activeTrade.tpPrice) {
-            exitPrice = activeTrade.tpPrice;
-            pnl = (exitPrice - activeTrade.entryPrice) * activeTrade.qty;
-            outcome = 'WIN';
-            closed = true;
-            exitReason = 'Hit Take Profit';
-          }
-        } else {
-          if (c.high >= activeTrade.slPrice) {
-            exitPrice = activeTrade.slPrice;
-            pnl = (activeTrade.entryPrice - exitPrice) * activeTrade.qty;
-            outcome = 'LOSS';
-            closed = true;
-            exitReason = activeTrade.isBreakEven ? 'Hit Break Even' : 'Hit Stop Loss';
-          } else if (c.low <= activeTrade.tpPrice) {
-            exitPrice = activeTrade.tpPrice;
-            pnl = (activeTrade.entryPrice - exitPrice) * activeTrade.qty;
-            outcome = 'WIN';
-            closed = true;
-            exitReason = 'Hit Take Profit';
-          }
-        }
-        
-        if (closed) {
-          completedTrades.push({
-            id: completedTrades.length + 1,
-            type: activeTrade.type,
-            entryPrice: activeTrade.entryPrice,
-            exitPrice,
-            pnl,
-            outcome,
-            time: formatDateTime(c.time),
-            timestamp: c.time,
-            slPrice: activeTrade.slPrice,
-            tpPrice: activeTrade.tpPrice,
-            entryTimestamp: activeTrade.entryTimestamp,
-            exitTimestamp: c.time,
-            exitReason,
-            duration: i - activeTrade.entryIndex + 1,
-            qty: activeTrade.qty,
-          });
-          currentBalance += pnl;
-          activeTrade = null;
-        }
-      }
-      
-      if (!activeTrade) {
-        const isBullishVSA = c.vsa_patterns && (c.vsa_patterns.includes('Shakeout/Spring') || c.vsa_patterns.includes('Stopping Volume') || c.vsa_patterns.includes('No Supply'));
-        const isBearishVSA = c.vsa_patterns && (c.vsa_patterns.includes('Upthrust') || c.vsa_patterns.includes('No Demand'));
-        
-        let shouldBuy = false;
-        let shouldSell = false;
-        
-        if (c.sweep_low !== undefined) {
-          shouldBuy = !!isBullishVSA && c.low < c.sweep_low && c.close > c.sweep_low;
-        }
-        if (c.sweep_high !== undefined) {
-          shouldSell = !!isBearishVSA && c.high > c.sweep_high && c.close < c.sweep_high;
-        }
-        
-        if (shouldBuy || shouldSell) {
-          const tradeType = shouldBuy ? 'BUY' : 'SELL';
-          c.backtest_signal = tradeType; // Assign signal only on execution
-          const entryPrice = c.close;
-          const slDistance = slPips * pipVal;
-          const slPrice = tradeType === 'BUY' ? (entryPrice - slDistance) : (entryPrice + slDistance);
-          const tpPrice = tradeType === 'BUY' ? (entryPrice + slDistance * rr) : (entryPrice - slDistance * rr);
-          
-          let tradeQty = size;
-          if (useRiskSizing) {
-            const riskAmount = currentBalance * (riskPct / 100);
-            tradeQty = slDistance > 0 ? (riskAmount / slDistance) : size;
-          }
-          
-          activeTrade = {
-            type: tradeType,
-            entryPrice,
-            slPrice,
-            tpPrice,
-            qty: tradeQty,
-            entryIndex: i,
-            entryTimestamp: c.time,
-          };
-        }
-      }
-    }
-    
-    if (activeTrade) {
-      const finalCandle = annotatedCandles[annotatedCandles.length - 1];
-      const pnl = activeTrade.type === 'BUY' 
-        ? (finalCandle.close - activeTrade.entryPrice) * activeTrade.qty
-        : (activeTrade.entryPrice - finalCandle.close) * activeTrade.qty;
-      completedTrades.push({
-        id: completedTrades.length + 1,
-        type: activeTrade.type,
-        entryPrice: activeTrade.entryPrice,
-        exitPrice: finalCandle.close,
-        pnl,
-        outcome: pnl >= 0 ? 'WIN' : 'LOSS',
-        time: 'Open',
-        timestamp: finalCandle.time,
-        slPrice: activeTrade.slPrice,
-        tpPrice: activeTrade.tpPrice,
-        entryTimestamp: activeTrade.entryTimestamp,
-        exitTimestamp: finalCandle.time,
-        exitReason: 'Position still open',
-        duration: annotatedCandles.length - activeTrade.entryIndex,
-        qty: activeTrade.qty,
+    try {
+      const response = await fetch('http://localhost:8751/api/backtest', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          candles,
+          symbol,
+          slPips: parseFloat(backtestSL) || 50,
+          rr: parseFloat(backtestRR) || 2,
+          size: parseFloat(backtestSize) || 1,
+          initialBalance: parseFloat(backtestBalance) || 10000,
+          useRiskSizing,
+          riskPct: parseFloat(backtestRiskPct) || 1.0,
+          useBreakEven,
+          beTriggerR: parseFloat(backtestBE) || 1.0,
+          lookbackWindow: parseInt(lookbackWindow) || 20,
+        }),
       });
-      currentBalance += pnl;
-    }
-    
-    const totalTrades = completedTrades.length;
-    const wins = completedTrades.filter(t => t.outcome === 'WIN').length;
-    const winRate = totalTrades > 0 ? (wins / totalTrades) * 100 : 0;
-    const netPnl = completedTrades.reduce((acc, t) => acc + t.pnl, 0);
-    
-    const grossProfits = completedTrades.filter(t => t.pnl > 0).reduce((acc, t) => acc + t.pnl, 0);
-    const grossLosses = Math.abs(completedTrades.filter(t => t.pnl < 0).reduce((acc, t) => acc + t.pnl, 0));
-    const profitFactor = grossLosses > 0 ? grossProfits / grossLosses : grossProfits > 0 ? 99.9 : 0;
-    
-    // Calculate Max Drawdown and Max Daily Loss
-    let runningBalance = initialBalance;
-    let peakBal = runningBalance;
-    let maxDrawdown = 0;
-    
-    const dayPnlMap: { [day: string]: number } = {};
-    const dayStartBalMap: { [day: string]: number } = {};
-    
-    for (let j = 0; j < completedTrades.length; j++) {
-      const t = completedTrades[j];
-      const tradeTimeSec = t.timestamp || 0;
-      const dateStr = new Date(tradeTimeSec * 1000).toISOString().split('T')[0];
-      
-      if (dayStartBalMap[dateStr] === undefined) {
-        dayStartBalMap[dateStr] = runningBalance;
-        dayPnlMap[dateStr] = 0;
-      }
-      
-      runningBalance += t.pnl;
-      dayPnlMap[dateStr] += t.pnl;
-      
-      if (runningBalance > peakBal) {
-        peakBal = runningBalance;
-      }
-      const dd = ((peakBal - runningBalance) / peakBal) * 100;
-      if (dd > maxDrawdown) {
-        maxDrawdown = dd;
-      }
-    }
-    
-    let maxDailyLoss = 0;
-    let dailyLossBreached = false;
-    
-    Object.keys(dayStartBalMap).forEach(day => {
-      const startB = dayStartBalMap[day];
-      const dayLoss = dayPnlMap[day];
-      if (dayLoss < 0 && startB > 0) {
-        const lossPct = (Math.abs(dayLoss) / startB) * 100;
-        if (lossPct > maxDailyLoss) {
-          maxDailyLoss = lossPct;
-        }
-        if (lossPct >= 5.0) {
-          dailyLossBreached = true;
+      const res = await response.json();
+      if (res.status === 'success' && res.data) {
+        setBacktestResults(res.data);
+        if (res.data.trades && res.data.trades.length > 0) {
+          setSelectedTrade(res.data.trades[0]);
+        } else {
+          setSelectedTrade(null);
         }
       }
-    });
-    
-    const monthlyBreakdown: { [month: string]: number } = {};
-    const weeklyBreakdown: { [week: string]: number } = {};
-    completedTrades.forEach((t) => {
-      if (t.timestamp) {
-        const d = new Date(t.timestamp * 1000);
-        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-        monthlyBreakdown[monthKey] = (monthlyBreakdown[monthKey] || 0) + t.pnl;
-        
-        const weekKey = getWeekNumber(d);
-        weeklyBreakdown[weekKey] = (weeklyBreakdown[weekKey] || 0) + t.pnl;
-      }
-    });
-
-    const reversedTrades = completedTrades.reverse();
-    setBacktestResults({
-      trades: reversedTrades,
-      winRate,
-      netPnl,
-      profitFactor,
-      totalTrades,
-      maxDrawdown,
-      maxDailyLoss,
-      dailyLossBreached,
-      candles: annotatedCandles,
-      monthlyBreakdown,
-      weeklyBreakdown,
-    });
-
-    if (reversedTrades.length > 0) {
-      setSelectedTrade(reversedTrades[0]);
-    } else {
-      setSelectedTrade(null);
+    } catch (e) {
+      console.error("Failed to run backtest on backend:", e);
     }
   };
 
   useEffect(() => {
     runBacktest();
-  }, [candles, backtestSL, backtestRR, backtestSize, lookbackWindow, backtestBalance, backtestRiskPct, useRiskSizing, backtestBE, useBreakEven]);
+  }, [candles, symbol, backtestSL, backtestRR, backtestSize, lookbackWindow, backtestBalance, backtestRiskPct, useRiskSizing, backtestBE, useBreakEven]);
 
   // Fetch symbols and timeframes metadata on mount
   useEffect(() => {

@@ -83,6 +83,39 @@ def analyze():
     result = TradingHandler.analyze_market_data(candles, lookback=lookback)
     return jsonify(result)
 
+@trading_routes.route('/backtest', methods=['POST'])
+def backtest():
+    """
+    Exposes Python-based backtesting engine to frontend dashboard.
+    """
+    payload = request.get_json(silent=True) or {}
+    candles = payload.get('candles', [])
+    symbol = payload.get('symbol', 'BTCUSD')
+    sl_pips = float(payload.get('slPips', 50))
+    rr = float(payload.get('rr', 2.0))
+    size = float(payload.get('size', 1.0))
+    initial_balance = float(payload.get('initialBalance', 10000.0))
+    use_risk_sizing = bool(payload.get('useRiskSizing', False))
+    risk_pct = float(payload.get('riskPct', 1.0))
+    use_break_even = bool(payload.get('useBreakEven', False))
+    be_trigger_r = float(payload.get('beTriggerR', 1.0))
+    lookback_window = int(payload.get('lookbackWindow', 20))
+
+    result = TradingHandler.run_backtest(
+        candles=candles,
+        symbol=symbol,
+        sl_pips=sl_pips,
+        rr=rr,
+        size=size,
+        initial_balance=initial_balance,
+        use_risk_sizing=use_risk_sizing,
+        risk_pct=risk_pct,
+        use_break_even=use_break_even,
+        be_trigger_r=be_trigger_r,
+        lookback_window=lookback_window
+    )
+    return jsonify({"status": "success", "data": result})
+
 @trading_routes.route('/risk', methods=['GET', 'POST'])
 def risk():
     """
