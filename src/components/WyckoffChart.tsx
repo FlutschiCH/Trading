@@ -179,7 +179,7 @@ export default function WyckoffChart({
         fixRightEdge: false,
       },
       width: chartContainerRef.current.clientWidth,
-      height: 380,
+      height: 760,
     });
 
     const candlestickSeries = mainChart.addSeries(CandlestickSeries, {
@@ -604,7 +604,7 @@ export default function WyckoffChart({
         )}
 
         {/* Main price panel */}
-        <div style={{ position: 'relative', height: 380 }}>
+        <div style={{ position: 'relative', height: 760 }}>
           <div ref={chartContainerRef} style={{ width: '100%', height: '100%' }} />
 
           {/* SVG overlays */}
@@ -629,7 +629,7 @@ export default function WyckoffChart({
                 x={Math.min(selectedTradeCoords.x1, selectedTradeCoords.x2)}
                 y={0}
                 width={Math.max(1, Math.abs(selectedTradeCoords.x1 - selectedTradeCoords.x2))}
-                height={380}
+                height={760}
                 fill={selectedTradeCoords.pnl >= 0 ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)'}
                 stroke={selectedTradeCoords.pnl >= 0 ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}
                 strokeWidth={1}
