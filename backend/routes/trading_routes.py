@@ -148,26 +148,6 @@ def historical_candles():
                 })
             return jsonify({"status": "success", "data": candles})
     except Exception as e:
-        print(f"Failed to fetch {binance_symbol} from Binance API: {e}. Falling back to mock data.", flush=True)
-        # Fallback to mock data
-        base_time = int(time.time()) - (limit * 15 * 60)
-        last_close = 57450.0 if 'BTC' in symbol else 1.1000 if 'EUR' in symbol else 100.0
-        candles = []
-        for i in range(limit):
-            change = (random.random() - 0.49) * (200 if 'BTC' in symbol else 0.0020 if 'EUR' in symbol else 0.5)
-            open_p = last_close
-            close_p = open_p + change
-            high_p = max(open_p, close_p) + (random.random() * (50 if 'BTC' in symbol else 0.0005 if 'EUR' in symbol else 0.1))
-            low_p = min(open_p, close_p) - (random.random() * (50 if 'BTC' in symbol else 0.0005 if 'EUR' in symbol else 0.1))
-            volume = random.randint(100, 1600)
-            candles.append({
-                "time": base_time + (i * 15 * 60),
-                "open": open_p,
-                "high": high_p,
-                "low": low_p,
-                "close": close_p,
-                "volume": volume
-            })
-            last_close = close_p
-        return jsonify({"status": "success", "data": candles})
+        print(f"Failed to fetch {binance_symbol} from Binance API: {e}. Returning empty list.", flush=True)
+        return jsonify({"status": "success", "data": []})
 
