@@ -863,25 +863,31 @@ export default function App() {
       {/* Main Grid View */}
       <main style={styles.mainLayout}>
         
-        {/* Top pane: Chart & Trade Entry */}
-        <div style={styles.topPane}>
-          <div style={{ gridColumn: 'span 3' }}>
-            <WyckoffChart 
-              symbol={symbol} 
-              candles={backtestResults?.candles || candles} 
-              loading={loading} 
-              onRefresh={fetchCandles} 
-              entryPrice={selectedTrade?.entryPrice}
-              slPrice={selectedTrade?.slPrice}
-              tpPrice={selectedTrade?.tpPrice}
-              trades={backtestResults?.trades || []}
-              selectedTrade={selectedTrade}
-              onSelectTrade={(trade) => {
-                setSelectedTrade(trade);
-                setShowModal(true);
-              }}
-            />
-          </div>
+        {/* Top pane: Full-width Chart */}
+        <div style={{ width: '100%' }}>
+          <WyckoffChart 
+            symbol={symbol} 
+            candles={backtestResults?.candles || candles} 
+            loading={loading} 
+            onRefresh={fetchCandles} 
+            entryPrice={selectedTrade?.entryPrice}
+            slPrice={selectedTrade?.slPrice}
+            tpPrice={selectedTrade?.tpPrice}
+            trades={backtestResults?.trades || []}
+            selectedTrade={selectedTrade}
+            onSelectTrade={(trade) => {
+              setSelectedTrade(trade);
+              setShowModal(true);
+            }}
+          />
+        </div>
+
+        {/* Bottom pane: Controls and Backtester side-by-side */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+          gap: '24px',
+        }}>
 
           {/* Trade Execution Panel */}
           <div style={styles.orderCard}>
