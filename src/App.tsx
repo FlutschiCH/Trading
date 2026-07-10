@@ -933,24 +933,7 @@ export default function App() {
       {/* Main Grid View */}
       <main style={styles.mainLayout}>
         
-        {/* Top pane: Full-width Chart */}
-        <div style={{ width: '100%' }}>
-          <WyckoffChart 
-            symbol={symbol} 
-            candles={backtestResults?.candles || candles} 
-            loading={loading} 
-            onRefresh={fetchCandles} 
-            entryPrice={selectedTrade?.entryPrice}
-            slPrice={selectedTrade?.slPrice}
-            tpPrice={selectedTrade?.tpPrice}
-            trades={backtestResults?.trades || []}
-            selectedTrade={selectedTrade}
-            onSelectTrade={(trade) => {
-              setSelectedTrade(trade);
-              setShowModal(true);
-            }}
-          />
-        </div>
+
 
         {/* Dynamic Reorderable Dashboard Panels Grid */}
         <div style={{
