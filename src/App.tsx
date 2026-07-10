@@ -111,6 +111,70 @@ export default function App() {
   const [showModal, setShowModal] = useState<boolean>(false);
   const [backtestTab, setBacktestTab] = useState<'trades' | 'weekly' | 'monthly'>('trades');
 
+  const [positions, setPositions] = useState<{ [key: string]: { x: number; y: number } }>(() => {
+    const saved = localStorage.getItem('wyckoff_desk_positions');
+    return saved ? JSON.parse(saved) : {
+      manualOrder: { x: 24, y: 920 },
+      backtester: { x: 430, y: 920 }
+    };
+  });
+  const [activeDrag, setActiveDrag] = useState<{
+    id: string;
+    startX: number;
+    startY: number;
+    startLeft: number;
+    startTop: number;
+  } | null>(null);
+
+  const handleMouseDown = (e: React.MouseEvent, id: string) => {
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'INPUT' || target.tagName === 'BUTTON' || target.tagName === 'SELECT' || target.closest('button') || target.closest('input')) {
+      return;
+    }
+    
+    e.preventDefault();
+    const pos = positions[id] || { x: 0, y: 0 };
+    setActiveDrag({
+      id,
+      startX: e.clientX,
+      startY: e.clientY,
+      startLeft: pos.x,
+      startTop: pos.y
+    });
+  };
+
+  useEffect(() => {
+    if (!activeDrag) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const dx = e.clientX - activeDrag.startX;
+      const dy = e.clientY - activeDrag.startY;
+      
+      setPositions(prev => {
+        const next = {
+          ...prev,
+          [activeDrag.id]: {
+            x: activeDrag.startLeft + dx,
+            y: activeDrag.startTop + dy
+          }
+        };
+        localStorage.setItem('wyckoff_desk_positions', JSON.stringify(next));
+        return next;
+      });
+    };
+
+    const handleMouseUp = () => {
+      setActiveDrag(null);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [activeDrag]);
+
   const runBacktest = () => {
     if (!candles || candles.length === 0) return;
     
@@ -669,6 +733,8 @@ export default function App() {
       display: 'flex',
       flexDirection: 'column' as const,
       gap: '24px',
+      position: 'relative',
+      minHeight: '1400px',
     },
     topPane: {
       display: 'grid',
@@ -901,16 +967,37 @@ export default function App() {
           />
         </div>
 
-        {/* Bottom pane: Controls and Backtester side-by-side */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-          gap: '24px',
-        }}>
+        {/* Draggable Panels */}
+        <div style={{ position: 'relative', width: '100%', minHeight: '500px' }}>
 
           {/* Trade Execution Panel */}
-          <div style={styles.orderCard}>
-            <h3 style={styles.cardTitle}>Manual Order Entry</h3>
+          <div style={{
+            ...styles.orderCard,
+            position: 'absolute',
+            left: positions.manualOrder?.x ?? 24,
+            top: positions.manualOrder?.y ?? 920,
+            width: '380px',
+            zIndex: activeDrag?.id === 'manualOrder' ? 100 : 10,
+          }}>
+            <h3 
+              onMouseDown={(e) => handleMouseDown(e, 'manualOrder')}
+              style={{
+                ...styles.cardTitle,
+                cursor: 'move',
+                userSelect: 'none',
+                backgroundColor: '#1f2937',
+                padding: '8px 12px',
+                margin: '-16px -16px 12px -16px',
+                borderTopLeftRadius: '12px',
+                borderTopRightRadius: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <span>Manual Order Entry</span>
+              <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header</span>
+            </h3>
             
             <div style={styles.tradeTypeTabs}>
               <button 
@@ -1017,8 +1104,33 @@ export default function App() {
           </div>
 
           {/* Backtester Control Card */}
-          <div style={styles.orderCard}>
-            <h3 style={styles.cardTitle}>Wyckoff Backtester Desk</h3>
+          <div style={{
+            ...styles.orderCard,
+            position: 'absolute',
+            left: positions.backtester?.x ?? 430,
+            top: positions.backtester?.y ?? 920,
+            width: '420px',
+            zIndex: activeDrag?.id === 'backtester' ? 100 : 10,
+          }}>
+            <h3 
+              onMouseDown={(e) => handleMouseDown(e, 'backtester')}
+              style={{
+                ...styles.cardTitle,
+                cursor: 'move',
+                userSelect: 'none',
+                backgroundColor: '#1f2937',
+                padding: '8px 12px',
+                margin: '-16px -16px 12px -16px',
+                borderTopLeftRadius: '12px',
+                borderTopRightRadius: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <span>Wyckoff Backtester Desk</span>
+              <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header</span>
+            </h3>
             
             <div style={styles.tradeForm}>
               <div style={styles.formGroup}>
