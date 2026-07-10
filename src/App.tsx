@@ -113,7 +113,7 @@ export default function App() {
 
   const [panelOrder, setPanelOrder] = useState<string[]>(() => {
     const saved = localStorage.getItem('wyckoff_desk_panel_order');
-    return saved ? JSON.parse(saved) : ['chart', 'order', 'backtester', 'dashboard'];
+    return saved ? JSON.parse(saved) : ['backtester', 'chart', 'order', 'dashboard'];
   });
   const [dragOverId, setDragOverId] = useState<string | null>(null);
 
@@ -938,14 +938,14 @@ export default function App() {
         {/* Dynamic Reorderable Dashboard Panels Grid */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
           gap: '24px',
           width: '100%',
         }}>
           {panelOrder.map((panelId) => {
             const isDragOver = dragOverId === panelId;
             const dragStyles = {
-              gridColumn: panelId === 'chart' || panelId === 'dashboard' ? '1 / -1' : 'auto',
+              gridColumn: panelId === 'chart' ? 'span 2' : panelId === 'dashboard' ? '1 / -1' : 'span 1',
               border: isDragOver ? '2px dashed #3b82f6' : '1px solid #1f2937',
               borderRadius: '12px',
               backgroundColor: '#0f172a',
