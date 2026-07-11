@@ -75,17 +75,34 @@ class TradingHandler:
         completed_trades = []
         current_balance = initial_balance
         
-        sym_upper = symbol.upper()
-        # Distinguish crypto pairs from forex pairs containing USD/EUR/etc.
-        is_crypto = 'USDT' in sym_upper or 'BUSD' in sym_upper or any(x in sym_upper for x in ['BTC', 'ETH', 'SOL', 'LTC', 'XRP', 'ADA', 'DOT', 'DOGE', 'LINK', 'UNI'])
-        
-        pip_val = 1.0
-        if is_crypto:
-            pip_val = 1.0
-        elif 'JPY' in sym_upper:
-            pip_val = 0.01
-        elif any(x in sym_upper for x in ['EUR', 'USD', 'GBP', 'AUD', 'CAD']):
-            pip_val = 0.0001
+        # Helper to determine pip size dynamically based on asset conventions
+        def get_pip_size(sym: str, price: float) -> float:
+            sym_upper = sym.upper()
+            if 'JPY' in sym_upper:
+                return 0.01
+            if 'XAU' in sym_upper or 'GOLD' in sym_upper or 'XAG' in sym_upper:
+                return 0.1
+            is_crypto_pair = any(c in sym_upper for c in ['BTC', 'ETH', 'SOL', 'LTC', 'XRP', 'ADA', 'DOT', 'DOGE', 'LINK', 'UNI', 'PEPE', 'SHIB'])
+            if is_crypto_pair:
+                if price > 1000:
+                    return 1.0
+                elif price > 10:
+                    return 0.1
+                return 0.001
+            forex_currencies = ['EUR', 'GBP', 'AUD', 'NZD', 'USD', 'CAD', 'CHF', 'SEK', 'NOK', 'SGD', 'HKD', 'ZAR', 'MXN']
+            if any(curr in sym_upper for curr in forex_currencies):
+                return 0.0001
+            if price > 1000:
+                return 1.0
+            elif price > 100:
+                return 0.1
+            elif price > 1:
+                return 0.01
+            return 0.0001
+
+        first_candle = annotated_data[0]
+        close_price = float(first_candle.get('close', 0))
+        pip_size = get_pip_size(symbol, close_price)
 
         for i, c in enumerate(annotated_data):
             vsa_pat = c.get('vsa_patterns', '')
@@ -227,7 +244,7 @@ class TradingHandler:
                     if sl_type == 'pct':
                         sl_distance = entry_price * (sl_val / 100.0)
                     else:
-                        sl_distance = sl_val
+                        sl_distance = sl_val * pip_size
                         
                     sl_price = entry_price - sl_distance if trade_type == 'BUY' else entry_price + sl_distance
                     tp_price = entry_price + sl_distance * rr if trade_type == 'BUY' else entry_price - sl_distance * rr

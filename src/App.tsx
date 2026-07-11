@@ -812,6 +812,29 @@ export default function App() {
     })
   };
 
+  const getPipSize = (sym: string, price: number): number => {
+    const symUpper = sym.toUpperCase();
+    if (symUpper.includes('JPY')) return 0.01;
+    if (symUpper.includes('XAU') || symUpper.includes('GOLD') || symUpper.includes('XAG')) return 0.1;
+    
+    const isCrypto = ['BTC', 'ETH', 'SOL', 'LTC', 'XRP', 'ADA', 'DOT', 'DOGE', 'LINK', 'UNI', 'PEPE', 'SHIB'].some(c => symUpper.includes(c));
+    if (isCrypto) {
+      if (price > 1000) return 1.0;
+      if (price > 10) return 0.1;
+      return 0.001;
+    }
+    
+    const forexCurrencies = ['EUR', 'GBP', 'AUD', 'NZD', 'USD', 'CAD', 'CHF', 'SEK', 'NOK', 'SGD', 'HKD', 'ZAR', 'MXN'];
+    if (forexCurrencies.some(curr => symUpper.includes(curr))) {
+      return 0.0001;
+    }
+    
+    if (price > 1000) return 1.0;
+    if (price > 100) return 0.1;
+    if (price > 1) return 0.01;
+    return 0.0001;
+  };
+
   const liveTrades = openPositions.map((pos: any) => {
     let slPrice = pos.stop_loss;
     let tpPrice = pos.take_profit;
@@ -823,7 +846,8 @@ export default function App() {
       const entry = pos.entry_price;
       
       if (liveStrategy.slType === 'price') {
-        slPrice = slVal;
+        const pipSize = getPipSize(pos.symbol, entry);
+        slPrice = isBuy ? entry - slVal * pipSize : entry + slVal * pipSize;
       } else {
         slPrice = isBuy ? entry * (1 - slVal / 100) : entry * (1 + slVal / 100);
       }
