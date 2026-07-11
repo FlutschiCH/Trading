@@ -1,10 +1,17 @@
-import yfinance as yf
+try:
+    import yfinance as yf
+    YF_AVAILABLE = True
+except ImportError:
+    YF_AVAILABLE = False
 import pandas as pd
 import time
 
 class YFinanceHandler:
     @staticmethod
     def fetch_candles(symbol: str, timeframe: str, limit: int = 1000) -> list:
+        if not YF_AVAILABLE:
+            print("yfinance package not available.", flush=True)
+            return []
         # Map timeframe to yfinance intervals
         tf_map = {
             '1m': '1m',
