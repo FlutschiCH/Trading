@@ -2,9 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType, CandlestickSeries, HistogramSeries, LineSeries, createSeriesMarkers } from 'lightweight-charts';
 import { Square, PenTool, Trash2, XCircle, RefreshCw } from 'lucide-react';
 
-// ── Imports ───────────────────────────────────────────────────────────────
-
-
 interface Candle {
   time: number;
   open: number;
@@ -19,7 +16,7 @@ interface Candle {
   backtest_signal?: 'BUY' | 'SELL';
 }
 
-interface WyckoffChartProps {
+interface TVChartProps {
   symbol: string;
   candles: Candle[];
   loading: boolean;
@@ -32,7 +29,7 @@ interface WyckoffChartProps {
   onSelectTrade?: (trade: any) => void;
 }
 
-export default function WyckoffChart({ 
+export default function TVChart({ 
   symbol, 
   candles, 
   loading, 
@@ -43,7 +40,7 @@ export default function WyckoffChart({
   trades = [],
   selectedTrade = null,
   onSelectTrade
-}: WyckoffChartProps) {
+}: TVChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const weisContainerRef = useRef<HTMLDivElement>(null);
   
@@ -126,6 +123,8 @@ export default function WyckoffChart({
       } else {
         selectedTradePathSeriesRef.current.setData([]);
       }
+    } else {
+      selectedTradePathSeriesRef.current.setData([]);
     }
   }, [selectedTrade]);
 
@@ -173,7 +172,7 @@ export default function WyckoffChart({
 
     if (selectedTradeRef.current && selectedTradeRef.current.entryTimestamp) {
       const xEntry = timeScale.timeToCoordinate(selectedTradeRef.current.entryTimestamp);
-    const lastCandleTime = candlesRef.current && candlesRef.current.length > 0 ? candlesRef.current[candlesRef.current.length - 1].time : 0;
+      const lastCandleTime = candlesRef.current && candlesRef.current.length > 0 ? candlesRef.current[candlesRef.current.length - 1].time : 0;
       const xExit = selectedTradeRef.current.exitTimestamp 
         ? timeScale.timeToCoordinate(selectedTradeRef.current.exitTimestamp)
         : (lastCandleTime ? timeScale.timeToCoordinate(lastCandleTime) : null);
@@ -192,7 +191,6 @@ export default function WyckoffChart({
       setSelectedTradeCoords(null);
     }
   };
-
 
   // Sync Charts & Render Data
   useEffect(() => {
@@ -234,10 +232,8 @@ export default function WyckoffChart({
       wickDownColor: '#ef4444',
     });
 
-    // Create the markers plugin for the candlestick series
     const markersPlugin = createSeriesMarkers(candlestickSeries);
 
-    // Reference channels for Wyckoff TR high and TR low
     const trHighSeries = mainChart.addSeries(LineSeries, {
       color: '#f59e0b',
       lineWidth: 2,
@@ -252,7 +248,6 @@ export default function WyckoffChart({
       title: 'TR Low',
     });
 
-    // Initialize Weis Wave sub-panel
     const weisChart = createChart(weisContainerRef.current, {
       layout: {
         background: { type: ColorType.Solid, color: '#111827' },
@@ -287,33 +282,26 @@ export default function WyckoffChart({
       },
     });
 
-    // Synced scrolling and zooming via Logical Range
     let isSyncing = false;
     mainChart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
       if (isSyncing || !range) return;
       isSyncing = true;
       try {
         weisChart.timeScale().setVisibleLogicalRange(range);
-      } catch (e) {
-        // Ignored: handles internal null-value conversion when charts are loading/empty
-      }
+      } catch (e) {}
       updateDrawingCoordinates();
       isSyncing = false;
     });
-
 
     weisChart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
       if (isSyncing || !range) return;
       isSyncing = true;
       try {
         mainChart.timeScale().setVisibleLogicalRange(range);
-      } catch (e) {
-        // Ignored: handles internal null-value conversion when charts are loading/empty
-      }
+      } catch (e) {}
       isSyncing = false;
     });
 
-    // Track state in refs
     chartRef.current = mainChart;
     weisChartRef.current = weisChart;
     candlestickSeriesRef.current = candlestickSeries;
@@ -322,7 +310,6 @@ export default function WyckoffChart({
     trHighSeriesRef.current = trHighSeries;
     trLowSeriesRef.current = trLowSeries;
 
-    // Initialize selected trade path LineSeries
     const selectedTradePathSeries = mainChart.addSeries(LineSeries, {
       color: '#10b981',
       lineWidth: 2,
@@ -333,7 +320,6 @@ export default function WyckoffChart({
     });
     selectedTradePathSeriesRef.current = selectedTradePathSeries;
 
-    // Click Subscription to select trades/signals
     mainChart.subscribeClick((param) => {
       if (!param.time || !onSelectTradeRef.current || !tradesRef.current || tradesRef.current.length === 0) return;
       const clickTime = param.time as number;
@@ -385,7 +371,6 @@ export default function WyckoffChart({
     if (candlestickSeriesRef.current) {
       candlestickSeriesRef.current.setData(candles);
 
-      // Signal markers (Entries)
       const entryMarkers = candles
         .map((c) => {
           if (c.backtest_signal) {
@@ -402,17 +387,14 @@ export default function WyckoffChart({
         })
         .filter((m) => m !== null);
 
-      // Exit markers from backtested trades
       const exitMarkers = (trades || [])
         .map((trade) => {
           if (!trade.exitTimestamp) return null;
-          // Skip "Position still open" or same-candle entry/exit (no real exit yet)
           if (trade.exitReason === 'Position still open') return null;
           if (trade.exitTimestamp === trade.entryTimestamp) return null;
           const isProfit = trade.pnl >= 0;
           return {
             time: trade.exitTimestamp,
-            // Flip position vs entry marker so they don't overlap
             position: (trade.type === 'BUY' ? 'aboveBar' : 'belowBar') as any,
             color: isProfit ? '#10b981' : '#ef4444',
             shape: 'circle' as any,
@@ -421,7 +403,6 @@ export default function WyckoffChart({
         })
         .filter((m) => m !== null);
 
-      // Merge and sort all markers by timestamp
       const allMarkers = [...entryMarkers, ...exitMarkers].sort((a, b) => {
         const timeA = typeof a.time === 'number' ? a.time : new Date(a.time).getTime();
         const timeB = typeof b.time === 'number' ? b.time : new Date(b.time).getTime();
@@ -433,7 +414,6 @@ export default function WyckoffChart({
       }
     }
 
-    // Set TR High & Low channels
     if (trHighSeriesRef.current && trLowSeriesRef.current) {
       const highData = candles.map(c => ({ time: c.time, value: c.tr_high || c.high }));
       const lowData = candles.map(c => ({ time: c.time, value: c.tr_low || c.low }));
@@ -441,7 +421,6 @@ export default function WyckoffChart({
       trLowSeriesRef.current.setData(lowData);
     }
 
-    // Set Weis Wave volume data
     if (weisSeriesRef.current) {
       const weisData = candles.map((c) => {
         const val = c.weis_wave_volume || 0;
@@ -454,19 +433,14 @@ export default function WyckoffChart({
       weisSeriesRef.current.setData(weisData);
     }
 
-    // Dynamic LineSeries creation for 3-bar trade entry/SL/TP levels
     if (chartRef.current && candles.length > 0) {
-      // 1. Remove old trade level lines
       dynamicLineSeriesRef.current.forEach((series) => {
         try {
           chartRef.current.removeSeries(series);
-        } catch (e) {
-          // Series might already be destroyed
-        }
+        } catch (e) {}
       });
       dynamicLineSeriesRef.current = [];
 
-      // 2. Filter valid trades (including open ones)
       const realTrades = (trades || []).filter(
         (t) => t.entryTimestamp && t.entryPrice && t.slPrice && t.tpPrice
       );
@@ -483,7 +457,6 @@ export default function WyckoffChart({
         const points = sortedTimes.slice(entryIdx, endIdx);
         if (points.length === 0) return;
 
-        // Configurations for clean indicator segments
         const entryData = points.map((p) => ({ time: p, value: trade.entryPrice }));
         const slData = points.map((p) => ({ time: p, value: trade.slPrice }));
         const tpData = points.map((p) => ({ time: p, value: trade.tpPrice }));
@@ -493,7 +466,7 @@ export default function WyckoffChart({
           const lineSeries = chartRef.current.addSeries(LineSeries, {
             color,
             lineWidth: 2,
-            lineStyle: 0, // Solid
+            lineStyle: 0,
             lastValueVisible: false,
             priceLineVisible: false,
             crosshairMarkerVisible: false,
@@ -502,10 +475,10 @@ export default function WyckoffChart({
           dynamicLineSeriesRef.current.push(lineSeries);
         };
 
-        addTradeLine(entryData, '#3b82f6'); // blue
-        addTradeLine(slData, '#ef4444');    // red
-        addTradeLine(tpData, '#10b981');    // green
-        addTradeLine(beData, '#fbbf24');    // yellow
+        addTradeLine(entryData, '#3b82f6');
+        addTradeLine(slData, '#ef4444');
+        addTradeLine(tpData, '#10b981');
+        addTradeLine(beData, '#fbbf24');
       });
     }
 
@@ -536,7 +509,7 @@ export default function WyckoffChart({
           price: entryPrice,
           color: '#3b82f6',
           lineWidth: 2,
-          lineStyle: 2, // Dotted
+          lineStyle: 2,
           axisLabelVisible: true,
           title: 'Entry',
         });
@@ -546,7 +519,7 @@ export default function WyckoffChart({
           price: slPrice,
           color: '#ef4444',
           lineWidth: 2,
-          lineStyle: 1, // Dashed
+          lineStyle: 1,
           axisLabelVisible: true,
           title: 'SL',
         });
@@ -556,7 +529,7 @@ export default function WyckoffChart({
           price: tpPrice,
           color: '#10b981',
           lineWidth: 2,
-          lineStyle: 1, // Dashed
+          lineStyle: 1,
           axisLabelVisible: true,
           title: 'TP',
         });
@@ -567,7 +540,7 @@ export default function WyckoffChart({
           price: bePrice,
           color: '#fbbf24',
           lineWidth: 2,
-          lineStyle: 1, // Dashed
+          lineStyle: 1,
           axisLabelVisible: true,
           title: '1:1 BE',
         });
@@ -620,7 +593,6 @@ export default function WyckoffChart({
     setDrawingPreview(null);
   };
 
-  // Vanilla CSS styles matching the original trading.tsx theme
   const styles = {
     container: {
       display: 'flex',
@@ -719,7 +691,6 @@ export default function WyckoffChart({
 
   return (
     <div style={styles.container}>
-      {/* Chart controls toolbar */}
       <div style={styles.toolbar}>
         <div style={styles.toolsGroup}>
           <span style={styles.symbolBadge}>{symbol}</span>
@@ -760,7 +731,6 @@ export default function WyckoffChart({
         </button>
       </div>
 
-      {/* Charts Panels wrapper */}
       <div style={styles.chartWrapper}>
         {loading && (
           <div style={styles.loadingOverlay}>
@@ -768,11 +738,9 @@ export default function WyckoffChart({
           </div>
         )}
 
-        {/* Main price panel */}
         <div style={{ position: 'relative', height: 760 }}>
           <div ref={chartContainerRef} style={{ width: '100%', height: '100%' }} />
 
-          {/* SVG overlays */}
           <svg
             style={{
               position: 'absolute',
@@ -788,8 +756,6 @@ export default function WyckoffChart({
             onMouseMove={handleSVGMouseMove}
             onMouseUp={handleSVGMouseUp}
           >
-
-            {/* Shaded Area for selected trade range */}
             {selectedTradeCoords && (
               <rect
                 x={Math.min(selectedTradeCoords.x1, selectedTradeCoords.x2)}
@@ -804,7 +770,6 @@ export default function WyckoffChart({
               />
             )}
 
-            {/* Draw active lines/rectangles */}
             {pixelDrawings.map((d) => {
               if (d.type === 'trendline') {
                 return (
@@ -853,7 +818,6 @@ export default function WyckoffChart({
               return null;
             })}
 
-            {/* Live drawing preview */}
             {pixelPreview && (
               <>
                 {pixelPreview.type === 'trendline' && (
@@ -884,7 +848,6 @@ export default function WyckoffChart({
           </svg>
         </div>
 
-        {/* Weis Wave Synced panel */}
         <div ref={weisContainerRef} style={{ width: '100%', height: 140 }} />
       </div>
     </div>

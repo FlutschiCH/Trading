@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Send, ShieldAlert, Sliders, RefreshCw, CheckCircle2, XCircle } from 'lucide-react';
+import { Sliders, RefreshCw, CheckCircle2, XCircle } from 'lucide-react';
 import { API_BASE_URL } from '../api';
 
 interface AlertLog {
@@ -25,16 +25,6 @@ export default function Dashboard() {
 
   const [loadingRisk, setLoadingRisk] = useState(false);
   const [logs, setLogs] = useState<AlertLog[]>([]);
-  
-  // Mock Webhook inputs
-  const [mockSignalId, setMockSignalId] = useState('SIG-' + Math.floor(1000 + Math.random() * 9000));
-  const [mockSymbol, setMockSymbol] = useState('BTCUSDT');
-  const [mockAction, setMockAction] = useState('BUY');
-  const [mockQty, setMockQty] = useState('1.5');
-  const [mockPrice, setMockPrice] = useState('57000');
-  const [mockStopLoss, setMockStopLoss] = useState('56000');
-  const [mockTakeProfit, setMockTakeProfit] = useState('60000');
-  const [webhookToken, setWebhookToken] = useState('secure_wyckoff_desks_token_2026');
 
   // Load active risk configurations from Flask API
   const fetchRisk = async () => {
@@ -87,65 +77,6 @@ export default function Dashboard() {
       },
       ...prev.slice(0, 49)
     ]);
-  };
-
-  const calculateHMACSignature = async (secret: string, bodyText: string): Promise<string> => {
-    const encoder = new TextEncoder();
-    const secretData = encoder.encode(secret);
-    const key = await window.crypto.subtle.importKey(
-      "raw",
-      secretData,
-      { name: "HMAC", hash: { name: "SHA-256" } },
-      false,
-      ["sign"]
-    );
-    const signatureBuffer = await window.crypto.subtle.sign(
-      "HMAC",
-      key,
-      encoder.encode(bodyText)
-    );
-    const signatureArray = Array.from(new Uint8Array(signatureBuffer));
-    return signatureArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  };
-
-  const fireMockWebhook = async () => {
-    const payload = {
-      signal_id: mockSignalId,
-      symbol: mockSymbol,
-      action: mockAction,
-      qty: parseFloat(mockQty),
-      price: parseFloat(mockPrice),
-      stop_loss: parseFloat(mockStopLoss),
-      take_profit: parseFloat(mockTakeProfit),
-    };
-
-    const bodyText = JSON.stringify(payload);
-    const secretStr = "8f9e23c14a5d6b7e8c9d0e1f2a3b4c5d";
-    
-    try {
-      addLog('info', `Filing Mock Webhook Signal ${mockSignalId}...`, payload);
-      const signatureHex = await calculateHMACSignature(secretStr, bodyText);
-      
-      const response = await fetch(`${API_BASE_URL}/api/webhook`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Wyckoff-Token': webhookToken,
-          'X-Signature': signatureHex
-        },
-        body: bodyText,
-      });
-
-      const result = await response.json();
-      if (response.ok) {
-        addLog('success', `Webhook Accepted & Executed! Ref: ${result.message || 'SQLite Recorded'}`, result);
-        setMockSignalId('sig_' + Math.floor(Math.random() * 1000000));
-      } else {
-        addLog('warning', `Webhook Rejected: ${result.message || 'Validation failed'}`, result);
-      }
-    } catch (err: any) {
-      addLog('error', `Connection error trying to dispatch webhook: ${err.message}`);
-    }
   };
 
   useEffect(() => {
@@ -312,98 +243,9 @@ export default function Dashboard() {
 
   return (
     <div style={styles.container}>
-      {/* Left panel: Simulation Tool & Risk HUD */}
+      {/* Left panel: Risk HUD */}
       <div style={styles.column}>
         
-        {/* Simulation Tool */}
-        <div style={styles.card}>
-          <h3 style={styles.title}>
-            <ShieldAlert style={{ color: '#3b82f6' }} size={16} /> Signal & Webhook Simulator
-          </h3>
-          <div style={{ ...styles.formGrid, marginTop: '12px' }}>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Signal ID</label>
-              <input 
-                type="text" 
-                value={mockSignalId} 
-                onChange={(e) => setMockSignalId(e.target.value)} 
-                style={styles.input} 
-              />
-            </div>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Token Header</label>
-              <input 
-                type="text" 
-                value={webhookToken} 
-                onChange={(e) => setWebhookToken(e.target.value)} 
-                style={styles.input} 
-              />
-            </div>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Symbol</label>
-              <input 
-                type="text" 
-                value={mockSymbol} 
-                onChange={(e) => setMockSymbol(e.target.value)} 
-                style={styles.input} 
-              />
-            </div>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Action</label>
-              <select 
-                value={mockAction} 
-                onChange={(e) => setMockAction(e.target.value)} 
-                style={styles.input}
-              >
-                <option value="BUY">BUY / SPRING</option>
-                <option value="SELL">SELL / UPTHRUST</option>
-              </select>
-            </div>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Quantity</label>
-              <input 
-                type="number" 
-                value={mockQty} 
-                onChange={(e) => setMockQty(e.target.value)} 
-                style={styles.input} 
-              />
-            </div>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Price (USD)</label>
-              <input 
-                type="number" 
-                value={mockPrice} 
-                onChange={(e) => setMockPrice(e.target.value)} 
-                style={styles.input} 
-              />
-            </div>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Stop Loss</label>
-              <input 
-                type="number" 
-                value={mockStopLoss} 
-                onChange={(e) => setMockStopLoss(e.target.value)} 
-                style={styles.input} 
-              />
-            </div>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Take Profit</label>
-              <input 
-                type="number" 
-                value={mockTakeProfit} 
-                onChange={(e) => setMockTakeProfit(e.target.value)} 
-                style={styles.input} 
-              />
-            </div>
-          </div>
-          <button 
-            onClick={fireMockWebhook}
-            style={styles.btn('#3b82f6')}
-          >
-            <Send size={12} /> Fire Signed Webhook Signal
-          </button>
-        </div>
-
         {/* Risk Parameters HUD */}
         <div style={styles.card}>
           <div style={styles.header}>
