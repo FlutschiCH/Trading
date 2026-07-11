@@ -75,151 +75,183 @@ export default function WyckoffBacktester({
 }: WyckoffBacktesterProps) {
   return (
     <div className="no-drag" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <div style={styles.tradeForm}>
-        <div style={styles.formGroup}>
-          <label style={{ color: '#9ca3af', fontSize: '12px' }}>Starting Balance ($)</label>
-          <input 
-            type="number" 
-            value={backtestBalance} 
-            onChange={(e) => setBacktestBalance(e.target.value)}
-            style={styles.input}
-            min="100"
-          />
-        </div>
-
-        <div style={styles.formGroup}>
-          <label style={{ color: '#9ca3af', fontSize: '12px' }}>Fees / Comm. per side (%)</label>
-          <input 
-            type="number" 
-            value={backtestFees} 
-            onChange={(e) => setBacktestFees(e.target.value)}
-            style={styles.input}
-            step="0.001"
-            min="0.0"
-          />
-        </div>
-
-        <div style={styles.formGroup}>
-          <label style={{ color: '#9ca3af', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-            <input 
-              type="checkbox" 
-              checked={useRiskSizing}
-              onChange={(e) => setUseRiskSizing(e.target.checked)}
-              style={{ cursor: 'pointer' }}
-            />
-            Auto Calculate Size by Risk
-          </label>
-        </div>
-
-        {useRiskSizing ? (
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '12px',
+        fontSize: '12px',
+      }}>
+        {/* Row 1: Account setup (Starting Balance & Fees) */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
           <div style={styles.formGroup}>
-            <label style={{ color: '#9ca3af', fontSize: '12px' }}>Risk % per Trade</label>
+            <label style={{ color: '#9ca3af', fontSize: '11px' }}>Starting Balance ($)</label>
             <input 
               type="number" 
-              value={backtestRiskPct} 
-              onChange={(e) => setBacktestRiskPct(e.target.value)}
+              value={backtestBalance} 
+              onChange={(e) => setBacktestBalance(e.target.value)}
+              style={styles.input}
+              min="100"
+            />
+          </div>
+
+          <div style={styles.formGroup}>
+            <label style={{ color: '#9ca3af', fontSize: '11px' }}>Fees per side (%)</label>
+            <input 
+              type="number" 
+              value={backtestFees} 
+              onChange={(e) => setBacktestFees(e.target.value)}
+              style={styles.input}
+              step="0.001"
+              min="0.0"
+            />
+          </div>
+        </div>
+
+        {/* Row 2: Position Size settings */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '12px', alignItems: 'end' }}>
+          <div style={{ ...styles.formGroup, justifyContent: 'center', height: '100%' }}>
+            <label style={{ color: '#9ca3af', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', margin: 0 }}>
+              <input 
+                type="checkbox" 
+                checked={useRiskSizing}
+                onChange={(e) => setUseRiskSizing(e.target.checked)}
+                style={{ cursor: 'pointer' }}
+              />
+              Auto Size by Risk
+            </label>
+          </div>
+
+          {useRiskSizing ? (
+            <div style={styles.formGroup}>
+              <label style={{ color: '#9ca3af', fontSize: '11px' }}>Risk %</label>
+              <input 
+                type="number" 
+                value={backtestRiskPct} 
+                onChange={(e) => setBacktestRiskPct(e.target.value)}
+                style={styles.input}
+                step="0.1"
+                min="0.1"
+                max="10.0"
+              />
+            </div>
+          ) : (
+            <div style={styles.formGroup}>
+              <label style={{ color: '#9ca3af', fontSize: '11px' }}>Qty (Size)</label>
+              <input 
+                type="number" 
+                value={backtestSize} 
+                onChange={(e) => setBacktestSize(e.target.value)}
+                style={styles.input}
+                step="0.1"
+                min="0.1"
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Row 3: Stop Loss & Profit Target (RR Ratio) */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '12px' }}>
+          <div style={styles.formGroup}>
+            <label style={{ color: '#9ca3af', fontSize: '11px' }}>Stop Loss</label>
+            <div style={{ display: 'flex', gap: '4px' }}>
+              <input 
+                type="number" 
+                value={backtestSL} 
+                onChange={(e) => setBacktestSL(e.target.value)}
+                style={{ ...styles.input, flexGrow: 1, minWidth: 0 }}
+                step={backtestSLType === 'pct' ? '0.1' : '1'}
+                min="0.01"
+              />
+              <select
+                value={backtestSLType}
+                onChange={(e) => {
+                  const newType = e.target.value as 'pct' | 'price';
+                  setUseRiskSizing(true); // Preserve risk sizing target
+                  setBacktestSLType(newType);
+                  setBacktestSL(newType === 'pct' ? '1.0' : '200');
+                }}
+                style={{
+                  ...styles.input,
+                  width: '50px',
+                  backgroundColor: '#1f2937',
+                  cursor: 'pointer',
+                  padding: '0 4px',
+                }}
+              >
+                <option value="pct">%</option>
+                <option value="price">$</option>
+              </select>
+            </div>
+          </div>
+
+          <div style={styles.formGroup}>
+            <label style={{ color: '#9ca3af', fontSize: '11px' }}>RR Ratio</label>
+            <input 
+              type="number" 
+              value={backtestRR} 
+              onChange={(e) => setBacktestRR(e.target.value)}
               style={styles.input}
               step="0.1"
-              min="0.1"
-              max="10.0"
+              min="0.5"
             />
-          </div>
-        ) : (
-          <div style={styles.formGroup}>
-            <label style={{ color: '#9ca3af', fontSize: '12px' }}>Quantity (Size)</label>
-            <input 
-              type="number" 
-              value={backtestSize} 
-              onChange={(e) => setBacktestSize(e.target.value)}
-              style={styles.input}
-              step="0.1"
-              min="0.1"
-            />
-          </div>
-        )}
-
-        <div style={styles.formGroup}>
-          <label style={{ color: '#9ca3af', fontSize: '12px' }}>Stop Loss</label>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <input 
-              type="number" 
-              value={backtestSL} 
-              onChange={(e) => setBacktestSL(e.target.value)}
-              style={{ ...styles.input, flexGrow: 1 }}
-              step={backtestSLType === 'pct' ? '0.1' : '1'}
-              min="0.01"
-            />
-            <select
-              value={backtestSLType}
-              onChange={(e) => {
-                const newType = e.target.value as 'pct' | 'price';
-                setUseRiskSizing(true); // Preserve risk sizing target
-                setBacktestSLType(newType);
-                setBacktestSL(newType === 'pct' ? '1.0' : '200');
-              }}
-              style={{
-                ...styles.input,
-                width: '70px',
-                backgroundColor: '#1f2937',
-                cursor: 'pointer',
-                padding: '0 8px',
-              }}
-            >
-              <option value="pct">%</option>
-              <option value="price">$</option>
-            </select>
           </div>
         </div>
 
-        <div style={styles.formGroup}>
-          <label style={{ color: '#9ca3af', fontSize: '12px' }}>Risk to Reward (RR Ratio)</label>
-          <input 
-            type="number" 
-            value={backtestRR} 
-            onChange={(e) => setBacktestRR(e.target.value)}
-            style={styles.input}
-            step="0.1"
-            min="0.5"
-          />
+        {/* Row 4: Break Even controls & Lookback Window */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '12px', alignItems: 'end' }}>
+          <div style={{ ...styles.formGroup, height: '100%', justifyContent: 'center' }}>
+            <label style={{ color: '#9ca3af', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', margin: 0 }}>
+              <input 
+                type="checkbox" 
+                checked={useBreakEven}
+                onChange={(e) => setUseBreakEven(e.target.checked)}
+                style={{ cursor: 'pointer' }}
+              />
+              Enable BE
+            </label>
+          </div>
+
+          {useBreakEven ? (
+            <div style={styles.formGroup}>
+              <label style={{ color: '#9ca3af', fontSize: '11px' }}>BE Trigger (R)</label>
+              <input 
+                type="number" 
+                value={backtestBE} 
+                onChange={(e) => setBacktestBE(e.target.value)}
+                style={styles.input}
+                step="0.1"
+                min="0.1"
+              />
+            </div>
+          ) : (
+            <div style={styles.formGroup}>
+              <label style={{ color: '#9ca3af', fontSize: '11px' }}>Sweep Lookback</label>
+              <input 
+                type="number" 
+                value={lookbackWindow} 
+                onChange={(e) => setLookbackWindow(e.target.value)}
+                style={styles.input}
+                min="5"
+                max="200"
+              />
+            </div>
+          )}
         </div>
 
-        <div style={styles.formGroup}>
-          <label style={{ color: '#9ca3af', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-            <input 
-              type="checkbox" 
-              checked={useBreakEven}
-              onChange={(e) => setUseBreakEven(e.target.checked)}
-              style={{ cursor: 'pointer' }}
-            />
-            Enable Break Even (BE)
-          </label>
-        </div>
-
+        {/* Row 5: Conditional Lookback (Only if BE is enabled, otherwise lookback is rendered above) */}
         {useBreakEven && (
           <div style={styles.formGroup}>
-            <label style={{ color: '#9ca3af', fontSize: '12px' }}>BE Trigger (R-Ratio)</label>
+            <label style={{ color: '#9ca3af', fontSize: '11px' }}>Sweep Lookback (Bars)</label>
             <input 
               type="number" 
-              value={backtestBE} 
-              onChange={(e) => setBacktestBE(e.target.value)}
+              value={lookbackWindow} 
+              onChange={(e) => setLookbackWindow(e.target.value)}
               style={styles.input}
-              step="0.1"
-              min="0.1"
+              min="5"
+              max="200"
             />
           </div>
         )}
-
-        <div style={styles.formGroup}>
-          <label style={{ color: '#9ca3af', fontSize: '12px' }}>Sweep Lookback (Bars)</label>
-          <input 
-            type="number" 
-            value={lookbackWindow} 
-            onChange={(e) => setLookbackWindow(e.target.value)}
-            style={styles.input}
-            min="5"
-            max="200"
-          />
-        </div>
       </div>
 
 
