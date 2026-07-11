@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Send, ShieldAlert, Sliders, RefreshCw, CheckCircle2, XCircle } from 'lucide-react';
+import { API_BASE_URL } from '../api';
 
 interface AlertLog {
   id: string;
@@ -26,7 +27,7 @@ export default function Dashboard() {
   const [logs, setLogs] = useState<AlertLog[]>([]);
   
   // Mock Webhook inputs
-  const [mockSignalId, setMockSignalId] = useState('sig_' + Math.floor(Math.random() * 1000000));
+  const [mockSignalId, setMockSignalId] = useState('SIG-' + Math.floor(1000 + Math.random() * 9000));
   const [mockSymbol, setMockSymbol] = useState('BTCUSDT');
   const [mockAction, setMockAction] = useState('BUY');
   const [mockQty, setMockQty] = useState('1.5');
@@ -39,7 +40,7 @@ export default function Dashboard() {
   const fetchRisk = async () => {
     setLoadingRisk(true);
     try {
-      const response = await fetch('http://localhost:8751/api/risk');
+      const response = await fetch(`${API_BASE_URL}/api/risk`);
       const result = await response.json();
       if (result.status === 'success') {
         setRiskLimits(result.risk_limits);
@@ -57,7 +58,7 @@ export default function Dashboard() {
     e.preventDefault();
     setLoadingRisk(true);
     try {
-      const response = await fetch('http://localhost:8751/api/risk', {
+      const response = await fetch(`${API_BASE_URL}/api/risk`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(riskLimits),
@@ -125,7 +126,7 @@ export default function Dashboard() {
       addLog('info', `Filing Mock Webhook Signal ${mockSignalId}...`, payload);
       const signatureHex = await calculateHMACSignature(secretStr, bodyText);
       
-      const response = await fetch('http://localhost:8751/api/webhook', {
+      const response = await fetch(`${API_BASE_URL}/api/webhook`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

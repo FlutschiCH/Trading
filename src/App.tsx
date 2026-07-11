@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Activity, X, TrendingUp, TrendingDown, Clock, HelpCircle } from 'lucide-react';
 import WyckoffChart from './components/WyckoffChart.tsx';
 import Dashboard from './components/Dashboard.tsx';
+import { API_BASE_URL } from './api';
 import './App.css';
 
 interface Candle {
@@ -282,7 +283,7 @@ export default function App() {
     if (!candles || candles.length === 0) return;
     
     try {
-      const response = await fetch('http://localhost:8751/api/backtest', {
+      const response = await fetch(`${API_BASE_URL}/api/backtest`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -332,7 +333,7 @@ export default function App() {
   const deployLiveStrategy = async () => {
     setIsDeploying(true);
     try {
-      const response = await fetch('http://localhost:8751/api/live/strategy', {
+      const response = await fetch(`${API_BASE_URL}/api/live/strategy`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -373,7 +374,7 @@ export default function App() {
   useEffect(() => {
     const loadMetadata = async () => {
       try {
-        const symRes = await fetch('http://localhost:8751/api/ctrader/symbols');
+        const symRes = await fetch(`${API_BASE_URL}/api/ctrader/symbols`);
         const symData = await symRes.json();
         if (symData.status === 'success' && symData.data) {
           setAvailableSymbols(symData.data);
@@ -386,7 +387,7 @@ export default function App() {
       }
 
       try {
-        const tfRes = await fetch('http://localhost:8751/api/ctrader/timeframes');
+        const tfRes = await fetch(`${API_BASE_URL}/api/ctrader/timeframes`);
         const tfData = await tfRes.json();
         if (tfData.status === 'success' && tfData.data) {
           setAvailableTimeframes(tfData.data);
@@ -396,7 +397,7 @@ export default function App() {
       }
 
       try {
-        const stratRes = await fetch('http://localhost:8751/api/live/strategy');
+        const stratRes = await fetch(`${API_BASE_URL}/api/live/strategy`);
         const stratData = await stratRes.json();
         if (stratData.status === 'success' && stratData.strategy) {
           setLiveStrategy(stratData.strategy);
@@ -419,7 +420,7 @@ export default function App() {
     try {
       let rawCandles: Candle[] = [];
       try {
-        const response = await fetch('http://localhost:8751/api/candles/historical', {
+        const response = await fetch(`${API_BASE_URL}/api/candles/historical`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -439,7 +440,7 @@ export default function App() {
       if (rawCandles.length > 0) {
         // Send to Flask analyze endpoint for VSA patterns & Weis Wave aggregation
         try {
-          const analysisResponse = await fetch('http://localhost:8751/api/analyze', {
+          const analysisResponse = await fetch(`${API_BASE_URL}/api/analyze`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
@@ -469,7 +470,7 @@ export default function App() {
     if (!isConnected) return;
     try {
       const endpoint = connectionMode === 'openapi' ? 'ctrader/account' : 'localctrader/account';
-      const response = await fetch(`http://localhost:8751/api/${endpoint}`, {
+      const response = await fetch(`${API_BASE_URL}/api/${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -487,7 +488,7 @@ export default function App() {
     if (!isConnected) return;
     try {
       const endpoint = connectionMode === 'openapi' ? 'ctrader/positions' : 'localctrader/positions';
-      const response = await fetch(`http://localhost:8751/api/${endpoint}`, {
+      const response = await fetch(`${API_BASE_URL}/api/${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -504,7 +505,7 @@ export default function App() {
     e.preventDefault();
     try {
       const endpoint = connectionMode === 'openapi' ? 'ctrader/order' : 'localctrader/order';
-      const response = await fetch(`http://localhost:8751/api/${endpoint}`, {
+      const response = await fetch(`${API_BASE_URL}/api/${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
