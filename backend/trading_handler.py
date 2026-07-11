@@ -54,7 +54,9 @@ class TradingHandler:
         use_break_even: bool,
         be_trigger_r: float,
         lookback_window: int,
-        fees_percent: float = 0.0
+        fees_percent: float = 0.0,
+        date_from: float = None,
+        date_to: float = None
     ) -> dict:
         """
         Runs the full Wyckoff VSA & Weis Wave backtest simulation in Python.
@@ -169,6 +171,15 @@ class TradingHandler:
             if sweep_high is not None:
                 sweep_high = float(sweep_high)
                 should_sell = bool(is_bearish_vsa and high_val > sweep_high and close_val < sweep_high)
+
+            # Restrict new entry triggers to selected date range boundaries
+            candle_time = int(c.get('time', 0))
+            if date_from is not None and candle_time < int(date_from):
+                should_buy = False
+                should_sell = False
+            if date_to is not None and candle_time > int(date_to):
+                should_buy = False
+                should_sell = False
 
             if active_trade:
                 closed = False

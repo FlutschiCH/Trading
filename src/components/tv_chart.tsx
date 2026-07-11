@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType, CandlestickSeries, HistogramSeries, LineSeries, createSeriesMarkers } from 'lightweight-charts';
 import { Square, PenTool, Trash2, XCircle, RefreshCw } from 'lucide-react';
+import { calculateDateBounds } from '../App';
 
 interface Candle {
   time: number;
@@ -27,6 +28,9 @@ interface TVChartProps {
   trades?: any[];
   selectedTrade?: any;
   onSelectTrade?: (trade: any) => void;
+  dateRangeOption?: string;
+  customFrom?: string;
+  customTo?: string;
 }
 
 export default function TVChart({ 
@@ -39,7 +43,10 @@ export default function TVChart({
   tpPrice,
   trades = [],
   selectedTrade = null,
-  onSelectTrade
+  onSelectTrade,
+  dateRangeOption = 'last_candles',
+  customFrom = '',
+  customTo = ''
 }: TVChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const weisContainerRef = useRef<HTMLDivElement>(null);
@@ -89,10 +96,15 @@ export default function TVChart({
     onSelectTradeRef.current = onSelectTrade;
   }, [onSelectTrade]);
 
+  const [dateRangeCoords, setDateRangeCoords] = useState<{ x1: number | null; x2: number | null } | null>(null);
   const [selectedTradeCoords, setSelectedTradeCoords] = useState<{ x1: number; x2: number; type: 'BUY' | 'SELL'; pnl: number } | null>(null);
   const selectedTradeRef = useRef(selectedTrade);
   const [chartHeight, setChartHeight] = useState(window.innerWidth < 768 ? 380 : 680);
   const [weisHeight, setWeisHeight] = useState(window.innerWidth < 768 ? 100 : 140);
+
+  useEffect(() => {
+    updateDrawingCoordinates();
+  }, [dateRangeOption, customFrom, customTo]);
 
   useEffect(() => {
     selectedTradeRef.current = selectedTrade;
@@ -189,6 +201,15 @@ export default function TVChart({
       }
     } else {
       setSelectedTradeCoords(null);
+    }
+
+    if (dateRangeOption && dateRangeOption !== 'last_candles') {
+      const bounds = calculateDateBounds(dateRangeOption, customFrom, customTo);
+      const x1 = bounds.date_from ? timeScale.timeToCoordinate(bounds.date_from) : null;
+      const x2 = bounds.date_to ? timeScale.timeToCoordinate(bounds.date_to) : null;
+      setDateRangeCoords({ x1, x2 });
+    } else {
+      setDateRangeCoords(null);
     }
   };
 
@@ -780,6 +801,42 @@ export default function TVChart({
                 strokeDasharray="4 4"
                 style={{ pointerEvents: 'none' }}
               />
+            )}
+            {dateRangeCoords && (
+              <>
+                {dateRangeCoords.x1 !== null && (
+                  <line 
+                    x1={dateRangeCoords.x1}
+                    y1={0}
+                    x2={dateRangeCoords.x1}
+                    y2={chartHeight}
+                    stroke="#eab308"
+                    strokeWidth={2}
+                    strokeDasharray="5 5"
+                  />
+                )}
+                {dateRangeCoords.x2 !== null && (
+                  <line 
+                    x1={dateRangeCoords.x2}
+                    y1={0}
+                    x2={dateRangeCoords.x2}
+                    y2={chartHeight}
+                    stroke="#eab308"
+                    strokeWidth={2}
+                    strokeDasharray="5 5"
+                  />
+                )}
+                {dateRangeCoords.x1 !== null && dateRangeCoords.x2 !== null && (
+                  <rect
+                    x={Math.min(dateRangeCoords.x1, dateRangeCoords.x2)}
+                    y={0}
+                    width={Math.max(1, Math.abs(dateRangeCoords.x1 - dateRangeCoords.x2))}
+                    height={chartHeight}
+                    fill="rgba(234, 179, 8, 0.04)"
+                    style={{ pointerEvents: 'none' }}
+                  />
+                )}
+              </>
             )}
           </svg>
         </div>

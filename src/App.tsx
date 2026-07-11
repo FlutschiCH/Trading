@@ -409,6 +409,7 @@ export default function App() {
     if (!candles || candles.length === 0) return;
     
     try {
+      const bounds = calculateDateBounds(dateRangeOption, customFrom, customTo);
       const response = await fetch(`${API_BASE_URL}/api/backtest`, {
         method: 'POST',
         headers: {
@@ -428,6 +429,7 @@ export default function App() {
           beTriggerR: parseFloat(backtestBE) || 1.0,
           lookbackWindow: parseInt(lookbackWindow) || 20,
           feesPercent: parseFloat(backtestFees) || 0.0,
+          ...bounds
         }),
       });
       const res = await response.json();
@@ -495,7 +497,7 @@ export default function App() {
 
   useEffect(() => {
     runBacktest();
-  }, [candles, symbol, backtestSL, backtestSLType, backtestRR, backtestSize, lookbackWindow, backtestBalance, backtestRiskPct, useRiskSizing, backtestBE, useBreakEven, backtestFees]);
+  }, [candles, symbol, backtestSL, backtestSLType, backtestRR, backtestSize, lookbackWindow, backtestBalance, backtestRiskPct, useRiskSizing, backtestBE, useBreakEven, backtestFees, dateRangeOption, customFrom, customTo]);
 
   useEffect(() => {
     localStorage.setItem('wyckoff_symbol', symbol);
@@ -571,7 +573,6 @@ export default function App() {
     try {
       let rawCandles: Candle[] = [];
       try {
-        const bounds = calculateDateBounds(dateRangeOption, customFrom, customTo);
         const response = await fetch(`${API_BASE_URL}/api/metatrader/candles`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -579,7 +580,6 @@ export default function App() {
             symbol: symbol,
             interval: timeframe,
             limit: candleLimit,
-            ...bounds
           }),
         });
         const result = await response.json();
@@ -1320,6 +1320,9 @@ export default function App() {
                   setSelectedTrade(trade);
                   setShowModal(true);
                 }}
+                dateRangeOption={dateRangeOption}
+                customFrom={customFrom}
+                customTo={customTo}
               />
             ) : (
               <WyckoffBacktester
@@ -1441,6 +1444,9 @@ export default function App() {
                         setSelectedTrade(trade);
                         setShowModal(true);
                       }}
+                      dateRangeOption={dateRangeOption}
+                      customFrom={customFrom}
+                      customTo={customTo}
                     />
                   </div>
                   {renderResizeHandle('chart')}

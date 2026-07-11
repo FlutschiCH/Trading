@@ -125,6 +125,8 @@ def backtest():
     be_trigger_r = float(payload.get('beTriggerR', 1.0))
     lookback_window = int(payload.get('lookbackWindow', 20))
     fees_percent = float(payload.get('feesPercent', 0.0))
+    date_from = payload.get('date_from')
+    date_to = payload.get('date_to')
 
     result = TradingHandler.run_backtest(
         candles=candles,
@@ -139,7 +141,9 @@ def backtest():
         use_break_even=use_break_even,
         be_trigger_r=be_trigger_r,
         lookback_window=lookback_window,
-        fees_percent=fees_percent
+        fees_percent=fees_percent,
+        date_from=date_from,
+        date_to=date_to
     )
     return jsonify({"status": "success", "data": result})
 
