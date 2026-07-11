@@ -1,8 +1,16 @@
 import os
 import sqlite3
 import threading
-import mysql.connector
 from dotenv import load_dotenv
+
+# Try importing mysql.connector, fallback to SQLite-only mode if not installed
+try:
+    import mysql.connector
+    MYSQL_AVAILABLE = True
+except ImportError:
+    mysql = None
+    MYSQL_AVAILABLE = False
+    print("Warning: mysql-connector-python is not installed. SQLHandler will run in local SQLite-only mode.", flush=True)
 
 # Load env variables from backend/.env
 load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
@@ -20,6 +28,8 @@ class SQLHandler:
 
     @classmethod
     def get_mysql_connection(cls):
+        if not MYSQL_AVAILABLE:
+            raise RuntimeError("mysql-connector-python is not installed and remote MySQL is unavailable.")
         return mysql.connector.connect(
             host=DB_HOST,
             port=DB_PORT,
