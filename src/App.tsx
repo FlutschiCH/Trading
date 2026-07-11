@@ -4,6 +4,7 @@ import TVChart from './components/tv_chart.tsx';
 import WyckoffBacktester from './components/wyckoff_backtester.tsx';
 import ManualOrder from './components/manual_order.tsx';
 import Dashboard from './components/Dashboard.tsx';
+import HowToModal from './components/how_to_modal.tsx';
 import { API_BASE_URL } from './api';
 import './App.css';
 
@@ -145,6 +146,7 @@ export default function App() {
   // Live strategy states
   const [liveStrategy, setLiveStrategy] = useState<any>(null);
   const [isDeploying, setIsDeploying] = useState(false);
+  const [showHowTo, setShowHowTo] = useState(false);
 
   const lastNotifiedSignalRef = useRef<number>(0);
 
@@ -919,6 +921,9 @@ export default function App() {
           <a href="https://railway.com/project/aa01f500-c3df-4d47-b60a-821237699d0d/service/05376c29-94f0-44f3-acc2-93d5d104019f/settings?environmentId=7a63d6ae-f3e6-452d-b527-6311f6f9b551" target="_blank" rel="noopener noreferrer" style={styles.linkBtn}>
             Railway Settings
           </a>
+          <button onClick={() => setShowHowTo(true)} style={{ ...styles.linkBtn, background: 'none', border: 'none', cursor: 'pointer' }}>
+            📖 How It Works
+          </button>
         </div>
 
         {/* Workspace controls */}
@@ -1425,6 +1430,9 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* How To Modal */}
+      <HowToModal isOpen={showHowTo} onClose={() => setShowHowTo(false)} />
     </div>
   );
 }
