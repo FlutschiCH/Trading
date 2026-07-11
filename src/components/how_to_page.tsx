@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookOpen, Layers, ShieldAlert, Award } from 'lucide-react';
+import { BookOpen, Layers, ShieldAlert, Award, Compass, Eye, ShieldCheck, Flame, RefreshCcw } from 'lucide-react';
 
 export default function HowToPage() {
   // Helper to parse simple markdown bold syntax (**text**) into styled span elements
@@ -137,6 +137,34 @@ export default function HowToPage() {
       backgroundColor: 'rgba(56, 189, 248, 0.08)',
       transition: 'all 0.2s',
       border: '1px solid rgba(56, 189, 248, 0.2)',
+    },
+    stepTimeline: {
+      display: 'flex',
+      flexDirection: 'column' as const,
+      gap: '16px',
+      borderLeft: '2px dashed #1e293b',
+      paddingLeft: '24px',
+      marginLeft: '12px',
+      marginTop: '10px',
+    },
+    stepBlock: {
+      position: 'relative' as const,
+    },
+    stepBadge: {
+      position: 'absolute' as const,
+      left: '-36px',
+      top: '0px',
+      backgroundColor: '#1e293b',
+      color: '#38bdf8',
+      width: '24px',
+      height: '24px',
+      borderRadius: '50%',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontSize: '11px',
+      fontWeight: 'bold',
+      border: '1px solid #3b82f6',
     }
   };
 
@@ -189,6 +217,66 @@ export default function HowToPage() {
                 <text x="175" y="165" fill="#fbbf24" fontSize="11" fontWeight="bold">Liquidity Sweep (Spring)</text>
               </svg>
             </div>
+          </div>
+        </div>
+
+        {/* Chronological Steps section */}
+        <div style={styles.section}>
+          <h2 style={styles.sectionTitle}>
+            <Compass size={22} style={{ color: '#fbbf24' }} /> The 5-Step Execution Workflow (Chronological)
+          </h2>
+          <div style={styles.stepTimeline}>
+            
+            <div style={styles.stepBlock}>
+              <div style={styles.stepBadge}>1</div>
+              <h3 style={{ fontSize: '15px', fontWeight: 'bold', color: '#ffffff', margin: '0 0 6px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Eye size={16} style={{ color: '#60a5fa' }} /> Step 1: Monitoring Structure & Waiting for Liquidity Sweeps
+              </h3>
+              <p style={{ margin: 0, fontSize: '13px', color: '#94a3b8' }}>
+                {renderTextWithMarkdown("The system continuously tracks a rolling **lookback window (default 20 bars)** to establish active support and resistance extremes. The algorithm remains idle, waiting for the first primary condition: a **Spring** (price sweeps below the low support) or an **Upthrust** (price sweeps above the high resistance).")}
+              </p>
+            </div>
+
+            <div style={styles.stepBlock}>
+              <div style={styles.stepBadge}>2</div>
+              <h3 style={{ fontSize: '15px', fontWeight: 'bold', color: '#ffffff', margin: '0 0 6px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <ShieldCheck size={16} style={{ color: '#34d399' }} /> Step 2: Confirming Professional Absorption (VSA Validation)
+              </h3>
+              <p style={{ margin: 0, fontSize: '13px', color: '#94a3b8' }}>
+                {renderTextWithMarkdown("Once a sweep triggers, the system immediately assesses the candlestick metrics at the close of the bar. For a valid signal, we verify institutional buying or selling via **Closing Location Ratio (CLR)** and rolling percentile ranks. A Spring requires a close in the upper third (**CLR ≥ 0.33**) on high volume (**Volume Decile ≥ 7**), confirming supply has been absorbed.")}
+              </p>
+            </div>
+
+            <div style={styles.stepBlock}>
+              <div style={styles.stepBadge}>3</div>
+              <h3 style={{ fontSize: '15px', fontWeight: 'bold', color: '#ffffff', margin: '0 0 6px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Flame size={16} style={{ color: '#a78bfa' }} /> Step 3: Cumulative Wave Volume Verification (Weis Wave Check)
+              </h3>
+              <p style={{ margin: 0, fontSize: '13px', color: '#94a3b8' }}>
+                {renderTextWithMarkdown("Next, the cumulative **Weis Wave Volume** is checked. If entering a buy trade, we verify that selling force in previous down waves was dry, or that the current entry wave shows a strong influx of effort compared to corrective pullbacks, indicating that momentum has shifted in our favor.")}
+              </p>
+            </div>
+
+            <div style={styles.stepBlock}>
+              <div style={styles.stepBadge}>4</div>
+              <h3 style={{ fontSize: '15px', fontWeight: 'bold', color: '#ffffff', margin: '0 0 6px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Award size={16} style={{ color: '#fbbf24' }} /> Step 4: Execution & Risk Configuration (Signal 1)
+              </h3>
+              <p style={{ margin: 0, fontSize: '13px', color: '#94a3b8' }}>
+                {renderTextWithMarkdown("Upon validation of steps 1, 2, and 3, a **Signal 1 (Entry)** is triggered. The system calculates position sizing based on account balance and target risk percentage, setting a protective **Stop Loss (SL)** right outside the sweep extreme, and placing the **Take Profit (TP)** target at the configured Reward ratio.")}
+              </p>
+            </div>
+
+            <div style={styles.stepBlock}>
+              <div style={styles.stepBadge}>5</div>
+              <h3 style={{ fontSize: '15px', fontWeight: 'bold', color: '#ffffff', margin: '0 0 6px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <RefreshCcw size={16} style={{ color: '#10b981' }} /> Step 5: Active Management & Trail to Break Even (Signal 2)
+              </h3>
+              <p style={{ margin: 0, fontSize: '13px', color: '#94a3b8' }}>
+                {renderTextWithMarkdown("As the trade progresses, the system monitors price movements. Once the profit reaches a **1:1 Risk-to-Reward ratio (1R)**, the strategy fires **Signal 2 (Break Even Modification)** to trail the Stop Loss to the exact Entry Price, locking in a risk-free trade while waiting for the final TP target.")}
+              </p>
+            </div>
+
           </div>
         </div>
 
