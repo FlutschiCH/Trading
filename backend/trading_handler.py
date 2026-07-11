@@ -281,7 +281,8 @@ class TradingHandler:
                         'exitTimestamp': int(c.get('time', 0)),
                         'exitReason': exit_reason,
                         'duration': int(i - active_trade['entry_index'] + 1),
-                        'qty': float(active_trade['qty'])
+                        'qty': float(active_trade['qty']),
+                        'triggerReason': active_trade.get('trigger_reason')
                     })
                     current_balance += pnl_usd
                     active_trade = None
@@ -304,7 +305,12 @@ class TradingHandler:
                     if use_risk_sizing:
                         risk_amount = current_balance * (risk_pct / 100.0)
                         trade_qty = (risk_amount / (sl_distance * lot_size)) if (sl_distance > 0 and lot_size > 0) else size
-                        
+                    
+                    # Record entry triggers for display
+                    vsa_trigger = ", ".join(vsa_pat) if vsa_pat else "None"
+                    sweep_level = sweep_low if trade_type == 'BUY' else sweep_high
+                    weis_trigger = float(c.get('weis_wave_volume', 0.0))
+                    
                     active_trade = {
                         'type': trade_type,
                         'entry_price': entry_price,
@@ -314,7 +320,18 @@ class TradingHandler:
                         'entry_index': i,
                         'entry_timestamp': int(c.get('time', 0)),
                         'is_break_even': False,
-                        'sl_distance': sl_distance
+                        'sl_distance': sl_distance,
+                        'trigger_reason': {
+                            'vsa_patterns': vsa_trigger,
+                            'sweep_level': float(sweep_level) if sweep_level is not None else None,
+                            'weis_wave_volume': weis_trigger,
+                            'entry_candle': {
+                                'open': float(c.get('open', 0)),
+                                'high': float(c.get('high', 0)),
+                                'low': float(c.get('low', 0)),
+                                'close': float(c.get('close', 0)),
+                            }
+                        }
                     }
 
         if active_trade:
@@ -343,7 +360,8 @@ class TradingHandler:
                 'exitTimestamp': int(final_candle.get('time', 0)),
                 'exitReason': 'Position still open',
                 'duration': int(len(annotated_data) - active_trade['entry_index']),
-                'qty': float(active_trade['qty'])
+                'qty': float(active_trade['qty']),
+                'triggerReason': active_trade.get('trigger_reason')
             })
             current_balance += pnl_usd
 

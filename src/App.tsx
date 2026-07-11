@@ -1688,6 +1688,50 @@ export default function App() {
               </div>
             </div>
 
+            {selectedTrade.triggerReason && (
+              <div style={{
+                borderTop: '1px solid #1e293b',
+                paddingTop: '16px',
+                marginTop: '12px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+                fontSize: '12px'
+              }}>
+                <span style={{ color: '#cbd5e1', fontWeight: 'bold', display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Entry Trigger State (VSA & Structural Sweep)
+                </span>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '8px', backgroundColor: 'rgba(30, 41, 59, 0.3)', padding: '10px', borderRadius: '8px' }}>
+                  <div>
+                    <span style={{ color: '#64748b', display: 'block', fontSize: '10px' }}>Active VSA Patterns</span>
+                    <span style={{ color: '#f1f5f9', fontWeight: '500' }}>{selectedTrade.triggerReason.vsa_patterns}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid rgba(148, 163, 184, 0.1)', paddingTop: '6px' }}>
+                    <div>
+                      <span style={{ color: '#64748b', display: 'block', fontSize: '10px' }}>Swept Structural Level</span>
+                      <span style={{ color: '#f1f5f9', fontWeight: '500' }}>
+                        {selectedTrade.triggerReason.sweep_level ? `$${formatPrice(selectedTrade.triggerReason.sweep_level, symbol)}` : 'None'}
+                      </span>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ color: '#64748b', display: 'block', fontSize: '10px' }}>Weis Wave Volume</span>
+                      <span style={{ color: '#f1f5f9', fontWeight: '500' }}>
+                        {selectedTrade.triggerReason.weis_wave_volume ? selectedTrade.triggerReason.weis_wave_volume.toFixed(1) : '0.0'}
+                      </span>
+                    </div>
+                  </div>
+                  {selectedTrade.triggerReason.entry_candle && (
+                    <div style={{ borderTop: '1px solid rgba(148, 163, 184, 0.1)', paddingTop: '6px' }}>
+                      <span style={{ color: '#64748b', display: 'block', fontSize: '10px', marginBottom: '2px' }}>Entry Candle OHLC</span>
+                      <span style={{ color: '#94a3b8', fontFamily: 'monospace' }}>
+                        O:{formatPrice(selectedTrade.triggerReason.entry_candle.open, symbol)} H:{formatPrice(selectedTrade.triggerReason.entry_candle.high, symbol)} L:{formatPrice(selectedTrade.triggerReason.entry_candle.low, symbol)} C:{formatPrice(selectedTrade.triggerReason.entry_candle.close, symbol)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             <div style={{ borderTop: '1px solid #1e293b', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px' }}>
                 <span style={{ color: '#64748b', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
