@@ -144,7 +144,11 @@ export default function App() {
 
   const [panelOrder, setPanelOrder] = useState<string[]>(() => {
     const saved = localStorage.getItem('wyckoff_desk_panel_order');
-    return saved ? JSON.parse(saved) : ['backtester', 'chart', 'order', 'dashboard'];
+    let order = saved ? JSON.parse(saved) : ['backtester', 'chart', 'order', 'dashboard', 'deployment'];
+    if (!order.includes('deployment')) {
+      order.push('deployment');
+    }
+    return order;
   });
   const [dragOverId, setDragOverId] = useState<string | null>(null);
 
@@ -797,107 +801,7 @@ export default function App() {
     })
   };
 
-  if (!isAuthenticated) {
-    return (
-      <div style={{
-        minHeight: '100vh',
-        backgroundColor: '#030712',
-        backgroundImage: 'radial-gradient(ellipse at top, rgba(59, 130, 246, 0.15), transparent 60%)',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        color: '#f8fafc',
-        fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-      }}>
-        <div style={{
-          backgroundColor: '#0f172a',
-          border: '1px solid #1e293b',
-          borderRadius: '16px',
-          boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5)',
-          width: '90%',
-          maxWidth: '400px',
-          padding: '32px',
-        }}>
-          <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-              <Activity size={32} style={{ color: '#3b82f6' }} />
-              <span style={{ fontSize: '24px', fontWeight: 'bold', letterSpacing: '0.05em' }}>
-                WYCKOFF<span style={{ color: '#3b82f6' }}>DESK</span>
-              </span>
-            </div>
-            <h2 style={{ fontSize: '14px', color: '#94a3b8', margin: 0, fontWeight: 'normal' }}>Secure Live Execution Station</h2>
-          </div>
 
-          <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label style={{ fontSize: '12px', color: '#94a3b8', fontWeight: '500' }}>Username</label>
-              <input 
-                type="text" 
-                value={authUsername}
-                onChange={(e) => setAuthUsername(e.target.value)}
-                placeholder="Enter username"
-                required
-                style={{
-                  backgroundColor: '#0b0f19',
-                  border: '1px solid #1e293b',
-                  borderRadius: '8px',
-                  padding: '10px 14px',
-                  color: '#ffffff',
-                  outline: 'none',
-                  fontSize: '14px',
-                }}
-              />
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label style={{ fontSize: '12px', color: '#94a3b8', fontWeight: '500' }}>Password</label>
-              <input 
-                type="password" 
-                value={authPassword}
-                onChange={(e) => setAuthPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                style={{
-                  backgroundColor: '#0b0f19',
-                  border: '1px solid #1e293b',
-                  borderRadius: '8px',
-                  padding: '10px 14px',
-                  color: '#ffffff',
-                  outline: 'none',
-                  fontSize: '14px',
-                }}
-              />
-            </div>
-
-            {authError && (
-              <div style={{ color: '#ef4444', fontSize: '12px', textAlign: 'center', marginTop: '4px' }}>
-                ⚠️ {authError}
-              </div>
-            )}
-
-            <button 
-              type="submit"
-              style={{
-                width: '100%',
-                padding: '12px',
-                borderRadius: '8px',
-                fontWeight: 'bold',
-                border: 'none',
-                cursor: 'pointer',
-                backgroundColor: '#2563eb',
-                color: '#ffffff',
-                boxShadow: '0 4px 14px rgba(37, 99, 235, 0.3)',
-                fontSize: '14px',
-                marginTop: '8px'
-              }}
-            >
-              Sign In
-            </button>
-          </form>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div style={styles.container}>
@@ -1271,6 +1175,117 @@ export default function App() {
                     <Dashboard />
                   </div>
                   {renderResizeHandle('dashboard')}
+                </div>
+              );
+            }
+
+            if (panelId === 'deployment') {
+              return (
+                <div
+                  key="deployment"
+                  onDragOver={(e) => handleDragOver(e, 'deployment')}
+                  onDrop={(e) => handleDrop(e, 'deployment')}
+                  style={dragStyles}
+                >
+                  <div 
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, 'deployment')}
+                    style={headerStyle}
+                  >
+                    <span>🚀 Live Strategy Deployment Control</span>
+                    <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header to Move</span>
+                  </div>
+                  <div className="no-drag" style={contentStyle}>
+                    {!isAuthenticated && isProdHost ? (
+                      <form onSubmit={handleLogin} style={styles.tradeForm}>
+                        <div style={{ marginBottom: '12px', fontSize: '12px', color: '#ef4444', fontWeight: 'bold' }}>
+                          🔒 Authentication Required
+                        </div>
+                        <div style={styles.formGroup}>
+                          <label style={{ color: '#9ca3af', fontSize: '12px' }}>Username</label>
+                          <input 
+                            type="text" 
+                            value={authUsername} 
+                            onChange={(e) => setAuthUsername(e.target.value)} 
+                            style={styles.input} 
+                            required
+                          />
+                        </div>
+                        <div style={styles.formGroup}>
+                          <label style={{ color: '#9ca3af', fontSize: '12px' }}>Password</label>
+                          <input 
+                            type="password" 
+                            value={authPassword} 
+                            onChange={(e) => setAuthPassword(e.target.value)} 
+                            style={styles.input} 
+                            required
+                          />
+                        </div>
+                        {authError && (
+                          <div style={{ color: '#ef4444', fontSize: '11px', marginTop: '4px' }}>
+                            {authError}
+                          </div>
+                        )}
+                        <button 
+                          type="submit" 
+                          style={{
+                            width: '100%',
+                            padding: '8px',
+                            backgroundColor: '#2563eb',
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: '6px',
+                            fontWeight: 'bold',
+                            marginTop: '12px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Login
+                        </button>
+                      </form>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <div style={styles.walletContainer}>
+                          <div style={styles.walletRow}>
+                            <span style={{ color: '#9ca3af' }}>Deployed Symbol:</span>
+                            <span style={{ color: '#ffffff', fontWeight: 'bold' }}>{liveStrategy?.symbol || 'None'}</span>
+                          </div>
+                          <div style={styles.walletRow}>
+                            <span style={{ color: '#9ca3af' }}>Deployed Timeframe:</span>
+                            <span style={{ color: '#ffffff', fontWeight: 'bold' }}>{liveStrategy?.timeframe || 'None'}</span>
+                          </div>
+                          <div style={styles.walletRow}>
+                            <span style={{ color: '#9ca3af' }}>Live Status:</span>
+                            <span style={{ 
+                              color: liveStrategy?.status === 'active' ? '#10b981' : '#9ca3af', 
+                              fontWeight: 'bold',
+                              textTransform: 'uppercase'
+                            }}>{liveStrategy?.status || 'Inactive'}</span>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={deployLiveStrategy}
+                          disabled={isDeploying}
+                          style={{
+                            width: '100%',
+                            padding: '10px',
+                            borderRadius: '8px',
+                            fontWeight: 'bold',
+                            border: 'none',
+                            cursor: isDeploying ? 'not-allowed' : 'pointer',
+                            backgroundColor: liveStrategy && liveStrategy.symbol === symbol && liveStrategy.timeframe === timeframe ? '#059669' : '#2563eb',
+                            color: '#ffffff',
+                            boxShadow: `0 4px 14px ${liveStrategy && liveStrategy.symbol === symbol && liveStrategy.timeframe === timeframe ? 'rgba(16, 185, 129, 0.2)' : 'rgba(37, 99, 235, 0.2)'}`,
+                            transition: 'all 0.2s',
+                          }}
+                        >
+                          {isDeploying ? 'Deploying...' : liveStrategy && liveStrategy.symbol === symbol && liveStrategy.timeframe === timeframe ? '✓ Strategy Deployed on cTrader Live' : '🚀 Deploy Strategy to Live (cTrader)'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  {renderResizeHandle('deployment')}
                 </div>
               );
             }

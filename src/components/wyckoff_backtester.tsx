@@ -206,25 +206,7 @@ export default function WyckoffBacktester({
         </div>
       </div>
 
-      <button
-        onClick={deployLiveStrategy}
-        disabled={isDeploying}
-        style={{
-          width: '100%',
-          padding: '10px',
-          borderRadius: '8px',
-          fontWeight: 'bold',
-          border: 'none',
-          cursor: isDeploying ? 'not-allowed' : 'pointer',
-          backgroundColor: liveStrategy && liveStrategy.symbol === symbol && liveStrategy.timeframe === timeframe ? '#059669' : '#2563eb',
-          color: '#ffffff',
-          boxShadow: `0 4px 14px ${liveStrategy && liveStrategy.symbol === symbol && liveStrategy.timeframe === timeframe ? 'rgba(16, 185, 129, 0.2)' : 'rgba(37, 99, 235, 0.2)'}`,
-          transition: 'all 0.2s',
-          marginTop: '12px',
-        }}
-      >
-        {isDeploying ? 'Deploying...' : liveStrategy && liveStrategy.symbol === symbol && liveStrategy.timeframe === timeframe ? '✓ Strategy Deployed on cTrader Live' : '🚀 Deploy Strategy to Live (cTrader)'}
-      </button>
+
 
       {backtestResults && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px', flex: 1, overflowY: 'auto' }}>
