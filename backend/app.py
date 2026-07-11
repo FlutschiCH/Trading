@@ -17,15 +17,19 @@ CORS(app)
 app.register_blueprint(api_blueprint, url_prefix='/api')
 
 if __name__ == '__main__':
-    # Initialize and login to MetaTrader 5
+    # Initialize and login to MetaTrader 5 (Windows only)
     try:
-        import MetaTrader5 as mt5
-        print("Logging into MetaTrader 5 on startup...", flush=True)
-        if mt5.initialize(login=2002061314, password="Godzilla_12", server="JustMarkets-Demo"):
-            print("Successfully initialized and logged into MetaTrader 5 on startup!", flush=True)
+        import sys
+        if sys.platform == 'win32':
+            import MetaTrader5 as mt5
+            print("Logging into MetaTrader 5 on startup...", flush=True)
+            if mt5.initialize(login=2002061314, password="Godzilla_12", server="JustMarkets-Demo"):
+                print("Successfully initialized and logged into MetaTrader 5 on startup!", flush=True)
+            else:
+                error_code, error_desc = mt5.last_error()
+                print(f"Failed to log into MetaTrader 5 on startup: error code {error_code}, desc: {error_desc}", flush=True)
         else:
-            error_code, error_desc = mt5.last_error()
-            print(f"Failed to log into MetaTrader 5 on startup: error code {error_code}, desc: {error_desc}", flush=True)
+            print("MetaTrader 5 startup skipped (non-Windows platform).", flush=True)
     except Exception as e:
         print(f"MT5 Startup Connection Error: {e}", flush=True)
 

@@ -6,4 +6,4 @@ pandas
 sympy
 mysql-connector-python
 python-dotenv
-MetaTrader5
+MetaTrader5; sys_platform == 'win32'

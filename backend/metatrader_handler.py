@@ -1,4 +1,8 @@
-import MetaTrader5 as mt5
+try:
+    import MetaTrader5 as mt5
+    MT5_AVAILABLE = True
+except ImportError:
+    MT5_AVAILABLE = False
 
 class MetaTraderHandler:
     @staticmethod
@@ -6,6 +10,22 @@ class MetaTraderHandler:
         """
         Initializes connection to MT5, fetches historical candles for the given symbol/timeframe, and shuts down.
         """
+        if not MT5_AVAILABLE:
+            import time
+            print("MetaTrader 5 skipped (non-Windows platform). Using local mock candles fallback.", flush=True)
+            curr = int(time.time())
+            mock_candles = []
+            for i in range(limit):
+                mock_candles.append({
+                    "time": curr - (limit - i) * 900,
+                    "open": 50000.0,
+                    "high": 50100.0,
+                    "low": 49900.0,
+                    "close": 50000.0,
+                    "volume": 10.0
+                })
+            return mock_candles
+
         if not mt5.initialize(login=int(login), password=password, server=server):
             error_code, error_desc = mt5.last_error()
             print(f"MT5 Initialization failed: error code {error_code}, desc: {error_desc}", flush=True)
@@ -74,6 +94,17 @@ class MetaTraderHandler:
         """
         Fetches account data from MetaTrader 5.
         """
+        if not MT5_AVAILABLE:
+            return {
+                "balance": 100000.0,
+                "equity": 100000.0,
+                "margin": 0.0,
+                "margin_free": 100000.0,
+                "currency": "USD",
+                "account_type": "MT5 Mock Account (Linux fallback)",
+                "broker": "Local Mock Broker"
+            }
+
         if not mt5.initialize(login=int(login), password=password, server=server):
             return {}
         info = mt5.account_info()
@@ -94,6 +125,9 @@ class MetaTraderHandler:
         """
         Fetches open positions from MetaTrader 5.
         """
+        if not MT5_AVAILABLE:
+            return []
+
         if not mt5.initialize(login=int(login), password=password, server=server):
             return []
         positions = mt5.positions_get()
@@ -120,6 +154,9 @@ class MetaTraderHandler:
         """
         Dispatches buy/sell order to MT5.
         """
+        if not MT5_AVAILABLE:
+            return {"status": "error", "message": "MetaTrader 5 execution is disabled on this platform (Linux/Railway)."}
+
         if not mt5.initialize(login=int(login), password=password, server=server):
             return {"status": "error", "message": "Failed to initialize MT5"}
         
@@ -177,6 +214,9 @@ class MetaTraderHandler:
         """
         Gets list of symbols from MT5 terminal.
         """
+        if not MT5_AVAILABLE:
+            return ["BTCUSD", "ETHUSD", "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "XAUUSD", "US30", "GER40"]
+
         if not mt5.initialize(login=int(login), password=password, server=server):
             return ["BTCUSD", "ETHUSD", "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "XAUUSD", "US30", "GER40"]
         symbols = mt5.symbols_get()
