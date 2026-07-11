@@ -1,9 +1,9 @@
 import React from 'react';
 
 interface Position {
-  position_id: string;
+  position_id: number;
   symbol: string;
-  trade_side: 'BUY' | 'SELL';
+  trade_side: string;
   volume: number;
   entry_price: number;
   unrealized_profit: number;

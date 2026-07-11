@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Sliders, RefreshCw, CheckCircle2, XCircle } from 'lucide-react';
+import { Sliders, RefreshCw, CheckCircle2, XCircle, ShieldAlert } from 'lucide-react';
 import { API_BASE_URL } from '../api';
 
 interface AlertLog {
