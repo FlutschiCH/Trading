@@ -915,6 +915,9 @@ export default function App() {
           <a href="https://trader.ftmo.com/accounts-overview" target="_blank" rel="noopener noreferrer" style={styles.linkBtn}>
             FTMO Overview
           </a>
+          <a href="https://saphir.metanet.ch:8443/phpMyAdmin/index.php?db=aa_wyckoff_trading" target="_blank" rel="noopener noreferrer" style={styles.linkBtn}>
+            Database (phpMyAdmin)
+          </a>
         </div>
 
         {/* Workspace controls */}
