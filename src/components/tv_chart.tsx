@@ -491,6 +491,38 @@ export default function TVChart({
     updateDrawingCoordinates();
   }, [candles, trades]);
 
+  // Update price format and precision based on symbol
+  useEffect(() => {
+    if (!candlestickSeriesRef.current) return;
+    
+    const symUpper = symbol.toUpperCase();
+    const isCrypto = symUpper.includes('BTC') || symUpper.includes('ETH') || symUpper.includes('SOL') || symUpper.includes('LTC') || symUpper.includes('XRP') || symUpper.includes('DOGE') || symUpper.includes('ADA') || symUpper.includes('DOT') || symUpper.includes('LINK');
+    const isGold = symUpper.includes('XAU') || symUpper.includes('GOLD') || symUpper.includes('XAG') || symUpper.includes('SILVER');
+    const isJpy = symUpper.includes('JPY');
+    const isIndex = symUpper.includes('US30') || symUpper.includes('GER40') || symUpper.includes('SPX') || symUpper.includes('NAS') || symUpper.includes('DE40');
+
+    let precision = 5;
+    let minMove = 0.00001;
+
+    if (isCrypto || isGold || isIndex) {
+      precision = 2;
+      minMove = 0.01;
+    } else if (isJpy) {
+      precision = 3;
+      minMove = 0.001;
+    }
+
+    const priceFormat = {
+      type: 'price' as const,
+      precision,
+      minMove,
+    };
+
+    candlestickSeriesRef.current.applyOptions({ priceFormat });
+    if (trHighSeriesRef.current) trHighSeriesRef.current.applyOptions({ priceFormat });
+    if (trLowSeriesRef.current) trLowSeriesRef.current.applyOptions({ priceFormat });
+  }, [symbol]);
+
   useEffect(() => {
     if (candlestickSeriesRef.current) {
       if (entryLineRef.current) {
