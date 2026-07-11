@@ -200,3 +200,19 @@
     grid-column: 1 / -1 !important;
   }
 }
+
+.menu-item {
+  padding: 10px 16px;
+  color: #cbd5e1;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  display: block;
+  transition: all 0.2s ease-in-out;
+  cursor: pointer;
+}
+
+.menu-item:hover {
+  background-color: #1e293b;
+  color: #ffffff;
+}

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Activity, X, TrendingUp, TrendingDown, Clock, HelpCircle, RefreshCw } from 'lucide-react';
+import { Activity, X, TrendingUp, TrendingDown, Clock, HelpCircle, RefreshCw, Menu, ChevronDown } from 'lucide-react';
 import TVChart from './components/tv_chart.tsx';
 import WyckoffBacktester from './components/wyckoff_backtester.tsx';
 import HowToPage from './components/how_to_page.tsx';
@@ -151,6 +151,7 @@ export default function App() {
   // Responsive mobile states
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [mobileTab, setMobileTab] = useState<'chart' | 'backtester'>('chart');
+  const [showMenu, setShowMenu] = useState(false);
 
   useEffect(() => {
     const handleResize = () => {
@@ -859,24 +860,77 @@ export default function App() {
           <span style={styles.statusBadge}>
             cTrader {connectionMode.toUpperCase()} {currentConnected ? 'ONLINE' : 'OFFLINE'}
           </span>
-          <a href="https://openapi.ctrader.com/apps" target="_blank" rel="noopener noreferrer" style={styles.linkBtn}>
-            cTrader Apps
-          </a>
-          <a href="https://gemini.google.com/app/71d33e33a84aa328" target="_blank" rel="noopener noreferrer" style={styles.linkBtn}>
-            Wyckoff Prompt
-          </a>
-          <a href="https://trader.ftmo.com/accounts-overview" target="_blank" rel="noopener noreferrer" style={styles.linkBtn}>
-            FTMO Overview
-          </a>
-          <a href="https://saphir.metanet.ch:8443/phpMyAdmin/index.php?db=aa_wyckoff_trading" target="_blank" rel="noopener noreferrer" style={styles.linkBtn}>
-            Database (phpMyAdmin)
-          </a>
-          <a href="https://railway.com/project/aa01f500-c3df-4d47-b60a-821237699d0d/service/05376c29-94f0-44f3-acc2-93d5d104019f/settings?environmentId=7a63d6ae-f3e6-452d-b527-6311f6f9b551" target="_blank" rel="noopener noreferrer" style={styles.linkBtn}>
-            Railway Settings
-          </a>
-          <a href="/how-to" style={styles.linkBtn}>
-            📖 How It Works
-          </a>
+          <div style={{ position: 'relative' }}>
+            <button 
+              onClick={() => setShowMenu(!showMenu)} 
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                backgroundColor: '#1e293b',
+                border: '1px solid #334155',
+                cursor: 'pointer',
+                borderRadius: '6px',
+                padding: '6px 12px',
+                color: '#ffffff',
+                fontWeight: 'bold',
+                fontSize: '11px',
+                outline: 'none',
+                transition: 'all 0.2s',
+              }}
+            >
+              <Menu size={12} /> Links & Resources <ChevronDown size={12} />
+            </button>
+            {showMenu && (
+              <>
+                <div 
+                  onClick={() => setShowMenu(false)}
+                  style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    zIndex: 999,
+                    backgroundColor: 'transparent',
+                  }}
+                />
+                <div style={{
+                  position: 'absolute',
+                  top: 'calc(100% + 8px)',
+                  left: 0,
+                  backgroundColor: '#0f172a',
+                  border: '1px solid #334155',
+                  borderRadius: '8px',
+                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 20px rgba(59, 130, 246, 0.1)',
+                  padding: '6px 0',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  minWidth: '220px',
+                  zIndex: 1000,
+                }}>
+                  <a href="https://openapi.ctrader.com/apps" target="_blank" rel="noopener noreferrer" className="menu-item" onClick={() => setShowMenu(false)}>
+                    cTrader Apps
+                  </a>
+                  <a href="https://gemini.google.com/app/71d33e33a84aa328" target="_blank" rel="noopener noreferrer" className="menu-item" onClick={() => setShowMenu(false)}>
+                    Wyckoff Prompt
+                  </a>
+                  <a href="https://trader.ftmo.com/accounts-overview" target="_blank" rel="noopener noreferrer" className="menu-item" onClick={() => setShowMenu(false)}>
+                    FTMO Overview
+                  </a>
+                  <a href="https://saphir.metanet.ch:8443/phpMyAdmin/index.php?db=aa_wyckoff_trading" target="_blank" rel="noopener noreferrer" className="menu-item" onClick={() => setShowMenu(false)}>
+                    Database (phpMyAdmin)
+                  </a>
+                  <a href="https://railway.com/project/aa01f500-c3df-4d47-b60a-821237699d0d/service/05376c29-94f0-44f3-acc2-93d5d104019f/settings?environmentId=7a63d6ae-f3e6-452d-b527-6311f6f9b551" target="_blank" rel="noopener noreferrer" className="menu-item" onClick={() => setShowMenu(false)}>
+                    Railway Settings
+                  </a>
+                  <a href="/how-to" className="menu-item" style={{ borderTop: '1px solid #1e293b', paddingTop: '8px', marginTop: '4px' }} onClick={() => setShowMenu(false)}>
+                    📖 How It Works
+                  </a>
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Workspace controls */}
