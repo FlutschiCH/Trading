@@ -252,8 +252,8 @@ class TradingHandler:
                     except Exception:
                         time_str = 'Open'
                         
-                    pnl_usd = pnl / active_trade['quote_usd_rate']
-                    fees_usd = total_fees / active_trade['quote_usd_rate']
+                    pnl_usd = pnl
+                    fees_usd = total_fees
                     completed_trades.append({
                         'id': len(completed_trades) + 1,
                         'type': active_trade['type'],
@@ -289,11 +289,10 @@ class TradingHandler:
                     sl_price = round(entry_price - sl_distance, precision) if trade_type == 'BUY' else round(entry_price + sl_distance, precision)
                     tp_price = round(entry_price + sl_distance * rr, precision) if trade_type == 'BUY' else round(entry_price - sl_distance * rr, precision)
                     
-                    quote_usd_rate = get_quote_usd_rate(symbol, entry_price)
                     trade_qty = size
                     if use_risk_sizing:
                         risk_amount = current_balance * (risk_pct / 100.0)
-                        trade_qty = (risk_amount * quote_usd_rate / (sl_distance * lot_size)) if (sl_distance > 0 and lot_size > 0) else size
+                        trade_qty = (risk_amount / (sl_distance * lot_size)) if (sl_distance > 0 and lot_size > 0) else size
                         
                     active_trade = {
                         'type': trade_type,
@@ -304,8 +303,7 @@ class TradingHandler:
                         'entry_index': i,
                         'entry_timestamp': int(c.get('time', 0)),
                         'is_break_even': False,
-                        'sl_distance': sl_distance,
-                        'quote_usd_rate': quote_usd_rate
+                        'sl_distance': sl_distance
                     }
 
         if active_trade:
@@ -316,8 +314,8 @@ class TradingHandler:
             exit_fee = close_val * (active_trade['qty'] * lot_size) * (fees_percent / 100.0)
             total_fees = entry_fee + exit_fee
             pnl = gross_pnl - total_fees
-            pnl_usd = pnl / active_trade['quote_usd_rate']
-            fees_usd = total_fees / active_trade['quote_usd_rate']
+            pnl_usd = pnl
+            fees_usd = total_fees
             completed_trades.append({
                 'id': len(completed_trades) + 1,
                 'type': active_trade['type'],
