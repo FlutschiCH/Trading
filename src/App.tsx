@@ -143,6 +143,18 @@ export default function App() {
   const [panelOrder, setPanelOrder] = useState<string[]>(['backtester', 'chart']);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
 
+  // Responsive mobile states
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [mobileTab, setMobileTab] = useState<'chart' | 'backtester'>('chart');
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   // Live strategy states
   const [liveStrategy, setLiveStrategy] = useState<any>(null);
   const [isDeploying, setIsDeploying] = useState(false);
@@ -872,21 +884,127 @@ export default function App() {
 
       {/* Main Grid View */}
       <main style={styles.mainLayout}>
-        
+        {isMobile && (
+          <div style={{
+            display: 'flex',
+            backgroundColor: '#0f172a',
+            border: '1px solid #1e293b',
+            borderRadius: '8px',
+            padding: '4px',
+            marginBottom: '16px',
+            gap: '4px',
+          }}>
+            <button
+              onClick={() => setMobileTab('chart')}
+              style={{
+                flex: 1,
+                padding: '8px 12px',
+                borderRadius: '6px',
+                border: 'none',
+                backgroundColor: mobileTab === 'chart' ? '#2563eb' : 'transparent',
+                color: '#ffffff',
+                fontWeight: 'bold',
+                fontSize: '12px',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+              }}
+            >
+              📊 Chart View
+            </button>
+            <button
+              onClick={() => setMobileTab('backtester')}
+              style={{
+                flex: 1,
+                padding: '8px 12px',
+                borderRadius: '6px',
+                border: 'none',
+                backgroundColor: mobileTab === 'backtester' ? '#2563eb' : 'transparent',
+                color: '#ffffff',
+                fontWeight: 'bold',
+                fontSize: '12px',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+              }}
+            >
+              ⚙️ Backtester
+            </button>
+          </div>
+        )}
 
-
-        {/* Dynamic Reorderable Dashboard Panels Grid */}
-        <div style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: '24px',
-          width: '100%',
-        }}>
-          {panelOrder.map((panelId) => {
-            const isDragOver = dragOverId === panelId;
-            const defaultWidth = panelId === 'chart' || panelId === 'dashboard' ? 'calc(66.6% - 16px)' : 'calc(33.3% - 16px)';
-            const dragStyles = {
-              width: cardWidths[panelId] ? `${cardWidths[panelId]}px` : defaultWidth,
+        {isMobile ? (
+          <div style={{
+            width: '100%',
+            backgroundColor: '#0f172a',
+            border: '1px solid #1e293b',
+            borderRadius: '12px',
+            overflow: 'hidden',
+            padding: mobileTab === 'chart' ? '0' : '16px',
+          }}>
+            {mobileTab === 'chart' ? (
+              <TVChart 
+                symbol={symbol} 
+                candles={backtestResults?.candles || candles} 
+                loading={loading} 
+                onRefresh={fetchCandles} 
+                entryPrice={selectedTrade?.entryPrice}
+                slPrice={selectedTrade?.slPrice}
+                tpPrice={selectedTrade?.tpPrice}
+                trades={backtestResults ? backtestResults.trades : liveTrades}
+                selectedTrade={selectedTrade}
+                onSelectTrade={(trade) => {
+                  setSelectedTrade(trade);
+                  setShowModal(true);
+                }}
+              />
+            ) : (
+              <WyckoffBacktester
+                symbol={symbol}
+                timeframe={timeframe}
+                liveStrategy={liveStrategy}
+                isDeploying={isDeploying}
+                deployLiveStrategy={deployLiveStrategy}
+                backtestBalance={backtestBalance}
+                setBacktestBalance={setBacktestBalance}
+                useRiskSizing={useRiskSizing}
+                setUseRiskSizing={setUseRiskSizing}
+                backtestRiskPct={backtestRiskPct}
+                setBacktestRiskPct={setBacktestRiskPct}
+                backtestSize={backtestSize}
+                setBacktestSize={setBacktestSize}
+                backtestSL={backtestSL}
+                setBacktestSL={setBacktestSL}
+                backtestSLType={backtestSLType}
+                setBacktestSLType={setBacktestSLType}
+                backtestRR={backtestRR}
+                setBacktestRR={setBacktestRR}
+                useBreakEven={useBreakEven}
+                setUseBreakEven={setUseBreakEven}
+                backtestBE={backtestBE}
+                setBacktestBE={setBacktestBE}
+                lookbackWindow={lookbackWindow}
+                setLookbackWindow={setLookbackWindow}
+                backtestResults={backtestResults}
+                backtestTab={backtestTab}
+                setBacktestTab={setBacktestTab}
+                selectedTrade={selectedTrade}
+                setSelectedTrade={setSelectedTrade}
+                setShowModal={setShowModal}
+                styles={styles}
+              />
+            )}
+          </div>
+        ) : (
+          <div style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '24px',
+            width: '100%',
+          }}>
+            {panelOrder.map((panelId) => {
+              const isDragOver = dragOverId === panelId;
+              const defaultWidth = panelId === 'chart' ? 'calc(66.6% - 16px)' : 'calc(33.3% - 16px)';
+              const dragStyles = {
+                width: cardWidths[panelId] ? `${cardWidths[panelId]}px` : defaultWidth,
               flexGrow: cardWidths[panelId] ? 0 : 1,
               flexShrink: 1,
               minWidth: '280px',
@@ -1085,6 +1203,7 @@ export default function App() {
             return null;
           })}
         </div>
+      )}
 
       </main>
 
