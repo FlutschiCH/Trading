@@ -122,8 +122,8 @@ export default function App() {
   const [openPositions, setOpenPositions] = useState<Position[]>([]);
 
   // Backtester states
-  const [backtestSL, setBacktestSL] = useState('1.0');
-  const [backtestSLType, setBacktestSLType] = useState<'pct' | 'price'>('pct');
+  const [backtestSL, setBacktestSL] = useState('20');
+  const [backtestSLType, setBacktestSLType] = useState<'pct' | 'price'>('price');
   const [backtestRR, setBacktestRR] = useState('2');
   const [backtestSize, setBacktestSize] = useState('1');
   const [lookbackWindow, setLookbackWindow] = useState('20');

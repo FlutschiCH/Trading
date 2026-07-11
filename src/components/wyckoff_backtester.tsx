@@ -168,18 +168,19 @@ export default function WyckoffBacktester({
                   const newType = e.target.value as 'pct' | 'price';
                   setUseRiskSizing(true); // Preserve risk sizing target
                   setBacktestSLType(newType);
-                  setBacktestSL(newType === 'pct' ? '1.0' : '200');
+                  const isForex = ['EUR', 'GBP', 'JPY', 'USD', 'CAD', 'AUD', 'CHF'].some(curr => symbol.toUpperCase().includes(curr)) && !['BTC', 'ETH', 'SOL', 'LTC', 'XRP'].some(crypto => symbol.toUpperCase().includes(crypto));
+                  setBacktestSL(newType === 'pct' ? '1.0' : (isForex ? '20' : '200'));
                 }}
                 style={{
                   ...styles.input,
-                  width: '50px',
+                  width: '65px',
                   backgroundColor: '#1f2937',
                   cursor: 'pointer',
                   padding: '0 4px',
                 }}
               >
                 <option value="pct">%</option>
-                <option value="price">$</option>
+                <option value="price">Pips</option>
               </select>
             </div>
           </div>
