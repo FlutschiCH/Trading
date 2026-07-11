@@ -75,6 +75,13 @@ class TradingHandler:
         completed_trades = []
         current_balance = initial_balance
         
+        # Determine decimal precision dynamically from the input candle data
+        precision = 2
+        for c in annotated_data[:20]:
+            close_val_str = str(c.get('close', ''))
+            if '.' in close_val_str:
+                precision = max(precision, len(close_val_str.split('.')[1]))
+        
         # Helper to determine pip size dynamically based on asset conventions
         def get_pip_size(sym: str, price: float) -> float:
             sym_upper = sym.upper()
@@ -279,8 +286,8 @@ class TradingHandler:
                     else:
                         sl_distance = sl_val * pip_size
                         
-                    sl_price = entry_price - sl_distance if trade_type == 'BUY' else entry_price + sl_distance
-                    tp_price = entry_price + sl_distance * rr if trade_type == 'BUY' else entry_price - sl_distance * rr
+                    sl_price = round(entry_price - sl_distance, precision) if trade_type == 'BUY' else round(entry_price + sl_distance, precision)
+                    tp_price = round(entry_price + sl_distance * rr, precision) if trade_type == 'BUY' else round(entry_price - sl_distance * rr, precision)
                     
                     quote_usd_rate = get_quote_usd_rate(symbol, entry_price)
                     trade_qty = size
