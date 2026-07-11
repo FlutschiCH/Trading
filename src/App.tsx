@@ -60,6 +60,26 @@ const getWeekNumber = (date: Date) => {
   return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
 };
 
+export const getPrecisionForSymbol = (symbol: string) => {
+  const symUpper = symbol.toUpperCase();
+  const isCrypto = symUpper.includes('BTC') || symUpper.includes('ETH') || symUpper.includes('SOL') || symUpper.includes('LTC') || symUpper.includes('XRP') || symUpper.includes('DOGE') || symUpper.includes('ADA') || symUpper.includes('DOT') || symUpper.includes('LINK');
+  const isGold = symUpper.includes('XAU') || symUpper.includes('GOLD') || symUpper.includes('XAG') || symUpper.includes('SILVER');
+  const isJpy = symUpper.includes('JPY');
+  const isIndex = symUpper.includes('US30') || symUpper.includes('GER40') || symUpper.includes('SPX') || symUpper.includes('NAS') || symUpper.includes('DE40');
+
+  if (isCrypto || isGold || isIndex) {
+    return 2;
+  } else if (isJpy) {
+    return 3;
+  }
+  return 5;
+};
+
+export const formatPrice = (price: number | undefined | null, symbol: string) => {
+  if (price === undefined || price === null) return '';
+  return price.toFixed(getPrecisionForSymbol(symbol));
+};
+
 export default function App() {
   // Simple check for how-to page routing (always bypasses password check)
   if (window.location.pathname === '/how-to') {
@@ -1463,19 +1483,19 @@ export default function App() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 24px', fontSize: '13px', marginBottom: '20px' }}>
               <div>
                 <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Entry Price</span>
-                <span style={{ color: '#cbd5e1', fontWeight: '500' }}>${selectedTrade.entryPrice.toFixed(2)}</span>
+                <span style={{ color: '#cbd5e1', fontWeight: '500' }}>${formatPrice(selectedTrade.entryPrice, symbol)}</span>
               </div>
               <div>
                 <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Exit Price</span>
-                <span style={{ color: '#cbd5e1', fontWeight: '500' }}>${selectedTrade.exitPrice.toFixed(2)}</span>
+                <span style={{ color: '#cbd5e1', fontWeight: '500' }}>${formatPrice(selectedTrade.exitPrice, symbol)}</span>
               </div>
               <div>
                 <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Stop Loss</span>
-                <span style={{ color: '#ef4444', fontWeight: '500' }}>${selectedTrade.slPrice.toFixed(2)}</span>
+                <span style={{ color: '#ef4444', fontWeight: '500' }}>${formatPrice(selectedTrade.slPrice, symbol)}</span>
               </div>
               <div>
                 <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Take Profit</span>
-                <span style={{ color: '#10b981', fontWeight: '500' }}>${selectedTrade.tpPrice.toFixed(2)}</span>
+                <span style={{ color: '#10b981', fontWeight: '500' }}>${formatPrice(selectedTrade.tpPrice, symbol)}</span>
               </div>
               <div>
                 <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Quantity Size</span>

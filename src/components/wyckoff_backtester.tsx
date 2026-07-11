@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatPrice } from '../App';
 
 interface WyckoffBacktesterProps {
   symbol: string;
@@ -389,11 +390,11 @@ export default function WyckoffBacktester({
                       {trade.type}
                     </span>
                     <span style={{ color: '#ffffff', fontWeight: 'bold' }}>
-                      @{trade.entryPrice.toFixed(2)}
+                      @{formatPrice(trade.entryPrice, symbol)}
                     </span>
                   </div>
                   <span style={{ fontSize: '10px', color: '#6b7280' }}>
-                    Exit: {trade.exitPrice.toFixed(2)} | Fees: ${trade.fees ? trade.fees.toFixed(2) : '0.00'} | {trade.time}
+                    Exit: {formatPrice(trade.exitPrice, symbol)} | Fees: ${trade.fees ? trade.fees.toFixed(2) : '0.00'} | {trade.time}
                   </span>
                 </div>
                 <span style={styles.posPnl(trade.pnl >= 0)}>
