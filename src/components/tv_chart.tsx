@@ -491,26 +491,30 @@ export default function TVChart({
     updateDrawingCoordinates();
   }, [candles, trades]);
 
-  // Update price format and precision based on symbol
+  // Update price format and precision dynamically based on candle data
   useEffect(() => {
-    if (!candlestickSeriesRef.current) return;
+    if (!candlestickSeriesRef.current || !candles || candles.length === 0) return;
     
-    const symUpper = symbol.toUpperCase();
-    const isCrypto = symUpper.includes('BTC') || symUpper.includes('ETH') || symUpper.includes('SOL') || symUpper.includes('LTC') || symUpper.includes('XRP') || symUpper.includes('DOGE') || symUpper.includes('ADA') || symUpper.includes('DOT') || symUpper.includes('LINK');
-    const isGold = symUpper.includes('XAU') || symUpper.includes('GOLD') || symUpper.includes('XAG') || symUpper.includes('SILVER');
-    const isJpy = symUpper.includes('JPY');
-    const isIndex = symUpper.includes('US30') || symUpper.includes('GER40') || symUpper.includes('SPX') || symUpper.includes('NAS') || symUpper.includes('DE40');
-
-    let precision = 5;
-    let minMove = 0.00001;
-
-    if (isCrypto || isGold || isIndex) {
-      precision = 2;
-      minMove = 0.01;
-    } else if (isJpy) {
-      precision = 3;
-      minMove = 0.001;
+    let maxDecimals = 2;
+    const sampleSize = Math.min(candles.length, 20);
+    for (let i = 0; i < sampleSize; i++) {
+      const candle = candles[i];
+      const prices = [candle.open, candle.high, candle.low, candle.close];
+      for (const price of prices) {
+        if (price !== undefined && price !== null) {
+          const parts = price.toString().split('.');
+          if (parts.length === 2) {
+            const decimals = parts[1].length;
+            if (decimals > maxDecimals) {
+              maxDecimals = decimals;
+            }
+          }
+        }
+      }
     }
+
+    const precision = Math.max(2, Math.min(maxDecimals, 8));
+    const minMove = Math.pow(10, -precision);
 
     const priceFormat = {
       type: 'price' as const,
@@ -521,7 +525,7 @@ export default function TVChart({
     candlestickSeriesRef.current.applyOptions({ priceFormat });
     if (trHighSeriesRef.current) trHighSeriesRef.current.applyOptions({ priceFormat });
     if (trLowSeriesRef.current) trLowSeriesRef.current.applyOptions({ priceFormat });
-  }, [symbol]);
+  }, [symbol, candles]);
 
   useEffect(() => {
     if (candlestickSeriesRef.current) {
