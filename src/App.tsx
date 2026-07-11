@@ -859,7 +859,7 @@ export default function App() {
       }}>
         <div style={styles.logoSection}>
           <Activity size={28} style={{ color: '#3b82f6' }} />
-          <span style={styles.logoText}>WYCKOFF<span style={styles.logoHighlight}>DESK</span></span>
+          <span style={styles.logoText}>WYCKOFF</span>
           <span 
             title={`cTrader ${connectionMode.toUpperCase()}: ${currentConnected ? 'ONLINE' : 'OFFLINE'}`}
             style={{
