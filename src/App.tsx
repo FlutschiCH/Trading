@@ -853,7 +853,10 @@ export default function App() {
     <div style={styles.container}>
       
       {/* Upper Navigation Desk Bar */}
-      <header style={styles.header}>
+      <header style={{
+        ...styles.header,
+        ...(isMobile ? { padding: '12px 16px' } : {})
+      }}>
         <div style={styles.logoSection}>
           <Activity size={28} style={{ color: '#3b82f6' }} />
           <span style={styles.logoText}>WYCKOFF<span style={styles.logoHighlight}>DESK</span></span>
@@ -934,46 +937,85 @@ export default function App() {
         </div>
 
         {/* Workspace controls */}
-        <div style={styles.controlsSection}>
-          <div style={styles.modeTabs}>
+        <div style={{
+          ...styles.controlsSection,
+          ...(isMobile ? {
+            flexDirection: 'column',
+            width: '100%',
+            gap: '12px',
+            marginTop: '12px',
+            alignItems: 'stretch',
+          } : {})
+        }}>
+          <div style={{
+            ...styles.modeTabs,
+            ...(isMobile ? {
+              width: '100%',
+              display: 'flex',
+            } : {})
+          }}>
             <button 
-              style={styles.modeBtn(connectionMode === 'fix')}
+              style={{
+                ...styles.modeBtn(connectionMode === 'fix'),
+                ...(isMobile ? { flex: 1, textAlign: 'center' } : {})
+              }}
               onClick={() => setConnectionMode('fix')}
             >
               FIX API
             </button>
             <button 
-              style={styles.modeBtn(connectionMode === 'openapi')}
+              style={{
+                ...styles.modeBtn(connectionMode === 'openapi'),
+                ...(isMobile ? { flex: 1, textAlign: 'center' } : {})
+              }}
               onClick={() => setConnectionMode('openapi')}
             >
               OpenAPI
             </button>
           </div>
 
-          <div style={styles.pairGroup}>
-            <span style={{ color: '#9ca3af' }}>Symbol</span>
-            <select 
-              value={symbol} 
-              onChange={(e) => setSymbol(e.target.value)}
-              style={styles.pairSelect}
-            >
-              {availableSymbols.map(sym => (
-                <option key={sym} value={sym}>{sym}</option>
-              ))}
-            </select>
-          </div>
+          <div style={{
+            display: 'flex',
+            gap: '12px',
+            width: isMobile ? '100%' : 'auto',
+          }}>
+            <div style={{
+              ...styles.pairGroup,
+              ...(isMobile ? { flex: 1 } : {})
+            }}>
+              <span style={{ color: '#9ca3af', fontSize: '11px' }}>Symbol</span>
+              <select 
+                value={symbol} 
+                onChange={(e) => setSymbol(e.target.value)}
+                style={{
+                  ...styles.pairSelect,
+                  ...(isMobile ? { width: '100%' } : {})
+                }}
+              >
+                {availableSymbols.map(sym => (
+                  <option key={sym} value={sym}>{sym}</option>
+                ))}
+              </select>
+            </div>
 
-          <div style={styles.pairGroup}>
-            <span style={{ color: '#9ca3af' }}>Timeframe</span>
-            <select 
-              value={timeframe} 
-              onChange={(e) => setTimeframe(e.target.value)}
-              style={styles.pairSelect}
-            >
-              {availableTimeframes.map(tf => (
-                <option key={tf} value={tf}>{tf}</option>
-              ))}
-            </select>
+            <div style={{
+              ...styles.pairGroup,
+              ...(isMobile ? { flex: 1 } : {})
+            }}>
+              <span style={{ color: '#9ca3af', fontSize: '11px' }}>Timeframe</span>
+              <select 
+                value={timeframe} 
+                onChange={(e) => setTimeframe(e.target.value)}
+                style={{
+                  ...styles.pairSelect,
+                  ...(isMobile ? { width: '100%' } : {})
+                }}
+              >
+                {availableTimeframes.map(tf => (
+                  <option key={tf} value={tf}>{tf}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
       </header>
