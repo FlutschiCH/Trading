@@ -860,9 +860,19 @@ export default function App() {
         <div style={styles.logoSection}>
           <Activity size={28} style={{ color: '#3b82f6' }} />
           <span style={styles.logoText}>WYCKOFF<span style={styles.logoHighlight}>DESK</span></span>
-          <span style={styles.statusBadge}>
-            cTrader {connectionMode.toUpperCase()} {currentConnected ? 'ONLINE' : 'OFFLINE'}
-          </span>
+          <span 
+            title={`cTrader ${connectionMode.toUpperCase()}: ${currentConnected ? 'ONLINE' : 'OFFLINE'}`}
+            style={{
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              backgroundColor: currentConnected ? '#10b981' : '#ef4444',
+              boxShadow: `0 0 8px ${currentConnected ? '#10b981' : '#ef4444'}`,
+              display: 'inline-block',
+              marginLeft: '4px',
+              flexShrink: 0,
+            }}
+          />
           <div style={{ position: 'relative' }}>
             <button 
               onClick={() => setShowMenu(!showMenu)} 
