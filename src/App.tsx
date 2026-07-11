@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Activity, X, TrendingUp, TrendingDown, Clock, HelpCircle } from 'lucide-react';
+import { Activity, X, TrendingUp, TrendingDown, Clock, HelpCircle, RefreshCw } from 'lucide-react';
 import WyckoffChart from './components/WyckoffChart.tsx';
 import Dashboard from './components/Dashboard.tsx';
 import { API_BASE_URL } from './api';
@@ -536,11 +536,6 @@ export default function App() {
     if (!isConnected) return;
     fetchAccountData();
     fetchPositionData();
-    const interval = setInterval(() => {
-      fetchAccountData();
-      fetchPositionData();
-    }, 5000);
-    return () => clearInterval(interval);
   }, [connectionMode]);
 
   const currentConnected = connectionMode === 'openapi' ? isConnectedOpenAPI : isConnectedFIX;
@@ -1106,8 +1101,34 @@ export default function App() {
                     onDragStart={(e) => handleDragStart(e, 'order')}
                     style={headerStyle}
                   >
-                    <span>💼 Manual Order Execution Panel</span>
-                    <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header to Move</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                      <span>💼 Manual Order Execution Panel</span>
+                      <div className="no-drag" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <button 
+                          onClick={() => {
+                            fetchAccountData();
+                            fetchPositionData();
+                          }}
+                          style={{
+                            backgroundColor: '#2563eb',
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: '4px',
+                            padding: '4px 10px',
+                            fontSize: '11px',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                        >
+                          <RefreshCw size={11} />
+                          Refresh
+                        </button>
+                        <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag</span>
+                      </div>
+                    </div>
                   </div>
                   <div className="no-drag" style={contentStyle}>
                     <div style={styles.tradeTypeTabs}>
