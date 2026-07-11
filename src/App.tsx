@@ -99,8 +99,12 @@ export default function App() {
   const [availableTimeframes, setAvailableTimeframes] = useState<string[]>([
     '1m', '5m', '15m', '30m', '1h', '4h', '1d'
   ]);
-  const [symbol, setSymbol] = useState('BTCUSD');
-  const [timeframe, setTimeframe] = useState('15m');
+  const [symbol, setSymbol] = useState(() => {
+    return localStorage.getItem('wyckoff_symbol') || 'BTCUSD';
+  });
+  const [timeframe, setTimeframe] = useState(() => {
+    return localStorage.getItem('wyckoff_timeframe') || '15m';
+  });
   const [tradeType, setTradeType] = useState<'buy' | 'sell'>('buy');
   const [orderType, setOrderType] = useState<'market' | 'limit'>('market');
   const [price, setPrice] = useState('57450.00');
@@ -392,6 +396,14 @@ export default function App() {
   useEffect(() => {
     runBacktest();
   }, [candles, symbol, backtestSL, backtestSLType, backtestRR, backtestSize, lookbackWindow, backtestBalance, backtestRiskPct, useRiskSizing, backtestBE, useBreakEven, backtestFees]);
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_symbol', symbol);
+  }, [symbol]);
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_timeframe', timeframe);
+  }, [timeframe]);
 
   // Fetch symbols and timeframes metadata on mount
   useEffect(() => {
