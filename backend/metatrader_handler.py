@@ -44,7 +44,6 @@ class MetaTraderHandler:
 
         # Copy rates
         rates = mt5.copy_rates_from_pos(matched_symbol, mt5_tf, 0, limit)
-        mt5.shutdown() # Shutdown connection
 
         if rates is None or len(rates) == 0:
             print(f"Failed to copy rates for {matched_symbol}", flush=True)
@@ -72,7 +71,6 @@ class MetaTraderHandler:
         if not mt5.initialize(login=int(login), password=password, server=server):
             return {}
         info = mt5.account_info()
-        mt5.shutdown()
         if info is None:
             return {}
         return {
@@ -93,7 +91,6 @@ class MetaTraderHandler:
         if not mt5.initialize(login=int(login), password=password, server=server):
             return []
         positions = mt5.positions_get()
-        mt5.shutdown()
         if positions is None:
             return []
         
@@ -138,7 +135,6 @@ class MetaTraderHandler:
         if price is None:
             tick = mt5.symbol_info_tick(matched_symbol)
             if tick is None:
-                mt5.shutdown()
                 return {"status": "error", "message": f"Failed to get current price tick for {matched_symbol}"}
             price = tick.ask if is_buy else tick.bid
         
@@ -161,7 +157,6 @@ class MetaTraderHandler:
             request_dict["tp"] = float(take_profit)
             
         result = mt5.order_send(request_dict)
-        mt5.shutdown()
         
         if result is None:
             return {"status": "error", "message": "MT5 order_send returned None"}
@@ -179,7 +174,6 @@ class MetaTraderHandler:
         if not mt5.initialize(login=int(login), password=password, server=server):
             return ["BTCUSD", "ETHUSD", "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "XAUUSD", "US30", "GER40"]
         symbols = mt5.symbols_get()
-        mt5.shutdown()
         if symbols:
             return [s.name for s in symbols if s.visible or s.select]
         return ["BTCUSD", "ETHUSD", "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "XAUUSD", "US30", "GER40"]

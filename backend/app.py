@@ -17,6 +17,18 @@ CORS(app)
 app.register_blueprint(api_blueprint, url_prefix='/api')
 
 if __name__ == '__main__':
+    # Initialize and login to MetaTrader 5
+    try:
+        import MetaTrader5 as mt5
+        print("Logging into MetaTrader 5 on startup...", flush=True)
+        if mt5.initialize(login=2002061314, password="Godzilla_12", server="JustMarkets-Demo"):
+            print("Successfully initialized and logged into MetaTrader 5 on startup!", flush=True)
+        else:
+            error_code, error_desc = mt5.last_error()
+            print(f"Failed to log into MetaTrader 5 on startup: error code {error_code}, desc: {error_desc}", flush=True)
+    except Exception as e:
+        print(f"MT5 Startup Connection Error: {e}", flush=True)
+
     # Restore active strategies from DB on startup
     try:
         LiveStrategyHandler.restore_active_strategies()
