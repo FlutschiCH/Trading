@@ -100,6 +100,23 @@ class TradingHandler:
                 return 0.01
             return 0.0001
 
+        # Helper to determine quote currency exchange rate divisor to convert to USD
+        def get_quote_usd_rate(sym: str, price: float) -> float:
+            sym_upper = sym.upper()
+            if sym_upper.endswith('USD') or sym_upper.endswith('USDT') or sym_upper.endswith('BUSD'):
+                return 1.0
+            if sym_upper.startswith('USD'):
+                return price
+            if sym_upper.endswith('JPY'):
+                return 150.0
+            if sym_upper.endswith('CAD'):
+                return 1.35
+            if sym_upper.endswith('CHF'):
+                return 0.90
+            if sym_upper.endswith('GBP'):
+                return 0.80
+            return 1.0
+
         first_candle = annotated_data[0]
         close_price = float(first_candle.get('close', 0))
         pip_size = get_pip_size(symbol, close_price)
@@ -214,13 +231,15 @@ class TradingHandler:
                     except Exception:
                         time_str = 'Open'
                         
+                    pnl_usd = pnl / active_trade['quote_usd_rate']
+                    fees_usd = total_fees / active_trade['quote_usd_rate']
                     completed_trades.append({
                         'id': len(completed_trades) + 1,
                         'type': active_trade['type'],
                         'entryPrice': float(active_trade['entry_price']),
                         'exitPrice': float(exit_price),
-                        'pnl': float(pnl),
-                        'fees': float(total_fees),
+                        'pnl': float(pnl_usd),
+                        'fees': float(fees_usd),
                         'outcome': outcome,
                         'time': time_str,
                         'timestamp': int(c.get('time', 0)),
@@ -232,7 +251,7 @@ class TradingHandler:
                         'duration': int(i - active_trade['entry_index'] + 1),
                         'qty': float(active_trade['qty'])
                     })
-                    current_balance += pnl
+                    current_balance += pnl_usd
                     active_trade = None
 
             if not active_trade:
@@ -249,10 +268,11 @@ class TradingHandler:
                     sl_price = entry_price - sl_distance if trade_type == 'BUY' else entry_price + sl_distance
                     tp_price = entry_price + sl_distance * rr if trade_type == 'BUY' else entry_price - sl_distance * rr
                     
+                    quote_usd_rate = get_quote_usd_rate(symbol, entry_price)
                     trade_qty = size
                     if use_risk_sizing:
                         risk_amount = current_balance * (risk_pct / 100.0)
-                        trade_qty = (risk_amount / sl_distance) if sl_distance > 0 else size
+                        trade_qty = (risk_amount * quote_usd_rate / sl_distance) if sl_distance > 0 else size
                         
                     active_trade = {
                         'type': trade_type,
@@ -263,7 +283,8 @@ class TradingHandler:
                         'entry_index': i,
                         'entry_timestamp': int(c.get('time', 0)),
                         'is_break_even': False,
-                        'sl_distance': sl_distance
+                        'sl_distance': sl_distance,
+                        'quote_usd_rate': quote_usd_rate
                     }
 
         if active_trade:
@@ -274,14 +295,16 @@ class TradingHandler:
             exit_fee = close_val * active_trade['qty'] * (fees_percent / 100.0)
             total_fees = entry_fee + exit_fee
             pnl = gross_pnl - total_fees
+            pnl_usd = pnl / active_trade['quote_usd_rate']
+            fees_usd = total_fees / active_trade['quote_usd_rate']
             completed_trades.append({
                 'id': len(completed_trades) + 1,
                 'type': active_trade['type'],
                 'entryPrice': float(active_trade['entry_price']),
                 'exitPrice': float(close_val),
-                'pnl': float(pnl),
-                'fees': float(total_fees),
-                'outcome': 'WIN' if pnl >= 0 else 'LOSS',
+                'pnl': float(pnl_usd),
+                'fees': float(fees_usd),
+                'outcome': 'WIN' if pnl_usd >= 0 else 'LOSS',
                 'time': 'Open',
                 'timestamp': int(final_candle.get('time', 0)),
                 'slPrice': float(active_trade['sl_price']),
@@ -292,7 +315,7 @@ class TradingHandler:
                 'duration': int(len(annotated_data) - active_trade['entry_index']),
                 'qty': float(active_trade['qty'])
             })
-            current_balance += pnl
+            current_balance += pnl_usd
 
         total_trades = len(completed_trades)
         wins = len([t for t in completed_trades if t['outcome'] == 'WIN'])
