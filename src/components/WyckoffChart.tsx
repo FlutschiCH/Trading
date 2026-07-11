@@ -59,6 +59,7 @@ export default function WyckoffChart({
   const entryLineRef = useRef<any>(null);
   const slLineRef = useRef<any>(null);
   const tpLineRef = useRef<any>(null);
+  const beLineRef = useRef<any>(null);
 
   // Drawing Tools State
   const [activeTool, setActiveTool] = useState<'none' | 'trendline' | 'rectangle' | 'delete'>('none');
@@ -486,6 +487,7 @@ export default function WyckoffChart({
         const entryData = points.map((p) => ({ time: p, value: trade.entryPrice }));
         const slData = points.map((p) => ({ time: p, value: trade.slPrice }));
         const tpData = points.map((p) => ({ time: p, value: trade.tpPrice }));
+        const beData = points.map((p) => ({ time: p, value: 2 * trade.entryPrice - trade.slPrice }));
 
         const addTradeLine = (data: any[], color: string) => {
           const lineSeries = chartRef.current.addSeries(LineSeries, {
@@ -503,6 +505,7 @@ export default function WyckoffChart({
         addTradeLine(entryData, '#3b82f6'); // blue
         addTradeLine(slData, '#ef4444');    // red
         addTradeLine(tpData, '#10b981');    // green
+        addTradeLine(beData, '#fbbf24');    // yellow
       });
     }
 
@@ -522,6 +525,10 @@ export default function WyckoffChart({
       if (tpLineRef.current) {
         candlestickSeriesRef.current.removePriceLine(tpLineRef.current);
         tpLineRef.current = null;
+      }
+      if (beLineRef.current) {
+        candlestickSeriesRef.current.removePriceLine(beLineRef.current);
+        beLineRef.current = null;
       }
 
       if (entryPrice) {
@@ -552,6 +559,17 @@ export default function WyckoffChart({
           lineStyle: 1, // Dashed
           axisLabelVisible: true,
           title: 'TP',
+        });
+      }
+      if (entryPrice && slPrice) {
+        const bePrice = 2 * entryPrice - slPrice;
+        beLineRef.current = candlestickSeriesRef.current.createPriceLine({
+          price: bePrice,
+          color: '#fbbf24',
+          lineWidth: 2,
+          lineStyle: 1, // Dashed
+          axisLabelVisible: true,
+          title: '1:1 BE',
         });
       }
     }
