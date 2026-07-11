@@ -91,6 +91,8 @@ export default function TVChart({
 
   const [selectedTradeCoords, setSelectedTradeCoords] = useState<{ x1: number; x2: number; type: 'BUY' | 'SELL'; pnl: number } | null>(null);
   const selectedTradeRef = useRef(selectedTrade);
+  const [chartHeight, setChartHeight] = useState(window.innerWidth < 768 ? 380 : 680);
+  const [weisHeight, setWeisHeight] = useState(window.innerWidth < 768 ? 100 : 140);
 
   useEffect(() => {
     selectedTradeRef.current = selectedTrade;
@@ -218,8 +220,8 @@ export default function TVChart({
       timeScale: {
         fixRightEdge: false,
       },
-      width: chartContainerRef.current.clientWidth,
-      height: 760,
+      width: chartContainerRef.current.clientWidth || (window.innerWidth - 32),
+      height: window.innerWidth < 768 ? 380 : 680,
     });
 
     const candlestickSeries = mainChart.addSeries(CandlestickSeries, {
@@ -269,8 +271,8 @@ export default function TVChart({
       timeScale: {
         fixRightEdge: false,
       },
-      width: weisContainerRef.current.clientWidth,
-      height: 140,
+      width: weisContainerRef.current.clientWidth || (window.innerWidth - 32),
+      height: window.innerWidth < 768 ? 100 : 140,
     });
 
     const weisSeries = weisChart.addSeries(HistogramSeries, {
@@ -332,11 +334,17 @@ export default function TVChart({
     });
 
     const handleResize = () => {
+      const isMobileSize = window.innerWidth < 768;
+      const newChartH = isMobileSize ? 380 : 680;
+      const newWeisH = isMobileSize ? 100 : 140;
+      setChartHeight(newChartH);
+      setWeisHeight(newWeisH);
+
       if (chartContainerRef.current && mainChart) {
-        mainChart.applyOptions({ width: chartContainerRef.current.clientWidth });
+        mainChart.resize(chartContainerRef.current.clientWidth || (window.innerWidth - 32), newChartH);
       }
       if (weisContainerRef.current && weisChart) {
-        weisChart.applyOptions({ width: weisContainerRef.current.clientWidth });
+        weisChart.resize(weisContainerRef.current.clientWidth || (window.innerWidth - 32), newWeisH);
       }
       updateDrawingCoordinates();
     };
@@ -736,7 +744,7 @@ export default function TVChart({
           </div>
         )}
 
-        <div style={{ position: 'relative', height: 760 }}>
+        <div style={{ position: 'relative', height: chartHeight }}>
           <div ref={chartContainerRef} style={{ width: '100%', height: '100%' }} />
 
           <svg
@@ -759,7 +767,7 @@ export default function TVChart({
                 x={Math.min(selectedTradeCoords.x1, selectedTradeCoords.x2)}
                 y={0}
                 width={Math.max(1, Math.abs(selectedTradeCoords.x1 - selectedTradeCoords.x2))}
-                height={760}
+                height={chartHeight}
                 fill={selectedTradeCoords.pnl >= 0 ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)'}
                 stroke={selectedTradeCoords.pnl >= 0 ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}
                 strokeWidth={1}
@@ -846,7 +854,7 @@ export default function TVChart({
           </svg>
         </div>
 
-        <div ref={weisContainerRef} style={{ width: '100%', height: 140 }} />
+        <div ref={weisContainerRef} style={{ width: '100%', height: weisHeight }} />
       </div>
     </div>
   );
