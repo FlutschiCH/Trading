@@ -125,8 +125,8 @@ export default function App() {
   const [timeframe, setTimeframe] = useState(() => {
     return localStorage.getItem('wyckoff_timeframe') || '15m';
   });
-  const [dataSource, setDataSource] = useState<'binance' | 'metatrader'>(() => {
-    return (localStorage.getItem('wyckoff_data_source') as 'binance' | 'metatrader') || 'binance';
+  const [candleLimit, setCandleLimit] = useState<number>(() => {
+    return parseInt(localStorage.getItem('wyckoff_candle_limit') || '5000');
   });
   const [tradeType, setTradeType] = useState<'buy' | 'sell'>('buy');
   const [orderType, setOrderType] = useState<'market' | 'limit'>('market');
@@ -429,8 +429,8 @@ export default function App() {
   }, [timeframe]);
 
   useEffect(() => {
-    localStorage.setItem('wyckoff_data_source', dataSource);
-  }, [dataSource]);
+    localStorage.setItem('wyckoff_candle_limit', candleLimit.toString());
+  }, [candleLimit]);
 
   // Fetch symbols and timeframes metadata on mount
   useEffect(() => {
@@ -488,7 +488,7 @@ export default function App() {
           body: JSON.stringify({
             symbol: symbol,
             interval: timeframe,
-            limit: 1000,
+            limit: candleLimit,
           }),
         });
         const result = await response.json();
@@ -593,7 +593,7 @@ export default function App() {
       fetchPositionData();
     }, 5000);
     return () => clearInterval(interval);
-  }, [symbol, timeframe, lookbackWindow]);
+  }, [symbol, timeframe, lookbackWindow, candleLimit]);
 
   const currentConnected = true;
 
@@ -1071,6 +1071,26 @@ export default function App() {
                 {availableTimeframes.map(tf => (
                   <option key={tf} value={tf}>{tf}</option>
                 ))}
+              </select>
+            </div>
+
+            <div style={{
+              ...styles.pairGroup,
+              ...(isMobile ? { flex: 1 } : {})
+            }}>
+              <span style={{ color: '#9ca3af', fontSize: '11px' }}>Candle Limit</span>
+              <select 
+                value={candleLimit} 
+                onChange={(e) => setCandleLimit(parseInt(e.target.value))}
+                style={{
+                  ...styles.pairSelect,
+                  ...(isMobile ? { width: '100%' } : {})
+                }}
+              >
+                <option value="1000">1000</option>
+                <option value="2000">2000</option>
+                <option value="5000">5000</option>
+                <option value="10000">10000</option>
               </select>
             </div>
           </div>
