@@ -293,7 +293,7 @@ class TradingHandler:
                     trade_qty = size
                     if use_risk_sizing:
                         risk_amount = current_balance * (risk_pct / 100.0)
-                        trade_qty = (risk_amount * quote_usd_rate / sl_distance) if sl_distance > 0 else size
+                        trade_qty = (risk_amount * quote_usd_rate / (sl_distance * lot_size)) if (sl_distance > 0 and lot_size > 0) else size
                         
                     active_trade = {
                         'type': trade_type,
