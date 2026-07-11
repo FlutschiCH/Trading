@@ -196,6 +196,9 @@ export default function App() {
   const [candleLimit, setCandleLimit] = useState<number>(() => {
     return parseInt(localStorage.getItem('wyckoff_candle_limit') || '5000');
   });
+  const [candleSource, setCandleSource] = useState<'ctrader' | 'metatrader' | 'yfinance'>(() => {
+    return (localStorage.getItem('wyckoff_candle_source') as 'ctrader' | 'metatrader' | 'yfinance') || 'metatrader';
+  });
   const [dateRangeOption, setDateRangeOption] = useState<string>(() => {
     return localStorage.getItem('wyckoff_date_range_option') || 'last_candles';
   });
@@ -512,6 +515,10 @@ export default function App() {
   }, [candleLimit]);
 
   useEffect(() => {
+    localStorage.setItem('wyckoff_candle_source', candleSource);
+  }, [candleSource]);
+
+  useEffect(() => {
     localStorage.setItem('wyckoff_date_range_option', dateRangeOption);
   }, [dateRangeOption]);
 
@@ -523,11 +530,12 @@ export default function App() {
     localStorage.setItem('wyckoff_custom_to', customTo);
   }, [customTo]);
 
-  // Fetch symbols and timeframes metadata on mount
+  // Fetch symbols and timeframes metadata dynamically based on selected candleSource
   useEffect(() => {
     const loadMetadata = async () => {
+      const sourcePath = candleSource === 'yfinance' ? 'yfinance' : (candleSource === 'metatrader' ? 'metatrader' : 'ctrader');
       try {
-        const symRes = await fetch(`${API_BASE_URL}/api/ctrader/symbols`);
+        const symRes = await fetch(`${API_BASE_URL}/api/${sourcePath}/symbols`);
         const symData = await symRes.json();
         if (symData.status === 'success' && symData.data) {
           setAvailableSymbols(symData.data);
@@ -540,7 +548,7 @@ export default function App() {
       }
 
       try {
-        const tfRes = await fetch(`${API_BASE_URL}/api/ctrader/timeframes`);
+        const tfRes = await fetch(`${API_BASE_URL}/api/${sourcePath}/timeframes`);
         const tfData = await tfRes.json();
         if (tfData.status === 'success' && tfData.data) {
           setAvailableTimeframes(tfData.data);
@@ -548,7 +556,12 @@ export default function App() {
       } catch (e) {
         console.error('Failed to load timeframes:', e);
       }
+    };
+    loadMetadata();
+  }, [candleSource]);
 
+  useEffect(() => {
+    const loadLiveStrategyAndPerms = async () => {
       try {
         const stratRes = await fetch(`${API_BASE_URL}/api/live/strategy`);
         const stratData = await stratRes.json();
@@ -559,12 +572,11 @@ export default function App() {
         console.error('Failed to load live strategy:', e);
       }
 
-      // Request browser notification permissions
       if ('Notification' in window && Notification.permission === 'default') {
         Notification.requestPermission();
       }
     };
-    loadMetadata();
+    loadLiveStrategyAndPerms();
   }, []);
 
   // Fetch candle data and analyze on Flask backend
@@ -573,7 +585,8 @@ export default function App() {
     try {
       let rawCandles: Candle[] = [];
       try {
-        const response = await fetch(`${API_BASE_URL}/api/metatrader/candles`, {
+        const sourcePath = candleSource === 'yfinance' ? 'yfinance' : (candleSource === 'metatrader' ? 'metatrader' : 'ctrader');
+        const response = await fetch(`${API_BASE_URL}/api/${sourcePath}/candles`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -684,7 +697,7 @@ export default function App() {
       fetchPositionData();
     }, 5000);
     return () => clearInterval(interval);
-  }, [symbol, timeframe, lookbackWindow, candleLimit, dateRangeOption, customFrom, customTo]);
+  }, [symbol, timeframe, lookbackWindow, candleLimit, dateRangeOption, customFrom, customTo, candleSource]);
 
   const currentConnected = true;
 
@@ -1109,17 +1122,17 @@ export default function App() {
           } : {})
         }}>
           <div style={{
-            color: '#3b82f6',
+            color: candleSource === 'metatrader' ? '#3b82f6' : (candleSource === 'yfinance' ? '#10b981' : '#f59e0b'),
             fontWeight: 'bold',
             fontSize: '12px',
-            backgroundColor: 'rgba(59, 130, 246, 0.1)',
-            border: '1px solid rgba(59, 130, 246, 0.2)',
+            backgroundColor: candleSource === 'metatrader' ? 'rgba(59, 130, 246, 0.1)' : (candleSource === 'yfinance' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)'),
+            border: `1px solid ${candleSource === 'metatrader' ? 'rgba(59, 130, 246, 0.2)' : (candleSource === 'yfinance' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)')}`,
             padding: '6px 12px',
             borderRadius: '6px',
             textAlign: 'center',
             ...(isMobile ? { width: '100%' } : {})
           }}>
-            MetaTrader 5 Connected
+            {candleSource === 'metatrader' ? 'MetaTrader 5 Connected' : (candleSource === 'yfinance' ? 'Yahoo Finance Active' : 'cTrader (Inactive)')}
           </div>
 
           <div style={{
@@ -1127,6 +1140,25 @@ export default function App() {
             gap: '12px',
             width: isMobile ? '100%' : 'auto',
           }}>
+            <div style={{
+              ...styles.pairGroup,
+              ...(isMobile ? { flex: 1 } : {})
+            }}>
+              <span style={{ color: '#9ca3af', fontSize: '11px' }}>Data Source</span>
+              <select 
+                value={candleSource} 
+                onChange={(e) => setCandleSource(e.target.value as 'ctrader' | 'metatrader' | 'yfinance')}
+                style={{
+                  ...styles.pairSelect,
+                  ...(isMobile ? { width: '100%' } : {})
+                }}
+              >
+                <option value="ctrader">cTrader (Inactive)</option>
+                <option value="metatrader">MetaTrader 5</option>
+                <option value="yfinance">Yahoo Finance</option>
+              </select>
+            </div>
+
             <div style={{
               ...styles.pairGroup,
               ...(isMobile ? { flex: 1 } : {})
