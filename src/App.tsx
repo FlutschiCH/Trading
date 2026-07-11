@@ -66,6 +66,11 @@ export default function App() {
     return <HowToPage />;
   }
 
+  // Redirect /auth or root path to /dashboard
+  if (window.location.pathname === '/auth' || window.location.pathname === '/') {
+    window.history.pushState({}, '', '/dashboard');
+  }
+
   // Simple Password Protection Mode on Deployed Host
   const isProdHost = window.location.hostname === 'trading.flutschi.ch';
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
@@ -802,6 +807,8 @@ export default function App() {
       fontWeight: 'bold' as const,
       color: isProfit ? '#10b981' : '#ef4444',
     })
+  };
+
   const liveTrades = openPositions.map((pos: any) => {
     let slPrice = pos.stop_loss;
     let tpPrice = pos.take_profit;
