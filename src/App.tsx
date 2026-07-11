@@ -1010,6 +1010,45 @@ export default function App() {
             };
 
             if (panelId === 'chart') {
+              const liveTrades = openPositions.map((pos: any) => {
+                let slPrice = pos.stop_loss;
+                let tpPrice = pos.take_profit;
+                
+                if (!slPrice && liveStrategy && liveStrategy.symbol === pos.symbol) {
+                  const slVal = parseFloat(liveStrategy.slVal) || 1.0;
+                  const rr = parseFloat(liveStrategy.rr) || 2.0;
+                  const isBuy = pos.trade_side === 'BUY';
+                  const entry = pos.entry_price;
+                  
+                  if (liveStrategy.slType === 'price') {
+                    slPrice = slVal;
+                  } else {
+                    slPrice = isBuy ? entry * (1 - slVal / 100) : entry * (1 + slVal / 100);
+                  }
+                  
+                  const slDistance = Math.abs(entry - slPrice);
+                  tpPrice = isBuy ? entry + slDistance * rr : entry - slDistance * rr;
+                }
+                
+                let entryTimestamp = pos.entry_timestamp;
+                if (!entryTimestamp && candles.length > 0) {
+                  const matchedCandle = candles.find((c) => pos.entry_price >= c.low && pos.entry_price <= c.high);
+                  entryTimestamp = matchedCandle ? matchedCandle.time : candles[candles.length - 1].time;
+                }
+                
+                return {
+                  id: pos.position_id,
+                  symbol: pos.symbol,
+                  type: pos.trade_side,
+                  qty: pos.volume,
+                  entryPrice: pos.entry_price,
+                  slPrice: slPrice,
+                  tpPrice: tpPrice,
+                  entryTimestamp: entryTimestamp,
+                  exitReason: 'Position still open'
+                };
+              }).filter((t: any) => t.symbol === symbol);
+
               return (
                 <div
                   key="chart"
@@ -1034,7 +1073,7 @@ export default function App() {
                       entryPrice={selectedTrade?.entryPrice}
                       slPrice={selectedTrade?.slPrice}
                       tpPrice={selectedTrade?.tpPrice}
-                      trades={backtestResults?.trades || []}
+                      trades={backtestResults ? backtestResults.trades : liveTrades}
                       selectedTrade={selectedTrade}
                       onSelectTrade={(trade) => {
                         setSelectedTrade(trade);

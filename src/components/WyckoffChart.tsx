@@ -465,9 +465,9 @@ export default function WyckoffChart({
       });
       dynamicLineSeriesRef.current = [];
 
-      // 2. Filter valid historical trades
+      // 2. Filter valid trades (including open ones)
       const realTrades = (trades || []).filter(
-        (t) => t.entryTimestamp && t.entryPrice && t.slPrice && t.tpPrice && t.exitReason !== 'Position still open'
+        (t) => t.entryTimestamp && t.entryPrice && t.slPrice && t.tpPrice
       );
 
       const sortedTimes = candles.map((c) => Number(c.time)).sort((a, b) => a - b);

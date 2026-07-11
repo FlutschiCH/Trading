@@ -202,13 +202,45 @@ class CTraderHandler:
                     entry_price = float(fields.get("730", 0.0))
                     
                     if long_qty > 0 or short_qty > 0:
+                        stop_loss = None
+                        take_profit = None
+                        entry_timestamp = None
+                        try:
+                            import sqlite3
+                            import os
+                            db_path = os.path.join(os.path.dirname(__file__), 'trades.db')
+                            conn = sqlite3.connect(db_path)
+                            cursor = conn.cursor()
+                            trade_side = "BUY" if long_qty > 0 else "SELL"
+                            cursor.execute("""
+                                SELECT stop_loss, take_profit, timestamp 
+                                FROM trades 
+                                WHERE symbol = ? AND action = ? 
+                                ORDER BY timestamp DESC LIMIT 1
+                            """, (symbol, trade_side))
+                            row = cursor.fetchone()
+                            if row:
+                                stop_loss = row[0]
+                                take_profit = row[1]
+                                try:
+                                    dt = datetime.fromisoformat(row[2])
+                                    entry_timestamp = int(dt.timestamp())
+                                except Exception:
+                                    pass
+                            conn.close()
+                        except Exception:
+                            pass
+
                         positions_list.append({
                             "position_id": int(fields.get("721", 1)),
                             "symbol": symbol,
                             "trade_side": "BUY" if long_qty > 0 else "SELL",
                             "volume": long_qty if long_qty > 0 else short_qty,
                             "entry_price": entry_price,
-                            "unrealized_profit": 0.0
+                            "unrealized_profit": 0.0,
+                            "stop_loss": stop_loss,
+                            "take_profit": take_profit,
+                            "entry_timestamp": entry_timestamp
                         })
                 cls._cached_positions = positions_list
         except Exception:
