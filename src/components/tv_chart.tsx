@@ -700,32 +700,6 @@ export default function TVChart({
       <div style={styles.toolbar}>
         <div style={styles.toolsGroup}>
           <span style={styles.symbolBadge}>{symbol}</span>
-          <button 
-            style={styles.btn(activeTool === 'rectangle')}
-            onClick={() => setActiveTool(activeTool === 'rectangle' ? 'none' : 'rectangle')}
-          >
-            <Square size={14} /> Draw Rectangle
-          </button>
-          <button 
-            style={styles.btn(activeTool === 'trendline')}
-            onClick={() => setActiveTool(activeTool === 'trendline' ? 'none' : 'trendline')}
-          >
-            <PenTool size={14} /> Draw Trendline
-          </button>
-          <button 
-            style={styles.btn(activeTool === 'delete', true)}
-            onClick={() => setActiveTool(activeTool === 'delete' ? 'none' : 'delete')}
-          >
-            <Trash2 size={14} /> Delete Selected
-          </button>
-          {drawings.length > 0 && (
-            <button 
-              style={styles.clearBtn}
-              onClick={() => setDrawings([])}
-            >
-              <XCircle size={14} /> Clear Canvas
-            </button>
-          )}
         </div>
 
         <button 
@@ -754,13 +728,9 @@ export default function TVChart({
               left: 0,
               width: '100%',
               height: '100%',
-              zIndex: activeTool !== 'none' ? 10 : 1,
-              pointerEvents: activeTool !== 'none' ? 'auto' : 'none',
-              cursor: activeTool === 'delete' ? 'crosshair' : activeTool !== 'none' ? 'cell' : 'default',
+              zIndex: 1,
+              pointerEvents: 'none',
             }}
-            onMouseDown={handleSVGMouseDown}
-            onMouseMove={handleSVGMouseMove}
-            onMouseUp={handleSVGMouseUp}
           >
             {selectedTradeCoords && (
               <rect
@@ -774,82 +744,6 @@ export default function TVChart({
                 strokeDasharray="4 4"
                 style={{ pointerEvents: 'none' }}
               />
-            )}
-
-            {pixelDrawings.map((d) => {
-              if (d.type === 'trendline') {
-                return (
-                  <line
-                    key={d.index}
-                    x1={d.x1}
-                    y1={d.y1}
-                    x2={d.x2}
-                    y2={d.y2}
-                    stroke={activeTool === 'delete' ? '#ef4444' : '#3b82f6'}
-                    strokeWidth={3}
-                    style={{ pointerEvents: 'auto', cursor: 'pointer' }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (activeTool === 'delete') {
-                        setDrawings(drawings.filter((_, idx) => idx !== d.index));
-                      }
-                    }}
-                  />
-                );
-              } else if (d.type === 'rectangle') {
-                const x = Math.min(d.x1, d.x2);
-                const y = Math.min(d.y1, d.y2);
-                const width = Math.abs(d.x1 - d.x2);
-                const height = Math.abs(d.y1 - d.y2);
-                return (
-                  <rect
-                    key={d.index}
-                    x={x}
-                    y={y}
-                    width={width}
-                    height={height}
-                    fill="rgba(59, 130, 246, 0.15)"
-                    stroke={activeTool === 'delete' ? '#ef4444' : '#3b82f6'}
-                    strokeWidth={2}
-                    style={{ pointerEvents: 'auto', cursor: 'pointer' }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (activeTool === 'delete') {
-                        setDrawings(drawings.filter((_, idx) => idx !== d.index));
-                      }
-                    }}
-                  />
-                );
-              }
-              return null;
-            })}
-
-            {pixelPreview && (
-              <>
-                {pixelPreview.type === 'trendline' && (
-                  <line
-                    x1={pixelPreview.x1}
-                    y1={pixelPreview.y1}
-                    x2={pixelPreview.x2}
-                    y2={pixelPreview.y2}
-                    stroke="#10b981"
-                    strokeWidth={2}
-                    strokeDasharray="4"
-                  />
-                )}
-                {pixelPreview.type === 'rectangle' && (
-                  <rect
-                    x={Math.min(pixelPreview.x1, pixelPreview.x2)}
-                    y={Math.min(pixelPreview.y1, pixelPreview.y2)}
-                    width={Math.abs(pixelPreview.x1 - pixelPreview.x2)}
-                    height={Math.abs(pixelPreview.y1 - pixelPreview.y2)}
-                    fill="rgba(16, 185, 129, 0.1)"
-                    stroke="#10b981"
-                    strokeWidth={1.5}
-                    strokeDasharray="4"
-                  />
-                )}
-              </>
             )}
           </svg>
         </div>
