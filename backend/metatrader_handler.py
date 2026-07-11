@@ -2,7 +2,7 @@ import MetaTrader5 as mt5
 
 class MetaTraderHandler:
     @staticmethod
-    def fetch_candles(symbol: str, timeframe: str, limit: int, login: int = 2002061314, password: str = "Godzilla_12", server: str = "JustMarkets-Demo") -> list:
+    def fetch_candles(symbol: str, timeframe: str, limit: int = 1000, date_from: int = None, date_to: int = None, login: int = 2002061314, password: str = "Godzilla_12", server: str = "JustMarkets-Demo") -> list:
         """
         Initializes connection to MT5, fetches historical candles for the given symbol/timeframe, and shuts down.
         """
@@ -43,7 +43,13 @@ class MetaTraderHandler:
         mt5.symbol_select(matched_symbol, True)
 
         # Copy rates
-        rates = mt5.copy_rates_from_pos(matched_symbol, mt5_tf, 0, limit)
+        if date_from is not None and date_to is not None:
+            import datetime
+            dt_from = datetime.datetime.fromtimestamp(int(date_from))
+            dt_to = datetime.datetime.fromtimestamp(int(date_to))
+            rates = mt5.copy_rates_range(matched_symbol, mt5_tf, dt_from, dt_to)
+        else:
+            rates = mt5.copy_rates_from_pos(matched_symbol, mt5_tf, 0, limit)
 
         if rates is None or len(rates) == 0:
             print(f"Failed to copy rates for {matched_symbol}", flush=True)

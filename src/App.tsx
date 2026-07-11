@@ -78,6 +78,74 @@ export const getPrecisionForSymbol = (symbol: string) => {
 export const formatPrice = (price: number | undefined | null, symbol: string) => {
   if (price === undefined || price === null) return '';
   return price.toFixed(getPrecisionForSymbol(symbol));
+};export const getWeekStart = (now: Date) => {
+  const day = now.getDay();
+  const hours = now.getHours();
+  const start = new Date(now);
+  start.setHours(20, 0, 0, 0);
+  
+  if (day === 0) { // Sunday
+    if (hours < 20) {
+      start.setDate(start.getDate() - 7);
+    }
+  } else {
+    start.setDate(start.getDate() - day);
+  }
+  return start;
+};
+
+export const calculateDateBounds = (option: string, customFrom?: string, customTo?: string): { date_from?: number; date_to?: number } => {
+  const now = new Date();
+  
+  if (option === 'last_candles') {
+    return {};
+  }
+  
+  if (option === 'this_week') {
+    const start = getWeekStart(now);
+    return {
+      date_from: Math.floor(start.getTime() / 1000),
+      date_to: Math.floor(now.getTime() / 1000)
+    };
+  }
+  
+  if (option === 'last_week') {
+    const end = getWeekStart(now);
+    const start = new Date(end);
+    start.setDate(start.getDate() - 7);
+    return {
+      date_from: Math.floor(start.getTime() / 1000),
+      date_to: Math.floor(end.getTime() / 1000)
+    };
+  }
+  
+  if (option === 'this_month') {
+    const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    return {
+      date_from: Math.floor(start.getTime() / 1000),
+      date_to: Math.floor(now.getTime() / 1000)
+    };
+  }
+  
+  if (option === 'last_month') {
+    const start = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0);
+    const end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+    return {
+      date_from: Math.floor(start.getTime() / 1000),
+      date_to: Math.floor(end.getTime() / 1000)
+    };
+  }
+  
+  if (option === 'custom' && customFrom && customTo) {
+    const start = new Date(customFrom);
+    const end = new Date(customTo);
+    return {
+      date_from: Math.floor(start.getTime() / 1000),
+      date_to: Math.floor(end.getTime() / 1000)
+    };
+  }
+  
+  return {};
 };
 
 export default function App() {
@@ -127,6 +195,15 @@ export default function App() {
   });
   const [candleLimit, setCandleLimit] = useState<number>(() => {
     return parseInt(localStorage.getItem('wyckoff_candle_limit') || '5000');
+  });
+  const [dateRangeOption, setDateRangeOption] = useState<string>(() => {
+    return localStorage.getItem('wyckoff_date_range_option') || 'last_candles';
+  });
+  const [customFrom, setCustomFrom] = useState<string>(() => {
+    return localStorage.getItem('wyckoff_custom_from') || '';
+  });
+  const [customTo, setCustomTo] = useState<string>(() => {
+    return localStorage.getItem('wyckoff_custom_to') || '';
   });
   const [tradeType, setTradeType] = useState<'buy' | 'sell'>('buy');
   const [orderType, setOrderType] = useState<'market' | 'limit'>('market');
@@ -432,6 +509,18 @@ export default function App() {
     localStorage.setItem('wyckoff_candle_limit', candleLimit.toString());
   }, [candleLimit]);
 
+  useEffect(() => {
+    localStorage.setItem('wyckoff_date_range_option', dateRangeOption);
+  }, [dateRangeOption]);
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_custom_from', customFrom);
+  }, [customFrom]);
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_custom_to', customTo);
+  }, [customTo]);
+
   // Fetch symbols and timeframes metadata on mount
   useEffect(() => {
     const loadMetadata = async () => {
@@ -482,6 +571,7 @@ export default function App() {
     try {
       let rawCandles: Candle[] = [];
       try {
+        const bounds = calculateDateBounds(dateRangeOption, customFrom, customTo);
         const response = await fetch(`${API_BASE_URL}/api/metatrader/candles`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -489,6 +579,7 @@ export default function App() {
             symbol: symbol,
             interval: timeframe,
             limit: candleLimit,
+            ...bounds
           }),
         });
         const result = await response.json();
@@ -593,7 +684,7 @@ export default function App() {
       fetchPositionData();
     }, 5000);
     return () => clearInterval(interval);
-  }, [symbol, timeframe, lookbackWindow, candleLimit]);
+  }, [symbol, timeframe, lookbackWindow, candleLimit, dateRangeOption, customFrom, customTo]);
 
   const currentConnected = true;
 
@@ -1074,25 +1165,84 @@ export default function App() {
               </select>
             </div>
 
+            {dateRangeOption === 'last_candles' && (
+              <div style={{
+                ...styles.pairGroup,
+                ...(isMobile ? { flex: 1 } : {})
+              }}>
+                <span style={{ color: '#9ca3af', fontSize: '11px' }}>Candle Limit</span>
+                <select 
+                  value={candleLimit} 
+                  onChange={(e) => setCandleLimit(parseInt(e.target.value))}
+                  style={{
+                    ...styles.pairSelect,
+                    ...(isMobile ? { width: '100%' } : {})
+                  }}
+                >
+                  <option value="1000">1000</option>
+                  <option value="2000">2000</option>
+                  <option value="5000">5000</option>
+                  <option value="10000">10000</option>
+                </select>
+              </div>
+            )}
+
             <div style={{
               ...styles.pairGroup,
               ...(isMobile ? { flex: 1 } : {})
             }}>
-              <span style={{ color: '#9ca3af', fontSize: '11px' }}>Candle Limit</span>
+              <span style={{ color: '#9ca3af', fontSize: '11px' }}>Date Range</span>
               <select 
-                value={candleLimit} 
-                onChange={(e) => setCandleLimit(parseInt(e.target.value))}
+                value={dateRangeOption} 
+                onChange={(e) => setDateRangeOption(e.target.value)}
                 style={{
                   ...styles.pairSelect,
                   ...(isMobile ? { width: '100%' } : {})
                 }}
               >
-                <option value="1000">1000</option>
-                <option value="2000">2000</option>
-                <option value="5000">5000</option>
-                <option value="10000">10000</option>
+                <option value="last_candles">Last Candles (Limit)</option>
+                <option value="this_week">This Week (Sun 20:00)</option>
+                <option value="last_week">Last Week</option>
+                <option value="this_month">This Month</option>
+                <option value="last_month">Last Month</option>
+                <option value="custom">Custom Range</option>
               </select>
             </div>
+
+            {dateRangeOption === 'custom' && (
+              <>
+                <div style={{
+                  ...styles.pairGroup,
+                  ...(isMobile ? { flex: 1 } : {})
+                }}>
+                  <span style={{ color: '#9ca3af', fontSize: '11px' }}>From Date</span>
+                  <input 
+                    type="datetime-local" 
+                    value={customFrom}
+                    onChange={(e) => setCustomFrom(e.target.value)}
+                    style={{
+                      ...styles.pairSelect,
+                      ...(isMobile ? { width: '100%' } : {})
+                    }}
+                  />
+                </div>
+                <div style={{
+                  ...styles.pairGroup,
+                  ...(isMobile ? { flex: 1 } : {})
+                }}>
+                  <span style={{ color: '#9ca3af', fontSize: '11px' }}>To Date</span>
+                  <input 
+                    type="datetime-local" 
+                    value={customTo}
+                    onChange={(e) => setCustomTo(e.target.value)}
+                    style={{
+                      ...styles.pairSelect,
+                      ...(isMobile ? { width: '100%' } : {})
+                    }}
+                  />
+                </div>
+              </>
+            )}
           </div>
         </div>
       </header>

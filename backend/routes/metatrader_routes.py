@@ -13,6 +13,8 @@ def get_metatrader_candles():
     symbol = payload.get('symbol', 'EURUSD')
     timeframe = payload.get('timeframe') or payload.get('interval', '15m')
     limit = int(payload.get('limit', 1000))
+    date_from = payload.get('date_from')
+    date_to = payload.get('date_to')
     login = payload.get('login', metavar_login)
     password = payload.get('password', metavar_pass)
     server = payload.get('server', metavar_server)
@@ -21,6 +23,8 @@ def get_metatrader_candles():
         symbol=symbol,
         timeframe=timeframe,
         limit=limit,
+        date_from=date_from,
+        date_to=date_to,
         login=login,
         password=password,
         server=server
