@@ -67,7 +67,7 @@ def webhook():
     # Process signal via handler
     result = TradingHandler.process_webhook_signal(payload)
     
-    # 4. Live execution on cTrader if strategy is active
+    # 4. Live execution on MetaTrader 5 if strategy is active
     try:
         import os
         import json
@@ -78,17 +78,17 @@ def webhook():
             
             # If strategy is active and matches symbol
             if strategy.get('status') == 'active' and payload.get('symbol') == strategy.get('symbol'):
-                from ctrader_handler import CTraderHandler
-                # Route to cTrader execution
-                ct_res = CTraderHandler.create_order(
+                from metatrader_handler import MetaTraderHandler
+                # Route to MT5 execution
+                mt_res = MetaTraderHandler.create_order(
                     symbol=payload.get('symbol'),
                     side=payload.get('action', 'buy').lower(),
                     volume=float(strategy.get('size', 0.1)),
                     price=payload.get('price')
                 )
-                result['ctrader_execution'] = ct_res
+                result['metatrader_execution'] = mt_res
     except Exception as e:
-        result['ctrader_error'] = str(e)
+        result['metatrader_error'] = str(e)
     
     if result.get('status') == 'REJECTED':
         return jsonify(result), 400

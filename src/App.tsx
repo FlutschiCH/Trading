@@ -482,12 +482,11 @@ export default function App() {
     try {
       let rawCandles: Candle[] = [];
       try {
-        const endpoint = dataSource === 'metatrader' ? 'metatrader/candles' : 'candles/historical';
-        const response = await fetch(`${API_BASE_URL}/api/${endpoint}`, {
+        const response = await fetch(`${API_BASE_URL}/api/metatrader/candles`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            symbol: symbol.replace('BINANCE:', ''),
+            symbol: symbol,
             interval: timeframe,
             limit: 1000,
           }),
@@ -527,13 +526,10 @@ export default function App() {
     }
   };
 
-  // cTrader API endpoints
+  // MetaTrader 5 API endpoints
   const fetchAccountData = async () => {
-    const isConnected = connectionMode === 'openapi' ? isConnectedOpenAPI : isConnectedFIX;
-    if (!isConnected) return;
     try {
-      const endpoint = connectionMode === 'openapi' ? 'ctrader/account' : 'localctrader/account';
-      const response = await fetch(`${API_BASE_URL}/api/${endpoint}`, {
+      const response = await fetch(`${API_BASE_URL}/api/metatrader/account`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -547,11 +543,8 @@ export default function App() {
   };
 
   const fetchPositionData = async () => {
-    const isConnected = connectionMode === 'openapi' ? isConnectedOpenAPI : isConnectedFIX;
-    if (!isConnected) return;
     try {
-      const endpoint = connectionMode === 'openapi' ? 'ctrader/positions' : 'localctrader/positions';
-      const response = await fetch(`${API_BASE_URL}/api/${endpoint}`, {
+      const response = await fetch(`${API_BASE_URL}/api/metatrader/positions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -567,8 +560,7 @@ export default function App() {
   const handleExecuteTrade = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const endpoint = connectionMode === 'openapi' ? 'ctrader/order' : 'localctrader/order';
-      const response = await fetch(`${API_BASE_URL}/api/${endpoint}`, {
+      const response = await fetch(`${API_BASE_URL}/api/metatrader/order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -592,16 +584,18 @@ export default function App() {
 
   useEffect(() => {
     fetchCandles();
-  }, [symbol, timeframe, lookbackWindow, dataSource]);
-
-  useEffect(() => {
-    const isConnected = connectionMode === 'openapi' ? isConnectedOpenAPI : isConnectedFIX;
-    if (!isConnected) return;
     fetchAccountData();
     fetchPositionData();
-  }, [connectionMode]);
 
-  const currentConnected = connectionMode === 'openapi' ? isConnectedOpenAPI : isConnectedFIX;
+    // Poll account and positions every 5s
+    const interval = setInterval(() => {
+      fetchAccountData();
+      fetchPositionData();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [symbol, timeframe, lookbackWindow]);
+
+  const currentConnected = true;
 
   // Shared Inline Styles
   const styles = {
@@ -1024,30 +1018,17 @@ export default function App() {
           } : {})
         }}>
           <div style={{
-            ...styles.modeTabs,
-            ...(isMobile ? {
-              width: '100%',
-              display: 'flex',
-            } : {})
+            color: '#3b82f6',
+            fontWeight: 'bold',
+            fontSize: '12px',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            border: '1px solid rgba(59, 130, 246, 0.2)',
+            padding: '6px 12px',
+            borderRadius: '6px',
+            textAlign: 'center',
+            ...(isMobile ? { width: '100%' } : {})
           }}>
-            <button 
-              style={{
-                ...styles.modeBtn(connectionMode === 'fix'),
-                ...(isMobile ? { flex: 1, textAlign: 'center' } : {})
-              }}
-              onClick={() => setConnectionMode('fix')}
-            >
-              FIX API
-            </button>
-            <button 
-              style={{
-                ...styles.modeBtn(connectionMode === 'openapi'),
-                ...(isMobile ? { flex: 1, textAlign: 'center' } : {})
-              }}
-              onClick={() => setConnectionMode('openapi')}
-            >
-              OpenAPI
-            </button>
+            MetaTrader 5 Connected
           </div>
 
           <div style={{
@@ -1055,24 +1036,6 @@ export default function App() {
             gap: '12px',
             width: isMobile ? '100%' : 'auto',
           }}>
-            <div style={{
-              ...styles.pairGroup,
-              ...(isMobile ? { flex: 1 } : {})
-            }}>
-              <span style={{ color: '#9ca3af', fontSize: '11px' }}>Data Source</span>
-              <select 
-                value={dataSource} 
-                onChange={(e) => setDataSource(e.target.value as 'binance' | 'metatrader')}
-                style={{
-                  ...styles.pairSelect,
-                  ...(isMobile ? { width: '100%' } : {})
-                }}
-              >
-                <option value="binance">Binance</option>
-                <option value="metatrader">MetaTrader 5</option>
-              </select>
-            </div>
-
             <div style={{
               ...styles.pairGroup,
               ...(isMobile ? { flex: 1 } : {})
