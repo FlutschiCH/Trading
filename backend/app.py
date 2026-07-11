@@ -17,7 +17,7 @@ app.register_blueprint(api_blueprint, url_prefix='/api')
 
 if __name__ == '__main__':
     # Initialize high-performance WSGI Server
-    port = int(os.environ.get("PORT", 8080))
+    port = int(os.environ.get("PORT", 8751))
     print(f"Starting gevent WSGI Server on port {port}...", flush=True)
     http_server = WSGIServer(('0.0.0.0', port), app)
     http_server.serve_forever()

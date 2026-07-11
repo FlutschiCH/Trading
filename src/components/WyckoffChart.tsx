@@ -239,14 +239,14 @@ export default function WyckoffChart({
     // Reference channels for Wyckoff TR high and TR low
     const trHighSeries = mainChart.addSeries(LineSeries, {
       color: '#f59e0b',
-      lineWidth: 1.5,
+      lineWidth: 2,
       lineStyle: 1, // Dashed
       title: 'TR High',
     });
 
     const trLowSeries = mainChart.addSeries(LineSeries, {
       color: '#f59e0b',
-      lineWidth: 1.5,
+      lineWidth: 2,
       lineStyle: 1, // Dashed
       title: 'TR Low',
     });
