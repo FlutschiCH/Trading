@@ -2,6 +2,21 @@ import React from 'react';
 import { BookOpen, Layers, ShieldAlert, Award } from 'lucide-react';
 
 export default function HowToPage() {
+  // Helper to parse simple markdown bold syntax (**text**) into styled span elements
+  const renderTextWithMarkdown = (text: string) => {
+    const parts = text.split(/(\*\*[^*]+\*\*)/g);
+    return parts.map((part, index) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return (
+          <strong key={index} style={{ color: '#ffffff', fontWeight: 'bold', textShadow: '0 0 8px rgba(255, 255, 255, 0.1)' }}>
+            {part.slice(2, -2)}
+          </strong>
+        );
+      }
+      return part;
+    });
+  };
+
   const styles = {
     container: {
       minHeight: '100vh',
@@ -146,10 +161,10 @@ export default function HowToPage() {
           <div style={styles.rowLayout}>
             <div style={styles.textContent}>
               <p style={{ margin: 0 }}>
-                This strategy is a fully codified quantitative implementation of the classic **Richard Wyckoff Method**, specifically leveraging **Volume Spread Analysis (VSA)** and **Weis Wave Volume**. It aims to detect structural accumulation and distribution cycles by monitoring the actions of large professional operators ("Smart Money").
+                {renderTextWithMarkdown("This strategy is a fully codified quantitative implementation of the classic **Richard Wyckoff Method**, specifically leveraging **Volume Spread Analysis (VSA)** and **Weis Wave Volume**. It aims to detect structural accumulation and distribution cycles by monitoring the actions of large professional operators (\"Smart Money\").")}
               </p>
               <p style={{ margin: 0 }}>
-                The core mechanics focus on identifying **liquidity sweeps** (Springs and Upthrusts) below support or above resistance. Once a sweep occurs, the strategy verifies institutional backing through volume characteristics, executing trades with dynamic mathematical risk constraints.
+                {renderTextWithMarkdown("The core mechanics focus on identifying **liquidity sweeps** (Springs and Upthrusts) below support or above resistance. Once a sweep occurs, the strategy verifies institutional backing through volume characteristics, executing trades with dynamic mathematical risk constraints.")}
               </p>
             </div>
             <div style={styles.visualContent}>
@@ -185,7 +200,7 @@ export default function HowToPage() {
           <div style={styles.rowLayout}>
             <div style={styles.textContent}>
               <p style={{ margin: 0 }}>
-                To determine who is winning a specific candlestick (buyers or sellers), we calculate the standardized **Closing Location Ratio (CLR)**. This formula measures where the price closed relative to its extreme high and low, outputting a value from **-1.0** (extreme bottom) to **1.0** (extreme top).
+                {renderTextWithMarkdown("To determine who is winning a specific candlestick (buyers or sellers), we calculate the standardized **Closing Location Ratio (CLR)**. This formula measures where the price closed relative to its extreme high and low, outputting a value from **-1.0** (extreme bottom) to **1.0** (extreme top).")}
               </p>
               <div style={styles.formula}>
                 CLR = [ (Close - Low) - (High - Close) ] / (High - Low)
@@ -243,7 +258,7 @@ export default function HowToPage() {
                 1. No Supply (NS)
               </h3>
               <p style={{ fontSize: '13px', margin: 0 }}>
-                Downbar, narrow spread (Spread Decile ≤ 4) and below-average volume (Volume Decile ≤ 4). Confirms absence of sellers.
+                {renderTextWithMarkdown("Downbar, narrow spread (**Spread Decile ≤ 4**) and below-average volume (**Volume Decile ≤ 4**). Confirms absence of sellers.")}
               </p>
             </div>
             <div style={styles.card}>
@@ -255,7 +270,7 @@ export default function HowToPage() {
                 2. No Demand (ND)
               </h3>
               <p style={{ fontSize: '13px', margin: 0 }}>
-                Upbar, narrow spread (Spread Decile ≤ 4) and below-average volume (Volume Decile ≤ 4). Confirms absence of buyers.
+                {renderTextWithMarkdown("Upbar, narrow spread (**Spread Decile ≤ 4**) and below-average volume (**Volume Decile ≤ 4**). Confirms absence of buyers.")}
               </p>
             </div>
             <div style={styles.card}>
@@ -267,7 +282,7 @@ export default function HowToPage() {
                 3. Upthrust (UT)
               </h3>
               <p style={{ fontSize: '13px', margin: 0 }}>
-                Wide spread (Decile ≥ 7), high volume (Decile ≥ 7), close in lower third (CLR ≤ -0.33). Traps late long positions.
+                {renderTextWithMarkdown("Wide spread (**Decile ≥ 7**), high volume (**Decile ≥ 7**), close in lower third (**CLR ≤ -0.33**). Traps late long positions.")}
               </p>
             </div>
             <div style={styles.card}>
@@ -279,7 +294,7 @@ export default function HowToPage() {
                 4. Shakeout / Spring (SO)
               </h3>
               <p style={{ fontSize: '13px', margin: 0 }}>
-                Low sweeps previous support, but prices close in the upper third (CLR ≥ 0.33) on high volume (Decile ≥ 7). Clears stops.
+                {renderTextWithMarkdown("Low sweeps previous support, but prices close in the upper third (**CLR ≥ 0.33**) on high volume (**Decile ≥ 7**). Clears stops.")}
               </p>
             </div>
           </div>
@@ -293,13 +308,13 @@ export default function HowToPage() {
           <div style={styles.rowLayout}>
             <div style={styles.textContent}>
               <p style={{ margin: 0 }}>
-                Weis Wave Volume groups volume into price swings based on a volatility-adjusted ZigZag trend. The reversal parameter adapts dynamically using a multiplier on the asset's Average True Range (ATR):
+                {renderTextWithMarkdown("Weis Wave Volume groups volume into price swings based on a volatility-adjusted ZigZag trend. The reversal parameter adapts dynamically using a multiplier on the asset's **Average True Range (ATR)**:")}
               </p>
               <div style={styles.formula}>
                 Reversal Threshold = 2.5 * ATR(20)
               </div>
               <p style={{ margin: 0 }}>
-                Unlike raw bar-by-bar volume, Weis Wave shows the **cumulative force** backing an entire swing. A trend reversal only triggers when price moves opposite to the current wave direction by more than the threshold, resetting wave volume accumulation.
+                {renderTextWithMarkdown("Unlike raw bar-by-bar volume, Weis Wave shows the **cumulative force** backing an entire swing. A trend reversal only triggers when price moves opposite to the current wave direction by more than the threshold, resetting wave volume accumulation.")}
               </p>
             </div>
             <div style={styles.visualContent}>
@@ -338,17 +353,16 @@ export default function HowToPage() {
           <div style={styles.rowLayout}>
             <div style={styles.textContent}>
               <p style={{ margin: 0 }}>
-                Strict preservation of capital is achieved through dynamic lot sizing and protective stop execution:
+                {renderTextWithMarkdown("Strict preservation of capital is achieved through dynamic lot sizing and protective stop execution:")}
               </p>
               <p style={{ margin: 0 }}>
-                **Risk Sizing Formula:**
+                {renderTextWithMarkdown("**Risk Sizing Formula:**")}
               </p>
               <div style={styles.formula}>
                 Position Size = (Account Balance * Risk %) / Stop Loss Distance (in price)
               </div>
               <p style={{ margin: 0 }}>
-                **1:1 Break Even (BE) Rule:**
-                <br />Once the trade's unrealized profit reaches an amount equal to the initial Stop Loss (1:1 Risk-to-Reward ratio), the Stop Loss triggers a trailing modification to the exact Entry Price, eliminating risk.
+                {renderTextWithMarkdown("**1:1 Break Even (BE) Rule:**\nOnce the trade's unrealized profit reaches an amount equal to the initial Stop Loss (1:1 Risk-to-Reward ratio), the Stop Loss triggers a trailing modification to the exact Entry Price, eliminating risk.")}
               </p>
             </div>
             <div style={styles.visualContent}>
