@@ -2,8 +2,6 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Activity, X, TrendingUp, TrendingDown, Clock, HelpCircle, RefreshCw } from 'lucide-react';
 import TVChart from './components/tv_chart.tsx';
 import WyckoffBacktester from './components/wyckoff_backtester.tsx';
-import ManualOrder from './components/manual_order.tsx';
-import Dashboard from './components/Dashboard.tsx';
 import HowToPage from './components/how_to_page.tsx';
 import { API_BASE_URL } from './api';
 import './App.css';
@@ -142,14 +140,7 @@ export default function App() {
   const [showModal, setShowModal] = useState<boolean>(false);
   const [backtestTab, setBacktestTab] = useState<'trades' | 'weekly' | 'monthly'>('trades');
 
-  const [panelOrder, setPanelOrder] = useState<string[]>(() => {
-    const saved = localStorage.getItem('wyckoff_desk_panel_order');
-    let order = saved ? JSON.parse(saved) : ['backtester', 'chart', 'order', 'dashboard', 'deployment'];
-    if (!order.includes('deployment')) {
-      order.push('deployment');
-    }
-    return order;
-  });
+  const [panelOrder, setPanelOrder] = useState<string[]>(['backtester', 'chart']);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   // Live strategy states
@@ -1003,70 +994,6 @@ export default function App() {
               );
             }
 
-            if (panelId === 'order') {
-              return (
-                <div
-                  key="order"
-                  onDragOver={(e) => handleDragOver(e, 'order')}
-                  onDrop={(e) => handleDrop(e, 'order')}
-                  style={dragStyles}
-                >
-                  <div 
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, 'order')}
-                    style={headerStyle}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                      <span>💼 Manual Order Execution Panel</span>
-                      <div className="no-drag" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <button 
-                          onClick={() => {
-                            fetchAccountData();
-                            fetchPositionData();
-                          }}
-                          style={{
-                            backgroundColor: '#2563eb',
-                            color: '#ffffff',
-                            border: 'none',
-                            borderRadius: '4px',
-                            padding: '4px 10px',
-                            fontSize: '11px',
-                            fontWeight: 'bold',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px'
-                          }}
-                        >
-                          <RefreshCw size={11} />
-                          Refresh
-                        </button>
-                        <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="no-drag" style={contentStyle}>
-                    <ManualOrder
-                      tradeType={tradeType}
-                      setTradeType={setTradeType}
-                      orderType={orderType}
-                      setOrderType={setOrderType}
-                      price={price}
-                      setPrice={setPrice}
-                      amount={amount}
-                      setAmount={setAmount}
-                      handleExecuteTrade={handleExecuteTrade}
-                      accountInfo={accountInfo}
-                      openPositions={openPositions}
-                      symbol={symbol}
-                      styles={styles}
-                    />
-                  </div>
-                  {renderResizeHandle('order')}
-                </div>
-              );
-            }
-
             if (panelId === 'backtester') {
               return (
                 <div
@@ -1151,141 +1078,6 @@ export default function App() {
                     />
                   </div>
                   {renderResizeHandle('backtester')}
-                </div>
-              );
-            }
-
-            if (panelId === 'dashboard') {
-              return (
-                <div
-                  key="dashboard"
-                  onDragOver={(e) => handleDragOver(e, 'dashboard')}
-                  onDrop={(e) => handleDrop(e, 'dashboard')}
-                  style={dragStyles}
-                >
-                  <div 
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, 'dashboard')}
-                    style={headerStyle}
-                  >
-                    <span>📡 cTrader Security Webhook Simulator & Realtime Log Stream</span>
-                    <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header to Move</span>
-                  </div>
-                  <div className="no-drag" style={{ padding: '0px' }}>
-                    <Dashboard />
-                  </div>
-                  {renderResizeHandle('dashboard')}
-                </div>
-              );
-            }
-
-            if (panelId === 'deployment') {
-              return (
-                <div
-                  key="deployment"
-                  onDragOver={(e) => handleDragOver(e, 'deployment')}
-                  onDrop={(e) => handleDrop(e, 'deployment')}
-                  style={dragStyles}
-                >
-                  <div 
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, 'deployment')}
-                    style={headerStyle}
-                  >
-                    <span>🚀 Live Strategy Deployment Control</span>
-                    <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header to Move</span>
-                  </div>
-                  <div className="no-drag" style={contentStyle}>
-                    {!isAuthenticated && isProdHost ? (
-                      <form onSubmit={handleLogin} style={styles.tradeForm}>
-                        <div style={{ marginBottom: '12px', fontSize: '12px', color: '#ef4444', fontWeight: 'bold' }}>
-                          🔒 Authentication Required
-                        </div>
-                        <div style={styles.formGroup}>
-                          <label style={{ color: '#9ca3af', fontSize: '12px' }}>Username</label>
-                          <input 
-                            type="text" 
-                            value={authUsername} 
-                            onChange={(e) => setAuthUsername(e.target.value)} 
-                            style={styles.input} 
-                            required
-                          />
-                        </div>
-                        <div style={styles.formGroup}>
-                          <label style={{ color: '#9ca3af', fontSize: '12px' }}>Password</label>
-                          <input 
-                            type="password" 
-                            value={authPassword} 
-                            onChange={(e) => setAuthPassword(e.target.value)} 
-                            style={styles.input} 
-                            required
-                          />
-                        </div>
-                        {authError && (
-                          <div style={{ color: '#ef4444', fontSize: '11px', marginTop: '4px' }}>
-                            {authError}
-                          </div>
-                        )}
-                        <button 
-                          type="submit" 
-                          style={{
-                            width: '100%',
-                            padding: '8px',
-                            backgroundColor: '#2563eb',
-                            color: '#ffffff',
-                            border: 'none',
-                            borderRadius: '6px',
-                            fontWeight: 'bold',
-                            marginTop: '12px',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          Login
-                        </button>
-                      </form>
-                    ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        <div style={styles.walletContainer}>
-                          <div style={styles.walletRow}>
-                            <span style={{ color: '#9ca3af' }}>Deployed Symbol:</span>
-                            <span style={{ color: '#ffffff', fontWeight: 'bold' }}>{liveStrategy?.symbol || 'None'}</span>
-                          </div>
-                          <div style={styles.walletRow}>
-                            <span style={{ color: '#9ca3af' }}>Deployed Timeframe:</span>
-                            <span style={{ color: '#ffffff', fontWeight: 'bold' }}>{liveStrategy?.timeframe || 'None'}</span>
-                          </div>
-                          <div style={styles.walletRow}>
-                            <span style={{ color: '#9ca3af' }}>Live Status:</span>
-                            <span style={{ 
-                              color: liveStrategy?.status === 'active' ? '#10b981' : '#9ca3af', 
-                              fontWeight: 'bold',
-                              textTransform: 'uppercase'
-                            }}>{liveStrategy?.status || 'Inactive'}</span>
-                          </div>
-                        </div>
-
-                        <button
-                          onClick={deployLiveStrategy}
-                          disabled={isDeploying}
-                          style={{
-                            width: '100%',
-                            padding: '10px',
-                            borderRadius: '8px',
-                            fontWeight: 'bold',
-                            border: 'none',
-                            cursor: isDeploying ? 'not-allowed' : 'pointer',
-                            backgroundColor: liveStrategy && liveStrategy.symbol === symbol && liveStrategy.timeframe === timeframe ? '#059669' : '#2563eb',
-                            color: '#ffffff',
-                            boxShadow: `0 4px 14px ${liveStrategy && liveStrategy.symbol === symbol && liveStrategy.timeframe === timeframe ? 'rgba(16, 185, 129, 0.2)' : 'rgba(37, 99, 235, 0.2)'}`,
-                            transition: 'all 0.2s',
-                          }}
-                        >
-                          {isDeploying ? 'Deploying...' : liveStrategy && liveStrategy.symbol === symbol && liveStrategy.timeframe === timeframe ? '✓ Strategy Deployed on cTrader Live' : '🚀 Deploy Strategy to Live (cTrader)'}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                  {renderResizeHandle('deployment')}
                 </div>
               );
             }
