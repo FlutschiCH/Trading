@@ -6,3 +6,4 @@ pandas
 sympy
 mysql-connector-python
 python-dotenv
+MetaTrader5

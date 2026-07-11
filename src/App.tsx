@@ -125,6 +125,9 @@ export default function App() {
   const [timeframe, setTimeframe] = useState(() => {
     return localStorage.getItem('wyckoff_timeframe') || '15m';
   });
+  const [dataSource, setDataSource] = useState<'binance' | 'metatrader'>(() => {
+    return (localStorage.getItem('wyckoff_data_source') as 'binance' | 'metatrader') || 'binance';
+  });
   const [tradeType, setTradeType] = useState<'buy' | 'sell'>('buy');
   const [orderType, setOrderType] = useState<'market' | 'limit'>('market');
   const [price, setPrice] = useState('57450.00');
@@ -425,6 +428,10 @@ export default function App() {
     localStorage.setItem('wyckoff_timeframe', timeframe);
   }, [timeframe]);
 
+  useEffect(() => {
+    localStorage.setItem('wyckoff_data_source', dataSource);
+  }, [dataSource]);
+
   // Fetch symbols and timeframes metadata on mount
   useEffect(() => {
     const loadMetadata = async () => {
@@ -475,7 +482,8 @@ export default function App() {
     try {
       let rawCandles: Candle[] = [];
       try {
-        const response = await fetch(`${API_BASE_URL}/api/candles/historical`, {
+        const endpoint = dataSource === 'metatrader' ? 'metatrader/candles' : 'candles/historical';
+        const response = await fetch(`${API_BASE_URL}/api/${endpoint}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -584,7 +592,7 @@ export default function App() {
 
   useEffect(() => {
     fetchCandles();
-  }, [symbol, timeframe, lookbackWindow]);
+  }, [symbol, timeframe, lookbackWindow, dataSource]);
 
   useEffect(() => {
     const isConnected = connectionMode === 'openapi' ? isConnectedOpenAPI : isConnectedFIX;
@@ -1047,6 +1055,24 @@ export default function App() {
             gap: '12px',
             width: isMobile ? '100%' : 'auto',
           }}>
+            <div style={{
+              ...styles.pairGroup,
+              ...(isMobile ? { flex: 1 } : {})
+            }}>
+              <span style={{ color: '#9ca3af', fontSize: '11px' }}>Data Source</span>
+              <select 
+                value={dataSource} 
+                onChange={(e) => setDataSource(e.target.value as 'binance' | 'metatrader')}
+                style={{
+                  ...styles.pairSelect,
+                  ...(isMobile ? { width: '100%' } : {})
+                }}
+              >
+                <option value="binance">Binance</option>
+                <option value="metatrader">MetaTrader 5</option>
+              </select>
+            </div>
+
             <div style={{
               ...styles.pairGroup,
               ...(isMobile ? { flex: 1 } : {})
