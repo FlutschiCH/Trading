@@ -111,6 +111,8 @@ class SQLHandler:
             conflict_target = "symbol"
             if "trades" in table_name.lower():
                 conflict_target = "signal_id"
+            elif "favourite_candles" in table_name.lower():
+                conflict_target = "symbol, timeframe, candle_time"
             
             parts = query.split("ON DUPLICATE KEY UPDATE")
             if len(parts) == 2:

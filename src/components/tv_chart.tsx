@@ -31,6 +31,7 @@ interface TVChartProps {
   dateRangeOption?: string;
   customFrom?: string;
   customTo?: string;
+  onSelectCandle?: (candle: any) => void;
 }
 
 export default function TVChart({ 
@@ -46,7 +47,8 @@ export default function TVChart({
   onSelectTrade,
   dateRangeOption = 'last_candles',
   customFrom = '',
-  customTo = ''
+  customTo = '',
+  onSelectCandle
 }: TVChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const weisContainerRef = useRef<HTMLDivElement>(null);
@@ -78,6 +80,7 @@ export default function TVChart({
   const tradesRef = useRef(trades);
   const candlesRef = useRef(candles);
   const onSelectTradeRef = useRef(onSelectTrade);
+  const onSelectCandleRef = useRef(onSelectCandle);
 
   // References to dynamically generated trade level LineSeries
   const dynamicLineSeriesRef = useRef<any[]>([]);
@@ -91,6 +94,10 @@ export default function TVChart({
   useEffect(() => {
     candlesRef.current = candles;
   }, [candles]);
+
+  useEffect(() => {
+    onSelectCandleRef.current = onSelectCandle;
+  }, [onSelectCandle]);
 
   useEffect(() => {
     onSelectTradeRef.current = onSelectTrade;
@@ -342,15 +349,25 @@ export default function TVChart({
     selectedTradePathSeriesRef.current = selectedTradePathSeries;
 
     mainChart.subscribeClick((param) => {
-      if (!param.time || !onSelectTradeRef.current || !tradesRef.current || tradesRef.current.length === 0) return;
+      if (!param.time) return;
       const clickTime = param.time as number;
-      const foundTrade = tradesRef.current.find(t => 
-        t.entryTimestamp === clickTime || 
-        t.exitTimestamp === clickTime || 
-        t.timestamp === clickTime
-      );
-      if (foundTrade) {
-        onSelectTradeRef.current(foundTrade);
+      
+      if (onSelectTradeRef.current && tradesRef.current && tradesRef.current.length > 0) {
+        const foundTrade = tradesRef.current.find(t => 
+          t.entryTimestamp === clickTime || 
+          t.exitTimestamp === clickTime || 
+          t.timestamp === clickTime
+        );
+        if (foundTrade) {
+          onSelectTradeRef.current(foundTrade);
+        }
+      }
+
+      if (onSelectCandleRef.current && candlesRef.current) {
+        const foundCandle = candlesRef.current.find(c => Number(c.time) === clickTime);
+        if (foundCandle) {
+          onSelectCandleRef.current(foundCandle);
+        }
       }
     });
 

@@ -252,7 +252,11 @@ export default function Dashboard() {
   } | null>(null);
   const [selectedTrade, setSelectedTrade] = useState<any>(null);
   const [showModal, setShowModal] = useState<boolean>(false);
-  const [backtestTab, setBacktestTab] = useState<'trades' | 'weekly' | 'monthly'>('trades');
+  const [backtestTab, setBacktestTab] = useState<'trades' | 'weekly' | 'monthly' | 'favourites'>('trades');
+  const [selectedCandle, setSelectedCandle] = useState<Candle | null>(null);
+  const [favouriteCandles, setFavouriteCandles] = useState<any[]>([]);
+  const [favNotesInput, setFavNotesInput] = useState<string>('');
+  const [locateTimestamp, setLocateTimestamp] = useState<number | null>(null);
 
   const [panelOrder, setPanelOrder] = useState<string[]>(['chart', 'backtester']);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
@@ -576,6 +580,7 @@ export default function Dashboard() {
       if ('Notification' in window && Notification.permission === 'default') {
         Notification.requestPermission();
       }
+      fetchFavourites();
     };
     loadLiveStrategyAndPerms();
   }, []);
@@ -660,6 +665,98 @@ export default function Dashboard() {
     } catch (error) {
       console.error('Positions data error:', error);
     }
+  };
+
+  const fetchFavourites = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/favourites/list`);
+      const result = await response.json();
+      if (result.status === 'success' && result.data) {
+        setFavouriteCandles(result.data);
+      }
+    } catch (e) {
+      console.error('Failed to fetch favourite candles:', e);
+    }
+  };
+
+  const handleSaveFavourite = async (candle: Candle, notes: string = '') => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/favourites/save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          symbol: symbol,
+          timeframe: timeframe,
+          time: candle.time,
+          open: candle.open,
+          high: candle.high,
+          low: candle.low,
+          close: candle.close,
+          volume: candle.volume,
+          vsa_patterns: candle.vsa_patterns,
+          weis_wave_volume: candle.weis_wave_volume,
+          notes: notes
+        }),
+      });
+      const result = await response.json();
+      if (result.status === 'success') {
+        alert('Candle successfully added to favourites!');
+        setSelectedCandle(null);
+        setFavNotesInput('');
+        fetchFavourites();
+      } else {
+        alert('Failed to save favourite: ' + result.message);
+      }
+    } catch (e) {
+      console.error('Failed to save favourite candle:', e);
+    }
+  };
+
+  const handleDeleteFavourite = async (favId: number) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/favourites/delete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: favId }),
+      });
+      const result = await response.json();
+      if (result.status === 'success') {
+        fetchFavourites();
+      } else {
+        alert('Failed to delete: ' + result.message);
+      }
+    } catch (e) {
+      console.error('Failed to delete favourite candle:', e);
+    }
+  };
+
+  const handleUpdateFavouriteNotes = async (favId: number, notes: string) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/favourites/update-notes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: favId, notes }),
+      });
+      const result = await response.json();
+      if (result.status === 'success') {
+        alert('Notes updated!');
+        fetchFavourites();
+      } else {
+        alert('Failed to update notes: ' + result.message);
+      }
+    } catch (e) {
+      console.error('Failed to update notes:', e);
+    }
+  };
+
+  const handleLocateCandle = (fav: any) => {
+    setSymbol(fav.symbol);
+    setTimeframe(fav.timeframe);
+    setLocateTimestamp(fav.candle_time);
+    // Clear after a brief period so it can be re-triggered
+    setTimeout(() => {
+      setLocateTimestamp(null);
+    }, 1000);
   };
 
   const handleExecuteTrade = async (e: React.FormEvent) => {
@@ -1358,6 +1455,107 @@ export default function Dashboard() {
 
       {/* Main Grid View */}
       <main style={styles.mainLayout}>
+        {selectedCandle && (
+          <div style={{
+            backgroundColor: '#0f172a',
+            border: '1.5px solid #eab308',
+            boxShadow: '0 0 15px rgba(234, 179, 8, 0.15)',
+            borderRadius: '12px',
+            padding: '16px',
+            display: 'flex',
+            flexDirection: isMobile ? 'column' : 'row',
+            justifyContent: 'space-between',
+            alignItems: isMobile ? 'stretch' : 'center',
+            gap: '16px',
+            position: 'relative'
+          }}>
+            <button 
+              onClick={() => setSelectedCandle(null)}
+              style={{
+                position: 'absolute',
+                top: '12px',
+                right: '12px',
+                background: 'none',
+                border: 'none',
+                color: '#94a3b8',
+                cursor: 'pointer'
+              }}
+            >
+              <X size={16} />
+            </button>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#f1f5f9' }}>
+                  🔍 Selected Candle Details
+                </span>
+                <span style={{
+                  fontSize: '9px',
+                  fontWeight: 'bold',
+                  backgroundColor: timeframe === '1m' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                  color: timeframe === '1m' ? '#10b981' : '#ef4444',
+                  padding: '2px 6px',
+                  borderRadius: '4px'
+                }}>
+                  {timeframe === '1m' ? '1m Candle Supported' : '1m Only (Read Only)'}
+                </span>
+              </div>
+              <span style={{ fontSize: '11px', color: '#94a3b8' }}>
+                Time: {formatDateTime(selectedCandle.time)} | Open: {formatPrice(selectedCandle.open, symbol)} | High: {formatPrice(selectedCandle.high, symbol)} | Low: {formatPrice(selectedCandle.low, symbol)} | Close: {formatPrice(selectedCandle.close, symbol)} | Vol: {selectedCandle.volume.toFixed(1)}
+              </span>
+              {selectedCandle.vsa_patterns && selectedCandle.vsa_patterns.length > 0 && (
+                <span style={{ fontSize: '11px', color: '#f59e0b', fontWeight: '500' }}>
+                  VSA Patterns: {selectedCandle.vsa_patterns.join(', ')}
+                </span>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+              {timeframe === '1m' ? (
+                <>
+                  <input 
+                    type="text"
+                    placeholder="Add custom notes..."
+                    value={favNotesInput}
+                    onChange={(e) => setFavNotesInput(e.target.value)}
+                    style={{
+                      backgroundColor: '#1e293b',
+                      border: '1px solid #334155',
+                      borderRadius: '6px',
+                      padding: '6px 12px',
+                      color: '#f8fafc',
+                      fontSize: '12px',
+                      minWidth: '220px',
+                      outline: 'none'
+                    }}
+                  />
+                  <button
+                    onClick={() => handleSaveFavourite(selectedCandle, favNotesInput)}
+                    style={{
+                      backgroundColor: '#eab308',
+                      color: '#0b0f19',
+                      border: 'none',
+                      borderRadius: '6px',
+                      padding: '6px 16px',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 10px rgba(234, 179, 8, 0.2)',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    ⭐ Favourite Candle
+                  </button>
+                </>
+              ) : (
+                <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: 'bold' }}>
+                  ⚠️ Save to Favourites is only available for 1m timeframe candles
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
         {isMobile && (
           <div style={{
             display: 'flex',
@@ -1432,6 +1630,8 @@ export default function Dashboard() {
                 dateRangeOption={dateRangeOption}
                 customFrom={customFrom}
                 customTo={customTo}
+                onSelectCandle={setSelectedCandle}
+                locateTimestamp={locateTimestamp}
               />
             ) : (
               <WyckoffBacktester
@@ -1476,6 +1676,10 @@ export default function Dashboard() {
                 setCustomTo={setCustomTo}
                 candleLimit={candleLimit}
                 setCandleLimit={setCandleLimit}
+                favouriteCandles={favouriteCandles}
+                onDeleteFavourite={handleDeleteFavourite}
+                onUpdateNotes={handleUpdateFavouriteNotes}
+                onLocateCandle={handleLocateCandle}
                 styles={styles}
               />
             )}
@@ -1556,6 +1760,8 @@ export default function Dashboard() {
                       dateRangeOption={dateRangeOption}
                       customFrom={customFrom}
                       customTo={customTo}
+                      onSelectCandle={setSelectedCandle}
+                      locateTimestamp={locateTimestamp}
                     />
                   </div>
                   {renderResizeHandle('chart')}
@@ -1653,6 +1859,10 @@ export default function Dashboard() {
                       setCustomTo={setCustomTo}
                       candleLimit={candleLimit}
                       setCandleLimit={setCandleLimit}
+                      favouriteCandles={favouriteCandles}
+                      onDeleteFavourite={handleDeleteFavourite}
+                      onUpdateNotes={handleUpdateFavouriteNotes}
+                      onLocateCandle={handleLocateCandle}
                       styles={styles}
                     />
                   </div>

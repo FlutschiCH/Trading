@@ -30,8 +30,8 @@ interface WyckoffBacktesterProps {
   backtestFees: string;
   setBacktestFees: (val: string) => void;
   backtestResults: any;
-  backtestTab: 'trades' | 'weekly' | 'monthly';
-  setBacktestTab: (val: 'trades' | 'weekly' | 'monthly') => void;
+  backtestTab: 'trades' | 'weekly' | 'monthly' | 'favourites';
+  setBacktestTab: (val: 'trades' | 'weekly' | 'monthly' | 'favourites') => void;
   selectedTrade: any;
   setSelectedTrade: (trade: any) => void;
   setShowModal: (show: boolean) => void;
@@ -43,6 +43,10 @@ interface WyckoffBacktesterProps {
   setCustomTo: (val: string) => void;
   candleLimit: number;
   setCandleLimit: (val: number) => void;
+  favouriteCandles?: any[];
+  onDeleteFavourite?: (id: number) => void;
+  onUpdateNotes?: (id: number, notes: string) => void;
+  onLocateCandle?: (fav: any) => void;
   styles: any;
 }
 
@@ -88,6 +92,10 @@ export default function WyckoffBacktester({
   setCustomTo,
   candleLimit,
   setCandleLimit,
+  favouriteCandles = [],
+  onDeleteFavourite,
+  onUpdateNotes,
+  onLocateCandle,
   styles
 }: WyckoffBacktesterProps) {
   return (
@@ -365,107 +373,130 @@ export default function WyckoffBacktester({
 
 
 
-      {backtestResults && (
+      {(backtestResults || favouriteCandles.length > 0) && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px', flex: 1, overflowY: 'auto' }}>
-          <div style={styles.walletContainer}>
-            <div style={styles.walletRow}>
-              <span style={{ color: '#9ca3af' }}>Total Trades:</span>
-              <span style={{ color: '#ffffff', fontWeight: 'bold' }}>{backtestResults.totalTrades}</span>
-            </div>
-            <div style={styles.walletRow}>
-              <span style={{ color: '#9ca3af' }}>Win Rate:</span>
-              <span style={{ color: backtestResults.winRate >= 50 ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>
-                {backtestResults.winRate.toFixed(1)}%
-              </span>
-            </div>
-            <div style={styles.walletRow}>
-              <span style={{ color: '#9ca3af' }}>Net Profit:</span>
-              <span style={{ color: backtestResults.netPnl >= 0 ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>
-                ${backtestResults.netPnl.toFixed(2)}
-              </span>
-            </div>
-            <div style={styles.walletRow}>
-              <span style={{ color: '#9ca3af' }}>Profit Factor:</span>
-              <span style={{ color: '#ffffff', fontWeight: 'bold' }}>{backtestResults.profitFactor.toFixed(2)}</span>
-            </div>
-            <div style={styles.walletRow}>
-              <span style={{ color: '#9ca3af' }}>Max Drawdown:</span>
-              <span style={{ color: '#ffffff', fontWeight: 'bold' }}>{(backtestResults.maxDrawdown ?? 0).toFixed(2)}%</span>
-            </div>
-            <div style={styles.walletRow}>
-              <span style={{ color: '#9ca3af' }}>Max Daily Loss:</span>
-              <span style={{ color: (backtestResults.maxDailyLoss ?? 0) >= 5.0 ? '#ef4444' : '#ffffff', fontWeight: 'bold' }}>
-                {(backtestResults.maxDailyLoss ?? 0).toFixed(2)}%
-              </span>
-            </div>
-          </div>
+          {backtestResults && (
+            <>
+              <div style={styles.walletContainer}>
+                <div style={styles.walletRow}>
+                  <span style={{ color: '#9ca3af' }}>Total Trades:</span>
+                  <span style={{ color: '#ffffff', fontWeight: 'bold' }}>{backtestResults.totalTrades}</span>
+                </div>
+                <div style={styles.walletRow}>
+                  <span style={{ color: '#9ca3af' }}>Win Rate:</span>
+                  <span style={{ color: backtestResults.winRate >= 50 ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>
+                    {backtestResults.winRate.toFixed(1)}%
+                  </span>
+                </div>
+                <div style={styles.walletRow}>
+                  <span style={{ color: '#9ca3af' }}>Net Profit:</span>
+                  <span style={{ color: backtestResults.netPnl >= 0 ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>
+                    ${backtestResults.netPnl.toFixed(2)}
+                  </span>
+                </div>
+                <div style={styles.walletRow}>
+                  <span style={{ color: '#9ca3af' }}>Profit Factor:</span>
+                  <span style={{ color: '#ffffff', fontWeight: 'bold' }}>{backtestResults.profitFactor.toFixed(2)}</span>
+                </div>
+                <div style={styles.walletRow}>
+                  <span style={{ color: '#9ca3af' }}>Max Drawdown:</span>
+                  <span style={{ color: '#ffffff', fontWeight: 'bold' }}>{(backtestResults.maxDrawdown ?? 0).toFixed(2)}%</span>
+                </div>
+                <div style={styles.walletRow}>
+                  <span style={{ color: '#9ca3af' }}>Max Daily Loss:</span>
+                  <span style={{ color: (backtestResults.maxDailyLoss ?? 0) >= 5.0 ? '#ef4444' : '#ffffff', fontWeight: 'bold' }}>
+                    {(backtestResults.maxDailyLoss ?? 0).toFixed(2)}%
+                  </span>
+                </div>
+              </div>
 
-          {backtestResults.dailyLossBreached && (
-            <div style={{
-              backgroundColor: 'rgba(239, 68, 68, 0.15)',
-              border: '1px solid #ef4444',
-              borderRadius: '8px',
-              padding: '8px',
-              color: '#ef4444',
-              fontSize: '11px',
-              fontWeight: 'bold',
-              textAlign: 'center',
-              marginTop: '4px'
-            }}>
-              ⚠️ FTMO 5% Daily Loss Rule Breached!
-            </div>
+              {backtestResults.dailyLossBreached && (
+                <div style={{
+                  backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                  border: '1px solid #ef4444',
+                  borderRadius: '8px',
+                  padding: '8px',
+                  color: '#ef4444',
+                  fontSize: '11px',
+                  fontWeight: 'bold',
+                  textAlign: 'center',
+                  marginTop: '4px'
+                }}>
+                  ⚠️ FTMO 5% Daily Loss Rule Breached!
+                </div>
+              )}
+            </>
           )}
 
           <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid #1f2937', paddingBottom: '4px', marginTop: '8px' }}>
+            {backtestResults && (
+              <>
+                <button 
+                  onClick={() => setBacktestTab('trades')}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: backtestTab === 'trades' ? '#3b82f6' : '#9ca3af',
+                    fontWeight: 'bold',
+                    fontSize: '11px',
+                    cursor: 'pointer',
+                    borderBottom: backtestTab === 'trades' ? '2px solid #3b82f6' : 'none',
+                    paddingBottom: '2px'
+                  }}
+                >
+                  Trades ({backtestResults.trades.length})
+                </button>
+                <button 
+                  onClick={() => setBacktestTab('weekly')}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: backtestTab === 'weekly' ? '#3b82f6' : '#9ca3af',
+                    fontWeight: 'bold',
+                    fontSize: '11px',
+                    cursor: 'pointer',
+                    borderBottom: backtestTab === 'weekly' ? '2px solid #3b82f6' : 'none',
+                    paddingBottom: '2px'
+                  }}
+                >
+                  Weekly
+                </button>
+                <button 
+                  onClick={() => setBacktestTab('monthly')}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: backtestTab === 'monthly' ? '#3b82f6' : '#9ca3af',
+                    fontWeight: 'bold',
+                    fontSize: '11px',
+                    cursor: 'pointer',
+                    borderBottom: backtestTab === 'monthly' ? '2px solid #3b82f6' : 'none',
+                    paddingBottom: '2px'
+                  }}
+                >
+                  Monthly
+                </button>
+              </>
+            )}
             <button 
-              onClick={() => setBacktestTab('trades')}
+              onClick={() => setBacktestTab('favourites')}
               style={{
                 background: 'none',
                 border: 'none',
-                color: backtestTab === 'trades' ? '#3b82f6' : '#9ca3af',
+                color: backtestTab === 'favourites' ? '#eab308' : '#9ca3af',
                 fontWeight: 'bold',
                 fontSize: '11px',
                 cursor: 'pointer',
-                borderBottom: backtestTab === 'trades' ? '2px solid #3b82f6' : 'none',
+                borderBottom: backtestTab === 'favourites' ? '2px solid #eab308' : 'none',
                 paddingBottom: '2px'
               }}
             >
-              Trades ({backtestResults.trades.length})
-            </button>
-            <button 
-              onClick={() => setBacktestTab('weekly')}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: backtestTab === 'weekly' ? '#3b82f6' : '#9ca3af',
-                fontWeight: 'bold',
-                fontSize: '11px',
-                cursor: 'pointer',
-                borderBottom: backtestTab === 'weekly' ? '2px solid #3b82f6' : 'none',
-                paddingBottom: '2px'
-              }}
-            >
-              Weekly
-            </button>
-            <button 
-              onClick={() => setBacktestTab('monthly')}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: backtestTab === 'monthly' ? '#3b82f6' : '#9ca3af',
-                fontWeight: 'bold',
-                fontSize: '11px',
-                cursor: 'pointer',
-                borderBottom: backtestTab === 'monthly' ? '2px solid #3b82f6' : 'none',
-                paddingBottom: '2px'
-              }}
-            >
-              Monthly
+              ⭐ Favourites ({favouriteCandles.length})
             </button>
           </div>
 
-          <div style={styles.positionsList}>
-            {backtestTab === 'trades' && backtestResults.trades.map((trade: any) => (
+          <div style={{ ...styles.positionsList, maxHeight: '350px', overflowY: 'auto' }}>
+            {backtestTab === 'trades' && backtestResults && backtestResults.trades.map((trade: any) => (
               <div 
                 key={trade.id} 
                 onClick={() => {
@@ -510,7 +541,7 @@ export default function WyckoffBacktester({
               </div>
             ))}
 
-            {backtestTab === 'weekly' && backtestResults.weeklyBreakdown && Object.keys(backtestResults.weeklyBreakdown).sort().reverse().map((week) => {
+            {backtestTab === 'weekly' && backtestResults && backtestResults.weeklyBreakdown && Object.keys(backtestResults.weeklyBreakdown).sort().reverse().map((week) => {
               const pnl = backtestResults.weeklyBreakdown![week];
               return (
                 <div key={week} style={styles.positionRow}>
@@ -522,7 +553,7 @@ export default function WyckoffBacktester({
               );
             })}
 
-            {backtestTab === 'monthly' && backtestResults.monthlyBreakdown && Object.keys(backtestResults.monthlyBreakdown).sort().reverse().map((month) => {
+            {backtestTab === 'monthly' && backtestResults && backtestResults.monthlyBreakdown && Object.keys(backtestResults.monthlyBreakdown).sort().reverse().map((month) => {
               const pnl = backtestResults.monthlyBreakdown![month];
               return (
                 <div key={month} style={styles.positionRow}>
@@ -533,6 +564,115 @@ export default function WyckoffBacktester({
                 </div>
               );
             })}
+
+            {backtestTab === 'favourites' && favouriteCandles.map((fav: any) => {
+              const formattedTime = new Date(fav.candle_time * 1000).toLocaleString('de-CH', { timeZone: 'UTC' });
+              return (
+                <div 
+                  key={fav.id}
+                  style={{
+                    ...styles.positionRow,
+                    flexDirection: 'column',
+                    alignItems: 'stretch',
+                    gap: '10px',
+                    border: '1px solid #334155',
+                    padding: '12px',
+                    backgroundColor: '#0f172a'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{
+                        fontSize: '9px',
+                        fontWeight: 'bold',
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        backgroundColor: 'rgba(234, 179, 8, 0.12)',
+                        border: '1px solid #eab308',
+                        color: '#eab308'
+                      }}>
+                        {fav.symbol}
+                      </span>
+                      <span style={{ fontSize: '11px', color: '#ffffff', fontWeight: 'bold' }}>
+                        {formattedTime}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      {onLocateCandle && (
+                        <button
+                          onClick={() => onLocateCandle(fav)}
+                          style={{
+                            background: 'rgba(59, 130, 246, 0.15)',
+                            border: '1px solid rgba(59, 130, 246, 0.3)',
+                            color: '#3b82f6',
+                            borderRadius: '4px',
+                            padding: '3px 8px',
+                            fontSize: '10px',
+                            fontWeight: 'bold',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          📍 Chart
+                        </button>
+                      )}
+                      {onDeleteFavourite && (
+                        <button
+                          onClick={() => onDeleteFavourite(fav.id)}
+                          style={{
+                            background: 'rgba(239, 68, 68, 0.15)',
+                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                            color: '#ef4444',
+                            borderRadius: '4px',
+                            padding: '3px 8px',
+                            fontSize: '10px',
+                            fontWeight: 'bold',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          🗑️
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={{ fontSize: '10px', color: '#94a3b8', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <div>OHLC: <span style={{ color: '#f8fafc', fontFamily: 'monospace' }}>O:{fav.open_val.toFixed(2)} H:{fav.high_val.toFixed(2)} L:{fav.low_val.toFixed(2)} C:{fav.close_val.toFixed(2)}</span></div>
+                    {fav.vsa_patterns && <div>VSA: <span style={{ color: '#fbbf24' }}>{fav.vsa_patterns}</span></div>}
+                    {fav.weis_wave_volume !== null && fav.weis_wave_volume !== undefined && (
+                      <div>Weis Vol: <span style={{ color: '#10b981' }}>{fav.weis_wave_volume.toFixed(1)}</span></div>
+                    )}
+                  </div>
+
+                  <div style={{ borderTop: '1px solid #1e293b', paddingTop: '8px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <input 
+                      type="text"
+                      defaultValue={fav.notes || ''}
+                      placeholder="Add notes..."
+                      onBlur={(e) => {
+                        if (onUpdateNotes && e.target.value !== (fav.notes || '')) {
+                          onUpdateNotes(fav.id, e.target.value);
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && onUpdateNotes) {
+                          onUpdateNotes(fav.id, (e.target as HTMLInputElement).value);
+                          (e.target as HTMLInputElement).blur();
+                        }
+                      }}
+                      style={{
+                        flex: 1,
+                        backgroundColor: '#1e293b',
+                        border: '1px solid #334155',
+                        borderRadius: '4px',
+                        padding: '4px 8px',
+                        color: '#f8fafc',
+                        fontSize: '11px',
+                        outline: 'none'
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
           </div>
         </div>
       )}
