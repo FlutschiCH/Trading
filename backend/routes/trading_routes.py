@@ -209,41 +209,4 @@ def historical_candles():
         print(f"Failed to fetch {binance_symbol} from Binance API: {e}. Returning empty list.", flush=True)
         return jsonify({"status": "success", "data": []})
 
-@trading_routes.route('/live/strategy', methods=['GET', 'POST'])
-def live_strategy():
-    """
-    GET: Retrieve active live strategy parameters.
-    POST: Deploy/update the active live strategy parameters.
-    """
-    import os
-    import json
-    config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'active_strategy.json')
-
-    if request.method == 'POST':
-        payload = request.get_json(silent=True) or {}
-        # Save payload parameters
-        strategy_config = {
-            "status": payload.get("status", "active"), # 'active' or 'paused'
-            "symbol": payload.get("symbol", "BTCUSD"),
-            "timeframe": payload.get("timeframe", "15m"),
-            "slVal": float(payload.get("slVal", 1.0)),
-            "slType": payload.get("slType", "pct"),
-            "rr": float(payload.get("rr", 2.0)),
-            "size": float(payload.get("size", 1.0)),
-            "useRiskSizing": bool(payload.get("useRiskSizing", False)),
-            "riskPct": float(payload.get("riskPct", 1.0)),
-            "useBreakEven": bool(payload.get("useBreakEven", False)),
-            "beTriggerR": float(payload.get("beTriggerR", 1.0)),
-            "lookbackWindow": int(payload.get("lookbackWindow", 20)),
-            "deployedAt": time.strftime("%Y-%m-%d %H:%M:%S")
-        }
-        with open(config_path, 'w') as f:
-            json.dump(strategy_config, f, indent=4)
-        return jsonify({"status": "success", "message": "Strategy deployed to cTrader Live successfully", "strategy": strategy_config})
-    else:
-        if os.path.exists(config_path):
-            with open(config_path, 'r') as f:
-                strategy = json.load(f)
-            return jsonify({"status": "success", "strategy": strategy})
-        return jsonify({"status": "success", "strategy": None})
 

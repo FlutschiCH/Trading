@@ -4,3 +4,5 @@ gevent
 numpy
 pandas
 sympy
+mysql-connector-python
+python-dotenv
