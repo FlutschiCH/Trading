@@ -128,6 +128,7 @@ export default function App() {
   const [useRiskSizing, setUseRiskSizing] = useState(true);
   const [backtestBE, setBacktestBE] = useState('1.0');
   const [useBreakEven, setUseBreakEven] = useState(true);
+  const [backtestFees, setBacktestFees] = useState('0.03');
   const [backtestResults, setBacktestResults] = useState<{
     trades: any[];
     winRate: number;
@@ -322,6 +323,7 @@ export default function App() {
           useBreakEven,
           beTriggerR: parseFloat(backtestBE) || 1.0,
           lookbackWindow: parseInt(lookbackWindow) || 20,
+          feesPercent: parseFloat(backtestFees) || 0.0,
         }),
       });
       const res = await response.json();
@@ -389,7 +391,7 @@ export default function App() {
 
   useEffect(() => {
     runBacktest();
-  }, [candles, symbol, backtestSL, backtestSLType, backtestRR, backtestSize, lookbackWindow, backtestBalance, backtestRiskPct, useRiskSizing, backtestBE, useBreakEven]);
+  }, [candles, symbol, backtestSL, backtestSLType, backtestRR, backtestSize, lookbackWindow, backtestBalance, backtestRiskPct, useRiskSizing, backtestBE, useBreakEven, backtestFees]);
 
   // Fetch symbols and timeframes metadata on mount
   useEffect(() => {
@@ -1137,6 +1139,8 @@ export default function App() {
                 selectedTrade={selectedTrade}
                 setSelectedTrade={setSelectedTrade}
                 setShowModal={setShowModal}
+                backtestFees={backtestFees}
+                setBacktestFees={setBacktestFees}
                 styles={styles}
               />
             )}
@@ -1301,6 +1305,8 @@ export default function App() {
                       selectedTrade={selectedTrade}
                       setSelectedTrade={setSelectedTrade}
                       setShowModal={setShowModal}
+                      backtestFees={backtestFees}
+                      setBacktestFees={setBacktestFees}
                       styles={styles}
                     />
                   </div>

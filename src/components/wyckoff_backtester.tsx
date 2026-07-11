@@ -26,6 +26,8 @@ interface WyckoffBacktesterProps {
   setBacktestBE: (val: string) => void;
   lookbackWindow: string;
   setLookbackWindow: (val: string) => void;
+  backtestFees: string;
+  setBacktestFees: (val: string) => void;
   backtestResults: any;
   backtestTab: 'trades' | 'weekly' | 'monthly';
   setBacktestTab: (val: 'trades' | 'weekly' | 'monthly') => void;
@@ -61,6 +63,8 @@ export default function WyckoffBacktester({
   setBacktestBE,
   lookbackWindow,
   setLookbackWindow,
+  backtestFees,
+  setBacktestFees,
   backtestResults,
   backtestTab,
   setBacktestTab,
@@ -80,6 +84,18 @@ export default function WyckoffBacktester({
             onChange={(e) => setBacktestBalance(e.target.value)}
             style={styles.input}
             min="100"
+          />
+        </div>
+
+        <div style={styles.formGroup}>
+          <label style={{ color: '#9ca3af', fontSize: '12px' }}>Fees / Comm. per side (%)</label>
+          <input 
+            type="number" 
+            value={backtestFees} 
+            onChange={(e) => setBacktestFees(e.target.value)}
+            style={styles.input}
+            step="0.001"
+            min="0.0"
           />
         </div>
 
@@ -344,7 +360,7 @@ export default function WyckoffBacktester({
                     </span>
                   </div>
                   <span style={{ fontSize: '10px', color: '#6b7280' }}>
-                    Exit: {trade.exitPrice.toFixed(2)} | {trade.time}
+                    Exit: {trade.exitPrice.toFixed(2)} | Fees: ${trade.fees ? trade.fees.toFixed(2) : '0.00'} | {trade.time}
                   </span>
                 </div>
                 <span style={styles.posPnl(trade.pnl >= 0)}>

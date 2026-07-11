@@ -53,7 +53,8 @@ class TradingHandler:
         risk_pct: float,
         use_break_even: bool,
         be_trigger_r: float,
-        lookback_window: int
+        lookback_window: int,
+        fees_percent: float = 0.0
     ) -> dict:
         """
         Runs the full Wyckoff VSA & Weis Wave backtest simulation in Python.
@@ -138,34 +139,54 @@ class TradingHandler:
                 
                 if opposite_signal:
                     exit_price = close_val
-                    pnl = (exit_price - active_trade['entry_price']) * active_trade['qty'] if active_trade['type'] == 'BUY' else (active_trade['entry_price'] - exit_price) * active_trade['qty']
+                    gross_pnl = (exit_price - active_trade['entry_price']) * active_trade['qty'] if active_trade['type'] == 'BUY' else (active_trade['entry_price'] - exit_price) * active_trade['qty']
+                    entry_fee = active_trade['entry_price'] * active_trade['qty'] * (fees_percent / 100.0)
+                    exit_fee = exit_price * active_trade['qty'] * (fees_percent / 100.0)
+                    total_fees = entry_fee + exit_fee
+                    pnl = gross_pnl - total_fees
                     outcome = 'WIN' if pnl >= 0 else 'LOSS'
                     closed = True
                     exit_reason = 'Closed by opposite sweep signal'
                 elif active_trade['type'] == 'BUY':
                     if low_val <= active_trade['sl_price']:
                         exit_price = active_trade['sl_price']
-                        pnl = (exit_price - active_trade['entry_price']) * active_trade['qty']
-                        outcome = 'LOSS'
+                        gross_pnl = (exit_price - active_trade['entry_price']) * active_trade['qty']
+                        entry_fee = active_trade['entry_price'] * active_trade['qty'] * (fees_percent / 100.0)
+                        exit_fee = exit_price * active_trade['qty'] * (fees_percent / 100.0)
+                        total_fees = entry_fee + exit_fee
+                        pnl = gross_pnl - total_fees
+                        outcome = 'WIN' if pnl >= 0 else 'LOSS'
                         closed = True
                         exit_reason = 'Hit Break Even' if active_trade.get('is_break_even', False) else 'Hit Stop Loss'
                     elif high_val >= active_trade['tp_price']:
                         exit_price = active_trade['tp_price']
-                        pnl = (exit_price - active_trade['entry_price']) * active_trade['qty']
-                        outcome = 'WIN'
+                        gross_pnl = (exit_price - active_trade['entry_price']) * active_trade['qty']
+                        entry_fee = active_trade['entry_price'] * active_trade['qty'] * (fees_percent / 100.0)
+                        exit_fee = exit_price * active_trade['qty'] * (fees_percent / 100.0)
+                        total_fees = entry_fee + exit_fee
+                        pnl = gross_pnl - total_fees
+                        outcome = 'WIN' if pnl >= 0 else 'LOSS'
                         closed = True
                         exit_reason = 'Hit Take Profit'
                 else:
                     if high_val >= active_trade['sl_price']:
                         exit_price = active_trade['sl_price']
-                        pnl = (active_trade['entry_price'] - exit_price) * active_trade['qty']
-                        outcome = 'LOSS'
+                        gross_pnl = (active_trade['entry_price'] - exit_price) * active_trade['qty']
+                        entry_fee = active_trade['entry_price'] * active_trade['qty'] * (fees_percent / 100.0)
+                        exit_fee = exit_price * active_trade['qty'] * (fees_percent / 100.0)
+                        total_fees = entry_fee + exit_fee
+                        pnl = gross_pnl - total_fees
+                        outcome = 'WIN' if pnl >= 0 else 'LOSS'
                         closed = True
                         exit_reason = 'Hit Break Even' if active_trade.get('is_break_even', False) else 'Hit Stop Loss'
                     elif low_val <= active_trade['tp_price']:
                         exit_price = active_trade['tp_price']
-                        pnl = (active_trade['entry_price'] - exit_price) * active_trade['qty']
-                        outcome = 'WIN'
+                        gross_pnl = (active_trade['entry_price'] - exit_price) * active_trade['qty']
+                        entry_fee = active_trade['entry_price'] * active_trade['qty'] * (fees_percent / 100.0)
+                        exit_fee = exit_price * active_trade['qty'] * (fees_percent / 100.0)
+                        total_fees = entry_fee + exit_fee
+                        pnl = gross_pnl - total_fees
+                        outcome = 'WIN' if pnl >= 0 else 'LOSS'
                         closed = True
                         exit_reason = 'Hit Take Profit'
 
@@ -182,6 +203,7 @@ class TradingHandler:
                         'entryPrice': float(active_trade['entry_price']),
                         'exitPrice': float(exit_price),
                         'pnl': float(pnl),
+                        'fees': float(total_fees),
                         'outcome': outcome,
                         'time': time_str,
                         'timestamp': int(c.get('time', 0)),
@@ -230,13 +252,18 @@ class TradingHandler:
         if active_trade:
             final_candle = annotated_data[-1]
             close_val = float(final_candle.get('close', 0))
-            pnl = (close_val - active_trade['entry_price']) * active_trade['qty'] if active_trade['type'] == 'BUY' else (active_trade['entry_price'] - close_val) * active_trade['qty']
+            gross_pnl = (close_val - active_trade['entry_price']) * active_trade['qty'] if active_trade['type'] == 'BUY' else (active_trade['entry_price'] - close_val) * active_trade['qty']
+            entry_fee = active_trade['entry_price'] * active_trade['qty'] * (fees_percent / 100.0)
+            exit_fee = close_val * active_trade['qty'] * (fees_percent / 100.0)
+            total_fees = entry_fee + exit_fee
+            pnl = gross_pnl - total_fees
             completed_trades.append({
                 'id': len(completed_trades) + 1,
                 'type': active_trade['type'],
                 'entryPrice': float(active_trade['entry_price']),
                 'exitPrice': float(close_val),
                 'pnl': float(pnl),
+                'fees': float(total_fees),
                 'outcome': 'WIN' if pnl >= 0 else 'LOSS',
                 'time': 'Open',
                 'timestamp': int(final_candle.get('time', 0)),
