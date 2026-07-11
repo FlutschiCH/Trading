@@ -123,8 +123,6 @@ export default function TVChart({
       } else {
         selectedTradePathSeriesRef.current.setData([]);
       }
-    } else {
-      selectedTradePathSeriesRef.current.setData([]);
     }
   }, [selectedTrade]);
 
