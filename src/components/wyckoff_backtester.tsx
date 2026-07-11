@@ -35,6 +35,14 @@ interface WyckoffBacktesterProps {
   selectedTrade: any;
   setSelectedTrade: (trade: any) => void;
   setShowModal: (show: boolean) => void;
+  dateRangeOption: string;
+  setDateRangeOption: (val: string) => void;
+  customFrom: string;
+  setCustomFrom: (val: string) => void;
+  customTo: string;
+  setCustomTo: (val: string) => void;
+  candleLimit: number;
+  setCandleLimit: (val: number) => void;
   styles: any;
 }
 
@@ -72,6 +80,14 @@ export default function WyckoffBacktester({
   selectedTrade,
   setSelectedTrade,
   setShowModal,
+  dateRangeOption,
+  setDateRangeOption,
+  customFrom,
+  setCustomFrom,
+  customTo,
+  setCustomTo,
+  candleLimit,
+  setCandleLimit,
   styles
 }: WyckoffBacktesterProps) {
   return (
@@ -254,6 +270,97 @@ export default function WyckoffBacktester({
             />
           </div>
         )}
+
+        {/* Date Range Selection & Filtering */}
+        <div style={{
+          borderTop: '1px solid #1e293b',
+          paddingTop: '12px',
+          marginTop: '4px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '10px'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontWeight: 'bold', color: '#cbd5e1' }}>Date Range Settings</span>
+            {dateRangeOption !== 'last_candles' && (
+              <button 
+                onClick={() => {
+                  setDateRangeOption('last_candles');
+                  setCustomFrom('');
+                  setCustomTo('');
+                }}
+                style={{
+                  backgroundColor: 'transparent',
+                  border: 'none',
+                  color: '#ef4444',
+                  fontSize: '11px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  textDecoration: 'underline'
+                }}
+              >
+                Clear Range
+              </button>
+            )}
+          </div>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '12px', alignItems: 'end' }}>
+            <div style={styles.formGroup}>
+              <label style={{ color: '#9ca3af', fontSize: '11px' }}>Filter Option</label>
+              <select 
+                value={dateRangeOption}
+                onChange={(e) => setDateRangeOption(e.target.value)}
+                style={styles.input}
+              >
+                <option value="last_candles">Last Candles (Limit)</option>
+                <option value="this_week">This Week (Sun 20:00)</option>
+                <option value="last_week">Last Week</option>
+                <option value="this_month">This Month</option>
+                <option value="last_month">Last Month</option>
+                <option value="custom">Custom Range</option>
+              </select>
+            </div>
+            
+            {dateRangeOption === 'last_candles' && (
+              <div style={styles.formGroup}>
+                <label style={{ color: '#9ca3af', fontSize: '11px' }}>Candle Limit</label>
+                <select 
+                  value={candleLimit}
+                  onChange={(e) => setCandleLimit(parseInt(e.target.value))}
+                  style={styles.input}
+                >
+                  <option value="1000">1000</option>
+                  <option value="2000">2000</option>
+                  <option value="5000">5000</option>
+                  <option value="10000">10000</option>
+                </select>
+              </div>
+            )}
+          </div>
+
+          {dateRangeOption === 'custom' && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div style={styles.formGroup}>
+                <label style={{ color: '#9ca3af', fontSize: '11px' }}>From Date</label>
+                <input 
+                  type="datetime-local" 
+                  value={customFrom}
+                  onChange={(e) => setCustomFrom(e.target.value)}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.formGroup}>
+                <label style={{ color: '#9ca3af', fontSize: '11px' }}>To Date</label>
+                <input 
+                  type="datetime-local" 
+                  value={customTo}
+                  onChange={(e) => setCustomTo(e.target.value)}
+                  style={styles.input}
+                />
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
 

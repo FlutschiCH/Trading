@@ -1356,6 +1356,14 @@ export default function App() {
                 setShowModal={setShowModal}
                 backtestFees={backtestFees}
                 setBacktestFees={setBacktestFees}
+                dateRangeOption={dateRangeOption}
+                setDateRangeOption={setDateRangeOption}
+                customFrom={customFrom}
+                setCustomFrom={setCustomFrom}
+                customTo={customTo}
+                setCustomTo={setCustomTo}
+                candleLimit={candleLimit}
+                setCandleLimit={setCandleLimit}
                 styles={styles}
               />
             )}
@@ -1522,6 +1530,14 @@ export default function App() {
                       setShowModal={setShowModal}
                       backtestFees={backtestFees}
                       setBacktestFees={setBacktestFees}
+                      dateRangeOption={dateRangeOption}
+                      setDateRangeOption={setDateRangeOption}
+                      customFrom={customFrom}
+                      setCustomFrom={setCustomFrom}
+                      customTo={customTo}
+                      setCustomTo={setCustomTo}
+                      candleLimit={candleLimit}
+                      setCandleLimit={setCandleLimit}
                       styles={styles}
                     />
                   </div>
