@@ -190,6 +190,8 @@ export default function App() {
   const [symbol, setSymbol] = useState(() => {
     return localStorage.getItem('wyckoff_symbol') || 'BTCUSD';
   });
+  const [symbolSearch, setSymbolSearch] = useState('');
+  const [showSymbolDropdown, setShowSymbolDropdown] = useState(false);
   const [timeframe, setTimeframe] = useState(() => {
     return localStorage.getItem('wyckoff_timeframe') || '15m';
   });
@@ -1161,21 +1163,97 @@ export default function App() {
 
             <div style={{
               ...styles.pairGroup,
+              position: 'relative',
               ...(isMobile ? { flex: 1 } : {})
             }}>
               <span style={{ color: '#9ca3af', fontSize: '11px' }}>Symbol</span>
-              <select 
-                value={symbol} 
-                onChange={(e) => setSymbol(e.target.value)}
-                style={{
-                  ...styles.pairSelect,
-                  ...(isMobile ? { width: '100%' } : {})
-                }}
-              >
-                {availableSymbols.map(sym => (
-                  <option key={sym} value={sym}>{sym}</option>
-                ))}
-              </select>
+              <div style={{ position: 'relative' }}>
+                <input 
+                  type="text"
+                  placeholder="Search symbol..."
+                  value={showSymbolDropdown ? symbolSearch : symbol}
+                  onFocus={() => {
+                    setSymbolSearch('');
+                    setShowSymbolDropdown(true);
+                  }}
+                  onChange={(e) => setSymbolSearch(e.target.value)}
+                  style={{
+                    ...styles.pairSelect,
+                    width: '100%',
+                    backgroundColor: '#1e293b',
+                    color: '#ffffff',
+                    border: '1px solid #334155',
+                    borderRadius: '6px',
+                    padding: '6px 12px',
+                    fontSize: '12px',
+                    outline: 'none',
+                    minWidth: '120px'
+                  }}
+                />
+                {showSymbolDropdown && (
+                  <>
+                    <div 
+                      onClick={() => setShowSymbolDropdown(false)}
+                      style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        zIndex: 999
+                      }}
+                    />
+                    <div style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      right: 0,
+                      backgroundColor: '#0f172a',
+                      border: '1px solid #334155',
+                      borderRadius: '6px',
+                      maxHeight: '200px',
+                      overflowY: 'auto',
+                      zIndex: 1000,
+                      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)',
+                      minWidth: '150px'
+                    }}>
+                      {availableSymbols.filter(s => s.toLowerCase().includes(symbolSearch.toLowerCase())).length > 0 ? (
+                        availableSymbols
+                          .filter(s => s.toLowerCase().includes(symbolSearch.toLowerCase()))
+                          .map(sym => (
+                            <div 
+                              key={sym}
+                              onClick={() => {
+                                setSymbol(sym);
+                                setShowSymbolDropdown(false);
+                              }}
+                              style={{
+                                padding: '8px 12px',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                color: '#d1d5db',
+                                backgroundColor: symbol === sym ? '#2563eb' : 'transparent',
+                                transition: 'background-color 0.15s'
+                              }}
+                              onMouseEnter={(e) => {
+                                if (symbol !== sym) e.currentTarget.style.backgroundColor = '#1e293b';
+                              }}
+                              onMouseLeave={(e) => {
+                                if (symbol !== sym) e.currentTarget.style.backgroundColor = 'transparent';
+                              }}
+                            >
+                              {sym}
+                            </div>
+                          ))
+                      ) : (
+                        <div style={{ padding: '8px 12px', fontSize: '12px', color: '#6b7280' }}>
+                          No results found
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
 
             <div style={{
