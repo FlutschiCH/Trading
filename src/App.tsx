@@ -146,7 +146,7 @@ export default function App() {
   const [showModal, setShowModal] = useState<boolean>(false);
   const [backtestTab, setBacktestTab] = useState<'trades' | 'weekly' | 'monthly'>('trades');
 
-  const [panelOrder, setPanelOrder] = useState<string[]>(['backtester', 'chart']);
+  const [panelOrder, setPanelOrder] = useState<string[]>(['chart', 'backtester']);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   // Responsive mobile states
