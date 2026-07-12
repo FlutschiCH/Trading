@@ -37,8 +37,9 @@ class TradingHandler:
         # Calculate Weis Wave Volume
         df = compute_weis_wave(df)
         
-        # Compute FVGs
-        fvgs = IndicatorHandler.compute_fvgs(df)
+        # Compute FVGs (Temporarily disabled for speed testing)
+        # fvgs = IndicatorHandler.compute_fvgs(df)
+        fvgs = []
         
         # Convert df back to dict
         result_data = df.to_dict(orient='records')
