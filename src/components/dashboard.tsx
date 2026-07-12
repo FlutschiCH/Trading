@@ -216,6 +216,78 @@ export default function Dashboard() {
   const [candles, setCandles] = useState<Candle[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Symbol Mapping states
+  const [view, setView] = useState<'dashboard' | 'mappings'>('dashboard');
+  const [symbolMappings, setSymbolMappings] = useState<any[]>([]);
+  const [newMainSymbol, setNewMainSymbol] = useState('');
+  const [newBrokerKey, setNewBrokerKey] = useState('metatrader:JustMarkets-Demo');
+  const [customBrokerKey, setCustomBrokerKey] = useState('');
+  const [newBrokerSymbol, setNewBrokerSymbol] = useState('');
+  const [mappingMessage, setMappingMessage] = useState('');
+
+  const fetchSymbolMappings = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/symbol-mappings`);
+      const data = await res.json();
+      if (data.status === 'success') {
+        setSymbolMappings(data.data);
+      }
+    } catch (e) {
+      console.error("Failed to fetch symbol mappings:", e);
+    }
+  };
+
+  useEffect(() => {
+    fetchSymbolMappings();
+  }, []);
+
+  const handleAddMapping = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const finalBrokerKey = newBrokerKey === 'custom' ? customBrokerKey : newBrokerKey;
+    if (!newMainSymbol || !finalBrokerKey || !newBrokerSymbol) {
+      setMappingMessage('All fields are required');
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE_URL}/symbol-mappings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          main_symbol: newMainSymbol.toUpperCase().trim(),
+          broker_key: finalBrokerKey.trim(),
+          broker_symbol: newBrokerSymbol.trim()
+        })
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        setMappingMessage('Mapping saved successfully!');
+        setNewMainSymbol('');
+        setNewBrokerSymbol('');
+        fetchSymbolMappings();
+      } else {
+        setMappingMessage(data.message || 'Failed to save mapping');
+      }
+    } catch (err) {
+      setMappingMessage('Network error');
+    }
+  };
+
+  const handleDeleteMapping = async (id: number) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/symbol-mappings`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        fetchSymbolMappings();
+      }
+    } catch (err) {
+      console.error("Failed to delete mapping:", err);
+    }
+  };
+
   // Connection states
   const [connectionMode, setConnectionMode] = useState<'openapi' | 'fix'>('fix');
   const [isConnectedOpenAPI] = useState(true);
@@ -1199,6 +1271,17 @@ export default function Dashboard() {
                   <a href="https://railway.com/project/aa01f500-c3df-4d47-b60a-821237699d0d/service/05376c29-94f0-44f3-acc2-93d5d104019f/settings?environmentId=7a63d6ae-f3e6-452d-b527-6311f6f9b551" target="_blank" rel="noopener noreferrer" className="menu-item" onClick={() => setShowMenu(false)}>
                     Railway Settings
                   </a>
+                  <a 
+                    href="#symbol-mappings" 
+                    className="menu-item" 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setView('mappings');
+                      setShowMenu(false);
+                    }}
+                  >
+                    🔗 Symbol Mappings
+                  </a>
                   <a href="/how-to" className="menu-item" style={{ borderTop: '1px solid #1e293b', paddingTop: '8px', marginTop: '4px' }} onClick={() => setShowMenu(false)}>
                     📖 How It Works
                   </a>
@@ -1208,251 +1291,466 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Workspace controls */}
-        <div style={{
-          ...styles.controlsSection,
-          ...(isMobile ? {
-            flexDirection: 'column',
-            width: '100%',
-            gap: '12px',
-            marginTop: '12px',
-            alignItems: 'stretch',
-          } : {})
-        }}>
+        {view !== 'mappings' && (
           <div style={{
-            color: candleSource === 'metatrader' ? '#3b82f6' : (candleSource === 'yfinance' ? '#10b981' : '#f59e0b'),
-            fontWeight: 'bold',
-            fontSize: '12px',
-            backgroundColor: candleSource === 'metatrader' ? 'rgba(59, 130, 246, 0.1)' : (candleSource === 'yfinance' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)'),
-            border: `1px solid ${candleSource === 'metatrader' ? 'rgba(59, 130, 246, 0.2)' : (candleSource === 'yfinance' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)')}`,
-            padding: '6px 12px',
-            borderRadius: '6px',
-            textAlign: 'center',
-            ...(isMobile ? { width: '100%' } : {})
-          }}>
-            {candleSource === 'metatrader' ? 'MetaTrader 5 Connected' : (candleSource === 'yfinance' ? 'Yahoo Finance Active' : 'cTrader (Inactive)')}
-          </div>
-
-          <div style={{
-            display: 'flex',
-            gap: '12px',
-            width: isMobile ? '100%' : 'auto',
+            ...styles.controlsSection,
+            ...(isMobile ? {
+              flexDirection: 'column',
+              width: '100%',
+              gap: '12px',
+              marginTop: '12px',
+              alignItems: 'stretch',
+            } : {})
           }}>
             <div style={{
-              ...styles.pairGroup,
-              ...(isMobile ? { flex: 1 } : {})
+              color: candleSource === 'metatrader' ? '#3b82f6' : (candleSource === 'yfinance' ? '#10b981' : '#f59e0b'),
+              fontWeight: 'bold',
+              fontSize: '12px',
+              backgroundColor: candleSource === 'metatrader' ? 'rgba(59, 130, 246, 0.1)' : (candleSource === 'yfinance' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)'),
+              border: `1px solid ${candleSource === 'metatrader' ? 'rgba(59, 130, 246, 0.2)' : (candleSource === 'yfinance' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)')}`,
+              padding: '6px 12px',
+              borderRadius: '6px',
+              textAlign: 'center',
+              ...(isMobile ? { width: '100%' } : {})
             }}>
-              <span style={{ color: '#9ca3af', fontSize: '11px' }}>Data Source</span>
-              <select 
-                value={candleSource} 
-                onChange={(e) => setCandleSource(e.target.value as 'ctrader' | 'metatrader' | 'yfinance')}
-                style={{
-                  ...styles.pairSelect,
-                  ...(isMobile ? { width: '100%' } : {})
-                }}
-              >
-                <option value="ctrader">cTrader (Inactive)</option>
-                <option value="metatrader">MetaTrader 5</option>
-                <option value="yfinance">Yahoo Finance</option>
-              </select>
+              {candleSource === 'metatrader' ? 'MetaTrader 5 Connected' : (candleSource === 'yfinance' ? 'Yahoo Finance Active' : 'cTrader (Inactive)')}
             </div>
 
             <div style={{
-              ...styles.pairGroup,
-              position: 'relative',
-              ...(isMobile ? { flex: 1 } : {})
+              display: 'flex',
+              gap: '12px',
+              width: isMobile ? '100%' : 'auto',
             }}>
-              <span style={{ color: '#9ca3af', fontSize: '11px' }}>Symbol</span>
-              <div style={{ position: 'relative' }}>
-                <input 
-                  type="text"
-                  placeholder="Search symbol..."
-                  value={showSymbolDropdown ? symbolSearch : symbol}
-                  onFocus={() => {
-                    setSymbolSearch('');
-                    setShowSymbolDropdown(true);
-                  }}
-                  onChange={(e) => setSymbolSearch(e.target.value)}
-                  style={{
-                    ...styles.pairSelect,
-                    width: '100%',
-                    backgroundColor: '#1e293b',
-                    color: '#ffffff',
-                    border: '1px solid #334155',
-                    borderRadius: '6px',
-                    padding: '6px 12px',
-                    fontSize: '12px',
-                    outline: 'none',
-                    minWidth: '120px'
-                  }}
-                />
-                {showSymbolDropdown && (
-                  <>
-                    <div 
-                      onClick={() => setShowSymbolDropdown(false)}
-                      style={{
-                        position: 'fixed',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        zIndex: 999
-                      }}
-                    />
-                    <div style={{
-                      position: 'absolute',
-                      top: '100%',
-                      left: 0,
-                      right: 0,
-                      backgroundColor: '#0f172a',
-                      border: '1px solid #334155',
-                      borderRadius: '6px',
-                      maxHeight: '200px',
-                      overflowY: 'auto',
-                      zIndex: 1000,
-                      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)',
-                      minWidth: '150px'
-                    }}>
-                      {availableSymbols.filter(s => s.toLowerCase().includes(symbolSearch.toLowerCase())).length > 0 ? (
-                        availableSymbols
-                          .filter(s => s.toLowerCase().includes(symbolSearch.toLowerCase()))
-                          .map(sym => (
-                            <div 
-                              key={sym}
-                              onClick={() => {
-                                setSymbol(sym);
-                                setShowSymbolDropdown(false);
-                              }}
-                              style={{
-                                padding: '8px 12px',
-                                cursor: 'pointer',
-                                fontSize: '12px',
-                                color: '#d1d5db',
-                                backgroundColor: symbol === sym ? '#2563eb' : 'transparent',
-                                transition: 'background-color 0.15s'
-                              }}
-                              onMouseEnter={(e) => {
-                                if (symbol !== sym) e.currentTarget.style.backgroundColor = '#1e293b';
-                              }}
-                              onMouseLeave={(e) => {
-                                if (symbol !== sym) e.currentTarget.style.backgroundColor = 'transparent';
-                              }}
-                            >
-                              {sym}
-                            </div>
-                          ))
-                      ) : (
-                        <div style={{ padding: '8px 12px', fontSize: '12px', color: '#6b7280' }}>
-                          No results found
-                        </div>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-
-            <div style={{
-              ...styles.pairGroup,
-              ...(isMobile ? { flex: 1 } : {})
-            }}>
-              <span style={{ color: '#9ca3af', fontSize: '11px' }}>Timeframe</span>
-              <select 
-                value={timeframe} 
-                onChange={(e) => setTimeframe(e.target.value)}
-                style={{
-                  ...styles.pairSelect,
-                  ...(isMobile ? { width: '100%' } : {})
-                }}
-              >
-                {availableTimeframes.map(tf => (
-                  <option key={tf} value={tf}>{tf}</option>
-                ))}
-              </select>
-            </div>
-
-            {dateRangeOption === 'last_candles' && (
               <div style={{
                 ...styles.pairGroup,
                 ...(isMobile ? { flex: 1 } : {})
               }}>
-                <span style={{ color: '#9ca3af', fontSize: '11px' }}>Candle Limit</span>
+                <span style={{ color: '#9ca3af', fontSize: '11px' }}>Data Source</span>
                 <select 
-                  value={candleLimit} 
-                  onChange={(e) => setCandleLimit(parseInt(e.target.value))}
+                  value={candleSource} 
+                  onChange={(e) => setCandleSource(e.target.value as 'ctrader' | 'metatrader' | 'yfinance')}
                   style={{
                     ...styles.pairSelect,
                     ...(isMobile ? { width: '100%' } : {})
                   }}
                 >
-                  <option value="1000">1000</option>
-                  <option value="2000">2000</option>
-                  <option value="5000">5000</option>
-                  <option value="10000">10000</option>
+                  <option value="ctrader">cTrader (Inactive)</option>
+                  <option value="metatrader">MetaTrader 5</option>
+                  <option value="yfinance">Yahoo Finance</option>
                 </select>
               </div>
-            )}
 
-            <div style={{
-              ...styles.pairGroup,
-              ...(isMobile ? { flex: 1 } : {})
-            }}>
-              <span style={{ color: '#9ca3af', fontSize: '11px' }}>Date Range</span>
-              <select 
-                value={dateRangeOption} 
-                onChange={(e) => setDateRangeOption(e.target.value)}
-                style={{
-                  ...styles.pairSelect,
-                  ...(isMobile ? { width: '100%' } : {})
-                }}
-              >
-                <option value="last_candles">Last Candles (Limit)</option>
-                <option value="this_week">This Week (Sun 20:00)</option>
-                <option value="last_week">Last Week</option>
-                <option value="this_month">This Month</option>
-                <option value="last_month">Last Month</option>
-                <option value="custom">Custom Range</option>
-              </select>
+              <div style={{
+                ...styles.pairGroup,
+                position: 'relative',
+                ...(isMobile ? { flex: 1 } : {})
+              }}>
+                <span style={{ color: '#9ca3af', fontSize: '11px' }}>Symbol</span>
+                <div style={{ position: 'relative' }}>
+                  <input 
+                    type="text"
+                    placeholder="Search symbol..."
+                    value={showSymbolDropdown ? symbolSearch : symbol}
+                    onFocus={() => {
+                      setSymbolSearch('');
+                      setShowSymbolDropdown(true);
+                    }}
+                    onChange={(e) => setSymbolSearch(e.target.value)}
+                    style={{
+                      ...styles.pairSelect,
+                      width: '100%',
+                      backgroundColor: '#1e293b',
+                      color: '#ffffff',
+                      border: '1px solid #334155',
+                      borderRadius: '6px',
+                      padding: '6px 12px',
+                      fontSize: '12px',
+                      outline: 'none',
+                      minWidth: '120px'
+                    }}
+                  />
+                  {showSymbolDropdown && (
+                    <>
+                      <div 
+                        onClick={() => setShowSymbolDropdown(false)}
+                        style={{
+                          position: 'fixed',
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          zIndex: 999
+                        }}
+                      />
+                      <div style={{
+                        position: 'absolute',
+                        top: '100%',
+                        left: 0,
+                        right: 0,
+                        backgroundColor: '#0f172a',
+                        border: '1px solid #334155',
+                        borderRadius: '6px',
+                        maxHeight: '200px',
+                        overflowY: 'auto',
+                        zIndex: 1000,
+                        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)',
+                        minWidth: '150px'
+                      }}>
+                        {availableSymbols.filter(s => s.toLowerCase().includes(symbolSearch.toLowerCase())).length > 0 ? (
+                          availableSymbols
+                            .filter(s => s.toLowerCase().includes(symbolSearch.toLowerCase()))
+                            .map(sym => (
+                              <div 
+                                key={sym}
+                                onClick={() => {
+                                  setSymbol(sym);
+                                  setShowSymbolDropdown(false);
+                                }}
+                                style={{
+                                  padding: '8px 12px',
+                                  cursor: 'pointer',
+                                  fontSize: '12px',
+                                  color: '#d1d5db',
+                                  backgroundColor: symbol === sym ? '#2563eb' : 'transparent',
+                                  transition: 'background-color 0.15s'
+                                }}
+                                onMouseEnter={(e) => {
+                                  if (symbol !== sym) e.currentTarget.style.backgroundColor = '#1e293b';
+                                }}
+                                onMouseLeave={(e) => {
+                                  if (symbol !== sym) e.currentTarget.style.backgroundColor = 'transparent';
+                                }}
+                              >
+                                {sym}
+                              </div>
+                            ))
+                        ) : (
+                          <div style={{ padding: '8px 12px', fontSize: '12px', color: '#6b7280' }}>
+                            No results found
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <div style={{
+                ...styles.pairGroup,
+                ...(isMobile ? { flex: 1 } : {})
+              }}>
+                <span style={{ color: '#9ca3af', fontSize: '11px' }}>Timeframe</span>
+                <select 
+                  value={timeframe} 
+                  onChange={(e) => setTimeframe(e.target.value)}
+                  style={{
+                    ...styles.pairSelect,
+                    ...(isMobile ? { width: '100%' } : {})
+                  }}
+                >
+                  {availableTimeframes.map(tf => (
+                    <option key={tf} value={tf}>{tf}</option>
+                  ))}
+                </select>
+              </div>
+
+              {dateRangeOption === 'last_candles' && (
+                <div style={{
+                  ...styles.pairGroup,
+                  ...(isMobile ? { flex: 1 } : {})
+                }}>
+                  <span style={{ color: '#9ca3af', fontSize: '11px' }}>Candle Limit</span>
+                  <select 
+                    value={candleLimit} 
+                    onChange={(e) => setCandleLimit(parseInt(e.target.value))}
+                    style={{
+                      ...styles.pairSelect,
+                      ...(isMobile ? { width: '100%' } : {})
+                    }}
+                  >
+                    <option value="1000">1000</option>
+                    <option value="2000">2000</option>
+                    <option value="5000">5000</option>
+                    <option value="10000">10000</option>
+                  </select>
+                </div>
+              )}
+
+              <div style={{
+                ...styles.pairGroup,
+                ...(isMobile ? { flex: 1 } : {})
+              }}>
+                <span style={{ color: '#9ca3af', fontSize: '11px' }}>Date Range</span>
+                <select 
+                  value={dateRangeOption} 
+                  onChange={(e) => setDateRangeOption(e.target.value)}
+                  style={{
+                    ...styles.pairSelect,
+                    ...(isMobile ? { width: '100%' } : {})
+                  }}
+                >
+                  <option value="last_candles">Last Candles (Limit)</option>
+                  <option value="this_week">This Week (Sun 20:00)</option>
+                  <option value="last_week">Last Week</option>
+                  <option value="this_month">This Month</option>
+                  <option value="last_month">Last Month</option>
+                  <option value="custom">Custom Range</option>
+                </select>
+              </div>
+
+              {dateRangeOption === 'custom' && (
+                <>
+                  <div style={{
+                    ...styles.pairGroup,
+                    ...(isMobile ? { flex: 1 } : {})
+                  }}>
+                    <span style={{ color: '#9ca3af', fontSize: '11px' }}>From Date</span>
+                    <input 
+                      type="datetime-local" 
+                      value={customFrom}
+                      onChange={(e) => setCustomFrom(e.target.value)}
+                      style={{
+                        ...styles.pairSelect,
+                        ...(isMobile ? { width: '100%' } : {})
+                      }}
+                    />
+                  </div>
+                  <div style={{
+                    ...styles.pairGroup,
+                    ...(isMobile ? { flex: 1 } : {})
+                  }}>
+                    <span style={{ color: '#9ca3af', fontSize: '11px' }}>To Date</span>
+                    <input 
+                      type="datetime-local" 
+                      value={customTo}
+                      onChange={(e) => setCustomTo(e.target.value)}
+                      style={{
+                        ...styles.pairSelect,
+                        ...(isMobile ? { width: '100%' } : {})
+                      }}
+                    />
+                  </div>
+                </>
+              )}
             </div>
-
-            {dateRangeOption === 'custom' && (
-              <>
-                <div style={{
-                  ...styles.pairGroup,
-                  ...(isMobile ? { flex: 1 } : {})
-                }}>
-                  <span style={{ color: '#9ca3af', fontSize: '11px' }}>From Date</span>
-                  <input 
-                    type="datetime-local" 
-                    value={customFrom}
-                    onChange={(e) => setCustomFrom(e.target.value)}
-                    style={{
-                      ...styles.pairSelect,
-                      ...(isMobile ? { width: '100%' } : {})
-                    }}
-                  />
-                </div>
-                <div style={{
-                  ...styles.pairGroup,
-                  ...(isMobile ? { flex: 1 } : {})
-                }}>
-                  <span style={{ color: '#9ca3af', fontSize: '11px' }}>To Date</span>
-                  <input 
-                    type="datetime-local" 
-                    value={customTo}
-                    onChange={(e) => setCustomTo(e.target.value)}
-                    style={{
-                      ...styles.pairSelect,
-                      ...(isMobile ? { width: '100%' } : {})
-                    }}
-                  />
-                </div>
-              </>
-            )}
           </div>
-        </div>
+        )}
       </header>
 
+      {view === 'mappings' ? (
+        <div style={{
+          padding: '24px',
+          maxWidth: '1200px',
+          margin: '0 auto',
+          width: '100%',
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '24px'
+        }}>
+          {/* Back button & Title */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ color: '#3b82f6' }}>🔗</span> Symbol Mappings Configuration
+            </h2>
+            <button 
+              onClick={() => setView('dashboard')}
+              style={{
+                backgroundColor: '#1e293b',
+                color: '#cbd5e1',
+                border: '1px solid #334155',
+                padding: '8px 16px',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                fontSize: '12px',
+                transition: 'all 0.2s'
+              }}
+            >
+              ← Back to Dashboard
+            </button>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 2fr', gap: '24px', alignItems: 'start' }}>
+            {/* Left side: Add Mapping Form */}
+            <div style={{
+              backgroundColor: '#0f172a',
+              border: '1px solid #1e293b',
+              borderRadius: '12px',
+              padding: '20px',
+            }}>
+              <h3 style={{ margin: '0 0 16px 0', fontSize: '14px', color: '#f8fafc', fontWeight: 'bold' }}>Add / Update Mapping</h3>
+              <form onSubmit={handleAddMapping} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Main Symbol (Unified)</label>
+                  <input 
+                    type="text" 
+                    placeholder="e.g. EURUSD" 
+                    value={newMainSymbol} 
+                    onChange={e => setNewMainSymbol(e.target.value)}
+                    style={{
+                      width: '100%',
+                      backgroundColor: '#1e293b',
+                      border: '1px solid #334155',
+                      borderRadius: '6px',
+                      padding: '8px 12px',
+                      color: '#f8fafc',
+                      fontSize: '12px',
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Broker Config Key</label>
+                  <select 
+                    value={newBrokerKey} 
+                    onChange={e => setNewBrokerKey(e.target.value)}
+                    style={{
+                      width: '100%',
+                      backgroundColor: '#1e293b',
+                      border: '1px solid #334155',
+                      borderRadius: '6px',
+                      padding: '8px 12px',
+                      color: '#f8fafc',
+                      fontSize: '12px',
+                      outline: 'none'
+                    }}
+                  >
+                    <option value="metatrader:JustMarkets-Demo">MetaTrader (JustMarkets-Demo)</option>
+                    <option value="metatrader:FTMO-Demo">MetaTrader (FTMO-Demo)</option>
+                    <option value="ctrader:live.ftmo.17151091">cTrader (live.ftmo.17151091)</option>
+                    <option value="yfinance">Yahoo Finance</option>
+                    <option value="custom">Custom/Other Server Key</option>
+                  </select>
+                </div>
+                {newBrokerKey === 'custom' && (
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Custom Key</label>
+                    <input 
+                      type="text" 
+                      placeholder="metatrader:Server-Name or ctrader:SenderCompID" 
+                      value={customBrokerKey} 
+                      onChange={e => setCustomBrokerKey(e.target.value)}
+                      style={{
+                        width: '100%',
+                        backgroundColor: '#1e293b',
+                        border: '1px solid #334155',
+                        borderRadius: '6px',
+                        padding: '8px 12px',
+                        color: '#f8fafc',
+                        fontSize: '12px',
+                        outline: 'none'
+                      }}
+                    />
+                  </div>
+                )}
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Broker Symbol</label>
+                  <input 
+                    type="text" 
+                    placeholder="e.g. EURUSD.ecn" 
+                    value={newBrokerSymbol} 
+                    onChange={e => setNewBrokerSymbol(e.target.value)}
+                    style={{
+                      width: '100%',
+                      backgroundColor: '#1e293b',
+                      border: '1px solid #334155',
+                      borderRadius: '6px',
+                      padding: '8px 12px',
+                      color: '#f8fafc',
+                      fontSize: '12px',
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+                {mappingMessage && (
+                  <div style={{
+                    fontSize: '11px',
+                    color: mappingMessage.includes('successfully') ? '#10b981' : '#ef4444',
+                    backgroundColor: mappingMessage.includes('successfully') ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                    border: `1px solid ${mappingMessage.includes('successfully') ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`,
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    textAlign: 'center'
+                  }}>
+                    {mappingMessage}
+                  </div>
+                )}
+                <button 
+                  type="submit"
+                  style={{
+                    backgroundColor: '#2563eb',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    padding: '10px',
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(37, 99, 235, 0.2)'
+                  }}
+                >
+                  Save Mapping
+                </button>
+              </form>
+            </div>
+
+            {/* Right side: Existing Mappings List */}
+            <div style={{
+              backgroundColor: '#0f172a',
+              border: '1px solid #1e293b',
+              borderRadius: '12px',
+              padding: '20px',
+              overflowX: 'auto'
+            }}>
+              <h3 style={{ margin: '0 0 16px 0', fontSize: '14px', color: '#f8fafc', fontWeight: 'bold' }}>Active Mappings</h3>
+              {symbolMappings.length === 0 ? (
+                <div style={{ color: '#64748b', fontSize: '12px', textAlign: 'center', padding: '24px' }}>
+                  No symbol mappings configured. Mappings fallback to standard symbols.
+                </div>
+              ) : (
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid #1e293b', textAlign: 'left', color: '#94a3b8' }}>
+                      <th style={{ padding: '8px' }}>Main Symbol</th>
+                      <th style={{ padding: '8px' }}>Broker Config Key</th>
+                      <th style={{ padding: '8px' }}>Mapped Broker Symbol</th>
+                      <th style={{ padding: '8px', textAlign: 'right' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {symbolMappings.map(m => (
+                      <tr key={m.id} style={{ borderBottom: '1px solid #1e293b', color: '#cbd5e1' }}>
+                        <td style={{ padding: '8px', fontWeight: 'bold' }}>{m.main_symbol}</td>
+                        <td style={{ padding: '8px', fontFamily: 'monospace', color: '#94a3b8' }}>{m.broker_key}</td>
+                        <td style={{ padding: '8px', color: '#f59e0b', fontFamily: 'monospace' }}>{m.broker_symbol}</td>
+                        <td style={{ padding: '8px', textAlign: 'right' }}>
+                          <button 
+                            onClick={() => handleDeleteMapping(m.id)}
+                            style={{
+                              backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                              color: '#ef4444',
+                              border: '1px solid rgba(239, 68, 68, 0.2)',
+                              borderRadius: '4px',
+                              padding: '4px 8px',
+                              fontSize: '11px',
+                              cursor: 'pointer',
+                              fontWeight: 'bold'
+                            }}
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <>
       {/* Main Grid View */}
       <main style={styles.mainLayout}>
         {selectedCandle && (
@@ -2074,6 +2372,8 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+      )}
+        </>
       )}
 
     </div>
