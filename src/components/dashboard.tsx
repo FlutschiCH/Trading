@@ -2198,6 +2198,7 @@ export default function Dashboard() {
                       customTo={customTo}
                       onSelectCandle={setSelectedCandle}
                       locateTimestamp={locateTimestamp}
+                      enabledIndicators={enabledIndicators}
                     />
                   </div>
                   {renderResizeHandle('chart')}

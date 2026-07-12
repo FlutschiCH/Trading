@@ -32,6 +32,7 @@ interface TVChartProps {
   customFrom?: string;
   customTo?: string;
   onSelectCandle?: (candle: any) => void;
+  enabledIndicators?: { fvg: boolean };
 }
 
 export default function TVChart({ 
@@ -48,7 +49,8 @@ export default function TVChart({
   dateRangeOption = 'last_candles',
   customFrom = '',
   customTo = '',
-  onSelectCandle
+  onSelectCandle,
+  enabledIndicators
 }: TVChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const weisContainerRef = useRef<HTMLDivElement>(null);
@@ -105,13 +107,14 @@ export default function TVChart({
 
   const [dateRangeCoords, setDateRangeCoords] = useState<{ x1: number | null; x2: number | null } | null>(null);
   const [selectedTradeCoords, setSelectedTradeCoords] = useState<{ x1: number; x2: number; type: 'BUY' | 'SELL'; pnl: number } | null>(null);
+  const [fvgCoords, setFvgCoords] = useState<any[]>([]);
   const selectedTradeRef = useRef(selectedTrade);
   const [chartHeight, setChartHeight] = useState(window.innerWidth < 768 ? 380 : 680);
   const [weisHeight, setWeisHeight] = useState(window.innerWidth < 768 ? 100 : 140);
 
   useEffect(() => {
     updateDrawingCoordinates();
-  }, [dateRangeOption, customFrom, customTo]);
+  }, [dateRangeOption, customFrom, customTo, candles, enabledIndicators]);
 
   useEffect(() => {
     selectedTradeRef.current = selectedTrade;
@@ -156,6 +159,72 @@ export default function TVChart({
     drawingPreviewRef.current = drawingPreview;
     updateDrawingCoordinates();
   }, [drawingPreview]);
+
+  const findFVGs = (candlesList: Candle[]) => {
+    const fvgs: any[] = [];
+    if (candlesList.length < 3) return fvgs;
+
+    for (let i = 2; i < candlesList.length; i++) {
+      const c1 = candlesList[i - 2];
+      const c2 = candlesList[i - 1];
+      const c3 = candlesList[i];
+
+      // Bullish FVG
+      if (c3.low > c1.high) {
+        const priceMin = c1.high;
+        const priceMax = c3.low;
+        const timeStart = c2.time;
+        let timeEnd = candlesList[candlesList.length - 1].time;
+        let mitigated = false;
+
+        // Find mitigation
+        for (let j = i + 1; j < candlesList.length; j++) {
+          if (candlesList[j].low <= priceMax) {
+            timeEnd = candlesList[j].time;
+            mitigated = true;
+            break;
+          }
+        }
+
+        fvgs.push({
+          type: 'bullish',
+          priceMin,
+          priceMax,
+          timeStart,
+          timeEnd,
+          mitigated
+        });
+      }
+
+      // Bearish FVG
+      if (c3.high < c1.low) {
+        const priceMin = c3.high;
+        const priceMax = c1.low;
+        const timeStart = c2.time;
+        let timeEnd = candlesList[candlesList.length - 1].time;
+        let mitigated = false;
+
+        // Find mitigation
+        for (let j = i + 1; j < candlesList.length; j++) {
+          if (candlesList[j].high >= priceMin) {
+            timeEnd = candlesList[j].time;
+            mitigated = true;
+            break;
+          }
+        }
+
+        fvgs.push({
+          type: 'bearish',
+          priceMin,
+          priceMax,
+          timeStart,
+          timeEnd,
+          mitigated
+        });
+      }
+    }
+    return fvgs;
+  };
 
   const updateDrawingCoordinates = () => {
     if (!chartRef.current || !candlestickSeriesRef.current) return;
@@ -217,6 +286,20 @@ export default function TVChart({
       setDateRangeCoords({ x1, x2 });
     } else {
       setDateRangeCoords(null);
+    }
+
+    if (candlesRef.current && candlesRef.current.length > 0) {
+      const fvgs = findFVGs(candlesRef.current);
+      const coords = fvgs.map(fvg => {
+        const x1 = timeScale.timeToCoordinate(fvg.timeStart);
+        const x2 = timeScale.timeToCoordinate(fvg.timeEnd);
+        const y1 = series.priceToCoordinate(fvg.priceMax);
+        const y2 = series.priceToCoordinate(fvg.priceMin);
+        return { ...fvg, x1, x2, y1, y2 };
+      }).filter(f => f.x1 !== null && f.x2 !== null && f.y1 !== null && f.y2 !== null);
+      setFvgCoords(coords);
+    } else {
+      setFvgCoords([]);
     }
   };
 
@@ -855,6 +938,26 @@ export default function TVChart({
                 )}
               </>
             )}
+            
+            {enabledIndicators?.fvg && fvgCoords.map((fvg, index) => {
+              const width = Math.max(1, fvg.x2 - fvg.x1);
+              const height = Math.max(1, fvg.y2 - fvg.y1);
+              const color = fvg.type === 'bullish' ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)';
+              const strokeColor = fvg.type === 'bullish' ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)';
+              return (
+                <rect
+                  key={`fvg-${index}`}
+                  x={fvg.x1}
+                  y={fvg.y1}
+                  width={width}
+                  height={height}
+                  fill={color}
+                  stroke={strokeColor}
+                  strokeWidth={1}
+                  style={{ pointerEvents: 'none' }}
+                />
+              );
+            })}
           </svg>
         </div>
 
