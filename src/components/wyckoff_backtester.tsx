@@ -126,7 +126,7 @@ export default function WyckoffBacktester({
               value={backtestFees} 
               onChange={(e) => setBacktestFees(e.target.value)}
               style={styles.input}
-              step="0.001"
+              step="0.01"
               min="0.0"
             />
           </div>
