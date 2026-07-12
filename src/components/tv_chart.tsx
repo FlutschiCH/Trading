@@ -224,10 +224,18 @@ export default function TVChart({
       setDateRangeCoords(null);
     }
 
-    if (fvgs && fvgs.length > 0) {
+    if (fvgs && fvgs.length > 0 && candlesRef.current) {
+      const getCoordinateForTime = (time: number) => {
+        const idx = candlesRef.current.findIndex(c => Number(c.time) === Number(time));
+        if (idx !== -1) {
+          return timeScale.logicalToCoordinate(idx as any);
+        }
+        return timeScale.timeToCoordinate(time as any);
+      };
+
       const coords = fvgs.map(fvg => {
-        const x1 = timeScale.timeToCoordinate(fvg.timeStart);
-        const x2 = timeScale.timeToCoordinate(fvg.timeEnd);
+        const x1 = getCoordinateForTime(fvg.timeStart);
+        const x2 = getCoordinateForTime(fvg.timeEnd);
         const y1 = series.priceToCoordinate(fvg.priceMax);
         const y2 = series.priceToCoordinate(fvg.priceMin);
         return { ...fvg, x1, x2, y1, y2 };
