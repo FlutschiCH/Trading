@@ -375,6 +375,7 @@ export default function Dashboard() {
   const [useBreakEven, setUseBreakEven] = useState(true);
   const [backtestFees, setBacktestFees] = useState('0.03');
   const [enabledIndicators, setEnabledIndicators] = useState({ fvg: true });
+  const [fvgs, setFvgs] = useState<any[]>([]);
   const [backtestResults, setBacktestResults] = useState<{
     trades: any[];
     winRate: number;
@@ -582,6 +583,7 @@ export default function Dashboard() {
       const res = await response.json();
       if (res.status === 'success' && res.data) {
         setBacktestResults(res.data);
+        setFvgs(res.data.fvgs || []);
         if (res.data.trades && res.data.trades.length > 0) {
           setSelectedTrade(res.data.trades[0]);
         } else {
@@ -762,6 +764,7 @@ export default function Dashboard() {
           const analysisResult = await analysisResponse.json();
           if (analysisResult.status === 'success') {
             rawCandles = analysisResult.data;
+            setFvgs(analysisResult.fvgs || []);
           }
         } catch (analysisErr) {
           console.error("Failed to run Flask analyze endpoint:", analysisErr);
@@ -2199,6 +2202,7 @@ export default function Dashboard() {
                       onSelectCandle={setSelectedCandle}
                       locateTimestamp={locateTimestamp}
                       enabledIndicators={enabledIndicators}
+                      fvgs={fvgs}
                     />
                   </div>
                   {renderResizeHandle('chart')}

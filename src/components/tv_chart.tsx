@@ -33,6 +33,7 @@ interface TVChartProps {
   customTo?: string;
   onSelectCandle?: (candle: any) => void;
   enabledIndicators?: { fvg: boolean };
+  fvgs?: any[];
 }
 
 export default function TVChart({ 
@@ -50,7 +51,8 @@ export default function TVChart({
   customFrom = '',
   customTo = '',
   onSelectCandle,
-  enabledIndicators
+  enabledIndicators,
+  fvgs = []
 }: TVChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const weisContainerRef = useRef<HTMLDivElement>(null);
@@ -114,7 +116,7 @@ export default function TVChart({
 
   useEffect(() => {
     updateDrawingCoordinates();
-  }, [dateRangeOption, customFrom, customTo, candles, enabledIndicators]);
+  }, [dateRangeOption, customFrom, customTo, candles, enabledIndicators, fvgs]);
 
   useEffect(() => {
     selectedTradeRef.current = selectedTrade;
@@ -159,72 +161,6 @@ export default function TVChart({
     drawingPreviewRef.current = drawingPreview;
     updateDrawingCoordinates();
   }, [drawingPreview]);
-
-  const findFVGs = (candlesList: Candle[]) => {
-    const fvgs: any[] = [];
-    if (candlesList.length < 3) return fvgs;
-
-    for (let i = 2; i < candlesList.length; i++) {
-      const c1 = candlesList[i - 2];
-      const c2 = candlesList[i - 1];
-      const c3 = candlesList[i];
-
-      // Bullish FVG
-      if (c3.low > c1.high) {
-        const priceMin = c1.high;
-        const priceMax = c3.low;
-        const timeStart = c2.time;
-        let timeEnd = candlesList[candlesList.length - 1].time;
-        let mitigated = false;
-
-        // Find mitigation
-        for (let j = i + 1; j < candlesList.length; j++) {
-          if (candlesList[j].low <= priceMax) {
-            timeEnd = candlesList[j].time;
-            mitigated = true;
-            break;
-          }
-        }
-
-        fvgs.push({
-          type: 'bullish',
-          priceMin,
-          priceMax,
-          timeStart,
-          timeEnd,
-          mitigated
-        });
-      }
-
-      // Bearish FVG
-      if (c3.high < c1.low) {
-        const priceMin = c3.high;
-        const priceMax = c1.low;
-        const timeStart = c2.time;
-        let timeEnd = candlesList[candlesList.length - 1].time;
-        let mitigated = false;
-
-        // Find mitigation
-        for (let j = i + 1; j < candlesList.length; j++) {
-          if (candlesList[j].high >= priceMin) {
-            timeEnd = candlesList[j].time;
-            mitigated = true;
-            break;
-          }
-        }
-
-        fvgs.push({
-          type: 'bearish',
-          priceMin,
-          priceMax,
-          timeStart,
-          timeEnd,
-          mitigated
-        });
-      }
-    }
-    return fvgs;
-  };
 
   const updateDrawingCoordinates = () => {
     if (!chartRef.current || !candlestickSeriesRef.current) return;
@@ -288,8 +224,7 @@ export default function TVChart({
       setDateRangeCoords(null);
     }
 
-    if (candlesRef.current && candlesRef.current.length > 0) {
-      const fvgs = findFVGs(candlesRef.current);
+    if (fvgs && fvgs.length > 0) {
       const coords = fvgs.map(fvg => {
         const x1 = timeScale.timeToCoordinate(fvg.timeStart);
         const x2 = timeScale.timeToCoordinate(fvg.timeEnd);

@@ -3,6 +3,7 @@ import json
 from vsa import analyze_vsa_patterns
 from weis_wave import compute_weis_wave
 from execution import execute_signal
+from indicator_handler import IndicatorHandler
 
 class TradingHandler:
     @staticmethod
@@ -20,7 +21,7 @@ class TradingHandler:
         and returns the annotated dataset.
         """
         if not bars_list:
-            return {"status": "success", "data": []}
+            return {"status": "success", "data": [], "fvgs": []}
             
         df = pd.DataFrame(bars_list)
         # Required columns: time, open, high, low, close, volume
@@ -36,9 +37,12 @@ class TradingHandler:
         # Calculate Weis Wave Volume
         df = compute_weis_wave(df)
         
+        # Compute FVGs
+        fvgs = IndicatorHandler.compute_fvgs(df)
+        
         # Convert df back to dict
         result_data = df.to_dict(orient='records')
-        return {"status": "success", "data": result_data}
+        return {"status": "success", "data": result_data, "fvgs": fvgs}
 
     @staticmethod
     def run_backtest(
@@ -442,5 +446,6 @@ class TradingHandler:
             "dailyLossBreached": bool(daily_loss_breached),
             "candles": annotated_data,
             "monthlyBreakdown": monthly_breakdown,
-            "weeklyBreakdown": weekly_breakdown
+            "weeklyBreakdown": weekly_breakdown,
+            "fvgs": analysis.get('fvgs', [])
         }
