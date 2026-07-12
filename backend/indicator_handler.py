@@ -1,28 +1,34 @@
 import pandas as pd
+import numpy as np
 
 class IndicatorHandler:
     @staticmethod
     def compute_fvgs(df: pd.DataFrame) -> list:
         fvgs = []
-        if len(df) < 3:
+        n = len(df)
+        if n < 3:
             return fvgs
 
-        for i in range(2, len(df)):
-            c1 = df.iloc[i - 2]
-            c2 = df.iloc[i - 1]
-            c3 = df.iloc[i]
+        # Convert columns to numpy arrays for extremely fast lookup (C-speed)
+        highs = df['high'].to_numpy()
+        lows = df['low'].to_numpy()
+        times = df['time'].to_numpy()
+
+        for i in range(2, n):
+            c1_high = highs[i - 2]
+            c3_low = lows[i]
 
             # Bullish FVG
-            if c3['low'] > c1['high']:
-                price_min = float(c1['high'])
-                price_max = float(c3['low'])
-                time_start = int(c2['time'])
-                time_end = int(df.iloc[-1]['time'])
+            if c3_low > c1_high:
+                price_min = float(c1_high)
+                price_max = float(c3_low)
+                time_start = int(times[i - 1])
+                time_end = int(times[-1])
                 mitigated = False
 
-                for j in range(i + 1, len(df)):
-                    if df.iloc[j]['low'] <= price_max:
-                        time_end = int(df.iloc[j]['time'])
+                for j in range(i + 1, n):
+                    if lows[j] <= price_max:
+                        time_end = int(times[j])
                         mitigated = True
                         break
 
@@ -36,16 +42,18 @@ class IndicatorHandler:
                 })
 
             # Bearish FVG
-            if c3['high'] < c1['low']:
-                price_min = float(c3['high'])
-                price_max = float(c1['low'])
-                time_start = int(c2['time'])
-                time_end = int(df.iloc[-1]['time'])
+            c1_low = lows[i - 2]
+            c3_high = highs[i]
+            if c3_high < c1_low:
+                price_min = float(c3_high)
+                price_max = float(c1_low)
+                time_start = int(times[i - 1])
+                time_end = int(times[-1])
                 mitigated = False
 
-                for j in range(i + 1, len(df)):
-                    if df.iloc[j]['high'] >= price_min:
-                        time_end = int(df.iloc[j]['time'])
+                for j in range(i + 1, n):
+                    if highs[j] >= price_min:
+                        time_end = int(times[j])
                         mitigated = True
                         break
 
