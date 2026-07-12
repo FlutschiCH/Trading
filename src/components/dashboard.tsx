@@ -227,7 +227,7 @@ export default function Dashboard() {
 
   const fetchSymbolMappings = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/symbol-mappings`);
+      const res = await fetch(`${API_BASE_URL}/api/symbol-mappings`);
       const data = await res.json();
       if (data.status === 'success') {
         setSymbolMappings(data.data);
@@ -249,7 +249,7 @@ export default function Dashboard() {
       return;
     }
     try {
-      const res = await fetch(`${API_BASE_URL}/symbol-mappings`, {
+      const res = await fetch(`${API_BASE_URL}/api/symbol-mappings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -274,7 +274,7 @@ export default function Dashboard() {
 
   const handleDeleteMapping = async (id: number) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/symbol-mappings`, {
+      const res = await fetch(`${API_BASE_URL}/api/symbol-mappings`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id })
