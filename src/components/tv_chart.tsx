@@ -875,15 +875,31 @@ export default function TVChart({
             )}
             
             {enabledIndicators?.fvg && fvgCoords.map((fvg, index) => {
-              const width = Math.max(1, fvg.x2 - fvg.x1);
-              const height = Math.max(1, fvg.y2 - fvg.y1);
+              const rightScaleWidth = chartRef.current ? chartRef.current.priceScale('right').width() : 55;
+              const plotWidth = chartContainerRef.current ? chartContainerRef.current.clientWidth - rightScaleWidth : 0;
+              const plotHeight = chartHeight - 26; // Subtracting bottom time axis height
+
+              // If completely outside the plot area, don't render
+              if (fvg.x1 > plotWidth || fvg.y1 > plotHeight) return null;
+
+              // Clip dimensions to plot boundary
+              const renderX1 = Math.max(0, Math.min(plotWidth, fvg.x1));
+              const renderX2 = Math.max(0, Math.min(plotWidth, fvg.x2));
+              const renderY1 = Math.max(0, Math.min(plotHeight, fvg.y1));
+              const renderY2 = Math.max(0, Math.min(plotHeight, fvg.y2));
+
+              const width = Math.max(1, renderX2 - renderX1);
+              const height = Math.max(1, renderY2 - renderY1);
+
+              if (width <= 0 || height <= 0) return null;
+
               const color = fvg.type === 'bullish' ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)';
               const strokeColor = fvg.type === 'bullish' ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)';
               return (
                 <rect
                   key={`fvg-${index}`}
-                  x={fvg.x1}
-                  y={fvg.y1}
+                  x={renderX1}
+                  y={renderY1}
                   width={width}
                   height={height}
                   fill={color}
