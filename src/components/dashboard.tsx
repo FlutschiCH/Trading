@@ -374,6 +374,7 @@ export default function Dashboard() {
   const [backtestBE, setBacktestBE] = useState('1.0');
   const [useBreakEven, setUseBreakEven] = useState(true);
   const [backtestFees, setBacktestFees] = useState('0.03');
+  const [enabledIndicators, setEnabledIndicators] = useState({ fvg: true });
   const [backtestResults, setBacktestResults] = useState<{
     trades: any[];
     winRate: number;
@@ -574,6 +575,7 @@ export default function Dashboard() {
           beTriggerR: parseFloat(backtestBE) || 1.0,
           lookbackWindow: parseInt(lookbackWindow) || 20,
           feesPercent: parseFloat(backtestFees) || 0.0,
+          enabledIndicators,
           ...bounds
         }),
       });
@@ -642,7 +644,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     runBacktest();
-  }, [candles, symbol, backtestSL, backtestSLType, backtestRR, backtestSize, lookbackWindow, backtestBalance, backtestRiskPct, useRiskSizing, backtestBE, useBreakEven, backtestFees, dateRangeOption, customFrom, customTo]);
+  }, [candles, symbol, backtestSL, backtestSLType, backtestRR, backtestSize, lookbackWindow, backtestBalance, backtestRiskPct, useRiskSizing, backtestBE, useBreakEven, backtestFees, enabledIndicators, dateRangeOption, customFrom, customTo]);
 
   useEffect(() => {
     localStorage.setItem('wyckoff_symbol', symbol);
@@ -2100,6 +2102,8 @@ export default function Dashboard() {
                 setShowModal={setShowModal}
                 backtestFees={backtestFees}
                 setBacktestFees={setBacktestFees}
+                enabledIndicators={enabledIndicators}
+                setEnabledIndicators={setEnabledIndicators}
                 dateRangeOption={dateRangeOption}
                 setDateRangeOption={setDateRangeOption}
                 customFrom={customFrom}
@@ -2283,6 +2287,8 @@ export default function Dashboard() {
                       setShowModal={setShowModal}
                       backtestFees={backtestFees}
                       setBacktestFees={setBacktestFees}
+                      enabledIndicators={enabledIndicators}
+                      setEnabledIndicators={setEnabledIndicators}
                       dateRangeOption={dateRangeOption}
                       setDateRangeOption={setDateRangeOption}
                       customFrom={customFrom}

@@ -48,6 +48,8 @@ interface WyckoffBacktesterProps {
   onUpdateNotes?: (id: number, notes: string) => void;
   onLocateCandle?: (fav: any) => void;
   styles: any;
+  enabledIndicators: { fvg: boolean };
+  setEnabledIndicators: (val: any) => void;
 }
 
 export default function WyckoffBacktester({
@@ -96,7 +98,9 @@ export default function WyckoffBacktester({
   onDeleteFavourite,
   onUpdateNotes,
   onLocateCandle,
-  styles
+  styles,
+  enabledIndicators,
+  setEnabledIndicators
 }: WyckoffBacktesterProps) {
   return (
     <div className="no-drag" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -278,6 +282,31 @@ export default function WyckoffBacktester({
             />
           </div>
         )}
+
+        {/* Indicator Features List */}
+        <div style={{
+          borderTop: '1px solid #1e293b',
+          paddingTop: '12px',
+          marginTop: '4px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '8px'
+        }}>
+          <span style={{ color: '#cbd5e1', fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            Indicator Features
+          </span>
+          <div style={{ display: 'flex', gap: '16px' }}>
+            <label style={{ color: '#cbd5e1', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+              <input 
+                type="checkbox" 
+                checked={enabledIndicators?.fvg}
+                onChange={(e) => setEnabledIndicators({ ...enabledIndicators, fvg: e.target.checked })}
+                style={{ cursor: 'pointer' }}
+              />
+              Fair Value Gap (FVG)
+            </label>
+          </div>
+        </div>
 
         {/* Date Range Selection & Filtering */}
         <div style={{
