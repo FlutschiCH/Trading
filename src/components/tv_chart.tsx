@@ -75,7 +75,39 @@ export default function TVChart({
   
   const [symbolSearch, setSymbolSearch] = useState('');
   const [showSymbolDropdown, setShowSymbolDropdown] = useState(false);
-  
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
+
+  const filteredSymbols = availableSymbols.filter(s => s.toLowerCase().includes(symbolSearch.toLowerCase()));
+
+  useEffect(() => {
+    setHighlightedIndex(0);
+  }, [symbolSearch, showSymbolDropdown]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showSymbolDropdown) {
+      if (e.key === 'ArrowDown' || e.key === 'Enter') {
+        setShowSymbolDropdown(true);
+      }
+      return;
+    }
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightedIndex((prev) => (filteredSymbols.length > 0 ? (prev + 1) % filteredSymbols.length : 0));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightedIndex((prev) => (filteredSymbols.length > 0 ? (prev - 1 + filteredSymbols.length) % filteredSymbols.length : 0));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (filteredSymbols.length > 0 && highlightedIndex >= 0 && highlightedIndex < filteredSymbols.length) {
+        onSymbolChange(filteredSymbols[highlightedIndex]);
+        setShowSymbolDropdown(false);
+      }
+    } else if (e.key === 'Escape') {
+      setShowSymbolDropdown(false);
+    }
+  };
+
   const chartRef = useRef<any>(null);
   const weisChartRef = useRef<any>(null);
   
@@ -861,6 +893,7 @@ export default function TVChart({
                   setShowSymbolDropdown(true);
                 }}
                 onChange={(e) => setSymbolSearch(e.target.value)}
+                onKeyDown={handleKeyDown}
                 style={{
                   ...styles.pairSelect,
                   backgroundColor: '#1e293b',
@@ -898,10 +931,9 @@ export default function TVChart({
                     boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)',
                     minWidth: '150px'
                   }}>
-                    {availableSymbols.filter(s => s.toLowerCase().includes(symbolSearch.toLowerCase())).length > 0 ? (
-                      availableSymbols
-                        .filter(s => s.toLowerCase().includes(symbolSearch.toLowerCase()))
-                        .map(sym => (
+                    {filteredSymbols.length > 0 ? (
+                      filteredSymbols
+                        .map((sym, idx) => (
                           <div 
                             key={sym}
                             onClick={() => {
@@ -912,15 +944,12 @@ export default function TVChart({
                               padding: '6px 10px',
                               cursor: 'pointer',
                               fontSize: '12px',
-                              color: '#d1d5db',
-                              backgroundColor: symbol === sym ? '#2563eb' : 'transparent',
+                              color: '#ffffff',
+                              backgroundColor: idx === highlightedIndex ? '#2563eb' : (symbol === sym ? 'rgba(37, 99, 235, 0.3)' : 'transparent'),
                               transition: 'background-color 0.15s'
                             }}
-                            onMouseEnter={(e) => {
-                              if (symbol !== sym) e.currentTarget.style.backgroundColor = '#1e293b';
-                            }}
-                            onMouseLeave={(e) => {
-                              if (symbol !== sym) e.currentTarget.style.backgroundColor = 'transparent';
+                            onMouseEnter={() => {
+                              setHighlightedIndex(idx);
                             }}
                           >
                             {sym}

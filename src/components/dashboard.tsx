@@ -187,7 +187,7 @@ export default function Dashboard() {
     '1m', '5m', '15m', '30m', '1h', '4h', '1d'
   ]);
   const [symbol, setSymbol] = useState(() => {
-    return localStorage.getItem('wyckoff_symbol') || 'BTCUSD';
+    return localStorage.getItem('wyckoff_symbol') || 'EURUSD';
   });
   const [symbolSearch, setSymbolSearch] = useState('');
   const [showSymbolDropdown, setShowSymbolDropdown] = useState(false);
