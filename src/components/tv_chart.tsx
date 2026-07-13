@@ -315,12 +315,15 @@ export default function TVChart({
         mouseWheel: true,
         pressedMouseMove: true,
         horzTouchDrag: true,
-        vertTouchDrag: false,
+        vertTouchDrag: true,
       },
       handleScale: {
         mouseWheel: true,
         pinch: true,
-        axisPressedMouseMove: true,
+        axisPressedMouseMove: {
+          time: true,
+          price: true,
+        },
       },
       timeScale: {
         fixRightEdge: false,
@@ -366,12 +369,15 @@ export default function TVChart({
         mouseWheel: true,
         pressedMouseMove: true,
         horzTouchDrag: true,
-        vertTouchDrag: false,
+        vertTouchDrag: true,
       },
       handleScale: {
         mouseWheel: true,
         pinch: true,
-        axisPressedMouseMove: true,
+        axisPressedMouseMove: {
+          time: true,
+          price: true,
+        },
       },
       timeScale: {
         fixRightEdge: false,
