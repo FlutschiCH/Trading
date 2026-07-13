@@ -535,23 +535,34 @@ export default function TVChart({
       }
     }
 
+    const hasAnalysis = candles.some(c => c.tr_high !== undefined);
+
     if (trHighSeriesRef.current && trLowSeriesRef.current) {
-      const highData = candles.map(c => ({ time: c.time, value: c.tr_high || c.high }));
-      const lowData = candles.map(c => ({ time: c.time, value: c.tr_low || c.low }));
-      trHighSeriesRef.current.setData(highData);
-      trLowSeriesRef.current.setData(lowData);
+      if (hasAnalysis) {
+        const highData = candles.map(c => ({ time: c.time, value: c.tr_high || c.high }));
+        const lowData = candles.map(c => ({ time: c.time, value: c.tr_low || c.low }));
+        trHighSeriesRef.current.setData(highData);
+        trLowSeriesRef.current.setData(lowData);
+      } else {
+        trHighSeriesRef.current.setData([]);
+        trLowSeriesRef.current.setData([]);
+      }
     }
 
     if (weisSeriesRef.current) {
-      const weisData = candles.map((c) => {
-        const val = c.weis_wave_volume || 0;
-        return {
-          time: c.time,
-          value: Math.abs(val),
-          color: val >= 0 ? 'rgba(16, 185, 129, 0.6)' : 'rgba(239, 68, 68, 0.6)',
-        };
-      });
-      weisSeriesRef.current.setData(weisData);
+      if (hasAnalysis) {
+        const weisData = candles.map((c) => {
+          const val = c.weis_wave_volume || 0;
+          return {
+            time: c.time,
+            value: Math.abs(val),
+            color: val >= 0 ? 'rgba(16, 185, 129, 0.6)' : 'rgba(239, 68, 68, 0.6)',
+          };
+        });
+        weisSeriesRef.current.setData(weisData);
+      } else {
+        weisSeriesRef.current.setData([]);
+      }
     }
 
     if (chartRef.current && candles.length > 0) {
