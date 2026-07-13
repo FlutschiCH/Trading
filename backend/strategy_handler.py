@@ -416,6 +416,44 @@ class StrategyHandler:
         # Reverse list of trades to match React frontend sorting (newest first)
         reversed_trades = list(reversed(completed_trades))
 
+        # Save results to a compact JSON file for AI reference
+        try:
+            import os
+            results_to_save = {
+                "settings": {
+                    "symbol": symbol,
+                    "sl_val": sl_val,
+                    "sl_type": sl_type,
+                    "rr": rr,
+                    "size": size,
+                    "initial_balance": initial_balance,
+                    "use_risk_sizing": use_risk_sizing,
+                    "risk_pct": risk_pct,
+                    "use_break_even": use_break_even,
+                    "be_trigger_r": be_trigger_r,
+                    "lookback_window": lookback_window,
+                    "fees_percent": fees_percent,
+                    "date_from": date_from,
+                    "date_to": date_to
+                },
+                "metrics": {
+                    "winRate": float(win_rate),
+                    "netPnl": float(net_pnl),
+                    "profitFactor": float(profit_factor),
+                    "totalTrades": int(total_trades),
+                    "maxDrawdown": float(max_drawdown),
+                    "maxDailyLoss": float(max_daily_loss),
+                    "dailyLossBreached": bool(daily_loss_breached),
+                    "candleCount": len(annotated_data)
+                },
+                "trades": completed_trades
+            }
+            results_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'backtest_results.json')
+            with open(results_path, 'w') as f:
+                json.dump(results_to_save, f, indent=4)
+        except Exception as e:
+            print(f"Failed to save backtest results to JSON: {e}", flush=True)
+
         return {
             "trades": reversed_trades,
             "winRate": float(win_rate),
