@@ -1,5 +1,9 @@
 import sys
 import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Ensure the backend directory is in python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -23,11 +27,19 @@ if __name__ == '__main__':
         if sys.platform == 'win32':
             import MetaTrader5 as mt5
             print("Logging into MetaTrader 5 on startup...", flush=True)
-            if mt5.initialize(login=2002061314, password="Godzilla_12", server="JustMarkets-Demo"):
-                print("Successfully initialized and logged into MetaTrader 5 on startup!", flush=True)
+            mt5_login_str = os.environ.get("MT5_LOGIN")
+            mt5_login = int(mt5_login_str) if mt5_login_str else None
+            mt5_password = os.environ.get("MT5_PASSWORD")
+            mt5_server = os.environ.get("MT5_SERVER")
+            
+            if mt5_login and mt5_password and mt5_server:
+                if mt5.initialize(login=mt5_login, password=mt5_password, server=mt5_server):
+                    print("Successfully initialized and logged into MetaTrader 5 on startup!", flush=True)
+                else:
+                    error_code, error_desc = mt5.last_error()
+                    print(f"Failed to log into MetaTrader 5 on startup: error code {error_code}, desc: {error_desc}", flush=True)
             else:
-                error_code, error_desc = mt5.last_error()
-                print(f"Failed to log into MetaTrader 5 on startup: error code {error_code}, desc: {error_desc}", flush=True)
+                print("MetaTrader 5 startup skipped (missing credentials in .env).", flush=True)
         else:
             print("MetaTrader 5 startup skipped (non-Windows platform).", flush=True)
     except Exception as e:
