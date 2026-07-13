@@ -216,6 +216,7 @@ export default function Dashboard() {
   const [candles, setCandles] = useState<Candle[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingStrategy, setLoadingStrategy] = useState(false);
+  const [initialCandlesLoaded, setInitialCandlesLoaded] = useState(false);
 
   // Symbol Mapping states
   const [view, setView] = useState<'dashboard' | 'mappings'>('dashboard');
@@ -304,8 +305,10 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    fetchSymbolMappings();
-  }, []);
+    if (initialCandlesLoaded) {
+      fetchSymbolMappings();
+    }
+  }, [initialCandlesLoaded]);
 
   const handleAddMapping = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -679,6 +682,7 @@ export default function Dashboard() {
 
   // Fetch symbols and timeframes metadata dynamically based on selected candleSource
   useEffect(() => {
+    if (!initialCandlesLoaded) return;
     const loadMetadata = async () => {
       const sourcePath = candleSource === 'yfinance' ? 'yfinance' : (candleSource === 'metatrader' ? 'metatrader' : 'ctrader');
       try {
@@ -705,9 +709,10 @@ export default function Dashboard() {
       }
     };
     loadMetadata();
-  }, [candleSource]);
+  }, [candleSource, initialCandlesLoaded]);
 
   useEffect(() => {
+    if (!initialCandlesLoaded) return;
     const loadLiveStrategyAndPerms = async () => {
       try {
         const stratRes = await fetch(`${API_BASE_URL}/api/live/strategy`);
@@ -725,10 +730,11 @@ export default function Dashboard() {
       fetchFavourites();
     };
     loadLiveStrategyAndPerms();
-  }, []);
+  }, [initialCandlesLoaded]);
 
   // Fetch candle data and analyze on Flask backend
   const fetchCandles = async () => {
+    setInitialCandlesLoaded(false);
     setLoading(true);
     setLoadingStrategy(true);
     try {
@@ -756,6 +762,7 @@ export default function Dashboard() {
         // Set raw candles immediately and stop initial loading to show chart instantly
         setCandles(rawCandles);
         setLoading(false);
+        setInitialCandlesLoaded(true);
 
         // Send to Flask analyze endpoint for VSA patterns & Weis Wave aggregation in the background
         try {
@@ -781,6 +788,7 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
       setLoadingStrategy(false);
+      setInitialCandlesLoaded(true);
     }
   };
 
@@ -932,8 +940,15 @@ export default function Dashboard() {
     }
   };
 
+  // Fetch candles immediately and prioritize it.
   useEffect(() => {
     fetchCandles();
+  }, [symbol, timeframe, candleLimit, candleSource]);
+
+  // Fetch other account/positions data once candles have initially loaded, and set up polling.
+  useEffect(() => {
+    if (!initialCandlesLoaded) return;
+
     fetchAccountData();
     fetchPositionData();
 
@@ -943,7 +958,7 @@ export default function Dashboard() {
       fetchPositionData();
     }, 5000);
     return () => clearInterval(interval);
-  }, [symbol, timeframe, lookbackWindow, candleLimit, dateRangeOption, customFrom, customTo, candleSource]);
+  }, [initialCandlesLoaded, symbol]);
 
   const currentConnected = true;
 
