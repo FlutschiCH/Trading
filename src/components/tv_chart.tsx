@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType, CandlestickSeries, HistogramSeries, LineSeries, createSeriesMarkers } from 'lightweight-charts';
-import { Square, PenTool, Trash2, XCircle, RefreshCw } from 'lucide-react';
+import { Square, PenTool, Trash2, XCircle, RefreshCw, Maximize2, Minimize2 } from 'lucide-react';
 import { calculateDateBounds } from '../App';
 
 interface Candle {
@@ -164,6 +164,34 @@ export default function TVChart({
   const selectedTradeRef = useRef(selectedTrade);
   const [chartHeight, setChartHeight] = useState(window.innerWidth < 768 ? 380 : 680);
   const [weisHeight, setWeisHeight] = useState(window.innerWidth < 768 ? 100 : 140);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const toggleFullscreen = () => {
+    if (!isFullscreen) {
+      const totalH = window.innerHeight;
+      const isMobileSize = window.innerWidth < 768;
+      const newWeisH = isMobileSize ? 100 : 150;
+      const newChartH = totalH - (isMobileSize ? 200 : 250);
+      setChartHeight(newChartH);
+      setWeisHeight(newWeisH);
+      setIsFullscreen(true);
+    } else {
+      const isMobileSize = window.innerWidth < 768;
+      setChartHeight(isMobileSize ? 380 : 680);
+      setWeisHeight(isMobileSize ? 100 : 140);
+      setIsFullscreen(false);
+    }
+  };
+
+  useEffect(() => {
+    if (chartRef.current && chartContainerRef.current) {
+      chartRef.current.resize(chartContainerRef.current.clientWidth, chartHeight);
+    }
+    if (weisChartRef.current && weisContainerRef.current) {
+      weisChartRef.current.resize(weisContainerRef.current.clientWidth, weisHeight);
+    }
+    updateDrawingCoordinates();
+  }, [chartHeight, weisHeight]);
 
   useEffect(() => {
     updateDrawingCoordinates();
@@ -456,8 +484,15 @@ export default function TVChart({
 
     const handleResize = () => {
       const isMobileSize = window.innerWidth < 768;
-      const newChartH = isMobileSize ? 380 : 680;
-      const newWeisH = isMobileSize ? 100 : 140;
+      let newChartH = isMobileSize ? 380 : 680;
+      let newWeisH = isMobileSize ? 100 : 140;
+
+      if (document.getElementById('tv-chart-fullscreen-container')) {
+        const totalH = window.innerHeight;
+        newWeisH = isMobileSize ? 100 : 150;
+        newChartH = totalH - (isMobileSize ? 200 : 250);
+      }
+
       setChartHeight(newChartH);
       setWeisHeight(newWeisH);
 
@@ -876,7 +911,7 @@ export default function TVChart({
   };
 
   return (
-    <div style={styles.container}>
+    <div id={isFullscreen ? "tv-chart-fullscreen-container" : undefined} style={{ ...styles.container, ...(isFullscreen ? { position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 99999, backgroundColor: '#0b0f19', display: 'flex', flexDirection: 'column', padding: '16px', boxSizing: 'border-box', overflowY: 'auto' } : {}) }}>
       <div style={styles.toolbar}>
         <div style={{ ...styles.toolsGroup, flexWrap: 'wrap', gap: '12px' }}>
           {/* Data Source */}
@@ -1011,12 +1046,19 @@ export default function TVChart({
               Analyzing Wyckoff & Weis Wave...
             </div>
           )}
-          <button 
+           <button 
             onClick={onRefresh}
             style={styles.refreshBtn}
             title="Refresh chart data"
           >
             <RefreshCw size={16} className={loadingStrategy ? 'animate-spin' : ''} />
+          </button>
+          <button 
+            onClick={toggleFullscreen}
+            style={styles.refreshBtn}
+            title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+          >
+            {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
           </button>
         </div>
       </div>
