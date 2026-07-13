@@ -420,6 +420,20 @@ class StrategyHandler:
         try:
             import os
             results_to_save = {
+                "explainer": (
+                    "This trading strategy uses Wyckoff Volume Spread Analysis (VSA) and Liquidity Sweeps. "
+                    "Entry Conditions: "
+                    "A BUY trade is entered if a bullish VSA pattern (Shakeout/Spring, Stopping Volume, or No Supply) "
+                    "occurs, and the candle's low sweeps below the previous 'lookback_window' rolling low (support) "
+                    "but closes back above it. "
+                    "A SELL trade is entered if a bearish VSA pattern (Upthrust or No Demand) occurs, and the "
+                    "candle's high sweeps above the previous 'lookback_window' rolling high (resistance) but closes back below it. "
+                    "Exit Conditions: "
+                    "Trades are closed by hitting the Stop Loss (configured as a %, in pips, or as a direct dollar risk amount), "
+                    "hitting the Take Profit (calculated using the Risk-Reward ratio 'rr' multiplier times the stop loss distance), "
+                    "getting stopped out at Break Even (if enabled and the trigger RR ratio is reached), "
+                    "or by an opposite sweep signal."
+                ),
                 "settings": {
                     "symbol": symbol,
                     "sl_val": sl_val,
