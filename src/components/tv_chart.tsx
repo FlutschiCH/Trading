@@ -550,19 +550,15 @@ export default function TVChart({
     }
 
     if (weisSeriesRef.current) {
-      if (hasAnalysis) {
-        const weisData = candles.map((c) => {
-          const val = c.weis_wave_volume || 0;
-          return {
-            time: c.time,
-            value: Math.abs(val),
-            color: val >= 0 ? 'rgba(16, 185, 129, 0.6)' : 'rgba(239, 68, 68, 0.6)',
-          };
-        });
-        weisSeriesRef.current.setData(weisData);
-      } else {
-        weisSeriesRef.current.setData([]);
-      }
+      const volumeData = candles.map((c) => {
+        const isUp = c.close >= c.open;
+        return {
+          time: c.time,
+          value: c.volume || 0,
+          color: isUp ? 'rgba(16, 185, 129, 0.6)' : 'rgba(239, 68, 68, 0.6)',
+        };
+      });
+      weisSeriesRef.current.setData(volumeData);
     }
 
     if (chartRef.current && candles.length > 0) {
