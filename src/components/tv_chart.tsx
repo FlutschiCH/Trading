@@ -1029,7 +1029,7 @@ export default function TVChart({
         )}
 
         <div style={{ position: 'relative', height: chartHeight }}>
-          <div ref={chartContainerRef} style={{ width: '100%', height: '100%' }} />
+          <div ref={chartContainerRef} style={{ width: '100%', height: '100%', touchAction: 'none' }} />
 
           <svg
             style={{
@@ -1130,7 +1130,7 @@ export default function TVChart({
           </svg>
         </div>
 
-        <div ref={weisContainerRef} style={{ width: '100%', height: weisHeight }} />
+        <div ref={weisContainerRef} style={{ width: '100%', height: weisHeight, touchAction: 'none' }} />
       </div>
     </div>
   );
