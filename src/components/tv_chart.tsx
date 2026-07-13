@@ -28,6 +28,7 @@ interface TVChartProps {
   availableTimeframes: string[];
   candles: Candle[];
   loading: boolean;
+  loadingStrategy?: boolean;
   onRefresh: () => void;
   entryPrice?: number;
   slPrice?: number;
@@ -54,6 +55,7 @@ export default function TVChart({
   availableTimeframes,
   candles, 
   loading, 
+  loadingStrategy,
   onRefresh, 
   entryPrice, 
   slPrice, 
@@ -950,19 +952,37 @@ export default function TVChart({
           </div>
         </div>
 
-        <button 
-          onClick={onRefresh}
-          style={styles.refreshBtn}
-          title="Refresh chart data"
-        >
-          <RefreshCw size={16} />
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {loadingStrategy && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '11px',
+              color: '#38bdf8',
+              backgroundColor: 'rgba(56, 189, 248, 0.1)',
+              padding: '4px 8px',
+              borderRadius: '6px',
+              border: '1px solid rgba(56, 189, 248, 0.2)'
+            }}>
+              <span className="animate-pulse" style={{ display: 'inline-block', width: '6px', height: '6px', backgroundColor: '#38bdf8', borderRadius: '50%' }}></span>
+              Analyzing Wyckoff & Weis Wave...
+            </div>
+          )}
+          <button 
+            onClick={onRefresh}
+            style={styles.refreshBtn}
+            title="Refresh chart data"
+          >
+            <RefreshCw size={16} className={loadingStrategy ? 'animate-spin' : ''} />
+          </button>
+        </div>
       </div>
 
       <div style={styles.chartWrapper}>
         {loading && (
           <div style={styles.loadingOverlay}>
-            Fetching analyzed Wyckoff & Weis Wave data...
+            Fetching raw candles...
           </div>
         )}
 

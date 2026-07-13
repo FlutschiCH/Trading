@@ -215,6 +215,7 @@ export default function Dashboard() {
   const [amount, setAmount] = useState('0.1');
   const [candles, setCandles] = useState<Candle[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingStrategy, setLoadingStrategy] = useState(false);
 
   // Symbol Mapping states
   const [view, setView] = useState<'dashboard' | 'mappings'>('dashboard');
@@ -729,6 +730,7 @@ export default function Dashboard() {
   // Fetch candle data and analyze on Flask backend
   const fetchCandles = async () => {
     setLoading(true);
+    setLoadingStrategy(true);
     try {
       let rawCandles: Candle[] = [];
       try {
@@ -751,7 +753,11 @@ export default function Dashboard() {
       }
 
       if (rawCandles.length > 0) {
-        // Send to Flask analyze endpoint for VSA patterns & Weis Wave aggregation
+        // Set raw candles immediately and stop initial loading to show chart instantly
+        setCandles(rawCandles);
+        setLoading(false);
+
+        // Send to Flask analyze endpoint for VSA patterns & Weis Wave aggregation in the background
         try {
           const analysisResponse = await fetch(`${API_BASE_URL}/api/analyze`, {
             method: 'POST',
@@ -763,18 +769,18 @@ export default function Dashboard() {
           });
           const analysisResult = await analysisResponse.json();
           if (analysisResult.status === 'success') {
-            rawCandles = analysisResult.data;
+            setCandles(analysisResult.data);
             setFvgs(analysisResult.fvgs || []);
           }
         } catch (analysisErr) {
           console.error("Failed to run Flask analyze endpoint:", analysisErr);
         }
-        setCandles(rawCandles);
       }
     } catch (error) {
       console.error('Error fetching candles:', error);
     } finally {
       setLoading(false);
+      setLoadingStrategy(false);
     }
   };
 
@@ -1843,6 +1849,7 @@ export default function Dashboard() {
                 availableTimeframes={availableTimeframes}
                 candles={backtestResults?.candles || candles} 
                 loading={loading} 
+                loadingStrategy={loadingStrategy} 
                 onRefresh={fetchCandles} 
                 entryPrice={selectedTrade?.entryPrice}
                 slPrice={selectedTrade?.slPrice}
@@ -1982,6 +1989,7 @@ export default function Dashboard() {
                       availableTimeframes={availableTimeframes}
                       candles={backtestResults?.candles || candles} 
                       loading={loading} 
+                      loadingStrategy={loadingStrategy} 
                       onRefresh={fetchCandles} 
                       entryPrice={selectedTrade?.entryPrice}
                       slPrice={selectedTrade?.slPrice}
