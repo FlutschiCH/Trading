@@ -3,6 +3,18 @@ import numpy as np
 
 class IndicatorHandler:
     @staticmethod
+    def compute_vsa(df: pd.DataFrame, lookback: int = 20) -> list:
+        """Runs Volume Spread Analysis (VSA) patterns calculation."""
+        from vsa import analyze_vsa_patterns
+        return analyze_vsa_patterns(df, lookback=lookback)
+
+    @staticmethod
+    def compute_weis_wave(df: pd.DataFrame) -> pd.DataFrame:
+        """Runs Weis Wave Volume calculations."""
+        from weis_wave import compute_weis_wave
+        return compute_weis_wave(df)
+
+    @staticmethod
     def compute_fvgs(df: pd.DataFrame) -> list:
         fvgs = []
         n = len(df)
