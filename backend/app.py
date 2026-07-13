@@ -26,13 +26,13 @@ if __name__ == '__main__':
         import sys
         if sys.platform == 'win32':
             import MetaTrader5 as mt5
-            print("Logging into MetaTrader 5 on startup...", flush=True)
             mt5_login_str = os.environ.get("MT5_LOGIN")
             mt5_login = int(mt5_login_str) if mt5_login_str else None
             mt5_password = os.environ.get("MT5_PASSWORD")
             mt5_server = os.environ.get("MT5_SERVER")
             
             if mt5_login and mt5_password and mt5_server:
+                print(f"Logging into MetaTrader 5 on startup: Account {mt5_login} on server {mt5_server}...", flush=True)
                 if mt5.initialize(login=mt5_login, password=mt5_password, server=mt5_server):
                     print("Successfully initialized and logged into MetaTrader 5 on startup!", flush=True)
                 else:
