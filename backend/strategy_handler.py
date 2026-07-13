@@ -183,57 +183,37 @@ class StrategyHandler:
                 if opposite_signal:
                     exit_price = close_val
                     gross_pnl = (exit_price - active_trade['entry_price']) * (active_trade['qty'] * lot_size) if active_trade['type'] == 'BUY' else (active_trade['entry_price'] - exit_price) * (active_trade['qty'] * lot_size)
-                    entry_fee = active_trade['entry_price'] * (active_trade['qty'] * lot_size) * (fees_percent / 100.0)
-                    exit_fee = exit_price * (active_trade['qty'] * lot_size) * (fees_percent / 100.0)
-                    total_fees = entry_fee + exit_fee
-                    pnl = gross_pnl - total_fees
-                    outcome = 'WIN' if pnl >= 0 else 'LOSS'
                     closed = True
                     exit_reason = 'Closed by opposite sweep signal'
                 elif active_trade['type'] == 'BUY':
                     if low_val <= active_trade['sl_price']:
                         exit_price = active_trade['sl_price']
                         gross_pnl = (exit_price - active_trade['entry_price']) * (active_trade['qty'] * lot_size)
-                        entry_fee = active_trade['entry_price'] * (active_trade['qty'] * lot_size) * (fees_percent / 100.0)
-                        exit_fee = exit_price * (active_trade['qty'] * lot_size) * (fees_percent / 100.0)
-                        total_fees = entry_fee + exit_fee
-                        pnl = gross_pnl - total_fees
-                        outcome = 'WIN' if pnl >= 0 else 'LOSS'
                         closed = True
                         exit_reason = 'Hit Break Even' if active_trade.get('is_break_even', False) else 'Hit Stop Loss'
                     elif high_val >= active_trade['tp_price']:
                         exit_price = active_trade['tp_price']
                         gross_pnl = (exit_price - active_trade['entry_price']) * (active_trade['qty'] * lot_size)
-                        entry_fee = active_trade['entry_price'] * (active_trade['qty'] * lot_size) * (fees_percent / 100.0)
-                        exit_fee = exit_price * (active_trade['qty'] * lot_size) * (fees_percent / 100.0)
-                        total_fees = entry_fee + exit_fee
-                        pnl = gross_pnl - total_fees
-                        outcome = 'WIN' if pnl >= 0 else 'LOSS'
                         closed = True
                         exit_reason = 'Hit Take Profit'
                 else:
                     if high_val >= active_trade['sl_price']:
                         exit_price = active_trade['sl_price']
                         gross_pnl = (active_trade['entry_price'] - exit_price) * (active_trade['qty'] * lot_size)
-                        entry_fee = active_trade['entry_price'] * (active_trade['qty'] * lot_size) * (fees_percent / 100.0)
-                        exit_fee = exit_price * (active_trade['qty'] * lot_size) * (fees_percent / 100.0)
-                        total_fees = entry_fee + exit_fee
-                        pnl = gross_pnl - total_fees
-                        outcome = 'WIN' if pnl >= 0 else 'LOSS'
                         closed = True
                         exit_reason = 'Hit Break Even' if active_trade.get('is_break_even', False) else 'Hit Stop Loss'
                     elif low_val <= active_trade['tp_price']:
                         exit_price = active_trade['tp_price']
                         gross_pnl = (active_trade['entry_price'] - exit_price) * (active_trade['qty'] * lot_size)
-                        entry_fee = active_trade['entry_price'] * (active_trade['qty'] * lot_size) * (fees_percent / 100.0)
-                        exit_fee = exit_price * (active_trade['qty'] * lot_size) * (fees_percent / 100.0)
-                        total_fees = entry_fee + exit_fee
-                        pnl = gross_pnl - total_fees
-                        outcome = 'WIN' if pnl >= 0 else 'LOSS'
                         closed = True
                         exit_reason = 'Hit Take Profit'
 
                 if closed:
+                    # Fee is calculated as USD per lot per trade side (total = entry + exit sides = 2 * qty * fee_rate)
+                    total_fees = 2 * (active_trade['qty'] * fees_percent)
+                    pnl = gross_pnl - total_fees
+                    outcome = 'WIN' if pnl >= 0 else 'LOSS'
+                    
                     try:
                         time_str = str(pd.to_datetime(int(c.get('time', 0)), unit='s'))
                     except Exception:
@@ -323,11 +303,9 @@ class StrategyHandler:
             final_candle = annotated_data[-1]
             close_val = float(final_candle.get('close', 0))
             gross_pnl = (close_val - active_trade['entry_price']) * (active_trade['qty'] * lot_size) if active_trade['type'] == 'BUY' else (active_trade['entry_price'] - close_val) * (active_trade['qty'] * lot_size)
-            entry_fee = active_trade['entry_price'] * (active_trade['qty'] * lot_size) * (fees_percent / 100.0)
-            exit_fee = close_val * (active_trade['qty'] * lot_size) * (fees_percent / 100.0)
-            total_fees = entry_fee + exit_fee
-            pnl = gross_pnl - total_fees
-            pnl_usd = pnl
+            # Fee is calculated as USD per lot per trade side (total = entry + exit sides = 2 * qty * fee_rate)
+            total_fees = 2 * (active_trade['qty'] * fees_percent)
+            pnl_usd = gross_pnl - total_fees
             fees_usd = total_fees
             completed_trades.append({
                 'id': len(completed_trades) + 1,
