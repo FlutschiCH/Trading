@@ -19,6 +19,13 @@ interface Candle {
 
 interface TVChartProps {
   symbol: string;
+  onSymbolChange: (symbol: string) => void;
+  timeframe: string;
+  onTimeframeChange: (timeframe: string) => void;
+  candleSource: 'ctrader' | 'metatrader' | 'yfinance';
+  onCandleSourceChange: (source: 'ctrader' | 'metatrader' | 'yfinance') => void;
+  availableSymbols: string[];
+  availableTimeframes: string[];
   candles: Candle[];
   loading: boolean;
   onRefresh: () => void;
@@ -38,6 +45,13 @@ interface TVChartProps {
 
 export default function TVChart({ 
   symbol, 
+  onSymbolChange,
+  timeframe,
+  onTimeframeChange,
+  candleSource,
+  onCandleSourceChange,
+  availableSymbols,
+  availableTimeframes,
   candles, 
   loading, 
   onRefresh, 
@@ -56,6 +70,9 @@ export default function TVChart({
 }: TVChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const weisContainerRef = useRef<HTMLDivElement>(null);
+  
+  const [symbolSearch, setSymbolSearch] = useState('');
+  const [showSymbolDropdown, setShowSymbolDropdown] = useState(false);
   
   const chartRef = useRef<any>(null);
   const weisChartRef = useRef<any>(null);
@@ -709,6 +726,22 @@ export default function TVChart({
       borderRadius: '12px',
       padding: '16px',
     },
+    pairGroup: {
+      display: 'flex',
+      flexDirection: 'column' as const,
+      gap: '2px',
+      fontSize: '12px',
+    },
+    pairSelect: {
+      backgroundColor: '#0b0f19',
+      border: '1px solid #1f2937',
+      borderRadius: '6px',
+      padding: '4px 8px',
+      color: '#ffffff',
+      fontWeight: 'bold',
+      cursor: 'pointer',
+      outline: 'none',
+    },
     toolbar: {
       display: 'flex',
       justifyContent: 'space-between',
@@ -798,8 +831,123 @@ export default function TVChart({
   return (
     <div style={styles.container}>
       <div style={styles.toolbar}>
-        <div style={styles.toolsGroup}>
-          <span style={styles.symbolBadge}>{symbol}</span>
+        <div style={{ ...styles.toolsGroup, flexWrap: 'wrap', gap: '12px' }}>
+          {/* Data Source */}
+          <div style={styles.pairGroup}>
+            <span style={{ color: '#9ca3af', fontSize: '10px' }}>Data Source</span>
+            <select 
+              value={candleSource} 
+              onChange={(e) => onCandleSourceChange(e.target.value as 'ctrader' | 'metatrader' | 'yfinance')}
+              style={styles.pairSelect}
+            >
+              <option value="ctrader">cTrader (Inactive)</option>
+              <option value="metatrader">MetaTrader 5</option>
+              <option value="yfinance">Yahoo Finance</option>
+            </select>
+          </div>
+
+          {/* Symbol Search Input */}
+          <div style={{ ...styles.pairGroup, position: 'relative' }}>
+            <span style={{ color: '#9ca3af', fontSize: '10px' }}>Symbol</span>
+            <div style={{ position: 'relative' }}>
+              <input 
+                type="text"
+                placeholder="Search symbol..."
+                value={showSymbolDropdown ? symbolSearch : symbol}
+                onFocus={() => {
+                  setSymbolSearch('');
+                  setShowSymbolDropdown(true);
+                }}
+                onChange={(e) => setSymbolSearch(e.target.value)}
+                style={{
+                  ...styles.pairSelect,
+                  backgroundColor: '#1e293b',
+                  color: '#ffffff',
+                  border: '1px solid #334155',
+                  padding: '4px 8px',
+                  fontSize: '12px',
+                  width: '120px'
+                }}
+              />
+              {showSymbolDropdown && (
+                <>
+                  <div 
+                    onClick={() => setShowSymbolDropdown(false)}
+                    style={{
+                      position: 'fixed',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      zIndex: 999
+                    }}
+                  />
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    backgroundColor: '#0f172a',
+                    border: '1px solid #334155',
+                    borderRadius: '6px',
+                    maxHeight: '200px',
+                    overflowY: 'auto',
+                    zIndex: 1000,
+                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)',
+                    minWidth: '150px'
+                  }}>
+                    {availableSymbols.filter(s => s.toLowerCase().includes(symbolSearch.toLowerCase())).length > 0 ? (
+                      availableSymbols
+                        .filter(s => s.toLowerCase().includes(symbolSearch.toLowerCase()))
+                        .map(sym => (
+                          <div 
+                            key={sym}
+                            onClick={() => {
+                              onSymbolChange(sym);
+                              setShowSymbolDropdown(false);
+                            }}
+                            style={{
+                              padding: '6px 10px',
+                              cursor: 'pointer',
+                              fontSize: '12px',
+                              color: '#d1d5db',
+                              backgroundColor: symbol === sym ? '#2563eb' : 'transparent',
+                              transition: 'background-color 0.15s'
+                            }}
+                            onMouseEnter={(e) => {
+                              if (symbol !== sym) e.currentTarget.style.backgroundColor = '#1e293b';
+                            }}
+                            onMouseLeave={(e) => {
+                              if (symbol !== sym) e.currentTarget.style.backgroundColor = 'transparent';
+                            }}
+                          >
+                            {sym}
+                          </div>
+                        ))
+                    ) : (
+                      <div style={{ padding: '6px 10px', fontSize: '11px', color: '#6b7280' }}>
+                        No results found
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Timeframe */}
+          <div style={styles.pairGroup}>
+            <span style={{ color: '#9ca3af', fontSize: '10px' }}>Timeframe</span>
+            <select 
+              value={timeframe} 
+              onChange={(e) => onTimeframeChange(e.target.value)}
+              style={styles.pairSelect}
+            >
+              {availableTimeframes.map(tf => (
+                <option key={tf} value={tf}>{tf}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <button 

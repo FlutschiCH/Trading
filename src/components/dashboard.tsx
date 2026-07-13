@@ -1385,224 +1385,6 @@ export default function Dashboard() {
             }}>
               {candleSource === 'metatrader' ? 'MetaTrader 5 Connected' : (candleSource === 'yfinance' ? 'Yahoo Finance Active' : 'cTrader (Inactive)')}
             </div>
-
-            <div style={{
-              display: 'flex',
-              gap: '12px',
-              width: isMobile ? '100%' : 'auto',
-            }}>
-              <div style={{
-                ...styles.pairGroup,
-                ...(isMobile ? { flex: 1 } : {})
-              }}>
-                <span style={{ color: '#9ca3af', fontSize: '11px' }}>Data Source</span>
-                <select 
-                  value={candleSource} 
-                  onChange={(e) => setCandleSource(e.target.value as 'ctrader' | 'metatrader' | 'yfinance')}
-                  style={{
-                    ...styles.pairSelect,
-                    ...(isMobile ? { width: '100%' } : {})
-                  }}
-                >
-                  <option value="ctrader">cTrader (Inactive)</option>
-                  <option value="metatrader">MetaTrader 5</option>
-                  <option value="yfinance">Yahoo Finance</option>
-                </select>
-              </div>
-
-              <div style={{
-                ...styles.pairGroup,
-                position: 'relative',
-                ...(isMobile ? { flex: 1 } : {})
-              }}>
-                <span style={{ color: '#9ca3af', fontSize: '11px' }}>Symbol</span>
-                <div style={{ position: 'relative' }}>
-                  <input 
-                    type="text"
-                    placeholder="Search symbol..."
-                    value={showSymbolDropdown ? symbolSearch : symbol}
-                    onFocus={() => {
-                      setSymbolSearch('');
-                      setShowSymbolDropdown(true);
-                    }}
-                    onChange={(e) => setSymbolSearch(e.target.value)}
-                    style={{
-                      ...styles.pairSelect,
-                      width: '100%',
-                      backgroundColor: '#1e293b',
-                      color: '#ffffff',
-                      border: '1px solid #334155',
-                      borderRadius: '6px',
-                      padding: '6px 12px',
-                      fontSize: '12px',
-                      outline: 'none',
-                      minWidth: '120px'
-                    }}
-                  />
-                  {showSymbolDropdown && (
-                    <>
-                      <div 
-                        onClick={() => setShowSymbolDropdown(false)}
-                        style={{
-                          position: 'fixed',
-                          top: 0,
-                          left: 0,
-                          right: 0,
-                          bottom: 0,
-                          zIndex: 999
-                        }}
-                      />
-                      <div style={{
-                        position: 'absolute',
-                        top: '100%',
-                        left: 0,
-                        right: 0,
-                        backgroundColor: '#0f172a',
-                        border: '1px solid #334155',
-                        borderRadius: '6px',
-                        maxHeight: '200px',
-                        overflowY: 'auto',
-                        zIndex: 1000,
-                        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)',
-                        minWidth: '150px'
-                      }}>
-                        {availableSymbols.filter(s => s.toLowerCase().includes(symbolSearch.toLowerCase())).length > 0 ? (
-                          availableSymbols
-                            .filter(s => s.toLowerCase().includes(symbolSearch.toLowerCase()))
-                            .map(sym => (
-                              <div 
-                                key={sym}
-                                onClick={() => {
-                                  setSymbol(sym);
-                                  setShowSymbolDropdown(false);
-                                }}
-                                style={{
-                                  padding: '8px 12px',
-                                  cursor: 'pointer',
-                                  fontSize: '12px',
-                                  color: '#d1d5db',
-                                  backgroundColor: symbol === sym ? '#2563eb' : 'transparent',
-                                  transition: 'background-color 0.15s'
-                                }}
-                                onMouseEnter={(e) => {
-                                  if (symbol !== sym) e.currentTarget.style.backgroundColor = '#1e293b';
-                                }}
-                                onMouseLeave={(e) => {
-                                  if (symbol !== sym) e.currentTarget.style.backgroundColor = 'transparent';
-                                }}
-                              >
-                                {sym}
-                              </div>
-                            ))
-                        ) : (
-                          <div style={{ padding: '8px 12px', fontSize: '12px', color: '#6b7280' }}>
-                            No results found
-                          </div>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              <div style={{
-                ...styles.pairGroup,
-                ...(isMobile ? { flex: 1 } : {})
-              }}>
-                <span style={{ color: '#9ca3af', fontSize: '11px' }}>Timeframe</span>
-                <select 
-                  value={timeframe} 
-                  onChange={(e) => setTimeframe(e.target.value)}
-                  style={{
-                    ...styles.pairSelect,
-                    ...(isMobile ? { width: '100%' } : {})
-                  }}
-                >
-                  {availableTimeframes.map(tf => (
-                    <option key={tf} value={tf}>{tf}</option>
-                  ))}
-                </select>
-              </div>
-
-              {dateRangeOption === 'last_candles' && (
-                <div style={{
-                  ...styles.pairGroup,
-                  ...(isMobile ? { flex: 1 } : {})
-                }}>
-                  <span style={{ color: '#9ca3af', fontSize: '11px' }}>Candle Limit</span>
-                  <select 
-                    value={candleLimit} 
-                    onChange={(e) => setCandleLimit(parseInt(e.target.value))}
-                    style={{
-                      ...styles.pairSelect,
-                      ...(isMobile ? { width: '100%' } : {})
-                    }}
-                  >
-                    <option value="1000">1000</option>
-                    <option value="2000">2000</option>
-                    <option value="5000">5000</option>
-                    <option value="10000">10000</option>
-                  </select>
-                </div>
-              )}
-
-              <div style={{
-                ...styles.pairGroup,
-                ...(isMobile ? { flex: 1 } : {})
-              }}>
-                <span style={{ color: '#9ca3af', fontSize: '11px' }}>Date Range</span>
-                <select 
-                  value={dateRangeOption} 
-                  onChange={(e) => setDateRangeOption(e.target.value)}
-                  style={{
-                    ...styles.pairSelect,
-                    ...(isMobile ? { width: '100%' } : {})
-                  }}
-                >
-                  <option value="last_candles">Last Candles (Limit)</option>
-                  <option value="this_week">This Week (Sun 20:00)</option>
-                  <option value="last_week">Last Week</option>
-                  <option value="this_month">This Month</option>
-                  <option value="last_month">Last Month</option>
-                  <option value="custom">Custom Range</option>
-                </select>
-              </div>
-
-              {dateRangeOption === 'custom' && (
-                <>
-                  <div style={{
-                    ...styles.pairGroup,
-                    ...(isMobile ? { flex: 1 } : {})
-                  }}>
-                    <span style={{ color: '#9ca3af', fontSize: '11px' }}>From Date</span>
-                    <input 
-                      type="datetime-local" 
-                      value={customFrom}
-                      onChange={(e) => setCustomFrom(e.target.value)}
-                      style={{
-                        ...styles.pairSelect,
-                        ...(isMobile ? { width: '100%' } : {})
-                      }}
-                    />
-                  </div>
-                  <div style={{
-                    ...styles.pairGroup,
-                    ...(isMobile ? { flex: 1 } : {})
-                  }}>
-                    <span style={{ color: '#9ca3af', fontSize: '11px' }}>To Date</span>
-                    <input 
-                      type="datetime-local" 
-                      value={customTo}
-                      onChange={(e) => setCustomTo(e.target.value)}
-                      style={{
-                        ...styles.pairSelect,
-                        ...(isMobile ? { width: '100%' } : {})
-                      }}
-                    />
-                  </div>
-                </>
-              )}
-            </div>
           </div>
         )}
       </header>
@@ -2052,6 +1834,13 @@ export default function Dashboard() {
             {mobileTab === 'chart' ? (
               <TVChart 
                 symbol={symbol} 
+                onSymbolChange={setSymbol}
+                timeframe={timeframe}
+                onTimeframeChange={setTimeframe}
+                candleSource={candleSource}
+                onCandleSourceChange={setCandleSource}
+                availableSymbols={availableSymbols}
+                availableTimeframes={availableTimeframes}
                 candles={backtestResults?.candles || candles} 
                 loading={loading} 
                 onRefresh={fetchCandles} 
@@ -2184,6 +1973,13 @@ export default function Dashboard() {
                   <div className="no-drag" style={{ padding: '0px' }}>
                     <TVChart 
                       symbol={symbol} 
+                      onSymbolChange={setSymbol}
+                      timeframe={timeframe}
+                      onTimeframeChange={setTimeframe}
+                      candleSource={candleSource}
+                      onCandleSourceChange={setCandleSource}
+                      availableSymbols={availableSymbols}
+                      availableTimeframes={availableTimeframes}
                       candles={backtestResults?.candles || candles} 
                       loading={loading} 
                       onRefresh={fetchCandles} 
