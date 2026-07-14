@@ -368,7 +368,7 @@ export default function Dashboard() {
 
   // Backtester states
   const [backtestSL, setBacktestSL] = useState('20');
-  const [backtestSLType, setBacktestSLType] = useState<'pct' | 'price'>('price');
+  const [backtestSLType, setBacktestSLType] = useState<'pct' | 'price' | 'dollar'>('price');
   const [backtestRR, setBacktestRR] = useState('2');
   const [backtestSize, setBacktestSize] = useState('1');
   const [lookbackWindow, setLookbackWindow] = useState('20');
@@ -1235,6 +1235,22 @@ export default function Dashboard() {
     return 0.0001;
   };
 
+  const getLotSize = (sym: string) => {
+    const symUpper = sym.toUpperCase();
+    if (symUpper.includes('XAU') || symUpper.includes('GOLD') || symUpper.includes('XAG')) {
+      return 100.0;
+    }
+    const cryptos = ['BTC', 'ETH', 'SOL', 'LTC', 'XRP', 'ADA', 'DOT', 'DOGE', 'LINK', 'UNI', 'PEPE', 'SHIB'];
+    if (cryptos.some(c => symUpper.includes(c))) {
+      return 1.0;
+    }
+    const forex = ['EUR', 'GBP', 'AUD', 'NZD', 'USD', 'CAD', 'CHF', 'SEK', 'NOK', 'SGD', 'HKD', 'ZAR', 'MXN'];
+    if (forex.some(c => symUpper.includes(c))) {
+      return 100000.0;
+    }
+    return 1.0;
+  };
+
   const liveTrades = openPositions.map((pos: any) => {
     let slPrice = pos.stop_loss;
     let tpPrice = pos.take_profit;
@@ -1248,6 +1264,11 @@ export default function Dashboard() {
       if (liveStrategy.slType === 'price') {
         const pipSize = getPipSize(pos.symbol, entry);
         slPrice = isBuy ? entry - slVal * pipSize : entry + slVal * pipSize;
+      } else if (liveStrategy.slType === 'dollar') {
+        const lotSize = getLotSize(pos.symbol);
+        const volume = parseFloat(pos.volume) || 1.0;
+        const slDistance = slVal / (volume * lotSize);
+        slPrice = isBuy ? entry - slDistance : entry + slDistance;
       } else {
         slPrice = isBuy ? entry * (1 - slVal / 100) : entry * (1 + slVal / 100);
       }

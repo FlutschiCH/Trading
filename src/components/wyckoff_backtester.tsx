@@ -17,8 +17,8 @@ interface WyckoffBacktesterProps {
   setBacktestSize: (val: string) => void;
   backtestSL: string;
   setBacktestSL: (val: string) => void;
-  backtestSLType: 'pct' | 'price';
-  setBacktestSLType: (val: 'pct' | 'price') => void;
+  backtestSLType: 'pct' | 'price' | 'dollar';
+  setBacktestSLType: (val: 'pct' | 'price' | 'dollar') => void;
   backtestRR: string;
   setBacktestRR: (val: string) => void;
   useBreakEven: boolean;
@@ -198,11 +198,11 @@ export default function WyckoffBacktester({
               <select
                 value={backtestSLType}
                 onChange={(e) => {
-                  const newType = e.target.value as 'pct' | 'price';
+                  const newType = e.target.value as 'pct' | 'price' | 'dollar';
                   setUseRiskSizing(true); // Preserve risk sizing target
                   setBacktestSLType(newType);
                   const isForex = ['EUR', 'GBP', 'JPY', 'USD', 'CAD', 'AUD', 'CHF'].some(curr => symbol.toUpperCase().includes(curr)) && !['BTC', 'ETH', 'SOL', 'LTC', 'XRP'].some(crypto => symbol.toUpperCase().includes(crypto));
-                  setBacktestSL(newType === 'pct' ? '1.0' : (isForex ? '20' : '200'));
+                  setBacktestSL(newType === 'pct' ? '1.0' : (newType === 'dollar' ? '100' : (isForex ? '20' : '200')));
                 }}
                 style={{
                   ...styles.input,
@@ -214,6 +214,7 @@ export default function WyckoffBacktester({
               >
                 <option value="pct">%</option>
                 <option value="price">Pips</option>
+                <option value="dollar">$</option>
               </select>
             </div>
           </div>
