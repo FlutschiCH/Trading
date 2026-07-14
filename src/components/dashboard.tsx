@@ -368,17 +368,23 @@ export default function Dashboard() {
   const [openPositions, setOpenPositions] = useState<Position[]>([]);
 
   // Backtester states
-  const [backtestSL, setBacktestSL] = useState('20');
-  const [backtestSLType, setBacktestSLType] = useState<'pct' | 'price' | 'dollar'>('price');
-  const [backtestRR, setBacktestRR] = useState('2');
-  const [backtestSize, setBacktestSize] = useState('1');
-  const [lookbackWindow, setLookbackWindow] = useState('20');
-  const [backtestBalance, setBacktestBalance] = useState('10000');
-  const [backtestRiskPct, setBacktestRiskPct] = useState('1.0');
-  const [useRiskSizing, setUseRiskSizing] = useState(true);
-  const [backtestBE, setBacktestBE] = useState('1.0');
-  const [useBreakEven, setUseBreakEven] = useState(true);
-  const [backtestFees, setBacktestFees] = useState('0.03');
+  const [backtestSL, setBacktestSL] = useState(() => localStorage.getItem('wyckoff_backtest_sl') || '20');
+  const [backtestSLType, setBacktestSLType] = useState<'pct' | 'price' | 'dollar'>(() => (localStorage.getItem('wyckoff_backtest_sl_type') as 'pct' | 'price' | 'dollar') || 'price');
+  const [backtestRR, setBacktestRR] = useState(() => localStorage.getItem('wyckoff_backtest_rr') || '2');
+  const [backtestSize, setBacktestSize] = useState(() => localStorage.getItem('wyckoff_backtest_size') || '1');
+  const [lookbackWindow, setLookbackWindow] = useState(() => localStorage.getItem('wyckoff_backtest_lookback') || '20');
+  const [backtestBalance, setBacktestBalance] = useState(() => localStorage.getItem('wyckoff_backtest_balance') || '10000');
+  const [backtestRiskPct, setBacktestRiskPct] = useState(() => localStorage.getItem('wyckoff_backtest_risk_pct') || '1.0');
+  const [useRiskSizing, setUseRiskSizing] = useState(() => {
+    const val = localStorage.getItem('wyckoff_backtest_use_risk_sizing');
+    return val === null ? true : val === 'true';
+  });
+  const [backtestBE, setBacktestBE] = useState(() => localStorage.getItem('wyckoff_backtest_be') || '1.0');
+  const [useBreakEven, setUseBreakEven] = useState(() => {
+    const val = localStorage.getItem('wyckoff_backtest_use_be');
+    return val === null ? true : val === 'true';
+  });
+  const [backtestFees, setBacktestFees] = useState(() => localStorage.getItem('wyckoff_backtest_fees') || '0.03');
   const [enabledIndicators, setEnabledIndicators] = useState({ fvg: true });
   const [fvgs, setFvgs] = useState<any[]>([]);
   const [backtestResults, setBacktestResults] = useState<{
@@ -683,6 +689,50 @@ export default function Dashboard() {
   useEffect(() => {
     localStorage.setItem('wyckoff_custom_to', customTo);
   }, [customTo]);
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_backtest_sl', backtestSL);
+  }, [backtestSL]);
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_backtest_sl_type', backtestSLType);
+  }, [backtestSLType]);
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_backtest_rr', backtestRR);
+  }, [backtestRR]);
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_backtest_size', backtestSize);
+  }, [backtestSize]);
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_backtest_lookback', lookbackWindow);
+  }, [lookbackWindow]);
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_backtest_balance', backtestBalance);
+  }, [backtestBalance]);
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_backtest_risk_pct', backtestRiskPct);
+  }, [backtestRiskPct]);
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_backtest_use_risk_sizing', useRiskSizing.toString());
+  }, [useRiskSizing]);
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_backtest_be', backtestBE);
+  }, [backtestBE]);
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_backtest_use_be', useBreakEven.toString());
+  }, [useBreakEven]);
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_backtest_fees', backtestFees);
+  }, [backtestFees]);
 
   // Fetch symbols and timeframes metadata dynamically based on selected candleSource
   useEffect(() => {
