@@ -1882,6 +1882,7 @@ export default function Dashboard() {
                 onSelectCandle={setSelectedCandle}
                 locateTimestamp={locateTimestamp}
                 tradeFilter={tradeFilter}
+                onTradeFilterChange={setTradeFilter}
               />
             ) : (
               <WyckoffBacktester
@@ -2027,6 +2028,7 @@ export default function Dashboard() {
                       enabledIndicators={enabledIndicators}
                       fvgs={fvgs}
                       tradeFilter={tradeFilter}
+                      onTradeFilterChange={setTradeFilter}
                     />
                   </div>
                   {renderResizeHandle('chart')}

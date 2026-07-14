@@ -43,6 +43,7 @@ interface TVChartProps {
   enabledIndicators?: { fvg: boolean };
   fvgs?: any[];
   tradeFilter?: 'all' | 'wins' | 'losses';
+  onTradeFilterChange?: (filter: 'all' | 'wins' | 'losses') => void;
 }
 
 export default function TVChart({ 
@@ -70,7 +71,8 @@ export default function TVChart({
   onSelectCandle,
   enabledIndicators,
   fvgs = [],
-  tradeFilter = 'all'
+  tradeFilter = 'all',
+  onTradeFilterChange
 }: TVChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const weisContainerRef = useRef<HTMLDivElement>(null);
@@ -78,6 +80,9 @@ export default function TVChart({
   const [symbolSearch, setSymbolSearch] = useState('');
   const [showSymbolDropdown, setShowSymbolDropdown] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const [localTradeFilter, setLocalTradeFilter] = useState<'all' | 'wins' | 'losses'>('all');
+  const actualFilter = onTradeFilterChange ? tradeFilter : localTradeFilter;
+  const setActualFilter = onTradeFilterChange || setLocalTradeFilter;
 
   const filteredSymbols = availableSymbols.filter(s => s.toLowerCase().includes(symbolSearch.toLowerCase()));
 
@@ -568,14 +573,12 @@ export default function TVChart({
             const trade = (trades || []).find(t => Number(t.entryTimestamp) === Number(c.time));
             const isProfit = trade ? trade.pnl >= 0 : true;
 
-            let shouldFade = false;
             if (trade) {
-              if (tradeFilter === 'wins' && !isProfit) shouldFade = true;
-              if (tradeFilter === 'losses' && isProfit) shouldFade = true;
+              if (actualFilter === 'wins' && !isProfit) return null;
+              if (actualFilter === 'losses' && isProfit) return null;
             }
 
             const baseColor = isBullish ? '#10b981' : '#ef4444';
-            const fadedColor = isBullish ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)';
 
             let markerText = isBullish ? 'BUY' : 'SELL';
             if (trade) {
@@ -586,10 +589,10 @@ export default function TVChart({
             return {
               time: c.time,
               position: (isBullish ? 'belowBar' : 'aboveBar') as any,
-              color: shouldFade ? fadedColor : baseColor,
+              color: baseColor,
               shape: (isBullish ? 'arrowUp' : 'arrowDown') as any,
               text: markerText,
-              size: shouldFade ? 0.75 : 1,
+              size: 1,
             };
           }
           return null;
@@ -603,20 +606,18 @@ export default function TVChart({
           if (trade.exitTimestamp === trade.entryTimestamp) return null;
           const isProfit = trade.pnl >= 0;
 
-          let shouldFade = false;
-          if (tradeFilter === 'wins' && !isProfit) shouldFade = true;
-          if (tradeFilter === 'losses' && isProfit) shouldFade = true;
+          if (actualFilter === 'wins' && !isProfit) return null;
+          if (actualFilter === 'losses' && isProfit) return null;
 
           const baseColor = isProfit ? '#10b981' : '#ef4444';
-          const fadedColor = isProfit ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)';
 
           return {
             time: trade.exitTimestamp,
             position: (trade.type === 'BUY' ? 'aboveBar' : 'belowBar') as any,
-            color: shouldFade ? fadedColor : baseColor,
+            color: baseColor,
             shape: 'circle' as any,
             text: `EXIT (${isProfit ? '+' : ''}${trade.pnl.toFixed(2)})`,
-            size: shouldFade ? 0.75 : 1,
+            size: 1,
           };
         })
         .filter((m) => m !== null);
@@ -683,18 +684,8 @@ export default function TVChart({
         if (points.length === 0) return;
 
         const isProfit = trade.pnl >= 0;
-        let shouldFade = false;
-        if (tradeFilter === 'wins' && !isProfit) shouldFade = true;
-        if (tradeFilter === 'losses' && isProfit) shouldFade = true;
-
-        const getFadedColor = (hex: string) => {
-          if (!shouldFade) return hex;
-          if (hex === '#3b82f6') return 'rgba(59, 130, 246, 0.15)';
-          if (hex === '#ef4444') return 'rgba(239, 68, 68, 0.15)';
-          if (hex === '#10b981') return 'rgba(16, 185, 129, 0.15)';
-          if (hex === '#fbbf24') return 'rgba(251, 191, 36, 0.15)';
-          return hex;
-        };
+        if (actualFilter === 'wins' && !isProfit) return;
+        if (actualFilter === 'losses' && isProfit) return;
 
         const entryData = points.map((p) => ({ time: p, value: trade.entryPrice }));
         const slData = points.map((p) => ({ time: p, value: trade.slPrice }));
@@ -714,15 +705,15 @@ export default function TVChart({
           dynamicLineSeriesRef.current.push(lineSeries);
         };
 
-        addTradeLine(entryData, getFadedColor('#3b82f6'));
-        addTradeLine(slData, getFadedColor('#ef4444'));
-        addTradeLine(tpData, getFadedColor('#10b981'));
-        addTradeLine(beData, getFadedColor('#fbbf24'));
+        addTradeLine(entryData, '#3b82f6');
+        addTradeLine(slData, '#ef4444');
+        addTradeLine(tpData, '#10b981');
+        addTradeLine(beData, '#fbbf24');
       });
     }
 
     updateDrawingCoordinates();
-  }, [candles, trades, tradeFilter]);
+  }, [candles, trades, actualFilter]);
 
   // Update price format and precision dynamically based on candle data
   useEffect(() => {
@@ -1095,6 +1086,20 @@ export default function TVChart({
               {availableTimeframes.map(tf => (
                 <option key={tf} value={tf}>{tf}</option>
               ))}
+            </select>
+          </div>
+
+          {/* Trades Filter */}
+          <div style={styles.pairGroup}>
+            <span style={{ color: '#9ca3af', fontSize: '10px' }}>Trades</span>
+            <select 
+              value={actualFilter} 
+              onChange={(e) => setActualFilter(e.target.value as 'all' | 'wins' | 'losses')}
+              style={styles.pairSelect}
+            >
+              <option value="all">Both (Winners & Losers)</option>
+              <option value="wins">Winners Only</option>
+              <option value="losses">Losers Only</option>
             </select>
           </div>
         </div>
