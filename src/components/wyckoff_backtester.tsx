@@ -102,6 +102,7 @@ export default function WyckoffBacktester({
   enabledIndicators,
   setEnabledIndicators
 }: WyckoffBacktesterProps) {
+  const [tradeFilter, setTradeFilter] = React.useState<'all' | 'wins' | 'losses'>('all');
   return (
     <div className="no-drag" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div style={{
@@ -524,6 +525,60 @@ export default function WyckoffBacktester({
             </button>
           </div>
 
+          {backtestTab === 'trades' && backtestResults && (
+            <div style={{ display: 'flex', gap: '8px', padding: '6px 0', alignItems: 'center', marginBottom: '4px' }}>
+              <span style={{ fontSize: '10px', color: '#9ca3af' }}>Filter:</span>
+              <button 
+                onClick={() => setTradeFilter('all')}
+                style={{
+                  background: tradeFilter === 'all' ? '#1f2937' : 'none',
+                  border: '1px solid #1f2937',
+                  color: tradeFilter === 'all' ? '#ffffff' : '#9ca3af',
+                  fontSize: '9px',
+                  fontWeight: 'bold',
+                  padding: '2px 8px',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s'
+                }}
+              >
+                All
+              </button>
+              <button 
+                onClick={() => setTradeFilter('wins')}
+                style={{
+                  background: tradeFilter === 'wins' ? 'rgba(16, 185, 129, 0.2)' : 'none',
+                  border: '1px solid rgba(16, 185, 129, 0.4)',
+                  color: '#10b981',
+                  fontSize: '9px',
+                  fontWeight: 'bold',
+                  padding: '2px 8px',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s'
+                }}
+              >
+                Wins
+              </button>
+              <button 
+                onClick={() => setTradeFilter('losses')}
+                style={{
+                  background: tradeFilter === 'losses' ? 'rgba(239, 68, 68, 0.2)' : 'none',
+                  border: '1px solid rgba(239, 68, 68, 0.4)',
+                  color: '#ef4444',
+                  fontSize: '9px',
+                  fontWeight: 'bold',
+                  padding: '2px 8px',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s'
+                }}
+              >
+                Losses
+              </button>
+            </div>
+          )}
+
           <div style={{ ...styles.positionsList, maxHeight: '350px', overflowY: 'auto' }}>
             {backtestTab === 'trades' && backtestResults && backtestResults.trades.map((trade: any) => (
               <div 
@@ -535,8 +590,13 @@ export default function WyckoffBacktester({
                 style={{
                   ...styles.positionRow,
                   cursor: 'pointer',
-                  border: selectedTrade?.id === trade.id ? '1.5px solid #3b82f6' : '1px solid #1f2937',
+                  border: selectedTrade?.id === trade.id 
+                    ? '1.5px solid #3b82f6' 
+                    : (trade.pnl >= 0 ? '1.5px solid rgba(16, 185, 129, 0.4)' : '1.5px solid rgba(239, 68, 68, 0.4)'),
                   transform: selectedTrade?.id === trade.id ? 'scale(1.02)' : 'scale(1)',
+                  opacity: tradeFilter === 'all' 
+                    ? 1 
+                    : (tradeFilter === 'wins' ? (trade.pnl >= 0 ? 1 : 0.3) : (trade.pnl < 0 ? 1 : 0.3)),
                   transition: 'all 0.15s'
                 }}
               >
