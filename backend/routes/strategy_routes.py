@@ -36,6 +36,7 @@ def backtest():
     lookback_window = int(payload.get('lookbackWindow', 20))
     fees_percent = float(payload.get('feesPercent', 0.0))
     daily_retry_limit = int(payload.get('dailyRetryLimit', 0))
+    allow_opposite_close = bool(payload.get('allowOppositeClose', True))
     date_from = payload.get('date_from')
     date_to = payload.get('date_to')
 
@@ -54,6 +55,7 @@ def backtest():
         lookback_window=lookback_window,
         fees_percent=fees_percent,
         daily_retry_limit=daily_retry_limit,
+        allow_opposite_close=allow_opposite_close,
         date_from=date_from,
         date_to=date_to
     )

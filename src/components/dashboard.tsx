@@ -386,6 +386,10 @@ export default function Dashboard() {
   });
   const [backtestFees, setBacktestFees] = useState(() => localStorage.getItem('wyckoff_backtest_fees') || '0.03');
   const [dailyRetryLimit, setDailyRetryLimit] = useState(() => localStorage.getItem('wyckoff_backtest_daily_retry_limit') || '0');
+  const [allowOppositeClose, setAllowOppositeClose] = useState(() => {
+    const val = localStorage.getItem('wyckoff_backtest_allow_opposite_close');
+    return val === null ? true : val === 'true';
+  });
   const [enabledIndicators, setEnabledIndicators] = useState({ fvg: true });
   const [fvgs, setFvgs] = useState<any[]>([]);
   const [backtestResults, setBacktestResults] = useState<{
@@ -590,6 +594,7 @@ export default function Dashboard() {
           lookbackWindow: parseInt(lookbackWindow) || 20,
           feesPercent: parseFloat(backtestFees) || 0.0,
           dailyRetryLimit: parseInt(dailyRetryLimit) || 0,
+          allowOppositeClose,
           enabledIndicators,
           ...bounds
         }),
@@ -739,6 +744,10 @@ export default function Dashboard() {
   useEffect(() => {
     localStorage.setItem('wyckoff_backtest_daily_retry_limit', dailyRetryLimit);
   }, [dailyRetryLimit]);
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_backtest_allow_opposite_close', allowOppositeClose.toString());
+  }, [allowOppositeClose]);
 
   // Fetch symbols and timeframes metadata dynamically based on selected candleSource
   useEffect(() => {
@@ -2020,6 +2029,8 @@ export default function Dashboard() {
                 loadingBacktest={loadingBacktest}
                 dailyRetryLimit={dailyRetryLimit}
                 setDailyRetryLimit={setDailyRetryLimit}
+                allowOppositeClose={allowOppositeClose}
+                setAllowOppositeClose={setAllowOppositeClose}
               />
             )}
           </div>
@@ -2223,6 +2234,8 @@ export default function Dashboard() {
                       loadingBacktest={loadingBacktest}
                       dailyRetryLimit={dailyRetryLimit}
                       setDailyRetryLimit={setDailyRetryLimit}
+                      allowOppositeClose={allowOppositeClose}
+                      setAllowOppositeClose={setAllowOppositeClose}
                     />
                   </div>
                   {renderResizeHandle('backtester')}

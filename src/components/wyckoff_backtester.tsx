@@ -56,6 +56,8 @@ interface WyckoffBacktesterProps {
   loadingBacktest: boolean;
   dailyRetryLimit: string;
   setDailyRetryLimit: (val: string) => void;
+  allowOppositeClose: boolean;
+  setAllowOppositeClose: (val: boolean) => void;
 }
 
 export default function WyckoffBacktester({
@@ -112,7 +114,9 @@ export default function WyckoffBacktester({
   onRunBacktest,
   loadingBacktest,
   dailyRetryLimit,
-  setDailyRetryLimit
+  setDailyRetryLimit,
+  allowOppositeClose,
+  setAllowOppositeClose
 }: WyckoffBacktesterProps) {
   return (
     <div className="no-drag" style={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
@@ -302,6 +306,19 @@ export default function WyckoffBacktester({
               />
             </div>
           )}
+        </div>
+
+        {/* Row 4b: Allow Opposite Close setting */}
+        <div style={styles.formGroup}>
+          <label style={{ color: '#9ca3af', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', margin: 0 }}>
+            <input 
+              type="checkbox" 
+              checked={allowOppositeClose}
+              onChange={(e) => setAllowOppositeClose(e.target.checked)}
+              style={{ cursor: 'pointer' }}
+            />
+            Allow Opposite Signal to Close Trade
+          </label>
         </div>
 
         {/* Row 5: Sweep Lookback & Daily Retry */}

@@ -50,6 +50,7 @@ class StrategyHandler:
         lookback_window: int,
         fees_percent: float = 0.0,
         daily_retry_limit: int = 0,
+        allow_opposite_close: bool = True,
         date_from: float = None,
         date_to: float = None
     ) -> dict:
@@ -191,7 +192,9 @@ class StrategyHandler:
                             active_trade['is_break_even'] = True
 
                 # Check opposite sweep signals
-                opposite_signal = (active_trade['type'] == 'BUY' and should_sell) or (active_trade['type'] == 'SELL' and should_buy)
+                opposite_signal = False
+                if allow_opposite_close:
+                    opposite_signal = (active_trade['type'] == 'BUY' and should_sell) or (active_trade['type'] == 'SELL' and should_buy)
                 
                 if opposite_signal:
                     exit_price = close_val
