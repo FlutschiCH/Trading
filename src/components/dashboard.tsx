@@ -435,6 +435,15 @@ export default function Dashboard() {
   const [isDeploying, setIsDeploying] = useState(false);
 
   const lastNotifiedSignalRef = useRef<number>(0);
+  const backtestAbortControllerRef = useRef<AbortController | null>(null);
+
+  const cancelBacktest = () => {
+    if (backtestAbortControllerRef.current) {
+      backtestAbortControllerRef.current.abort();
+      backtestAbortControllerRef.current = null;
+      setLoadingBacktest(false);
+    }
+  };
 
   const triggerPWAEventNotification = (title: string, body: string) => {
     if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
@@ -571,6 +580,14 @@ export default function Dashboard() {
 
   const runBacktest = async () => {
     if (!candles || candles.length === 0) return;
+    
+    if (backtestAbortControllerRef.current) {
+      backtestAbortControllerRef.current.abort();
+    }
+    
+    const controller = new AbortController();
+    backtestAbortControllerRef.current = controller;
+    
     setLoadingBacktest(true);
     try {
       const bounds = calculateDateBounds(dateRangeOption, customFrom, customTo);
@@ -579,6 +596,7 @@ export default function Dashboard() {
         headers: {
           'Content-Type': 'application/json',
         },
+        signal: controller.signal,
         body: JSON.stringify({
           candles,
           symbol,
@@ -622,10 +640,17 @@ export default function Dashboard() {
           }
         }
       }
-    } catch (e) {
-      console.error("Failed to run backtest on backend:", e);
+    } catch (e: any) {
+      if (e.name === 'AbortError') {
+        console.log("Backtest aborted by user.");
+      } else {
+        console.error("Failed to run backtest on backend:", e);
+      }
     } finally {
-      setLoadingBacktest(false);
+      if (backtestAbortControllerRef.current === controller) {
+        backtestAbortControllerRef.current = null;
+        setLoadingBacktest(false);
+      }
     }
   };
 
@@ -2031,6 +2056,7 @@ export default function Dashboard() {
                 setDailyRetryLimit={setDailyRetryLimit}
                 allowOppositeClose={allowOppositeClose}
                 setAllowOppositeClose={setAllowOppositeClose}
+                onCancelBacktest={cancelBacktest}
               />
             )}
           </div>
@@ -2236,6 +2262,7 @@ export default function Dashboard() {
                       setDailyRetryLimit={setDailyRetryLimit}
                       allowOppositeClose={allowOppositeClose}
                       setAllowOppositeClose={setAllowOppositeClose}
+                      onCancelBacktest={cancelBacktest}
                     />
                   </div>
                   {renderResizeHandle('backtester')}

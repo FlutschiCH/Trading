@@ -58,6 +58,7 @@ interface WyckoffBacktesterProps {
   setDailyRetryLimit: (val: string) => void;
   allowOppositeClose: boolean;
   setAllowOppositeClose: (val: boolean) => void;
+  onCancelBacktest: () => void;
 }
 
 export default function WyckoffBacktester({
@@ -116,7 +117,8 @@ export default function WyckoffBacktester({
   dailyRetryLimit,
   setDailyRetryLimit,
   allowOppositeClose,
-  setAllowOppositeClose
+  setAllowOppositeClose,
+  onCancelBacktest
 }: WyckoffBacktesterProps) {
   return (
     <div className="no-drag" style={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
@@ -868,6 +870,25 @@ export default function WyckoffBacktester({
             }
           `}</style>
           <span style={{ color: '#ffffff', fontSize: '12px', fontWeight: 500 }}>Running Backtest...</span>
+          <button 
+            onClick={onCancelBacktest}
+            style={{
+              marginTop: '12px',
+              backgroundColor: '#ef4444',
+              color: '#ffffff',
+              border: 'none',
+              padding: '6px 16px',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 500,
+              fontSize: '11px',
+              transition: 'background-color 0.2s',
+            }}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#dc2626'}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#ef4444'}
+          >
+            🛑 Stop Backtest
+          </button>
         </div>
       )}
     </div>
