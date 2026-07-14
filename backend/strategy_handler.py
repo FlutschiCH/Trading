@@ -170,11 +170,11 @@ class StrategyHandler:
                     sl_distance = active_trade['sl_distance']
                     if active_trade['type'] == 'BUY':
                         if high_val >= active_trade['entry_price'] + sl_distance * be_trigger_r:
-                            active_trade['sl_price'] = round(active_trade['entry_price'] - 0.5 * sl_distance, precision)
+                            active_trade['sl_price'] = round(active_trade['entry_price'] + 0.5 * sl_distance, precision)
                             active_trade['is_break_even'] = True
                     else:
                         if low_val <= active_trade['entry_price'] - sl_distance * be_trigger_r:
-                            active_trade['sl_price'] = round(active_trade['entry_price'] + 0.5 * sl_distance, precision)
+                            active_trade['sl_price'] = round(active_trade['entry_price'] - 0.5 * sl_distance, precision)
                             active_trade['is_break_even'] = True
 
                 # Check opposite sweep signals
