@@ -396,6 +396,7 @@ export default function Dashboard() {
   const [selectedTrade, setSelectedTrade] = useState<any>(null);
   const [showModal, setShowModal] = useState<boolean>(false);
   const [backtestTab, setBacktestTab] = useState<'trades' | 'weekly' | 'monthly' | 'favourites'>('trades');
+  const [tradeFilter, setTradeFilter] = useState<'all' | 'wins' | 'losses'>('all');
   const [selectedCandle, setSelectedCandle] = useState<Candle | null>(null);
   const [favouriteCandles, setFavouriteCandles] = useState<any[]>([]);
   const [favNotesInput, setFavNotesInput] = useState<string>('');
@@ -1880,6 +1881,7 @@ export default function Dashboard() {
                 customTo={customTo}
                 onSelectCandle={setSelectedCandle}
                 locateTimestamp={locateTimestamp}
+                tradeFilter={tradeFilter}
               />
             ) : (
               <WyckoffBacktester
@@ -1911,6 +1913,8 @@ export default function Dashboard() {
                 backtestResults={backtestResults}
                 backtestTab={backtestTab}
                 setBacktestTab={setBacktestTab}
+                tradeFilter={tradeFilter}
+                setTradeFilter={setTradeFilter}
                 selectedTrade={selectedTrade}
                 setSelectedTrade={setSelectedTrade}
                 setShowModal={setShowModal}
@@ -2022,6 +2026,7 @@ export default function Dashboard() {
                       locateTimestamp={locateTimestamp}
                       enabledIndicators={enabledIndicators}
                       fvgs={fvgs}
+                      tradeFilter={tradeFilter}
                     />
                   </div>
                   {renderResizeHandle('chart')}
@@ -2106,6 +2111,8 @@ export default function Dashboard() {
                       backtestResults={backtestResults}
                       backtestTab={backtestTab}
                       setBacktestTab={setBacktestTab}
+                      tradeFilter={tradeFilter}
+                      setTradeFilter={setTradeFilter}
                       selectedTrade={selectedTrade}
                       setSelectedTrade={setSelectedTrade}
                       setShowModal={setShowModal}

@@ -32,6 +32,8 @@ interface WyckoffBacktesterProps {
   backtestResults: any;
   backtestTab: 'trades' | 'weekly' | 'monthly' | 'favourites';
   setBacktestTab: (val: 'trades' | 'weekly' | 'monthly' | 'favourites') => void;
+  tradeFilter: 'all' | 'wins' | 'losses';
+  setTradeFilter: (val: 'all' | 'wins' | 'losses') => void;
   selectedTrade: any;
   setSelectedTrade: (trade: any) => void;
   setShowModal: (show: boolean) => void;
@@ -83,6 +85,8 @@ export default function WyckoffBacktester({
   backtestResults,
   backtestTab,
   setBacktestTab,
+  tradeFilter,
+  setTradeFilter,
   selectedTrade,
   setSelectedTrade,
   setShowModal,
@@ -102,7 +106,6 @@ export default function WyckoffBacktester({
   enabledIndicators,
   setEnabledIndicators
 }: WyckoffBacktesterProps) {
-  const [tradeFilter, setTradeFilter] = React.useState<'all' | 'wins' | 'losses'>('all');
   return (
     <div className="no-drag" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div style={{

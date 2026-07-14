@@ -42,6 +42,7 @@ interface TVChartProps {
   onSelectCandle?: (candle: any) => void;
   enabledIndicators?: { fvg: boolean };
   fvgs?: any[];
+  tradeFilter?: 'all' | 'wins' | 'losses';
 }
 
 export default function TVChart({ 
@@ -68,7 +69,8 @@ export default function TVChart({
   customTo = '',
   onSelectCandle,
   enabledIndicators,
-  fvgs = []
+  fvgs = [],
+  tradeFilter = 'all'
 }: TVChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const weisContainerRef = useRef<HTMLDivElement>(null);
@@ -563,12 +565,25 @@ export default function TVChart({
         .map((c) => {
           if (c.backtest_signal) {
             const isBullish = c.backtest_signal === 'BUY';
+            const trade = (trades || []).find(t => Number(t.entryTimestamp) === Number(c.time));
+            const isProfit = trade ? trade.pnl >= 0 : true;
+
+            let shouldFade = false;
+            if (trade) {
+              if (tradeFilter === 'wins' && !isProfit) shouldFade = true;
+              if (tradeFilter === 'losses' && isProfit) shouldFade = true;
+            }
+
+            const baseColor = isBullish ? '#10b981' : '#ef4444';
+            const fadedColor = isBullish ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)';
+
             return {
               time: c.time,
               position: (isBullish ? 'belowBar' : 'aboveBar') as any,
-              color: isBullish ? '#10b981' : '#ef4444',
+              color: shouldFade ? fadedColor : baseColor,
               shape: (isBullish ? 'arrowUp' : 'arrowDown') as any,
               text: isBullish ? 'BUY' : 'SELL',
+              size: shouldFade ? 0.75 : 1,
             };
           }
           return null;
@@ -581,12 +596,21 @@ export default function TVChart({
           if (trade.exitReason === 'Position still open') return null;
           if (trade.exitTimestamp === trade.entryTimestamp) return null;
           const isProfit = trade.pnl >= 0;
+
+          let shouldFade = false;
+          if (tradeFilter === 'wins' && !isProfit) shouldFade = true;
+          if (tradeFilter === 'losses' && isProfit) shouldFade = true;
+
+          const baseColor = isProfit ? '#10b981' : '#ef4444';
+          const fadedColor = isProfit ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)';
+
           return {
             time: trade.exitTimestamp,
             position: (trade.type === 'BUY' ? 'aboveBar' : 'belowBar') as any,
-            color: isProfit ? '#10b981' : '#ef4444',
+            color: shouldFade ? fadedColor : baseColor,
             shape: 'circle' as any,
             text: `EXIT (${isProfit ? '+' : ''}${trade.pnl.toFixed(2)})`,
+            size: shouldFade ? 0.75 : 1,
           };
         })
         .filter((m) => m !== null);
@@ -652,6 +676,20 @@ export default function TVChart({
         const points = sortedTimes.slice(entryIdx, endIdx);
         if (points.length === 0) return;
 
+        const isProfit = trade.pnl >= 0;
+        let shouldFade = false;
+        if (tradeFilter === 'wins' && !isProfit) shouldFade = true;
+        if (tradeFilter === 'losses' && isProfit) shouldFade = true;
+
+        const getFadedColor = (hex: string) => {
+          if (!shouldFade) return hex;
+          if (hex === '#3b82f6') return 'rgba(59, 130, 246, 0.15)';
+          if (hex === '#ef4444') return 'rgba(239, 68, 68, 0.15)';
+          if (hex === '#10b981') return 'rgba(16, 185, 129, 0.15)';
+          if (hex === '#fbbf24') return 'rgba(251, 191, 36, 0.15)';
+          return hex;
+        };
+
         const entryData = points.map((p) => ({ time: p, value: trade.entryPrice }));
         const slData = points.map((p) => ({ time: p, value: trade.slPrice }));
         const tpData = points.map((p) => ({ time: p, value: trade.tpPrice }));
@@ -670,15 +708,15 @@ export default function TVChart({
           dynamicLineSeriesRef.current.push(lineSeries);
         };
 
-        addTradeLine(entryData, '#3b82f6');
-        addTradeLine(slData, '#ef4444');
-        addTradeLine(tpData, '#10b981');
-        addTradeLine(beData, '#fbbf24');
+        addTradeLine(entryData, getFadedColor('#3b82f6'));
+        addTradeLine(slData, getFadedColor('#ef4444'));
+        addTradeLine(tpData, getFadedColor('#10b981'));
+        addTradeLine(beData, getFadedColor('#fbbf24'));
       });
     }
 
     updateDrawingCoordinates();
-  }, [candles, trades]);
+  }, [candles, trades, tradeFilter]);
 
   // Update price format and precision dynamically based on candle data
   useEffect(() => {
