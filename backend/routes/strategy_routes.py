@@ -16,6 +16,16 @@ def analyze():
     result = StrategyHandler.analyze_market_data(candles, lookback=lookback)
     return jsonify(result)
 
+cancelled_backtests = set()
+
+@strategy_routes.route('/backtest/cancel', methods=['POST'])
+def cancel_backtest():
+    payload = request.get_json(silent=True) or {}
+    backtest_id = payload.get('backtestId')
+    if backtest_id:
+        cancelled_backtests.add(str(backtest_id))
+    return jsonify({"status": "success", "message": "Backtest cancellation flag set successfully"})
+
 @strategy_routes.route('/backtest', methods=['POST'])
 def backtest():
     """
@@ -39,27 +49,41 @@ def backtest():
     allow_opposite_close = bool(payload.get('allowOppositeClose', True))
     date_from = payload.get('date_from')
     date_to = payload.get('date_to')
+    backtest_id = payload.get('backtestId')
 
-    result = StrategyHandler.run_backtest(
-        candles=candles,
-        symbol=symbol,
-        sl_val=sl_val,
-        sl_type=sl_type,
-        rr=rr,
-        size=size,
-        initial_balance=initial_balance,
-        use_risk_sizing=use_risk_sizing,
-        risk_pct=risk_pct,
-        use_break_even=use_break_even,
-        be_trigger_r=be_trigger_r,
-        lookback_window=lookback_window,
-        fees_percent=fees_percent,
-        daily_retry_limit=daily_retry_limit,
-        allow_opposite_close=allow_opposite_close,
-        date_from=date_from,
-        date_to=date_to
-    )
-    return jsonify({"status": "success", "data": result})
+    def check_cancelled():
+        if backtest_id and str(backtest_id) in cancelled_backtests:
+            return True
+        return False
+
+    try:
+        result = StrategyHandler.run_backtest(
+            candles=candles,
+            symbol=symbol,
+            sl_val=sl_val,
+            sl_type=sl_type,
+            rr=rr,
+            size=size,
+            initial_balance=initial_balance,
+            use_risk_sizing=use_risk_sizing,
+            risk_pct=risk_pct,
+            use_break_even=use_break_even,
+            be_trigger_r=be_trigger_r,
+            lookback_window=lookback_window,
+            fees_percent=fees_percent,
+            daily_retry_limit=daily_retry_limit,
+            allow_opposite_close=allow_opposite_close,
+            check_cancelled=check_cancelled,
+            date_from=date_from,
+            date_to=date_to
+        )
+        return jsonify({"status": "success", "data": result})
+    finally:
+        if backtest_id and str(backtest_id) in cancelled_backtests:
+            try:
+                cancelled_backtests.remove(str(backtest_id))
+            except KeyError:
+                pass
 
 @strategy_routes.route('/risk', methods=['GET', 'POST'])
 def risk():

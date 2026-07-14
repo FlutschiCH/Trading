@@ -436,8 +436,16 @@ export default function Dashboard() {
 
   const lastNotifiedSignalRef = useRef<number>(0);
   const backtestAbortControllerRef = useRef<AbortController | null>(null);
+  const activeBacktestIdRef = useRef<string | null>(null);
 
   const cancelBacktest = () => {
+    if (activeBacktestIdRef.current) {
+      fetch(`${API_BASE_URL}/api/backtest/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ backtestId: activeBacktestIdRef.current })
+      }).catch(err => console.error("Failed to send cancel request to backend:", err));
+    }
     if (backtestAbortControllerRef.current) {
       backtestAbortControllerRef.current.abort();
       backtestAbortControllerRef.current = null;
@@ -587,6 +595,8 @@ export default function Dashboard() {
     
     const controller = new AbortController();
     backtestAbortControllerRef.current = controller;
+    const backtestId = Date.now().toString();
+    activeBacktestIdRef.current = backtestId;
     
     setLoadingBacktest(true);
     try {
@@ -613,6 +623,7 @@ export default function Dashboard() {
           feesPercent: parseFloat(backtestFees) || 0.0,
           dailyRetryLimit: parseInt(dailyRetryLimit) || 0,
           allowOppositeClose,
+          backtestId,
           enabledIndicators,
           ...bounds
         }),

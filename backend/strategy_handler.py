@@ -51,6 +51,7 @@ class StrategyHandler:
         fees_percent: float = 0.0,
         daily_retry_limit: int = 0,
         allow_opposite_close: bool = True,
+        check_cancelled = None,
         date_from: float = None,
         date_to: float = None
     ) -> dict:
@@ -125,6 +126,8 @@ class StrategyHandler:
         lot_size = get_lot_size(symbol)
 
         for i, c in enumerate(annotated_data):
+            if check_cancelled and check_cancelled():
+                break
             vsa_pat = c.get('vsa_patterns', '')
             if not vsa_pat:
                 vsa_pat = []
