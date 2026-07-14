@@ -160,6 +160,17 @@ class StrategyHandler:
                 should_buy = False
                 should_sell = False
 
+            # Apply daily retry limit
+            try:
+                from datetime import datetime
+                date_str = datetime.utcfromtimestamp(candle_time).strftime('%Y-%m-%d')
+            except Exception:
+                date_str = 'unknown'
+            
+            if daily_retry_limit > 0 and daily_trades_count.get(date_str, 0) >= daily_retry_limit:
+                should_buy = False
+                should_sell = False
+
             if active_trade:
                 closed = False
                 exit_price = close_val
@@ -248,25 +259,10 @@ class StrategyHandler:
 
             if not active_trade:
                 if should_buy or should_sell:
-                    # Determine date
-                    candle_time = int(c.get('time', 0))
-                    try:
-                        from datetime import datetime
-                        date_str = datetime.utcfromtimestamp(candle_time).strftime('%Y-%m-%d')
-                    except Exception:
-                        date_str = 'unknown'
-                    
-                    # Check limit
-                    current_day_count = daily_trades_count.get(date_str, 0)
-                    if daily_retry_limit > 0 and current_day_count >= daily_retry_limit:
-                        should_buy = False
-                        should_sell = False
-                    
-                    if should_buy or should_sell:
-                        daily_trades_count[date_str] = current_day_count + 1
-                        trade_type = 'BUY' if should_buy else 'SELL'
-                        c['backtest_signal'] = trade_type
-                        entry_price = close_val
+                    daily_trades_count[date_str] = daily_trades_count.get(date_str, 0) + 1
+                    trade_type = 'BUY' if should_buy else 'SELL'
+                    c['backtest_signal'] = trade_type
+                    entry_price = close_val
                     
                     # Calculate entry/sl/tp/qty trade parameters using TradingHandler
                     trade_params = TradingHandler.calculate_trade_parameters(
