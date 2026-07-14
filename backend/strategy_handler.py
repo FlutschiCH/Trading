@@ -49,6 +49,7 @@ class StrategyHandler:
         be_trigger_r: float,
         lookback_window: int,
         fees_percent: float = 0.0,
+        daily_retry_limit: int = 0,
         date_from: float = None,
         date_to: float = None
     ) -> dict:
@@ -70,6 +71,7 @@ class StrategyHandler:
         active_trade = None
         completed_trades = []
         current_balance = initial_balance
+        daily_trades_count = {}
         
         # Determine decimal precision dynamically from the input candle data
         precision = 2
@@ -246,9 +248,25 @@ class StrategyHandler:
 
             if not active_trade:
                 if should_buy or should_sell:
-                    trade_type = 'BUY' if should_buy else 'SELL'
-                    c['backtest_signal'] = trade_type
-                    entry_price = close_val
+                    # Determine date
+                    candle_time = int(c.get('time', 0))
+                    try:
+                        from datetime import datetime
+                        date_str = datetime.utcfromtimestamp(candle_time).strftime('%Y-%m-%d')
+                    except Exception:
+                        date_str = 'unknown'
+                    
+                    # Check limit
+                    current_day_count = daily_trades_count.get(date_str, 0)
+                    if daily_retry_limit > 0 and current_day_count >= daily_retry_limit:
+                        should_buy = False
+                        should_sell = False
+                    
+                    if should_buy or should_sell:
+                        daily_trades_count[date_str] = current_day_count + 1
+                        trade_type = 'BUY' if should_buy else 'SELL'
+                        c['backtest_signal'] = trade_type
+                        entry_price = close_val
                     
                     # Calculate entry/sl/tp/qty trade parameters using TradingHandler
                     trade_params = TradingHandler.calculate_trade_parameters(

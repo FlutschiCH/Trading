@@ -385,6 +385,7 @@ export default function Dashboard() {
     return val === null ? true : val === 'true';
   });
   const [backtestFees, setBacktestFees] = useState(() => localStorage.getItem('wyckoff_backtest_fees') || '0.03');
+  const [dailyRetryLimit, setDailyRetryLimit] = useState(() => localStorage.getItem('wyckoff_backtest_daily_retry_limit') || '0');
   const [enabledIndicators, setEnabledIndicators] = useState({ fvg: true });
   const [fvgs, setFvgs] = useState<any[]>([]);
   const [backtestResults, setBacktestResults] = useState<{
@@ -588,6 +589,7 @@ export default function Dashboard() {
           beTriggerR: parseFloat(backtestBE) || 1.0,
           lookbackWindow: parseInt(lookbackWindow) || 20,
           feesPercent: parseFloat(backtestFees) || 0.0,
+          dailyRetryLimit: parseInt(dailyRetryLimit) || 0,
           enabledIndicators,
           ...bounds
         }),
@@ -733,6 +735,10 @@ export default function Dashboard() {
   useEffect(() => {
     localStorage.setItem('wyckoff_backtest_fees', backtestFees);
   }, [backtestFees]);
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_backtest_daily_retry_limit', dailyRetryLimit);
+  }, [dailyRetryLimit]);
 
   // Fetch symbols and timeframes metadata dynamically based on selected candleSource
   useEffect(() => {
@@ -2012,6 +2018,8 @@ export default function Dashboard() {
                 styles={styles}
                 onRunBacktest={runBacktest}
                 loadingBacktest={loadingBacktest}
+                dailyRetryLimit={dailyRetryLimit}
+                setDailyRetryLimit={setDailyRetryLimit}
               />
             )}
           </div>
@@ -2213,6 +2221,8 @@ export default function Dashboard() {
                       styles={styles}
                       onRunBacktest={runBacktest}
                       loadingBacktest={loadingBacktest}
+                      dailyRetryLimit={dailyRetryLimit}
+                      setDailyRetryLimit={setDailyRetryLimit}
                     />
                   </div>
                   {renderResizeHandle('backtester')}

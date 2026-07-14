@@ -54,6 +54,8 @@ interface WyckoffBacktesterProps {
   setEnabledIndicators: (val: any) => void;
   onRunBacktest: () => void;
   loadingBacktest: boolean;
+  dailyRetryLimit: string;
+  setDailyRetryLimit: (val: string) => void;
 }
 
 export default function WyckoffBacktester({
@@ -108,7 +110,9 @@ export default function WyckoffBacktester({
   enabledIndicators,
   setEnabledIndicators,
   onRunBacktest,
-  loadingBacktest
+  loadingBacktest,
+  dailyRetryLimit,
+  setDailyRetryLimit
 }: WyckoffBacktesterProps) {
   return (
     <div className="no-drag" style={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
@@ -300,20 +304,36 @@ export default function WyckoffBacktester({
           )}
         </div>
 
-        {/* Row 5: Conditional Lookback (Only if BE is enabled, otherwise lookback is rendered above) */}
-        {useBreakEven && (
+        {/* Row 5: Sweep Lookback & Daily Retry */}
+        <div style={{ display: 'grid', gridTemplateColumns: useBreakEven ? '1fr 1fr' : '1fr', gap: '12px' }}>
+          {useBreakEven && (
+            <div style={styles.formGroup}>
+              <label style={{ color: '#9ca3af', fontSize: '11px' }}>Sweep Lookback (Bars)</label>
+              <input 
+                type="number" 
+                value={lookbackWindow} 
+                onChange={(e) => setLookbackWindow(e.target.value)}
+                style={styles.input}
+                min="5"
+                max="200"
+              />
+            </div>
+          )}
           <div style={styles.formGroup}>
-            <label style={{ color: '#9ca3af', fontSize: '11px' }}>Sweep Lookback (Bars)</label>
+            <label style={{ color: '#9ca3af', fontSize: '11px' }}>Daily Retry Limit</label>
             <input 
               type="number" 
-              value={lookbackWindow} 
-              onChange={(e) => setLookbackWindow(e.target.value)}
+              value={dailyRetryLimit} 
+              onChange={(e) => {
+                const val = Math.max(0, parseInt(e.target.value) || 0);
+                setDailyRetryLimit(val.toString());
+              }}
               style={styles.input}
-              min="5"
-              max="200"
+              min="0"
+              step="1"
             />
           </div>
-        )}
+        </div>
 
         {/* Indicator Features List */}
         <div style={{
