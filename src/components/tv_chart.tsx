@@ -690,13 +690,12 @@ export default function TVChart({
         const entryData = points.map((p) => ({ time: p, value: trade.entryPrice }));
         const slData = points.map((p) => ({ time: p, value: trade.slPrice }));
         const tpData = points.map((p) => ({ time: p, value: trade.tpPrice }));
-        const beData = points.map((p) => ({ time: p, value: 2 * trade.entryPrice - trade.slPrice }));
 
-        const addTradeLine = (data: any[], color: string) => {
+        const addTradeLine = (data: any[], color: string, lineStyle: number = 0) => {
           const lineSeries = chartRef.current.addSeries(LineSeries, {
             color,
             lineWidth: 2,
-            lineStyle: 0,
+            lineStyle,
             lastValueVisible: false,
             priceLineVisible: false,
             crosshairMarkerVisible: false,
@@ -706,9 +705,20 @@ export default function TVChart({
         };
 
         addTradeLine(entryData, '#3b82f6');
-        addTradeLine(slData, '#ef4444');
+        
+        const hasOriginalSl = trade.originalSlPrice !== undefined && trade.originalSlPrice !== null && trade.originalSlPrice !== trade.slPrice;
+        if (hasOriginalSl) {
+          // Draw BE stop loss line in yellow/orange
+          addTradeLine(slData, '#fbbf24');
+          // Draw original stop loss line in dashed red
+          const originalSlData = points.map((p) => ({ time: p, value: trade.originalSlPrice }));
+          addTradeLine(originalSlData, '#ef4444', 1);
+        } else {
+          // Draw regular stop loss line in red
+          addTradeLine(slData, '#ef4444');
+        }
+        
         addTradeLine(tpData, '#10b981');
-        addTradeLine(beData, '#fbbf24');
       });
     }
 

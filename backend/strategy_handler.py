@@ -170,11 +170,11 @@ class StrategyHandler:
                     sl_distance = active_trade['sl_distance']
                     if active_trade['type'] == 'BUY':
                         if high_val >= active_trade['entry_price'] + sl_distance * be_trigger_r:
-                            active_trade['sl_price'] = active_trade['entry_price']
+                            active_trade['sl_price'] = round(active_trade['entry_price'] - 0.5 * sl_distance, precision)
                             active_trade['is_break_even'] = True
                     else:
                         if low_val <= active_trade['entry_price'] - sl_distance * be_trigger_r:
-                            active_trade['sl_price'] = active_trade['entry_price']
+                            active_trade['sl_price'] = round(active_trade['entry_price'] + 0.5 * sl_distance, precision)
                             active_trade['is_break_even'] = True
 
                 # Check opposite sweep signals
@@ -232,6 +232,7 @@ class StrategyHandler:
                         'time': time_str,
                         'timestamp': int(c.get('time', 0)),
                         'slPrice': float(active_trade['sl_price']),
+                        'originalSlPrice': float(active_trade['original_sl']),
                         'tpPrice': float(active_trade['tp_price']),
                         'entryTimestamp': int(active_trade['entry_timestamp']),
                         'exitTimestamp': int(c.get('time', 0)),
@@ -280,6 +281,7 @@ class StrategyHandler:
                         'type': trade_type,
                         'entry_price': entry_price,
                         'sl_price': sl_price,
+                        'original_sl': sl_price,
                         'tp_price': tp_price,
                         'qty': trade_qty,
                         'entry_index': i,
