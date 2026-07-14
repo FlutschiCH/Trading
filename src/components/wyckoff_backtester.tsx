@@ -52,6 +52,7 @@ interface WyckoffBacktesterProps {
   styles: any;
   enabledIndicators: { fvg: boolean };
   setEnabledIndicators: (val: any) => void;
+  onRunBacktest: () => void;
 }
 
 export default function WyckoffBacktester({
@@ -104,7 +105,8 @@ export default function WyckoffBacktester({
   onLocateCandle,
   styles,
   enabledIndicators,
-  setEnabledIndicators
+  setEnabledIndicators,
+  onRunBacktest
 }: WyckoffBacktesterProps) {
   return (
     <div className="no-drag" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -114,6 +116,29 @@ export default function WyckoffBacktester({
         gap: '12px',
         fontSize: '12px',
       }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '-4px' }}>
+          <button 
+            onClick={onRunBacktest}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              backgroundColor: '#3b82f6',
+              color: '#ffffff',
+              border: 'none',
+              padding: '6px 12px',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 500,
+              fontSize: '11px',
+              transition: 'background-color 0.2s',
+            }}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#3b82f6'}
+          >
+            🔄 Run Backtest
+          </button>
+        </div>
         {/* Row 1: Account setup (Starting Balance & Fees) */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
           <div style={styles.formGroup}>

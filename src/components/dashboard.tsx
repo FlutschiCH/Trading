@@ -651,7 +651,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     runBacktest();
-  }, [candles, symbol, backtestSL, backtestSLType, backtestRR, backtestSize, lookbackWindow, backtestBalance, backtestRiskPct, useRiskSizing, backtestBE, useBreakEven, backtestFees, enabledIndicators, dateRangeOption, customFrom, customTo]);
+  }, [candles]);
 
   useEffect(() => {
     localStorage.setItem('wyckoff_symbol', symbol);
@@ -1957,6 +1957,7 @@ export default function Dashboard() {
                 onUpdateNotes={handleUpdateFavouriteNotes}
                 onLocateCandle={handleLocateCandle}
                 styles={styles}
+                onRunBacktest={runBacktest}
               />
             )}
           </div>
@@ -2156,6 +2157,7 @@ export default function Dashboard() {
                       onUpdateNotes={handleUpdateFavouriteNotes}
                       onLocateCandle={handleLocateCandle}
                       styles={styles}
+                      onRunBacktest={runBacktest}
                     />
                   </div>
                   {renderResizeHandle('backtester')}
