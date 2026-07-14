@@ -577,12 +577,18 @@ export default function TVChart({
             const baseColor = isBullish ? '#10b981' : '#ef4444';
             const fadedColor = isBullish ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)';
 
+            let markerText = isBullish ? 'BUY' : 'SELL';
+            if (trade) {
+              const pnlStr = trade.pnl >= 0 ? `+${trade.pnl.toFixed(2)}` : `${trade.pnl.toFixed(2)}`;
+              markerText += ` (${isProfit ? 'WIN' : 'LOSS'} ${pnlStr})`;
+            }
+
             return {
               time: c.time,
               position: (isBullish ? 'belowBar' : 'aboveBar') as any,
               color: shouldFade ? fadedColor : baseColor,
               shape: (isBullish ? 'arrowUp' : 'arrowDown') as any,
-              text: isBullish ? 'BUY' : 'SELL',
+              text: markerText,
               size: shouldFade ? 0.75 : 1,
             };
           }
