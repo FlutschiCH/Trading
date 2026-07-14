@@ -217,6 +217,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [loadingStrategy, setLoadingStrategy] = useState(false);
   const [initialCandlesLoaded, setInitialCandlesLoaded] = useState(false);
+  const [loadingBacktest, setLoadingBacktest] = useState(false);
 
   // Symbol Mapping states
   const [view, setView] = useState<'dashboard' | 'mappings'>('dashboard');
@@ -559,7 +560,7 @@ export default function Dashboard() {
 
   const runBacktest = async () => {
     if (!candles || candles.length === 0) return;
-    
+    setLoadingBacktest(true);
     try {
       const bounds = calculateDateBounds(dateRangeOption, customFrom, customTo);
       const response = await fetch(`${API_BASE_URL}/api/backtest`, {
@@ -610,6 +611,8 @@ export default function Dashboard() {
       }
     } catch (e) {
       console.error("Failed to run backtest on backend:", e);
+    } finally {
+      setLoadingBacktest(false);
     }
   };
 
@@ -1958,6 +1961,7 @@ export default function Dashboard() {
                 onLocateCandle={handleLocateCandle}
                 styles={styles}
                 onRunBacktest={runBacktest}
+                loadingBacktest={loadingBacktest}
               />
             )}
           </div>
@@ -2158,6 +2162,7 @@ export default function Dashboard() {
                       onLocateCandle={handleLocateCandle}
                       styles={styles}
                       onRunBacktest={runBacktest}
+                      loadingBacktest={loadingBacktest}
                     />
                   </div>
                   {renderResizeHandle('backtester')}

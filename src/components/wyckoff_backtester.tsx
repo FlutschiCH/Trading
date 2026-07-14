@@ -53,6 +53,7 @@ interface WyckoffBacktesterProps {
   enabledIndicators: { fvg: boolean };
   setEnabledIndicators: (val: any) => void;
   onRunBacktest: () => void;
+  loadingBacktest: boolean;
 }
 
 export default function WyckoffBacktester({
@@ -106,10 +107,11 @@ export default function WyckoffBacktester({
   styles,
   enabledIndicators,
   setEnabledIndicators,
-  onRunBacktest
+  onRunBacktest,
+  loadingBacktest
 }: WyckoffBacktesterProps) {
   return (
-    <div className="no-drag" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div className="no-drag" style={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
       <div style={{
         display: 'flex',
         flexDirection: 'column',
@@ -793,6 +795,42 @@ export default function WyckoffBacktester({
               );
             })}
           </div>
+        </div>
+      )}
+      
+      {loadingBacktest && (
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.6)',
+          backdropFilter: 'blur(4px)',
+          zIndex: 50,
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          flexDirection: 'column',
+          borderRadius: '8px',
+          pointerEvents: 'all'
+        }}>
+          <div style={{
+            width: '32px',
+            height: '32px',
+            border: '3px solid rgba(255, 255, 255, 0.1)',
+            borderTop: '3px solid #3b82f6',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            marginBottom: '8px'
+          }} />
+          <style>{`
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `}</style>
+          <span style={{ color: '#ffffff', fontSize: '12px', fontWeight: 500 }}>Running Backtest...</span>
         </div>
       )}
     </div>
