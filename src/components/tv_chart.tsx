@@ -136,6 +136,10 @@ export default function TVChart({
   const candlesRef = useRef(candles);
   const onSelectTradeRef = useRef(onSelectTrade);
   const onSelectCandleRef = useRef(onSelectCandle);
+  const fvgsRef = useRef(fvgs);
+  const dateRangeOptionRef = useRef(dateRangeOption);
+  const customFromRef = useRef(customFrom);
+  const customToRef = useRef(customTo);
 
   // References to dynamically generated trade level LineSeries
   const dynamicLineSeriesRef = useRef<any[]>([]);
@@ -157,6 +161,26 @@ export default function TVChart({
   useEffect(() => {
     onSelectTradeRef.current = onSelectTrade;
   }, [onSelectTrade]);
+
+  useEffect(() => {
+    fvgsRef.current = fvgs;
+    updateDrawingCoordinates();
+  }, [fvgs]);
+
+  useEffect(() => {
+    dateRangeOptionRef.current = dateRangeOption;
+    updateDrawingCoordinates();
+  }, [dateRangeOption]);
+
+  useEffect(() => {
+    customFromRef.current = customFrom;
+    updateDrawingCoordinates();
+  }, [customFrom]);
+
+  useEffect(() => {
+    customToRef.current = customTo;
+    updateDrawingCoordinates();
+  }, [customTo]);
 
   const [dateRangeCoords, setDateRangeCoords] = useState<{ x1: number | null; x2: number | null } | null>(null);
   const [selectedTradeCoords, setSelectedTradeCoords] = useState<{ x1: number; x2: number; type: 'BUY' | 'SELL'; pnl: number } | null>(null);
@@ -294,8 +318,9 @@ export default function TVChart({
       setSelectedTradeCoords(null);
     }
 
-    if (dateRangeOption && dateRangeOption !== 'last_candles') {
-      const bounds = calculateDateBounds(dateRangeOption, customFrom, customTo);
+    const currentDRE = dateRangeOptionRef.current;
+    if (currentDRE && currentDRE !== 'last_candles') {
+      const bounds = calculateDateBounds(currentDRE, customFromRef.current, customToRef.current);
       const x1 = bounds.date_from ? timeScale.timeToCoordinate(bounds.date_from) : null;
       const x2 = bounds.date_to ? timeScale.timeToCoordinate(bounds.date_to) : null;
       setDateRangeCoords({ x1, x2 });
@@ -303,7 +328,8 @@ export default function TVChart({
       setDateRangeCoords(null);
     }
 
-    if (fvgs && fvgs.length > 0 && candlesRef.current) {
+    const currentFvgs = fvgsRef.current;
+    if (currentFvgs && currentFvgs.length > 0 && candlesRef.current) {
       const getCoordinateForTime = (time: number) => {
         const idx = candlesRef.current.findIndex(c => Number(c.time) === Number(time));
         if (idx !== -1) {
@@ -312,7 +338,7 @@ export default function TVChart({
         return timeScale.timeToCoordinate(time as any);
       };
 
-      const coords = fvgs.map(fvg => {
+      const coords = currentFvgs.map(fvg => {
         const x1 = getCoordinateForTime(fvg.timeStart);
         const x2 = getCoordinateForTime(fvg.timeEnd);
         const y1 = series.priceToCoordinate(fvg.priceMax);
