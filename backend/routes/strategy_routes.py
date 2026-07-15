@@ -123,3 +123,22 @@ def historical_candles():
     except Exception as e:
         print(f"Failed to fetch {binance_symbol} from Binance API: {e}. Returning empty list.", flush=True)
         return jsonify({"status": "success", "data": []})
+
+@strategy_routes.route('/backtest/results', methods=['GET'])
+def get_backtest_results():
+    """
+    Exposes the latest generated backtest_results.json.
+    """
+    import os
+    import json
+    results_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'backtest_results.json')
+    if os.path.exists(results_path):
+        try:
+            with open(results_path, 'r') as f:
+                data = json.load(f)
+            return jsonify({"status": "success", "data": data})
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)}), 500
+    else:
+        return jsonify({"status": "error", "message": "No backtest results found"}), 404
+

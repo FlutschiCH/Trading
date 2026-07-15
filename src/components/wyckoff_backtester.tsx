@@ -17,8 +17,8 @@ interface WyckoffBacktesterProps {
   setBacktestSize: (val: string) => void;
   backtestSL: string;
   setBacktestSL: (val: string) => void;
-  backtestSLType: 'pct' | 'price';
-  setBacktestSLType: (val: 'pct' | 'price') => void;
+  backtestSLType: 'pct' | 'price' | 'amount';
+  setBacktestSLType: (val: 'pct' | 'price' | 'amount') => void;
   backtestRR: string;
   setBacktestRR: (val: string) => void;
   useBreakEven: boolean;
@@ -102,6 +102,51 @@ export default function WyckoffBacktester({
   enabledIndicators,
   setEnabledIndicators
 }: WyckoffBacktesterProps) {
+  const [copied, setCopied] = React.useState(false);
+
+  const handleCopy = async () => {
+    try {
+      const backendUrl = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1')
+        ? 'http://localhost:8751/api/backtest/results'
+        : `${window.location.origin}/api/backtest/results`;
+        
+      const res = await fetch(backendUrl);
+      const json = await res.json();
+      if (json.status === 'success') {
+        await navigator.clipboard.writeText(JSON.stringify(json.data, null, 2));
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } else {
+        throw new Error(json.message || 'Error fetching');
+      }
+    } catch (err) {
+      try {
+        const cleanResults = {
+          explainer: "VSA and sweep strategy backtest data.",
+          settings: {
+            symbol: symbol,
+            timeframe: timeframe
+          },
+          metrics: {
+            winRate: backtestResults?.winRate,
+            netPnl: backtestResults?.netPnl,
+            profitFactor: backtestResults?.profitFactor,
+            totalTrades: backtestResults?.totalTrades,
+            maxDrawdown: backtestResults?.maxDrawdown,
+            maxDailyLoss: backtestResults?.maxDailyLoss,
+            dailyLossBreached: backtestResults?.dailyLossBreached,
+          },
+          trades: backtestResults?.trades?.slice(0, 100)
+        };
+        await navigator.clipboard.writeText(JSON.stringify(cleanResults, null, 2));
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (e: any) {
+        console.error(e);
+      }
+    }
+  };
+
   return (
     <div className="no-drag" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div style={{
@@ -194,11 +239,11 @@ export default function WyckoffBacktester({
               <select
                 value={backtestSLType}
                 onChange={(e) => {
-                  const newType = e.target.value as 'pct' | 'price';
+                  const newType = e.target.value as 'pct' | 'price' | 'amount';
                   setUseRiskSizing(true); // Preserve risk sizing target
                   setBacktestSLType(newType);
                   const isForex = ['EUR', 'GBP', 'JPY', 'USD', 'CAD', 'AUD', 'CHF'].some(curr => symbol.toUpperCase().includes(curr)) && !['BTC', 'ETH', 'SOL', 'LTC', 'XRP'].some(crypto => symbol.toUpperCase().includes(crypto));
-                  setBacktestSL(newType === 'pct' ? '1.0' : (isForex ? '20' : '200'));
+                  setBacktestSL(newType === 'pct' ? '1.0' : (newType === 'amount' ? '100' : (isForex ? '20' : '200')));
                 }}
                 style={{
                   ...styles.input,
@@ -210,6 +255,7 @@ export default function WyckoffBacktester({
               >
                 <option value="pct">%</option>
                 <option value="price">Pips</option>
+                <option value="amount">$</option>
               </select>
             </div>
           </div>
@@ -454,6 +500,124 @@ export default function WyckoffBacktester({
                   ⚠️ FTMO 5% Daily Loss Rule Breached!
                 </div>
               )}
+
+              {/* AI Assistant Helpers */}
+              <div style={{
+                backgroundColor: 'rgba(30, 41, 59, 0.4)',
+                border: '1px solid #1e293b',
+                borderRadius: '8px',
+                padding: '10px',
+                marginTop: '8px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: '#cbd5e1', fontSize: '10px', fontWeight: 'bold', letterSpacing: '0.5px' }}>ASK AI ASSISTANT</span>
+                  {copied && <span style={{ color: '#10b981', fontSize: '10px', fontWeight: 'bold' }}>✓ Copied!</span>}
+                </div>
+                
+                <button
+                  onClick={handleCopy}
+                  style={{
+                    backgroundColor: copied ? '#065f46' : '#2563eb',
+                    border: 'none',
+                    color: '#ffffff',
+                    padding: '6px 12px',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '11px',
+                    fontWeight: 'bold',
+                    transition: 'all 0.2s',
+                    textAlign: 'center',
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  {copied ? '✓ JSON Copied!' : '📋 Copy backtest_results.json'}
+                </button>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px' }}>
+                  <a
+                    href="https://gemini.google.com/"
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      backgroundColor: '#1e293b',
+                      border: '1px solid #334155',
+                      color: '#60a5fa',
+                      padding: '6px 4px',
+                      borderRadius: '4px',
+                      textDecoration: 'none',
+                      textAlign: 'center',
+                      fontSize: '11px',
+                      fontWeight: 'bold',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '4px',
+                      transition: 'background-color 0.2s'
+                    }}
+                    onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#334155')}
+                    onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#1e293b')}
+                  >
+                    ✨ Gemini
+                  </a>
+                  <a
+                    href="https://chatgpt.com/"
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      backgroundColor: '#1e293b',
+                      border: '1px solid #334155',
+                      color: '#10b981',
+                      padding: '6px 4px',
+                      borderRadius: '4px',
+                      textDecoration: 'none',
+                      textAlign: 'center',
+                      fontSize: '11px',
+                      fontWeight: 'bold',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '4px',
+                      transition: 'background-color 0.2s'
+                    }}
+                    onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#334155')}
+                    onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#1e293b')}
+                  >
+                    💬 ChatGPT
+                  </a>
+                  <a
+                    href="https://grok.com/"
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      backgroundColor: '#1e293b',
+                      border: '1px solid #334155',
+                      color: '#f59e0b',
+                      padding: '6px 4px',
+                      borderRadius: '4px',
+                      textDecoration: 'none',
+                      textAlign: 'center',
+                      fontSize: '11px',
+                      fontWeight: 'bold',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '4px',
+                      transition: 'background-color 0.2s'
+                    }}
+                    onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#334155')}
+                    onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#1e293b')}
+                  >
+                    🚀 Grok
+                  </a>
+                </div>
+              </div>
             </>
           )}
 
