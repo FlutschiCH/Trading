@@ -1339,7 +1339,7 @@ export default function Dashboard() {
     return 0.0001;
   };
 
-  const getLotSize = (sym: string) => {
+  const getLotSize = (sym: string): number => {
     const symUpper = sym.toUpperCase();
     if (symUpper.includes('XAU') || symUpper.includes('GOLD') || symUpper.includes('XAG')) {
       return 100.0;
@@ -1377,8 +1377,8 @@ export default function Dashboard() {
         slPrice = isBuy ? entry * (1 - slVal / 100) : entry * (1 + slVal / 100);
       }
       
-      const slDistance = Math.abs(entry - slPrice);
-      tpPrice = isBuy ? entry + slDistance * rr : entry - slDistance * rr;
+      const slDistancePrice = Math.abs(entry - slPrice);
+      tpPrice = isBuy ? entry + slDistancePrice * rr : entry - slDistancePrice * rr;
     }
     
     let entryTimestamp = pos.entry_timestamp;
