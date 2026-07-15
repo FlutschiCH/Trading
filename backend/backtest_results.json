@@ -17,10 +17,10 @@
         "date_to": null
     },
     "metrics": {
-        "winRate": 52.83018867924528,
-        "netPnl": -864.9496913554335,
-        "profitFactor": 0.804149989706165,
-        "totalTrades": 106,
+        "winRate": 52.336448598130836,
+        "netPnl": -864.9770965063594,
+        "profitFactor": 0.8041449997203091,
+        "totalTrades": 107,
         "maxDrawdown": 10.835896197536215,
         "maxDailyLoss": 2.7238491787034222,
         "dailyLossBreached": false,
@@ -3204,6 +3204,35 @@
                     "high": 1.14319,
                     "low": 1.14261,
                     "close": 1.143
+                }
+            }
+        },
+        {
+            "id": 107,
+            "type": "SELL",
+            "entryPrice": 1.14275,
+            "exitPrice": 1.14275,
+            "pnl": -0.027405150925933694,
+            "fees": 0.027405150925933694,
+            "outcome": "LOSS",
+            "time": "Open",
+            "timestamp": 1784131200,
+            "slPrice": 1.14475,
+            "tpPrice": 1.13875,
+            "entryTimestamp": 1784131200,
+            "exitTimestamp": 1784131200,
+            "exitReason": "Position still open",
+            "duration": 1,
+            "qty": 0.4567525154322282,
+            "triggerReason": {
+                "vsa_patterns": "Upthrust",
+                "sweep_level": 1.14302,
+                "weis_wave_volume": 5169.0,
+                "entry_candle": {
+                    "open": 1.14283,
+                    "high": 1.14338,
+                    "low": 1.14274,
+                    "close": 1.14275
                 }
             }
         }
