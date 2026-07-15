@@ -196,7 +196,10 @@ class CTraderHandler:
                 
                 # Check if this is a Position Report (35=AP)
                 if fields.get("35") == "AP":
-                    symbol = fields.get("55", "EURUSD")
+                    broker_symbol = fields.get("55", "EURUSD")
+                    from symbol_mapping_handler import SymbolMappingHandler
+                    broker_key = f"ctrader:{cls._client.sender_comp_id}"
+                    symbol = SymbolMappingHandler.map_to_main(broker_symbol, broker_key)
                     long_qty = float(fields.get("704", 0))
                     short_qty = float(fields.get("705", 0))
                     entry_price = float(fields.get("730", 0.0))
@@ -253,6 +256,10 @@ class CTraderHandler:
         try:
             cls._client.connect_and_logon()
             
+            from symbol_mapping_handler import SymbolMappingHandler
+            broker_key = f"ctrader:{cls._client.sender_comp_id}"
+            mapped_symbol = SymbolMappingHandler.map_to_broker(symbol, broker_key)
+
             # Send New Order Single (35=D)
             cl_ord_id = f"ORD-{int(time.time())}"
             # 11=ClOrdID, 55=Symbol, 54=Side (1=Buy, 2=Sell), 38=OrderQty, 40=OrdType (1=Market, 2=Limit), 59=1 (GTC)
@@ -261,7 +268,7 @@ class CTraderHandler:
             
             body_parts = [
                 f"11={cl_ord_id}",
-                f"55={symbol}",
+                f"55={mapped_symbol}",
                 f"54={fix_side}",
                 f"38={volume}",
                 f"40={ord_type}",

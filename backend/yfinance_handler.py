@@ -26,8 +26,11 @@ class YFinanceHandler:
         }
         yf_interval = tf_map.get(timeframe, '15m')
         
+        from symbol_mapping_handler import SymbolMappingHandler
+        mapped_symbol = SymbolMappingHandler.map_to_broker(symbol, "yfinance")
+        
         # Clean symbol for yfinance
-        yf_symbol = symbol.upper()
+        yf_symbol = mapped_symbol.upper()
         if yf_symbol == 'BTCUSD':
             yf_symbol = 'BTC-USD'
         elif yf_symbol == 'ETHUSD':

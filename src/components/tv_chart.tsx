@@ -388,6 +388,8 @@ export default function TVChart({
       },
       timeScale: {
         fixRightEdge: false,
+        timeVisible: true,
+        secondsVisible: false,
       },
       width: chartContainerRef.current.clientWidth || (window.innerWidth - 32),
       height: window.innerWidth < 768 ? 380 : 680,
@@ -442,6 +444,8 @@ export default function TVChart({
       },
       timeScale: {
         fixRightEdge: false,
+        timeVisible: true,
+        secondsVisible: false,
       },
       width: weisContainerRef.current.clientWidth || (window.innerWidth - 32),
       height: window.innerWidth < 768 ? 100 : 140,

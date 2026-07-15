@@ -49,13 +49,17 @@ class MetaTraderHandler:
         mt5_tf = tf_map.get(timeframe, mt5.TIMEFRAME_M15)
 
         # Match symbol (e.g. EURUSD -> EURUSD.m or similar suffix support)
+        from symbol_mapping_handler import SymbolMappingHandler
+        broker_key = f"metatrader:{server}"
+        mapped_symbol = SymbolMappingHandler.map_to_broker(symbol, broker_key)
+
         symbols = mt5.symbols_get()
-        matched_symbol = symbol
+        matched_symbol = mapped_symbol
         if symbols:
             symbol_names = [s.name for s in symbols]
-            if symbol not in symbol_names:
+            if mapped_symbol not in symbol_names:
                 for s in symbol_names:
-                    if symbol.upper() in s.upper():
+                    if mapped_symbol.upper() in s.upper():
                         matched_symbol = s
                         break
 
@@ -134,11 +138,15 @@ class MetaTraderHandler:
         if positions is None:
             return []
         
+        from symbol_mapping_handler import SymbolMappingHandler
+        broker_key = f"metatrader:{server}"
+
         res = []
         for p in positions:
+            main_symbol = SymbolMappingHandler.map_to_main(p.symbol, broker_key)
             res.append({
                 "position_id": p.ticket,
-                "symbol": p.symbol,
+                "symbol": main_symbol,
                 "trade_side": "BUY" if p.type == mt5.POSITION_TYPE_BUY else "SELL",
                 "volume": p.volume,
                 "entry_price": p.price_open,
@@ -160,13 +168,17 @@ class MetaTraderHandler:
         if not mt5.initialize(login=int(login), password=password, server=server):
             return {"status": "error", "message": "Failed to initialize MT5"}
         
+        from symbol_mapping_handler import SymbolMappingHandler
+        broker_key = f"metatrader:{server}"
+        mapped_symbol = SymbolMappingHandler.map_to_broker(symbol, broker_key)
+
         symbols = mt5.symbols_get()
-        matched_symbol = symbol
+        matched_symbol = mapped_symbol
         if symbols:
             symbol_names = [s.name for s in symbols]
-            if symbol not in symbol_names:
+            if mapped_symbol not in symbol_names:
                 for s in symbol_names:
-                    if symbol.upper() in s.upper():
+                    if mapped_symbol.upper() in s.upper():
                         matched_symbol = s
                         break
                         
