@@ -143,6 +143,7 @@ export default function WyckoffBacktester({
   const [newEnd, setNewEnd] = React.useState('17:00');
   const [newCloseOnEnd, setNewCloseOnEnd] = React.useState(true);
   const [newWeekdays, setNewWeekdays] = React.useState<number[]>([1, 2, 3, 4, 5]);
+  const [newColor, setNewColor] = React.useState('#3b82f6'); // Default color
 
   const handleAddSession = () => {
     if (!newStart || !newEnd) return;
@@ -151,7 +152,8 @@ export default function WyckoffBacktester({
       start: newStart,
       end: newEnd,
       closeOnEnd: newCloseOnEnd,
-      weekdays: [...newWeekdays]
+      weekdays: [...newWeekdays],
+      color: newColor
     };
     setTradingSessions([...tradingSessions, newSession]);
   };
@@ -500,6 +502,7 @@ export default function WyckoffBacktester({
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '150px', overflowY: 'auto' }}>
                 {tradingSessions.map((s, idx) => {
                   const daysStr = s.weekdays.map((d: number) => ['M', 'T', 'W', 'T', 'F', 'S', 'S'][d - 1]).join(',');
+                  const sessionColor = s.color || '#3b82f6';
                   return (
                     <div key={s.id || idx} style={{
                       backgroundColor: 'rgba(31, 41, 55, 0.5)',
@@ -509,10 +512,13 @@ export default function WyckoffBacktester({
                       display: 'flex',
                       justifyContent: 'space-between',
                       alignItems: 'center',
-                      fontSize: '11px'
+                      fontSize: '11px',
+                      borderLeft: `4px solid ${sessionColor}`
                     }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                        <span style={{ color: '#ffffff', fontWeight: 'bold' }}>{s.start} - {s.end} ({daysStr})</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ color: '#ffffff', fontWeight: 'bold' }}>{s.start} - {s.end} ({daysStr})</span>
+                        </div>
                         <span style={{ color: '#9ca3af', fontSize: '9px' }}>
                           {s.closeOnEnd ? 'Close on End' : 'Let run'}
                         </span>
@@ -604,16 +610,35 @@ export default function WyckoffBacktester({
               </div>
             </div>
 
-            {/* Close on end checkbox */}
-            <label style={{ color: '#cbd5e1', fontSize: '10px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', margin: '4px 0' }}>
-              <input
-                type="checkbox"
-                checked={newCloseOnEnd}
-                onChange={(e) => setNewCloseOnEnd(e.target.checked)}
-                style={{ cursor: 'pointer' }}
-              />
-              Close trades when session ends
-            </label>
+            {/* Color picker and close on end row */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+              <label style={{ color: '#cbd5e1', fontSize: '10px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={newCloseOnEnd}
+                  onChange={(e) => setNewCloseOnEnd(e.target.checked)}
+                  style={{ cursor: 'pointer' }}
+                />
+                Close on End
+              </label>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <label style={{ color: '#9ca3af', fontSize: '9px' }}>Color</label>
+                <input
+                  type="color"
+                  value={newColor}
+                  onChange={(e) => setNewColor(e.target.value)}
+                  style={{
+                    border: 'none',
+                    background: 'none',
+                    cursor: 'pointer',
+                    width: '24px',
+                    height: '24px',
+                    padding: 0
+                  }}
+                />
+              </div>
+            </div>
 
             <button
               onClick={handleAddSession}

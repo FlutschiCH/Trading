@@ -2044,6 +2044,8 @@ export default function Dashboard() {
                 locateTimestamp={locateTimestamp}
                 tradeFilter={tradeFilter}
                 onTradeFilterChange={setTradeFilter}
+                sessions={tradingSessions}
+                sessionsTimezone={sessionsTimezone}
               />
             ) : (
               <WyckoffBacktester
@@ -2205,6 +2207,8 @@ export default function Dashboard() {
                       fvgs={fvgs}
                       tradeFilter={tradeFilter}
                       onTradeFilterChange={setTradeFilter}
+                      sessions={tradingSessions}
+                      sessionsTimezone={sessionsTimezone}
                     />
                   </div>
                   {renderResizeHandle('chart')}

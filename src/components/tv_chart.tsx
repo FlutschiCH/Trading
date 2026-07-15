@@ -44,6 +44,8 @@ interface TVChartProps {
   fvgs?: any[];
   tradeFilter?: 'all' | 'wins' | 'losses';
   onTradeFilterChange?: (filter: 'all' | 'wins' | 'losses') => void;
+  sessions?: any[];
+  sessionsTimezone?: 'UTC' | 'Local';
 }
 
 export default function TVChart({ 
@@ -72,7 +74,9 @@ export default function TVChart({
   enabledIndicators,
   fvgs = [],
   tradeFilter = 'all',
-  onTradeFilterChange
+  onTradeFilterChange,
+  sessions = [],
+  sessionsTimezone = 'Local'
 }: TVChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const weisContainerRef = useRef<HTMLDivElement>(null);
@@ -147,6 +151,7 @@ export default function TVChart({
   const dateRangeOptionRef = useRef(dateRangeOption);
   const customFromRef = useRef(customFrom);
   const customToRef = useRef(customTo);
+  const sessionsRef = useRef(sessions);
 
   // References to dynamically generated trade level LineSeries
   const dynamicLineSeriesRef = useRef<any[]>([]);
@@ -189,9 +194,15 @@ export default function TVChart({
     updateDrawingCoordinates();
   }, [customTo]);
 
+  useEffect(() => {
+    sessionsRef.current = sessions;
+    updateDrawingCoordinates();
+  }, [sessions]);
+
   const [dateRangeCoords, setDateRangeCoords] = useState<{ x1: number | null; x2: number | null } | null>(null);
   const [selectedTradeCoords, setSelectedTradeCoords] = useState<{ x1: number; x2: number; type: 'BUY' | 'SELL'; pnl: number } | null>(null);
   const [fvgCoords, setFvgCoords] = useState<any[]>([]);
+  const [sessionCoords, setSessionCoords] = useState<any[]>([]);
   const selectedTradeRef = useRef(selectedTrade);
   const [chartHeight, setChartHeight] = useState(window.innerWidth < 768 ? 380 : 680);
   const [weisHeight, setWeisHeight] = useState(window.innerWidth < 768 ? 100 : 140);
@@ -226,7 +237,7 @@ export default function TVChart({
 
   useEffect(() => {
     updateDrawingCoordinates();
-  }, [dateRangeOption, customFrom, customTo, candles, enabledIndicators, fvgs]);
+  }, [dateRangeOption, customFrom, customTo, candles, enabledIndicators, fvgs, sessions, sessionsTimezone]);
 
   useEffect(() => {
     selectedTradeRef.current = selectedTrade;
@@ -355,6 +366,102 @@ export default function TVChart({
       setFvgCoords(coords);
     } else {
       setFvgCoords([]);
+    }
+
+    const currentSessions = sessionsRef.current;
+    if (currentSessions && currentSessions.length > 0 && candlesRef.current && candlesRef.current.length > 0) {
+      const activeCoords: any[] = [];
+
+      currentSessions.forEach(session => {
+        const [startH, startM] = session.start.split(':').map(Number);
+        const [endH, endM] = session.end.split(':').map(Number);
+        const startVal = startH * 60 + startM;
+        const endVal = endH * 60 + endM;
+
+        let sessionActiveStartIdx: number | null = null;
+        let sessionHigh = -Infinity;
+        let sessionLow = Infinity;
+
+        const getSessionMinutes = (date: Date) => {
+          if (sessionsTimezone === 'UTC') {
+            return date.getUTCHours() * 60 + date.getUTCMinutes();
+          } else {
+            return date.getHours() * 60 + date.getMinutes();
+          }
+        };
+
+        const getSessionWeekday = (date: Date) => {
+          // JS day: 0=Sunday, 1=Monday... 6=Saturday
+          // Session weekdays: 1=Monday... 7=Sunday
+          let day = date.getDay();
+          if (sessionsTimezone === 'UTC') {
+            day = date.getUTCDay();
+          }
+          return day === 0 ? 7 : day;
+        };
+
+        for (let i = 0; i < candlesRef.current.length; i++) {
+          const candle = candlesRef.current[i];
+          const date = new Date(Number(candle.time) * 1000);
+          const minutes = getSessionMinutes(date);
+          const weekday = getSessionWeekday(date);
+
+          const isWeekdayMatching = session.weekdays ? session.weekdays.includes(weekday) : true;
+          let isInSession = false;
+          if (isWeekdayMatching) {
+            if (startVal <= endVal) {
+              isInSession = minutes >= startVal && minutes < endVal;
+            } else {
+              // Over-night sessions (e.g. 22:00 to 02:00)
+              isInSession = minutes >= startVal || minutes < endVal;
+            }
+          }
+
+          if (isInSession) {
+            if (sessionActiveStartIdx === null) {
+              sessionActiveStartIdx = i;
+              sessionHigh = candle.high;
+              sessionLow = candle.low;
+            } else {
+              sessionHigh = Math.max(sessionHigh, candle.high);
+              sessionLow = Math.min(sessionLow, candle.low);
+            }
+          }
+
+          const isLastCandle = i === candlesRef.current.length - 1;
+          const willCloseSession = !isInSession || isLastCandle;
+
+          if (willCloseSession && sessionActiveStartIdx !== null) {
+            const endIdx = isInSession ? i : i - 1;
+            const t1 = candlesRef.current[sessionActiveStartIdx].time;
+            const t2 = candlesRef.current[endIdx].time;
+
+            const x1 = timeScale.logicalToCoordinate(sessionActiveStartIdx as any);
+            const x2 = timeScale.logicalToCoordinate(endIdx as any);
+            const y1 = series.priceToCoordinate(sessionHigh);
+            const y2 = series.priceToCoordinate(sessionLow);
+
+            if (x1 !== null && x2 !== null && y1 !== null && y2 !== null) {
+              activeCoords.push({
+                x1,
+                x2,
+                y1,
+                y2,
+                color: session.color || '#3b82f6',
+                label: `${session.start}-${session.end}`
+              });
+            }
+
+            sessionActiveStartIdx = null;
+            sessionHigh = -Infinity;
+            sessionLow = Infinity;
+          }
+        }
+      });
+
+      setSessionCoords(activeCoords);
+    } else {
+      setSessionCoords([]);
     }
   };
 
@@ -1256,6 +1363,72 @@ export default function TVChart({
                   strokeWidth={1}
                   style={{ pointerEvents: 'none' }}
                 />
+            })}
+
+            {sessionCoords.map((session, index) => {
+              const rightScaleWidth = chartRef.current ? chartRef.current.priceScale('right').width() : 55;
+              const plotWidth = chartContainerRef.current ? chartContainerRef.current.clientWidth - rightScaleWidth : 0;
+              const plotHeight = chartHeight - 26; // Subtracting bottom time axis height
+
+              // If completely outside the plot area, don't render
+              if (session.x1 > plotWidth || session.y1 > plotHeight) return null;
+
+              // Clip dimensions to plot boundary
+              const renderX1 = Math.max(0, Math.min(plotWidth, session.x1));
+              const renderX2 = Math.max(0, Math.min(plotWidth, session.x2));
+              const renderY1 = Math.max(0, Math.min(plotHeight, session.y1));
+              const renderY2 = Math.max(0, Math.min(plotHeight, session.y2));
+
+              const width = Math.max(1, renderX2 - renderX1);
+              const height = Math.max(1, renderY2 - renderY1);
+
+              if (width <= 0 || height <= 0) return null;
+
+              // 8% opacity fill, 40% stroke opacity
+              const colorHex = session.color || '#3b82f6';
+              // Convert hex to rgba to apply opacity
+              let r = 59, g = 130, b = 246;
+              if (colorHex.startsWith('#')) {
+                const hexVal = colorHex.replace('#', '');
+                if (hexVal.length === 3) {
+                  r = parseInt(hexVal[0] + hexVal[0], 16);
+                  g = parseInt(hexVal[1] + hexVal[1], 16);
+                  b = parseInt(hexVal[2] + hexVal[2], 16);
+                } else if (hexVal.length === 6) {
+                  r = parseInt(hexVal.substring(0, 2), 16);
+                  g = parseInt(hexVal.substring(2, 4), 16);
+                  b = parseInt(hexVal.substring(4, 6), 16);
+                }
+              }
+
+              const fill = `rgba(${r}, ${g}, ${b}, 0.08)`;
+              const stroke = `rgba(${r}, ${g}, ${b}, 0.4)`;
+
+              return (
+                <g key={`session-${index}`} style={{ pointerEvents: 'none' }}>
+                  <rect
+                    x={renderX1}
+                    y={renderY1}
+                    width={width}
+                    height={height}
+                    fill={fill}
+                    stroke={stroke}
+                    strokeWidth={1.5}
+                    strokeDasharray="4 4"
+                  />
+                  {width > 40 && (
+                    <text
+                      x={renderX1 + 6}
+                      y={renderY1 + 14}
+                      fill={colorHex}
+                      fontSize="9px"
+                      fontWeight="bold"
+                      style={{ opacity: 0.8 }}
+                    >
+                      {session.label}
+                    </text>
+                  )}
+                </g>
               );
             })}
           </svg>
