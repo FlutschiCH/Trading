@@ -216,6 +216,8 @@ export default function Dashboard() {
   const [candles, setCandles] = useState<Candle[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingStrategy, setLoadingStrategy] = useState(false);
+  const [initialCandlesLoaded, setInitialCandlesLoaded] = useState(false);
+  const [loadingBacktest, setLoadingBacktest] = useState(false);
 
   // Symbol Mapping states
   const [view, setView] = useState<'dashboard' | 'mappings'>('dashboard');
@@ -304,8 +306,10 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    fetchSymbolMappings();
-  }, []);
+    if (initialCandlesLoaded) {
+      fetchSymbolMappings();
+    }
+  }, [initialCandlesLoaded]);
 
   const handleAddMapping = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -364,17 +368,28 @@ export default function Dashboard() {
   const [openPositions, setOpenPositions] = useState<Position[]>([]);
 
   // Backtester states
-  const [backtestSL, setBacktestSL] = useState('20');
-  const [backtestSLType, setBacktestSLType] = useState<'pct' | 'price'>('price');
-  const [backtestRR, setBacktestRR] = useState('2');
-  const [backtestSize, setBacktestSize] = useState('1');
-  const [lookbackWindow, setLookbackWindow] = useState('20');
-  const [backtestBalance, setBacktestBalance] = useState('10000');
-  const [backtestRiskPct, setBacktestRiskPct] = useState('1.0');
-  const [useRiskSizing, setUseRiskSizing] = useState(true);
-  const [backtestBE, setBacktestBE] = useState('1.0');
-  const [useBreakEven, setUseBreakEven] = useState(true);
-  const [backtestFees, setBacktestFees] = useState('0.03');
+  const [backtestSL, setBacktestSL] = useState(() => localStorage.getItem('wyckoff_backtest_sl') || '20');
+  const [backtestSLType, setBacktestSLType] = useState<'pct' | 'price' | 'dollar'>(() => (localStorage.getItem('wyckoff_backtest_sl_type') as 'pct' | 'price' | 'dollar') || 'price');
+  const [backtestRR, setBacktestRR] = useState(() => localStorage.getItem('wyckoff_backtest_rr') || '2');
+  const [backtestSize, setBacktestSize] = useState(() => localStorage.getItem('wyckoff_backtest_size') || '1');
+  const [lookbackWindow, setLookbackWindow] = useState(() => localStorage.getItem('wyckoff_backtest_lookback') || '20');
+  const [backtestBalance, setBacktestBalance] = useState(() => localStorage.getItem('wyckoff_backtest_balance') || '10000');
+  const [backtestRiskPct, setBacktestRiskPct] = useState(() => localStorage.getItem('wyckoff_backtest_risk_pct') || '1.0');
+  const [useRiskSizing, setUseRiskSizing] = useState(() => {
+    const val = localStorage.getItem('wyckoff_backtest_use_risk_sizing');
+    return val === null ? true : val === 'true';
+  });
+  const [backtestBE, setBacktestBE] = useState(() => localStorage.getItem('wyckoff_backtest_be') || '1.0');
+  const [useBreakEven, setUseBreakEven] = useState(() => {
+    const val = localStorage.getItem('wyckoff_backtest_use_be');
+    return val === null ? true : val === 'true';
+  });
+  const [backtestFees, setBacktestFees] = useState(() => localStorage.getItem('wyckoff_backtest_fees') || '0.03');
+  const [dailyRetryLimit, setDailyRetryLimit] = useState(() => localStorage.getItem('wyckoff_backtest_daily_retry_limit') || '0');
+  const [allowOppositeClose, setAllowOppositeClose] = useState(() => {
+    const val = localStorage.getItem('wyckoff_backtest_allow_opposite_close');
+    return val === null ? true : val === 'true';
+  });
   const [enabledIndicators, setEnabledIndicators] = useState({ fvg: true });
   const [fvgs, setFvgs] = useState<any[]>([]);
   const [backtestResults, setBacktestResults] = useState<{
@@ -393,6 +408,7 @@ export default function Dashboard() {
   const [selectedTrade, setSelectedTrade] = useState<any>(null);
   const [showModal, setShowModal] = useState<boolean>(false);
   const [backtestTab, setBacktestTab] = useState<'trades' | 'weekly' | 'monthly' | 'favourites'>('trades');
+  const [tradeFilter, setTradeFilter] = useState<'all' | 'wins' | 'losses'>('all');
   const [selectedCandle, setSelectedCandle] = useState<Candle | null>(null);
   const [favouriteCandles, setFavouriteCandles] = useState<any[]>([]);
   const [favNotesInput, setFavNotesInput] = useState<string>('');
@@ -419,6 +435,23 @@ export default function Dashboard() {
   const [isDeploying, setIsDeploying] = useState(false);
 
   const lastNotifiedSignalRef = useRef<number>(0);
+  const backtestAbortControllerRef = useRef<AbortController | null>(null);
+  const activeBacktestIdRef = useRef<string | null>(null);
+
+  const cancelBacktest = () => {
+    if (activeBacktestIdRef.current) {
+      fetch(`${API_BASE_URL}/api/backtest/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ backtestId: activeBacktestIdRef.current })
+      }).catch(err => console.error("Failed to send cancel request to backend:", err));
+    }
+    if (backtestAbortControllerRef.current) {
+      backtestAbortControllerRef.current.abort();
+      backtestAbortControllerRef.current = null;
+      setLoadingBacktest(false);
+    }
+  };
 
   const triggerPWAEventNotification = (title: string, body: string) => {
     if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
@@ -556,6 +589,16 @@ export default function Dashboard() {
   const runBacktest = async () => {
     if (!candles || candles.length === 0) return;
     
+    if (backtestAbortControllerRef.current) {
+      backtestAbortControllerRef.current.abort();
+    }
+    
+    const controller = new AbortController();
+    backtestAbortControllerRef.current = controller;
+    const backtestId = Date.now().toString();
+    activeBacktestIdRef.current = backtestId;
+    
+    setLoadingBacktest(true);
     try {
       const bounds = calculateDateBounds(dateRangeOption, customFrom, customTo);
       const response = await fetch(`${API_BASE_URL}/api/backtest`, {
@@ -563,6 +606,7 @@ export default function Dashboard() {
         headers: {
           'Content-Type': 'application/json',
         },
+        signal: controller.signal,
         body: JSON.stringify({
           candles,
           symbol,
@@ -577,6 +621,9 @@ export default function Dashboard() {
           beTriggerR: parseFloat(backtestBE) || 1.0,
           lookbackWindow: parseInt(lookbackWindow) || 20,
           feesPercent: parseFloat(backtestFees) || 0.0,
+          dailyRetryLimit: parseInt(dailyRetryLimit) || 0,
+          allowOppositeClose,
+          backtestId,
           enabledIndicators,
           ...bounds
         }),
@@ -604,8 +651,17 @@ export default function Dashboard() {
           }
         }
       }
-    } catch (e) {
-      console.error("Failed to run backtest on backend:", e);
+    } catch (e: any) {
+      if (e.name === 'AbortError') {
+        console.log("Backtest aborted by user.");
+      } else {
+        console.error("Failed to run backtest on backend:", e);
+      }
+    } finally {
+      if (backtestAbortControllerRef.current === controller) {
+        backtestAbortControllerRef.current = null;
+        setLoadingBacktest(false);
+      }
     }
   };
 
@@ -647,7 +703,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     runBacktest();
-  }, [candles, symbol, backtestSL, backtestSLType, backtestRR, backtestSize, lookbackWindow, backtestBalance, backtestRiskPct, useRiskSizing, backtestBE, useBreakEven, backtestFees, enabledIndicators, dateRangeOption, customFrom, customTo]);
+  }, [candles]);
 
   useEffect(() => {
     localStorage.setItem('wyckoff_symbol', symbol);
@@ -677,8 +733,61 @@ export default function Dashboard() {
     localStorage.setItem('wyckoff_custom_to', customTo);
   }, [customTo]);
 
+  useEffect(() => {
+    localStorage.setItem('wyckoff_backtest_sl', backtestSL);
+  }, [backtestSL]);
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_backtest_sl_type', backtestSLType);
+  }, [backtestSLType]);
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_backtest_rr', backtestRR);
+  }, [backtestRR]);
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_backtest_size', backtestSize);
+  }, [backtestSize]);
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_backtest_lookback', lookbackWindow);
+  }, [lookbackWindow]);
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_backtest_balance', backtestBalance);
+  }, [backtestBalance]);
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_backtest_risk_pct', backtestRiskPct);
+  }, [backtestRiskPct]);
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_backtest_use_risk_sizing', useRiskSizing.toString());
+  }, [useRiskSizing]);
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_backtest_be', backtestBE);
+  }, [backtestBE]);
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_backtest_use_be', useBreakEven.toString());
+  }, [useBreakEven]);
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_backtest_fees', backtestFees);
+  }, [backtestFees]);
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_backtest_daily_retry_limit', dailyRetryLimit);
+  }, [dailyRetryLimit]);
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_backtest_allow_opposite_close', allowOppositeClose.toString());
+  }, [allowOppositeClose]);
+
   // Fetch symbols and timeframes metadata dynamically based on selected candleSource
   useEffect(() => {
+    if (!initialCandlesLoaded) return;
     const loadMetadata = async () => {
       const sourcePath = candleSource === 'yfinance' ? 'yfinance' : (candleSource === 'metatrader' ? 'metatrader' : 'ctrader');
       try {
@@ -705,9 +814,10 @@ export default function Dashboard() {
       }
     };
     loadMetadata();
-  }, [candleSource]);
+  }, [candleSource, initialCandlesLoaded]);
 
   useEffect(() => {
+    if (!initialCandlesLoaded) return;
     const loadLiveStrategyAndPerms = async () => {
       try {
         const stratRes = await fetch(`${API_BASE_URL}/api/live/strategy`);
@@ -725,10 +835,11 @@ export default function Dashboard() {
       fetchFavourites();
     };
     loadLiveStrategyAndPerms();
-  }, []);
+  }, [initialCandlesLoaded]);
 
   // Fetch candle data and analyze on Flask backend
   const fetchCandles = async () => {
+    setInitialCandlesLoaded(false);
     setLoading(true);
     setLoadingStrategy(true);
     try {
@@ -756,6 +867,7 @@ export default function Dashboard() {
         // Set raw candles immediately and stop initial loading to show chart instantly
         setCandles(rawCandles);
         setLoading(false);
+        setInitialCandlesLoaded(true);
 
         // Send to Flask analyze endpoint for VSA patterns & Weis Wave aggregation in the background
         try {
@@ -781,6 +893,7 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
       setLoadingStrategy(false);
+      setInitialCandlesLoaded(true);
     }
   };
 
@@ -932,8 +1045,15 @@ export default function Dashboard() {
     }
   };
 
+  // Fetch candles immediately and prioritize it.
   useEffect(() => {
     fetchCandles();
+  }, [symbol, timeframe, candleLimit, candleSource]);
+
+  // Fetch other account/positions data once candles have initially loaded, and set up polling.
+  useEffect(() => {
+    if (!initialCandlesLoaded) return;
+
     fetchAccountData();
     fetchPositionData();
 
@@ -943,7 +1063,7 @@ export default function Dashboard() {
       fetchPositionData();
     }, 5000);
     return () => clearInterval(interval);
-  }, [symbol, timeframe, lookbackWindow, candleLimit, dateRangeOption, customFrom, customTo, candleSource]);
+  }, [initialCandlesLoaded, symbol]);
 
   const currentConnected = true;
 
@@ -1219,6 +1339,22 @@ export default function Dashboard() {
     return 0.0001;
   };
 
+  const getLotSize = (sym: string) => {
+    const symUpper = sym.toUpperCase();
+    if (symUpper.includes('XAU') || symUpper.includes('GOLD') || symUpper.includes('XAG')) {
+      return 100.0;
+    }
+    const cryptos = ['BTC', 'ETH', 'SOL', 'LTC', 'XRP', 'ADA', 'DOT', 'DOGE', 'LINK', 'UNI', 'PEPE', 'SHIB'];
+    if (cryptos.some(c => symUpper.includes(c))) {
+      return 1.0;
+    }
+    const forex = ['EUR', 'GBP', 'AUD', 'NZD', 'USD', 'CAD', 'CHF', 'SEK', 'NOK', 'SGD', 'HKD', 'ZAR', 'MXN'];
+    if (forex.some(c => symUpper.includes(c))) {
+      return 100000.0;
+    }
+    return 1.0;
+  };
+
   const liveTrades = openPositions.map((pos: any) => {
     let slPrice = pos.stop_loss;
     let tpPrice = pos.take_profit;
@@ -1232,6 +1368,11 @@ export default function Dashboard() {
       if (liveStrategy.slType === 'price') {
         const pipSize = getPipSize(pos.symbol, entry);
         slPrice = isBuy ? entry - slVal * pipSize : entry + slVal * pipSize;
+      } else if (liveStrategy.slType === 'dollar') {
+        const lotSize = getLotSize(pos.symbol);
+        const volume = parseFloat(pos.volume) || 1.0;
+        const slDistance = slVal / (volume * lotSize);
+        slPrice = isBuy ? entry - slDistance : entry + slDistance;
       } else {
         slPrice = isBuy ? entry * (1 - slVal / 100) : entry * (1 + slVal / 100);
       }
@@ -1865,6 +2006,8 @@ export default function Dashboard() {
                 customTo={customTo}
                 onSelectCandle={setSelectedCandle}
                 locateTimestamp={locateTimestamp}
+                tradeFilter={tradeFilter}
+                onTradeFilterChange={setTradeFilter}
               />
             ) : (
               <WyckoffBacktester
@@ -1896,6 +2039,8 @@ export default function Dashboard() {
                 backtestResults={backtestResults}
                 backtestTab={backtestTab}
                 setBacktestTab={setBacktestTab}
+                tradeFilter={tradeFilter}
+                setTradeFilter={setTradeFilter}
                 selectedTrade={selectedTrade}
                 setSelectedTrade={setSelectedTrade}
                 setShowModal={setShowModal}
@@ -1916,6 +2061,13 @@ export default function Dashboard() {
                 onUpdateNotes={handleUpdateFavouriteNotes}
                 onLocateCandle={handleLocateCandle}
                 styles={styles}
+                onRunBacktest={runBacktest}
+                loadingBacktest={loadingBacktest}
+                dailyRetryLimit={dailyRetryLimit}
+                setDailyRetryLimit={setDailyRetryLimit}
+                allowOppositeClose={allowOppositeClose}
+                setAllowOppositeClose={setAllowOppositeClose}
+                onCancelBacktest={cancelBacktest}
               />
             )}
           </div>
@@ -2007,6 +2159,8 @@ export default function Dashboard() {
                       locateTimestamp={locateTimestamp}
                       enabledIndicators={enabledIndicators}
                       fvgs={fvgs}
+                      tradeFilter={tradeFilter}
+                      onTradeFilterChange={setTradeFilter}
                     />
                   </div>
                   {renderResizeHandle('chart')}
@@ -2091,6 +2245,8 @@ export default function Dashboard() {
                       backtestResults={backtestResults}
                       backtestTab={backtestTab}
                       setBacktestTab={setBacktestTab}
+                      tradeFilter={tradeFilter}
+                      setTradeFilter={setTradeFilter}
                       selectedTrade={selectedTrade}
                       setSelectedTrade={setSelectedTrade}
                       setShowModal={setShowModal}
@@ -2111,6 +2267,13 @@ export default function Dashboard() {
                       onUpdateNotes={handleUpdateFavouriteNotes}
                       onLocateCandle={handleLocateCandle}
                       styles={styles}
+                      onRunBacktest={runBacktest}
+                      loadingBacktest={loadingBacktest}
+                      dailyRetryLimit={dailyRetryLimit}
+                      setDailyRetryLimit={setDailyRetryLimit}
+                      allowOppositeClose={allowOppositeClose}
+                      setAllowOppositeClose={setAllowOppositeClose}
+                      onCancelBacktest={cancelBacktest}
                     />
                   </div>
                   {renderResizeHandle('backtester')}

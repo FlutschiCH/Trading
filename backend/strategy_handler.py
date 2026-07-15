@@ -49,6 +49,9 @@ class StrategyHandler:
         be_trigger_r: float,
         lookback_window: int,
         fees_percent: float = 0.0,
+        daily_retry_limit: int = 0,
+        allow_opposite_close: bool = True,
+        check_cancelled = None,
         date_from: float = None,
         date_to: float = None
     ) -> dict:
@@ -70,6 +73,7 @@ class StrategyHandler:
         active_trade = None
         completed_trades = []
         current_balance = initial_balance
+        daily_trades_count = {}
         
         # Determine decimal precision dynamically from the input candle data
         precision = 2
@@ -122,6 +126,8 @@ class StrategyHandler:
         lot_size = get_lot_size(symbol)
 
         for i, c in enumerate(annotated_data):
+            if check_cancelled and check_cancelled():
+                break
             vsa_pat = c.get('vsa_patterns', '')
             if not vsa_pat:
                 vsa_pat = []
@@ -158,6 +164,17 @@ class StrategyHandler:
                 should_buy = False
                 should_sell = False
 
+            # Apply daily retry limit
+            try:
+                from datetime import datetime
+                date_str = datetime.utcfromtimestamp(candle_time).strftime('%Y-%m-%d')
+            except Exception:
+                date_str = 'unknown'
+            
+            if daily_retry_limit > 0 and daily_trades_count.get(date_str, 0) >= daily_retry_limit:
+                should_buy = False
+                should_sell = False
+
             if active_trade:
                 closed = False
                 exit_price = close_val
@@ -170,15 +187,17 @@ class StrategyHandler:
                     sl_distance = active_trade['sl_distance']
                     if active_trade['type'] == 'BUY':
                         if high_val >= active_trade['entry_price'] + sl_distance * be_trigger_r:
-                            active_trade['sl_price'] = active_trade['entry_price']
+                            active_trade['sl_price'] = round(active_trade['entry_price'] + 0.5 * sl_distance, precision)
                             active_trade['is_break_even'] = True
                     else:
                         if low_val <= active_trade['entry_price'] - sl_distance * be_trigger_r:
-                            active_trade['sl_price'] = active_trade['entry_price']
+                            active_trade['sl_price'] = round(active_trade['entry_price'] - 0.5 * sl_distance, precision)
                             active_trade['is_break_even'] = True
 
                 # Check opposite sweep signals
-                opposite_signal = (active_trade['type'] == 'BUY' and should_sell) or (active_trade['type'] == 'SELL' and should_buy)
+                opposite_signal = False
+                if allow_opposite_close:
+                    opposite_signal = (active_trade['type'] == 'BUY' and should_sell) or (active_trade['type'] == 'SELL' and should_buy)
                 
                 if opposite_signal:
                     exit_price = close_val
@@ -232,6 +251,7 @@ class StrategyHandler:
                         'time': time_str,
                         'timestamp': int(c.get('time', 0)),
                         'slPrice': float(active_trade['sl_price']),
+                        'originalSlPrice': float(active_trade['original_sl']),
                         'tpPrice': float(active_trade['tp_price']),
                         'entryTimestamp': int(active_trade['entry_timestamp']),
                         'exitTimestamp': int(c.get('time', 0)),
@@ -245,6 +265,7 @@ class StrategyHandler:
 
             if not active_trade:
                 if should_buy or should_sell:
+                    daily_trades_count[date_str] = daily_trades_count.get(date_str, 0) + 1
                     trade_type = 'BUY' if should_buy else 'SELL'
                     c['backtest_signal'] = trade_type
                     entry_price = close_val
@@ -280,6 +301,7 @@ class StrategyHandler:
                         'type': trade_type,
                         'entry_price': entry_price,
                         'sl_price': sl_price,
+                        'original_sl': sl_price,
                         'tp_price': tp_price,
                         'qty': trade_qty,
                         'entry_index': i,

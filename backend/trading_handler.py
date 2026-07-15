@@ -23,7 +23,7 @@ class TradingHandler:
         # 1. Calculate sl_distance
         if sl_type == 'pct':
             sl_distance = entry_price * (sl_val / 100.0)
-        elif sl_type in ('amount', '$'):
+        elif sl_type in ('amount', '$', 'dollar'):
             qty = size if size > 0 else 1.0
             sl_distance = sl_val / (qty * lot_size) if lot_size > 0 else sl_val
         else: # 'price' / pips

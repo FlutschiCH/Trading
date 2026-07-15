@@ -17,8 +17,8 @@ interface WyckoffBacktesterProps {
   setBacktestSize: (val: string) => void;
   backtestSL: string;
   setBacktestSL: (val: string) => void;
-  backtestSLType: 'pct' | 'price' | 'amount';
-  setBacktestSLType: (val: 'pct' | 'price' | 'amount') => void;
+  backtestSLType: 'pct' | 'price' | 'dollar';
+  setBacktestSLType: (val: 'pct' | 'price' | 'dollar') => void;
   backtestRR: string;
   setBacktestRR: (val: string) => void;
   useBreakEven: boolean;
@@ -32,6 +32,8 @@ interface WyckoffBacktesterProps {
   backtestResults: any;
   backtestTab: 'trades' | 'weekly' | 'monthly' | 'favourites';
   setBacktestTab: (val: 'trades' | 'weekly' | 'monthly' | 'favourites') => void;
+  tradeFilter: 'all' | 'wins' | 'losses';
+  setTradeFilter: (val: 'all' | 'wins' | 'losses') => void;
   selectedTrade: any;
   setSelectedTrade: (trade: any) => void;
   setShowModal: (show: boolean) => void;
@@ -50,6 +52,13 @@ interface WyckoffBacktesterProps {
   styles: any;
   enabledIndicators: { fvg: boolean };
   setEnabledIndicators: (val: any) => void;
+  onRunBacktest: () => void;
+  loadingBacktest: boolean;
+  dailyRetryLimit: string;
+  setDailyRetryLimit: (val: string) => void;
+  allowOppositeClose: boolean;
+  setAllowOppositeClose: (val: boolean) => void;
+  onCancelBacktest: () => void;
 }
 
 export default function WyckoffBacktester({
@@ -83,6 +92,8 @@ export default function WyckoffBacktester({
   backtestResults,
   backtestTab,
   setBacktestTab,
+  tradeFilter,
+  setTradeFilter,
   selectedTrade,
   setSelectedTrade,
   setShowModal,
@@ -100,7 +111,14 @@ export default function WyckoffBacktester({
   onLocateCandle,
   styles,
   enabledIndicators,
-  setEnabledIndicators
+  setEnabledIndicators,
+  onRunBacktest,
+  loadingBacktest,
+  dailyRetryLimit,
+  setDailyRetryLimit,
+  allowOppositeClose,
+  setAllowOppositeClose,
+  onCancelBacktest
 }: WyckoffBacktesterProps) {
   const [copied, setCopied] = React.useState(false);
 
@@ -148,13 +166,36 @@ export default function WyckoffBacktester({
   };
 
   return (
-    <div className="no-drag" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div className="no-drag" style={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
       <div style={{
         display: 'flex',
         flexDirection: 'column',
         gap: '12px',
         fontSize: '12px',
       }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '-4px' }}>
+          <button 
+            onClick={onRunBacktest}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              backgroundColor: '#3b82f6',
+              color: '#ffffff',
+              border: 'none',
+              padding: '6px 12px',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 500,
+              fontSize: '11px',
+              transition: 'background-color 0.2s',
+            }}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#3b82f6'}
+          >
+            🔄 Run Backtest
+          </button>
+        </div>
         {/* Row 1: Account setup (Starting Balance & Fees) */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
           <div style={styles.formGroup}>
@@ -239,11 +280,11 @@ export default function WyckoffBacktester({
               <select
                 value={backtestSLType}
                 onChange={(e) => {
-                  const newType = e.target.value as 'pct' | 'price' | 'amount';
+                  const newType = e.target.value as 'pct' | 'price' | 'dollar';
                   setUseRiskSizing(true); // Preserve risk sizing target
                   setBacktestSLType(newType);
                   const isForex = ['EUR', 'GBP', 'JPY', 'USD', 'CAD', 'AUD', 'CHF'].some(curr => symbol.toUpperCase().includes(curr)) && !['BTC', 'ETH', 'SOL', 'LTC', 'XRP'].some(crypto => symbol.toUpperCase().includes(crypto));
-                  setBacktestSL(newType === 'pct' ? '1.0' : (newType === 'amount' ? '100' : (isForex ? '20' : '200')));
+                  setBacktestSL(newType === 'pct' ? '1.0' : (newType === 'dollar' ? '100' : (isForex ? '20' : '200')));
                 }}
                 style={{
                   ...styles.input,
@@ -255,7 +296,7 @@ export default function WyckoffBacktester({
               >
                 <option value="pct">%</option>
                 <option value="price">Pips</option>
-                <option value="amount">$</option>
+                <option value="dollar">$</option>
               </select>
             </div>
           </div>
@@ -314,20 +355,49 @@ export default function WyckoffBacktester({
           )}
         </div>
 
-        {/* Row 5: Conditional Lookback (Only if BE is enabled, otherwise lookback is rendered above) */}
-        {useBreakEven && (
+        {/* Row 4b: Allow Opposite Close setting */}
+        <div style={styles.formGroup}>
+          <label style={{ color: '#9ca3af', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', margin: 0 }}>
+            <input 
+              type="checkbox" 
+              checked={allowOppositeClose}
+              onChange={(e) => setAllowOppositeClose(e.target.checked)}
+              style={{ cursor: 'pointer' }}
+            />
+            Allow Opposite Signal to Close Trade
+          </label>
+        </div>
+
+        {/* Row 5: Sweep Lookback & Daily Retry */}
+        <div style={{ display: 'grid', gridTemplateColumns: useBreakEven ? '1fr 1fr' : '1fr', gap: '12px' }}>
+          {useBreakEven && (
+            <div style={styles.formGroup}>
+              <label style={{ color: '#9ca3af', fontSize: '11px' }}>Sweep Lookback (Bars)</label>
+              <input 
+                type="number" 
+                value={lookbackWindow} 
+                onChange={(e) => setLookbackWindow(e.target.value)}
+                style={styles.input}
+                min="5"
+                max="200"
+              />
+            </div>
+          )}
           <div style={styles.formGroup}>
-            <label style={{ color: '#9ca3af', fontSize: '11px' }}>Sweep Lookback (Bars)</label>
+            <label style={{ color: '#9ca3af', fontSize: '11px' }}>Daily Retry Limit</label>
             <input 
               type="number" 
-              value={lookbackWindow} 
-              onChange={(e) => setLookbackWindow(e.target.value)}
+              value={dailyRetryLimit} 
+              onChange={(e) => {
+                const val = Math.max(0, parseInt(e.target.value) || 0);
+                setDailyRetryLimit(val.toString());
+              }}
               style={styles.input}
-              min="5"
-              max="200"
+              min="0"
+              step="1"
             />
           </div>
-        )}
+        </div>
 
         {/* Indicator Features List */}
         <div style={{
@@ -688,6 +758,60 @@ export default function WyckoffBacktester({
             </button>
           </div>
 
+          {backtestTab === 'trades' && backtestResults && (
+            <div style={{ display: 'flex', gap: '8px', padding: '6px 0', alignItems: 'center', marginBottom: '4px' }}>
+              <span style={{ fontSize: '10px', color: '#9ca3af' }}>Filter:</span>
+              <button 
+                onClick={() => setTradeFilter('all')}
+                style={{
+                  background: tradeFilter === 'all' ? '#1f2937' : 'none',
+                  border: '1px solid #1f2937',
+                  color: tradeFilter === 'all' ? '#ffffff' : '#9ca3af',
+                  fontSize: '9px',
+                  fontWeight: 'bold',
+                  padding: '2px 8px',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s'
+                }}
+              >
+                All
+              </button>
+              <button 
+                onClick={() => setTradeFilter('wins')}
+                style={{
+                  background: tradeFilter === 'wins' ? 'rgba(16, 185, 129, 0.2)' : 'none',
+                  border: '1px solid rgba(16, 185, 129, 0.4)',
+                  color: '#10b981',
+                  fontSize: '9px',
+                  fontWeight: 'bold',
+                  padding: '2px 8px',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s'
+                }}
+              >
+                Wins
+              </button>
+              <button 
+                onClick={() => setTradeFilter('losses')}
+                style={{
+                  background: tradeFilter === 'losses' ? 'rgba(239, 68, 68, 0.2)' : 'none',
+                  border: '1px solid rgba(239, 68, 68, 0.4)',
+                  color: '#ef4444',
+                  fontSize: '9px',
+                  fontWeight: 'bold',
+                  padding: '2px 8px',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s'
+                }}
+              >
+                Losses
+              </button>
+            </div>
+          )}
+
           <div style={{ ...styles.positionsList, maxHeight: '350px', overflowY: 'auto' }}>
             {backtestTab === 'trades' && backtestResults && backtestResults.trades.map((trade: any) => (
               <div 
@@ -699,8 +823,13 @@ export default function WyckoffBacktester({
                 style={{
                   ...styles.positionRow,
                   cursor: 'pointer',
-                  border: selectedTrade?.id === trade.id ? '1.5px solid #3b82f6' : '1px solid #1f2937',
+                  border: selectedTrade?.id === trade.id 
+                    ? '1.5px solid #3b82f6' 
+                    : (trade.pnl >= 0 ? '1.5px solid rgba(16, 185, 129, 0.4)' : '1.5px solid rgba(239, 68, 68, 0.4)'),
                   transform: selectedTrade?.id === trade.id ? 'scale(1.02)' : 'scale(1)',
+                  opacity: tradeFilter === 'all' 
+                    ? 1 
+                    : (tradeFilter === 'wins' ? (trade.pnl >= 0 ? 1 : 0.3) : (trade.pnl < 0 ? 1 : 0.3)),
                   transition: 'all 0.15s'
                 }}
               >
@@ -868,6 +997,61 @@ export default function WyckoffBacktester({
               );
             })}
           </div>
+        </div>
+      )}
+      
+      {loadingBacktest && (
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.6)',
+          backdropFilter: 'blur(4px)',
+          zIndex: 50,
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          flexDirection: 'column',
+          borderRadius: '8px',
+          pointerEvents: 'all'
+        }}>
+          <div style={{
+            width: '32px',
+            height: '32px',
+            border: '3px solid rgba(255, 255, 255, 0.1)',
+            borderTop: '3px solid #3b82f6',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            marginBottom: '8px'
+          }} />
+          <style>{`
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `}</style>
+          <span style={{ color: '#ffffff', fontSize: '12px', fontWeight: 500 }}>Running Backtest...</span>
+          <button 
+            onClick={onCancelBacktest}
+            style={{
+              marginTop: '12px',
+              backgroundColor: '#ef4444',
+              color: '#ffffff',
+              border: 'none',
+              padding: '6px 16px',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 500,
+              fontSize: '11px',
+              transition: 'background-color 0.2s',
+            }}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#dc2626'}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#ef4444'}
+          >
+            🛑 Stop Backtest
+          </button>
         </div>
       )}
     </div>

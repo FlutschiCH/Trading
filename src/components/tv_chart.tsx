@@ -42,6 +42,8 @@ interface TVChartProps {
   onSelectCandle?: (candle: any) => void;
   enabledIndicators?: { fvg: boolean };
   fvgs?: any[];
+  tradeFilter?: 'all' | 'wins' | 'losses';
+  onTradeFilterChange?: (filter: 'all' | 'wins' | 'losses') => void;
 }
 
 export default function TVChart({ 
@@ -68,7 +70,9 @@ export default function TVChart({
   customTo = '',
   onSelectCandle,
   enabledIndicators,
-  fvgs = []
+  fvgs = [],
+  tradeFilter = 'all',
+  onTradeFilterChange
 }: TVChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const weisContainerRef = useRef<HTMLDivElement>(null);
@@ -76,6 +80,9 @@ export default function TVChart({
   const [symbolSearch, setSymbolSearch] = useState('');
   const [showSymbolDropdown, setShowSymbolDropdown] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const [localTradeFilter, setLocalTradeFilter] = useState<'all' | 'wins' | 'losses'>('all');
+  const actualFilter = onTradeFilterChange ? tradeFilter : localTradeFilter;
+  const setActualFilter = onTradeFilterChange || setLocalTradeFilter;
 
   const filteredSymbols = availableSymbols.filter(s => s.toLowerCase().includes(symbolSearch.toLowerCase()));
 
@@ -136,6 +143,10 @@ export default function TVChart({
   const candlesRef = useRef(candles);
   const onSelectTradeRef = useRef(onSelectTrade);
   const onSelectCandleRef = useRef(onSelectCandle);
+  const fvgsRef = useRef(fvgs);
+  const dateRangeOptionRef = useRef(dateRangeOption);
+  const customFromRef = useRef(customFrom);
+  const customToRef = useRef(customTo);
 
   // References to dynamically generated trade level LineSeries
   const dynamicLineSeriesRef = useRef<any[]>([]);
@@ -157,6 +168,26 @@ export default function TVChart({
   useEffect(() => {
     onSelectTradeRef.current = onSelectTrade;
   }, [onSelectTrade]);
+
+  useEffect(() => {
+    fvgsRef.current = fvgs;
+    updateDrawingCoordinates();
+  }, [fvgs]);
+
+  useEffect(() => {
+    dateRangeOptionRef.current = dateRangeOption;
+    updateDrawingCoordinates();
+  }, [dateRangeOption]);
+
+  useEffect(() => {
+    customFromRef.current = customFrom;
+    updateDrawingCoordinates();
+  }, [customFrom]);
+
+  useEffect(() => {
+    customToRef.current = customTo;
+    updateDrawingCoordinates();
+  }, [customTo]);
 
   const [dateRangeCoords, setDateRangeCoords] = useState<{ x1: number | null; x2: number | null } | null>(null);
   const [selectedTradeCoords, setSelectedTradeCoords] = useState<{ x1: number; x2: number; type: 'BUY' | 'SELL'; pnl: number } | null>(null);
@@ -294,8 +325,9 @@ export default function TVChart({
       setSelectedTradeCoords(null);
     }
 
-    if (dateRangeOption && dateRangeOption !== 'last_candles') {
-      const bounds = calculateDateBounds(dateRangeOption, customFrom, customTo);
+    const currentDRE = dateRangeOptionRef.current;
+    if (currentDRE && currentDRE !== 'last_candles') {
+      const bounds = calculateDateBounds(currentDRE, customFromRef.current, customToRef.current);
       const x1 = bounds.date_from ? timeScale.timeToCoordinate(bounds.date_from) : null;
       const x2 = bounds.date_to ? timeScale.timeToCoordinate(bounds.date_to) : null;
       setDateRangeCoords({ x1, x2 });
@@ -303,7 +335,8 @@ export default function TVChart({
       setDateRangeCoords(null);
     }
 
-    if (fvgs && fvgs.length > 0 && candlesRef.current) {
+    const currentFvgs = fvgsRef.current;
+    if (currentFvgs && currentFvgs.length > 0 && candlesRef.current) {
       const getCoordinateForTime = (time: number) => {
         const idx = candlesRef.current.findIndex(c => Number(c.time) === Number(time));
         if (idx !== -1) {
@@ -312,7 +345,7 @@ export default function TVChart({
         return timeScale.timeToCoordinate(time as any);
       };
 
-      const coords = fvgs.map(fvg => {
+      const coords = currentFvgs.map(fvg => {
         const x1 = getCoordinateForTime(fvg.timeStart);
         const x2 = getCoordinateForTime(fvg.timeEnd);
         const y1 = series.priceToCoordinate(fvg.priceMax);
@@ -537,12 +570,29 @@ export default function TVChart({
         .map((c) => {
           if (c.backtest_signal) {
             const isBullish = c.backtest_signal === 'BUY';
+            const trade = (trades || []).find(t => Number(t.entryTimestamp) === Number(c.time));
+            const isProfit = trade ? trade.pnl >= 0 : true;
+
+            if (trade) {
+              if (actualFilter === 'wins' && !isProfit) return null;
+              if (actualFilter === 'losses' && isProfit) return null;
+            }
+
+            const baseColor = isBullish ? '#10b981' : '#ef4444';
+
+            let markerText = isBullish ? 'BUY' : 'SELL';
+            if (trade) {
+              const pnlStr = trade.pnl >= 0 ? `+${trade.pnl.toFixed(2)}` : `${trade.pnl.toFixed(2)}`;
+              markerText += ` (${isProfit ? 'WIN' : 'LOSS'} ${pnlStr})`;
+            }
+
             return {
               time: c.time,
               position: (isBullish ? 'belowBar' : 'aboveBar') as any,
-              color: isBullish ? '#10b981' : '#ef4444',
+              color: baseColor,
               shape: (isBullish ? 'arrowUp' : 'arrowDown') as any,
-              text: isBullish ? 'BUY' : 'SELL',
+              text: markerText,
+              size: 1,
             };
           }
           return null;
@@ -555,12 +605,19 @@ export default function TVChart({
           if (trade.exitReason === 'Position still open') return null;
           if (trade.exitTimestamp === trade.entryTimestamp) return null;
           const isProfit = trade.pnl >= 0;
+
+          if (actualFilter === 'wins' && !isProfit) return null;
+          if (actualFilter === 'losses' && isProfit) return null;
+
+          const baseColor = isProfit ? '#10b981' : '#ef4444';
+
           return {
             time: trade.exitTimestamp,
             position: (trade.type === 'BUY' ? 'aboveBar' : 'belowBar') as any,
-            color: isProfit ? '#10b981' : '#ef4444',
+            color: baseColor,
             shape: 'circle' as any,
             text: `EXIT (${isProfit ? '+' : ''}${trade.pnl.toFixed(2)})`,
+            size: 1,
           };
         })
         .filter((m) => m !== null);
@@ -626,16 +683,19 @@ export default function TVChart({
         const points = sortedTimes.slice(entryIdx, endIdx);
         if (points.length === 0) return;
 
+        const isProfit = trade.pnl >= 0;
+        if (actualFilter === 'wins' && !isProfit) return;
+        if (actualFilter === 'losses' && isProfit) return;
+
         const entryData = points.map((p) => ({ time: p, value: trade.entryPrice }));
         const slData = points.map((p) => ({ time: p, value: trade.slPrice }));
         const tpData = points.map((p) => ({ time: p, value: trade.tpPrice }));
-        const beData = points.map((p) => ({ time: p, value: 2 * trade.entryPrice - trade.slPrice }));
 
-        const addTradeLine = (data: any[], color: string) => {
+        const addTradeLine = (data: any[], color: string, lineStyle: number = 0) => {
           const lineSeries = chartRef.current.addSeries(LineSeries, {
             color,
             lineWidth: 2,
-            lineStyle: 0,
+            lineStyle,
             lastValueVisible: false,
             priceLineVisible: false,
             crosshairMarkerVisible: false,
@@ -645,14 +705,25 @@ export default function TVChart({
         };
 
         addTradeLine(entryData, '#3b82f6');
-        addTradeLine(slData, '#ef4444');
+        
+        const hasOriginalSl = trade.originalSlPrice !== undefined && trade.originalSlPrice !== null && trade.originalSlPrice !== trade.slPrice;
+        if (hasOriginalSl) {
+          // Draw BE stop loss line in yellow/orange
+          addTradeLine(slData, '#fbbf24');
+          // Draw original stop loss line in dashed red
+          const originalSlData = points.map((p) => ({ time: p, value: trade.originalSlPrice }));
+          addTradeLine(originalSlData, '#ef4444', 1);
+        } else {
+          // Draw regular stop loss line in red
+          addTradeLine(slData, '#ef4444');
+        }
+        
         addTradeLine(tpData, '#10b981');
-        addTradeLine(beData, '#fbbf24');
       });
     }
 
     updateDrawingCoordinates();
-  }, [candles, trades]);
+  }, [candles, trades, actualFilter]);
 
   // Update price format and precision dynamically based on candle data
   useEffect(() => {
@@ -1025,6 +1096,20 @@ export default function TVChart({
               {availableTimeframes.map(tf => (
                 <option key={tf} value={tf}>{tf}</option>
               ))}
+            </select>
+          </div>
+
+          {/* Trades Filter */}
+          <div style={styles.pairGroup}>
+            <span style={{ color: '#9ca3af', fontSize: '10px' }}>Trades</span>
+            <select 
+              value={actualFilter} 
+              onChange={(e) => setActualFilter(e.target.value as 'all' | 'wins' | 'losses')}
+              style={styles.pairSelect}
+            >
+              <option value="all">Both (Winners & Losers)</option>
+              <option value="wins">Winners Only</option>
+              <option value="losses">Losers Only</option>
             </select>
           </div>
         </div>
