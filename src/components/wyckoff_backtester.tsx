@@ -59,6 +59,14 @@ interface WyckoffBacktesterProps {
   allowOppositeClose: boolean;
   setAllowOppositeClose: (val: boolean) => void;
   onCancelBacktest: () => void;
+  sessionsTimezone: 'UTC' | 'Local';
+  setSessionsTimezone: (val: 'UTC' | 'Local') => void;
+  tradingSessions: any[];
+  setTradingSessions: (val: any[]) => void;
+  useGlobalClose: boolean;
+  setUseGlobalClose: (val: boolean) => void;
+  globalCloseTime: string;
+  setGlobalCloseTime: (val: string) => void;
 }
 
 export default function WyckoffBacktester({
@@ -118,9 +126,47 @@ export default function WyckoffBacktester({
   setDailyRetryLimit,
   allowOppositeClose,
   setAllowOppositeClose,
-  onCancelBacktest
+  onCancelBacktest,
+  sessionsTimezone,
+  setSessionsTimezone,
+  tradingSessions,
+  setTradingSessions,
+  useGlobalClose,
+  setUseGlobalClose,
+  globalCloseTime,
+  setGlobalCloseTime
 }: WyckoffBacktesterProps) {
   const [copied, setCopied] = React.useState(false);
+
+  // Session builder states
+  const [newStart, setNewStart] = React.useState('09:00');
+  const [newEnd, setNewEnd] = React.useState('17:00');
+  const [newCloseOnEnd, setNewCloseOnEnd] = React.useState(true);
+  const [newWeekdays, setNewWeekdays] = React.useState<number[]>([1, 2, 3, 4, 5]);
+
+  const handleAddSession = () => {
+    if (!newStart || !newEnd) return;
+    const newSession = {
+      id: Math.random().toString(36).substr(2, 9),
+      start: newStart,
+      end: newEnd,
+      closeOnEnd: newCloseOnEnd,
+      weekdays: [...newWeekdays]
+    };
+    setTradingSessions([...tradingSessions, newSession]);
+  };
+
+  const handleDeleteSession = (id: string) => {
+    setTradingSessions(tradingSessions.filter(s => s.id !== id));
+  };
+
+  const toggleWeekday = (day: number) => {
+    if (newWeekdays.includes(day)) {
+      setNewWeekdays(newWeekdays.filter(d => d !== day));
+    } else {
+      setNewWeekdays([...newWeekdays, day].sort());
+    }
+  };
 
   const handleCopy = async () => {
     try {
@@ -396,6 +442,194 @@ export default function WyckoffBacktester({
               min="0"
               step="1"
             />
+          </div>
+        </div>
+
+        {/* Trading Sessions & Safeguards */}
+        <div style={{
+          borderTop: '1px solid #1e293b',
+          paddingTop: '12px',
+          marginTop: '8px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px'
+        }}>
+          <span style={{ color: '#cbd5e1', fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            Trading Sessions & Safeguards
+          </span>
+
+          {/* Timezone Selector */}
+          <div style={styles.formGroup}>
+            <label style={{ color: '#9ca3af', fontSize: '11px' }}>Global Timezone</label>
+            <select
+              value={sessionsTimezone}
+              onChange={(e) => setSessionsTimezone(e.target.value as 'UTC' | 'Local')}
+              style={styles.input}
+            >
+              <option value="Local">Local Time</option>
+              <option value="UTC">UTC (GMT)</option>
+            </select>
+          </div>
+
+          {/* Global close time */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label style={{ color: '#cbd5e1', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={useGlobalClose}
+                onChange={(e) => setUseGlobalClose(e.target.checked)}
+                style={{ cursor: 'pointer' }}
+              />
+              Close Everything daily at:
+            </label>
+            {useGlobalClose && (
+              <input
+                type="text"
+                placeholder="e.g. 21:50"
+                value={globalCloseTime}
+                onChange={(e) => setGlobalCloseTime(e.target.value)}
+                style={styles.input}
+              />
+            )}
+          </div>
+
+          {/* Sessions List */}
+          {tradingSessions.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label style={{ color: '#cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>Active Sessions:</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '150px', overflowY: 'auto' }}>
+                {tradingSessions.map((s, idx) => {
+                  const daysStr = s.weekdays.map((d: number) => ['M', 'T', 'W', 'T', 'F', 'S', 'S'][d - 1]).join(',');
+                  return (
+                    <div key={s.id || idx} style={{
+                      backgroundColor: 'rgba(31, 41, 55, 0.5)',
+                      border: '1px solid #1e293b',
+                      borderRadius: '4px',
+                      padding: '6px 8px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      fontSize: '11px'
+                    }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        <span style={{ color: '#ffffff', fontWeight: 'bold' }}>{s.start} - {s.end} ({daysStr})</span>
+                        <span style={{ color: '#9ca3af', fontSize: '9px' }}>
+                          {s.closeOnEnd ? 'Close on End' : 'Let run'}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => handleDeleteSession(s.id)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#ef4444',
+                          cursor: 'pointer',
+                          fontWeight: 'bold',
+                          fontSize: '12px',
+                          padding: '2px 6px'
+                        }}
+                        title="Delete Session"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Add Session Form */}
+          <div style={{
+            backgroundColor: 'rgba(31, 41, 55, 0.3)',
+            border: '1px dotted #374151',
+            borderRadius: '6px',
+            padding: '8px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px'
+          }}>
+            <span style={{ color: '#9ca3af', fontSize: '10px', fontWeight: 'bold' }}>Add Trading Session</span>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+              <div style={styles.formGroup}>
+                <label style={{ color: '#9ca3af', fontSize: '9px' }}>Start Time</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 09:00"
+                  value={newStart}
+                  onChange={(e) => setNewStart(e.target.value)}
+                  style={{ ...styles.input, padding: '4px 6px', fontSize: '11px' }}
+                />
+              </div>
+              <div style={styles.formGroup}>
+                <label style={{ color: '#9ca3af', fontSize: '9px' }}>End Time</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 17:00"
+                  value={newEnd}
+                  onChange={(e) => setNewEnd(e.target.value)}
+                  style={{ ...styles.input, padding: '4px 6px', fontSize: '11px' }}
+                />
+              </div>
+            </div>
+
+            {/* Weekdays Selector */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ color: '#9ca3af', fontSize: '9px' }}>Weekdays</label>
+              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                {[1, 2, 3, 4, 5, 6, 7].map((day) => {
+                  const isSelected = newWeekdays.includes(day);
+                  const labels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+                  return (
+                    <button
+                      key={day}
+                      onClick={() => toggleWeekday(day)}
+                      style={{
+                        flex: '1 0 auto',
+                        padding: '4px 0',
+                        fontSize: '9px',
+                        fontWeight: 'bold',
+                        borderRadius: '3px',
+                        border: '1px solid ' + (isSelected ? '#3b82f6' : '#374151'),
+                        backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.2)' : 'transparent',
+                        color: isSelected ? '#3b82f6' : '#9ca3af',
+                        cursor: 'pointer',
+                        minWidth: '22px'
+                      }}
+                    >
+                      {labels[day - 1]}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Close on end checkbox */}
+            <label style={{ color: '#cbd5e1', fontSize: '10px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', margin: '4px 0' }}>
+              <input
+                type="checkbox"
+                checked={newCloseOnEnd}
+                onChange={(e) => setNewCloseOnEnd(e.target.checked)}
+                style={{ cursor: 'pointer' }}
+              />
+              Close trades when session ends
+            </label>
+
+            <button
+              onClick={handleAddSession}
+              style={{
+                backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                color: '#3b82f6',
+                border: '1px solid #3b82f6',
+                padding: '4px 8px',
+                borderRadius: '4px',
+                fontSize: '10px',
+                fontWeight: 'bold',
+                cursor: 'pointer'
+              }}
+            >
+              + Add Session Window
+            </button>
           </div>
         </div>
 

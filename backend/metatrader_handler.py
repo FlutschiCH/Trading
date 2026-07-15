@@ -210,6 +210,42 @@ class MetaTraderHandler:
         return {"status": "success", "message": f"Order successfully executed on MT5. Ticket: {result.order}"}
 
     @staticmethod
+    def close_position(position_id: int, symbol: str, side: str, volume: float, login: int = 2002061314, password: str = "Godzilla_12", server: str = "JustMarkets-Demo") -> dict:
+        if not MT5_AVAILABLE:
+            return {"status": "error", "message": "MT5 unavailable"}
+            
+        if not mt5.initialize(login=int(login), password=password, server=server):
+            return {"status": "error", "message": "Failed to initialize MT5"}
+            
+        is_buy = side.upper() == 'BUY'
+        action_type = mt5.ORDER_TYPE_SELL if is_buy else mt5.ORDER_TYPE_BUY
+        
+        tick = mt5.symbol_info_tick(symbol)
+        if tick is None:
+            return {"status": "error", "message": f"Failed to get price tick for {symbol}"}
+        price = tick.bid if is_buy else tick.ask
+        
+        request_dict = {
+            "action": mt5.TRADE_ACTION_DEAL,
+            "symbol": symbol,
+            "volume": float(volume),
+            "type": action_type,
+            "position": int(position_id),
+            "price": float(price),
+            "deviation": 20,
+            "magic": 234000,
+            "comment": "Auto-Close Session Position",
+            "type_time": mt5.ORDER_TIME_GTC,
+            "type_filling": mt5.ORDER_FILLING_IOC,
+        }
+        result = mt5.order_send(request_dict)
+        if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
+            comment = result.comment if result else "None"
+            retcode = result.retcode if result else -1
+            return {"status": "error", "message": f"MT5 close failed: {comment} (retcode: {retcode})"}
+        return {"status": "success", "message": f"Position {position_id} closed."}
+
+    @staticmethod
     def get_symbols(login: int = 2002061314, password: str = "Godzilla_12", server: str = "JustMarkets-Demo") -> list:
         """
         Gets list of symbols from MT5 terminal.

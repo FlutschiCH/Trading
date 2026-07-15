@@ -414,6 +414,19 @@ export default function Dashboard() {
   const [favNotesInput, setFavNotesInput] = useState<string>('');
   const [locateTimestamp, setLocateTimestamp] = useState<number | null>(null);
 
+  // Sessions & Auto-Close Safeguards
+  const [sessionsTimezone, setSessionsTimezone] = useState<'UTC' | 'Local'>(() => (localStorage.getItem('wyckoff_sessions_timezone') as 'UTC' | 'Local') || 'Local');
+  const [tradingSessions, setTradingSessions] = useState<any[]>(() => {
+    try {
+      const val = localStorage.getItem('wyckoff_trading_sessions');
+      return val ? JSON.parse(val) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [useGlobalClose, setUseGlobalClose] = useState<boolean>(() => localStorage.getItem('wyckoff_use_global_close') === 'true');
+  const [globalCloseTime, setGlobalCloseTime] = useState<string>(() => localStorage.getItem('wyckoff_global_close_time') || '21:50');
+
   const [panelOrder, setPanelOrder] = useState<string[]>(['chart', 'backtester']);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
 
@@ -625,6 +638,10 @@ export default function Dashboard() {
           allowOppositeClose,
           backtestId,
           enabledIndicators,
+          timezone: sessionsTimezone,
+          sessions: tradingSessions,
+          useGlobalClose,
+          globalCloseTime,
           ...bounds
         }),
       });
@@ -685,7 +702,11 @@ export default function Dashboard() {
           useBreakEven,
           beTriggerR: parseFloat(backtestBE) || 1.0,
           lookbackWindow: parseInt(lookbackWindow) || 20,
-          status: 'active'
+          status: 'active',
+          timezone: sessionsTimezone,
+          sessions: tradingSessions,
+          useGlobalClose,
+          globalCloseTime
         }),
       });
       const result = await response.json();
@@ -784,6 +805,22 @@ export default function Dashboard() {
   useEffect(() => {
     localStorage.setItem('wyckoff_backtest_allow_opposite_close', allowOppositeClose.toString());
   }, [allowOppositeClose]);
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_sessions_timezone', sessionsTimezone);
+  }, [sessionsTimezone]);
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_trading_sessions', JSON.stringify(tradingSessions));
+  }, [tradingSessions]);
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_use_global_close', useGlobalClose.toString());
+  }, [useGlobalClose]);
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_global_close_time', globalCloseTime);
+  }, [globalCloseTime]);
 
   // Fetch symbols and timeframes metadata dynamically based on selected candleSource
   useEffect(() => {
@@ -2068,6 +2105,14 @@ export default function Dashboard() {
                 allowOppositeClose={allowOppositeClose}
                 setAllowOppositeClose={setAllowOppositeClose}
                 onCancelBacktest={cancelBacktest}
+                sessionsTimezone={sessionsTimezone}
+                setSessionsTimezone={setSessionsTimezone}
+                tradingSessions={tradingSessions}
+                setTradingSessions={setTradingSessions}
+                useGlobalClose={useGlobalClose}
+                setUseGlobalClose={setUseGlobalClose}
+                globalCloseTime={globalCloseTime}
+                setGlobalCloseTime={setGlobalCloseTime}
               />
             )}
           </div>
@@ -2274,6 +2319,14 @@ export default function Dashboard() {
                       allowOppositeClose={allowOppositeClose}
                       setAllowOppositeClose={setAllowOppositeClose}
                       onCancelBacktest={cancelBacktest}
+                      sessionsTimezone={sessionsTimezone}
+                      setSessionsTimezone={setSessionsTimezone}
+                      tradingSessions={tradingSessions}
+                      setTradingSessions={setTradingSessions}
+                      useGlobalClose={useGlobalClose}
+                      setUseGlobalClose={setUseGlobalClose}
+                      globalCloseTime={globalCloseTime}
+                      setGlobalCloseTime={setGlobalCloseTime}
                     />
                   </div>
                   {renderResizeHandle('backtester')}

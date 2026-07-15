@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify
 from ctrader_handler import CTraderHandler
+from live_strategy_handler import LiveStrategyHandler
 
 ctrader_routes = Blueprint('ctrader_routes', __name__)
 
@@ -30,6 +31,12 @@ def order():
         return jsonify({"status": "error", "message": "Invalid JSON format"}), 400
 
     symbol = payload.get('symbol', 'BTCUSDT')
+    
+    # Session limit verification
+    is_allowed, err_msg = LiveStrategyHandler.is_trading_allowed(symbol)
+    if not is_allowed:
+        return jsonify({"status": "error", "message": err_msg}), 400
+
     side = payload.get('order_type', 'buy')
     volume = float(payload.get('volume', 0.1))
     price = payload.get('price')

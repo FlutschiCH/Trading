@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify
 from metatrader_handler import MetaTraderHandler
+from live_strategy_handler import LiveStrategyHandler
 
 metavar_login = 2002061314
 metavar_pass = "Godzilla_12"
@@ -59,6 +60,12 @@ def get_metatrader_positions():
 def create_metatrader_order():
     payload = request.get_json(silent=True) or {}
     symbol = payload.get('symbol', 'EURUSD')
+    
+    # Session limit verification
+    is_allowed, err_msg = LiveStrategyHandler.is_trading_allowed(symbol)
+    if not is_allowed:
+        return jsonify({"status": "error", "message": err_msg}), 400
+
     side = payload.get('order_type') or payload.get('side', 'buy')
     volume = float(payload.get('volume', 0.1))
     price = payload.get('price')

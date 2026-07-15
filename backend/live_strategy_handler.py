@@ -31,6 +31,18 @@ class LiveStrategyHandler:
         """
         try:
             SQLHandler.execute_query(create_mysql)
+            
+            # Add columns if not exist
+            for col_name, col_type in [
+                ("timezone", "VARCHAR(10) DEFAULT 'Local'"),
+                ("sessions", "TEXT"),
+                ("useGlobalClose", "TINYINT(1) DEFAULT 0"),
+                ("globalCloseTime", "VARCHAR(5) DEFAULT ''")
+            ]:
+                try:
+                    SQLHandler.execute_query(f"ALTER TABLE live_strategies ADD COLUMN {col_name} {col_type}")
+                except Exception:
+                    pass
         except Exception as e:
             print(f"Error initializing live_strategies DB table: {e}", flush=True)
 
@@ -42,9 +54,11 @@ class LiveStrategyHandler:
         query = """
         INSERT INTO live_strategies (
             symbol, status, timeframe, slVal, slType, rr, size, 
-            useRiskSizing, riskPct, useBreakEven, beTriggerR, lookbackWindow, deployedAt
+            useRiskSizing, riskPct, useBreakEven, beTriggerR, lookbackWindow, deployedAt,
+            timezone, sessions, useGlobalClose, globalCloseTime
         ) VALUES (
-            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+            %s, %s, %s, %s
         ) ON DUPLICATE KEY UPDATE 
             status=VALUES(status),
             timeframe=VALUES(timeframe),
@@ -57,7 +71,11 @@ class LiveStrategyHandler:
             useBreakEven=VALUES(useBreakEven),
             beTriggerR=VALUES(beTriggerR),
             lookbackWindow=VALUES(lookbackWindow),
-            deployedAt=VALUES(deployedAt)
+            deployedAt=VALUES(deployedAt),
+            timezone=VALUES(timezone),
+            sessions=VALUES(sessions),
+            useGlobalClose=VALUES(useGlobalClose),
+            globalCloseTime=VALUES(globalCloseTime)
         """
         params = (
             strategy["symbol"],
@@ -72,7 +90,11 @@ class LiveStrategyHandler:
             1 if strategy["useBreakEven"] else 0,
             strategy["beTriggerR"],
             strategy["lookbackWindow"],
-            strategy["deployedAt"]
+            strategy["deployedAt"],
+            strategy.get("timezone", "Local"),
+            json.dumps(strategy.get("sessions", [])),
+            1 if strategy.get("useGlobalClose", False) else 0,
+            strategy.get("globalCloseTime", "")
         )
         try:
             SQLHandler.execute_query(query, params)
@@ -101,6 +123,16 @@ class LiveStrategyHandler:
             results = SQLHandler.execute_query(query, params)
             if results:
                 row = results[0]
+                
+                # Parse sessions safely
+                sessions_raw = row.get("sessions")
+                sessions_list = []
+                if sessions_raw:
+                    try:
+                        sessions_list = json.loads(sessions_raw)
+                    except Exception:
+                        pass
+                
                 return {
                     "symbol": row["symbol"],
                     "status": row["status"],
@@ -114,7 +146,11 @@ class LiveStrategyHandler:
                     "useBreakEven": bool(row["useBreakEven"]),
                     "beTriggerR": float(row["beTriggerR"]),
                     "lookbackWindow": int(row["lookbackWindow"]),
-                    "deployedAt": row["deployedAt"]
+                    "deployedAt": row["deployedAt"],
+                    "timezone": row.get("timezone", "Local") or "Local",
+                    "sessions": sessions_list,
+                    "useGlobalClose": bool(row.get("useGlobalClose", False)),
+                    "globalCloseTime": row.get("globalCloseTime", "") or ""
                 }
         except Exception as e:
             print(f"Error fetching strategy from DB: {e}", flush=True)
@@ -127,6 +163,63 @@ class LiveStrategyHandler:
             except Exception:
                 pass
         return None
+
+    @staticmethod
+    def is_trading_allowed(symbol: str) -> tuple:
+        """
+        Checks if trading is currently allowed for the symbol based on active sessions.
+        Returns (is_allowed, error_message).
+        """
+        strategy = LiveStrategyHandler.get_strategy(symbol)
+        if not strategy or strategy.get("status") != "active":
+            return True, "" # No active strategy deployed, allow manual trading without restrictions
+            
+        sessions = strategy.get("sessions", [])
+        if not sessions:
+            return True, "" # No sessions configured, allow trading anytime
+            
+        timezone_str = strategy.get("timezone", "Local")
+        
+        # Get current time in specified timezone
+        import time
+        from datetime import datetime, timezone as pytimezone
+        ts = time.time()
+        if timezone_str == 'UTC':
+            dt_now = datetime.fromtimestamp(ts, tz=pytimezone.utc).replace(tzinfo=None)
+        else:
+            dt_now = datetime.fromtimestamp(ts)
+            
+        wd = dt_now.weekday() + 1 # 1=Mon, ..., 7=Sun
+        time_val = dt_now.time()
+        
+        in_session = False
+        for s in sessions:
+            weekdays = s.get("weekdays", [])
+            if wd not in weekdays:
+                continue
+            try:
+                sh, sm = map(int, s.get("start", "00:00").split(":"))
+                eh, em = map(int, s.get("end", "23:59").split(":"))
+            except ValueError:
+                continue
+            
+            from datetime import time as dttime
+            start_time = dttime(sh, sm)
+            end_time = dttime(eh, em)
+            
+            if start_time <= end_time:
+                if start_time <= time_val <= end_time:
+                    in_session = True
+                    break
+            else:
+                if time_val >= start_time or time_val <= end_time:
+                    in_session = True
+                    break
+                    
+        if not in_session:
+            return False, f"Trade rejected: Outside configured trading sessions ({timezone_str} timezone)."
+            
+        return True, ""
 
     @staticmethod
     def restore_active_strategies():

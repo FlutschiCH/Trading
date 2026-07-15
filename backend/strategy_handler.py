@@ -53,11 +53,73 @@ class StrategyHandler:
         allow_opposite_close: bool = True,
         check_cancelled = None,
         date_from: float = None,
-        date_to: float = None
+        date_to: float = None,
+        timezone: str = 'Local',
+        sessions: list = None,
+        use_global_close: bool = False,
+        global_close_time: str = ''
     ) -> dict:
         """
         Runs the full Wyckoff VSA & Weis Wave backtest simulation in Python.
         """
+        # Helper to convert timestamp to naive datetime in specified timezone
+        def get_candle_datetime(ts, tz_str):
+            from datetime import datetime, timezone as pytimezone
+            if tz_str == 'UTC':
+                return datetime.fromtimestamp(ts, tz=pytimezone.utc).replace(tzinfo=None)
+            else:
+                return datetime.fromtimestamp(ts)
+
+        # Helper to check if datetime falls within defined sessions
+        def is_datetime_in_sessions(dt, sessions_list):
+            if not sessions_list:
+                return True, None
+            wd = dt.weekday() + 1 # 1=Mon, ..., 7=Sun
+            time_val = dt.time()
+            for s in sessions_list:
+                weekdays = s.get("weekdays", [])
+                if wd not in weekdays:
+                    continue
+                try:
+                    sh, sm = map(int, s.get("start", "00:00").split(":"))
+                    eh, em = map(int, s.get("end", "23:59").split(":"))
+                except ValueError:
+                    continue
+                
+                from datetime import time
+                start_time = time(sh, sm)
+                end_time = time(eh, em)
+                if start_time <= end_time:
+                    if start_time <= time_val <= end_time:
+                        return True, s
+                else:
+                    if time_val >= start_time or time_val <= end_time:
+                        return True, s
+            return False, None
+
+        # Helper to check if datetime is in a specific session
+        def is_in_specific_session(dt, s):
+            if not s:
+                return True
+            wd = dt.weekday() + 1
+            time_val = dt.time()
+            weekdays = s.get("weekdays", [])
+            if wd not in weekdays:
+                return False
+            try:
+                sh, sm = map(int, s.get("start", "00:00").split(":"))
+                eh, em = map(int, s.get("end", "23:59").split(":"))
+            except ValueError:
+                return False
+            
+            from datetime import time
+            start_time = time(sh, sm)
+            end_time = time(eh, em)
+            if start_time <= end_time:
+                return start_time <= time_val <= end_time
+            else:
+                return time_val >= start_time or time_val <= end_time
+
         # First compute indicators using existing handler
         analysis = StrategyHandler.analyze_market_data(candles, lookback=lookback_window)
         annotated_data = list(analysis.get('data', []))
@@ -155,8 +217,17 @@ class StrategyHandler:
                 sweep_high = float(sweep_high)
                 should_sell = bool(is_bearish_vsa and high_val > sweep_high and close_val < sweep_high)
 
-            # Restrict new entry triggers to selected date range boundaries
+            # Convert candle time to naive datetime in configured timezone
             candle_time = int(c.get('time', 0))
+            dt_curr = get_candle_datetime(candle_time, timezone)
+
+            # Check if current candle time is in session
+            in_session, session_config = is_datetime_in_sessions(dt_curr, sessions)
+            if not in_session:
+                should_buy = False
+                should_sell = False
+
+            # Restrict new entry triggers to selected date range boundaries
             if date_from is not None and candle_time < int(date_from):
                 should_buy = False
                 should_sell = False
@@ -182,8 +253,39 @@ class StrategyHandler:
                 outcome = 'LOSS'
                 exit_reason = ''
                 
+                # Check if session ended and we need to close
+                if active_trade.get('session_close_on_end') and not is_in_specific_session(dt_curr, active_trade.get('session_config')):
+                    exit_price = close_val
+                    gross_pnl = (exit_price - active_trade['entry_price']) * (active_trade['qty'] * lot_size) if active_trade['type'] == 'BUY' else (active_trade['entry_price'] - exit_price) * (active_trade['qty'] * lot_size)
+                    closed = True
+                    exit_reason = 'Session ended (Auto-close)'
+                
+                # Check if global daily close time reached
+                if not closed and use_global_close and global_close_time and len(global_close_time) == 5:
+                    should_gc = False
+                    try:
+                        gh, gm = map(int, global_close_time.split(":"))
+                        from datetime import time as dttime
+                        g_time = dttime(gh, gm)
+                        if i > 0:
+                            dt_prev = get_candle_datetime(int(annotated_data[i-1].get('time', 0)), timezone)
+                            if dt_curr.time() >= g_time:
+                                if dt_prev.date() < dt_curr.date() or dt_prev.time() < g_time:
+                                    should_gc = True
+                        else:
+                            if dt_curr.time() >= g_time:
+                                should_gc = True
+                    except Exception:
+                        pass
+                    
+                    if should_gc:
+                        exit_price = close_val
+                        gross_pnl = (exit_price - active_trade['entry_price']) * (active_trade['qty'] * lot_size) if active_trade['type'] == 'BUY' else (active_trade['entry_price'] - exit_price) * (active_trade['qty'] * lot_size)
+                        closed = True
+                        exit_reason = f'Global daily close reached ({global_close_time})'
+                
                 # Check Break Even
-                if use_break_even and not active_trade.get('is_break_even', False):
+                if not closed and use_break_even and not active_trade.get('is_break_even', False):
                     sl_distance = active_trade['sl_distance']
                     if active_trade['type'] == 'BUY':
                         if high_val >= active_trade['entry_price'] + sl_distance * be_trigger_r:
@@ -196,15 +298,15 @@ class StrategyHandler:
 
                 # Check opposite sweep signals
                 opposite_signal = False
-                if allow_opposite_close:
+                if not closed and allow_opposite_close:
                     opposite_signal = (active_trade['type'] == 'BUY' and should_sell) or (active_trade['type'] == 'SELL' and should_buy)
                 
-                if opposite_signal:
+                if not closed and opposite_signal:
                     exit_price = close_val
                     gross_pnl = (exit_price - active_trade['entry_price']) * (active_trade['qty'] * lot_size) if active_trade['type'] == 'BUY' else (active_trade['entry_price'] - exit_price) * (active_trade['qty'] * lot_size)
                     closed = True
                     exit_reason = 'Closed by opposite sweep signal'
-                elif active_trade['type'] == 'BUY':
+                elif not closed and active_trade['type'] == 'BUY':
                     if low_val <= active_trade['sl_price']:
                         exit_price = active_trade['sl_price']
                         gross_pnl = (exit_price - active_trade['entry_price']) * (active_trade['qty'] * lot_size)
@@ -215,7 +317,7 @@ class StrategyHandler:
                         gross_pnl = (exit_price - active_trade['entry_price']) * (active_trade['qty'] * lot_size)
                         closed = True
                         exit_reason = 'Hit Take Profit'
-                else:
+                elif not closed:
                     if high_val >= active_trade['sl_price']:
                         exit_price = active_trade['sl_price']
                         gross_pnl = (active_trade['entry_price'] - exit_price) * (active_trade['qty'] * lot_size)
@@ -308,6 +410,8 @@ class StrategyHandler:
                         'entry_timestamp': int(c.get('time', 0)),
                         'is_break_even': False,
                         'sl_distance': sl_distance,
+                        'session_config': session_config,
+                        'session_close_on_end': bool(session_config.get('closeOnEnd', False)) if session_config else False,
                         'trigger_reason': {
                             'vsa_patterns': vsa_trigger,
                             'sweep_level': float(sweep_level) if sweep_level is not None else None,

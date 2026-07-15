@@ -50,6 +50,11 @@ def backtest():
     date_from = payload.get('date_from')
     date_to = payload.get('date_to')
     backtest_id = payload.get('backtestId')
+    
+    timezone = payload.get('timezone', 'Local')
+    sessions = payload.get('sessions', [])
+    use_global_close = bool(payload.get('useGlobalClose', False))
+    global_close_time = payload.get('globalCloseTime', '')
 
     def check_cancelled():
         if backtest_id and str(backtest_id) in cancelled_backtests:
@@ -75,7 +80,11 @@ def backtest():
             allow_opposite_close=allow_opposite_close,
             check_cancelled=check_cancelled,
             date_from=date_from,
-            date_to=date_to
+            date_to=date_to,
+            timezone=timezone,
+            sessions=sessions,
+            use_global_close=use_global_close,
+            global_close_time=global_close_time
         )
         return jsonify({"status": "success", "data": result})
     finally:
