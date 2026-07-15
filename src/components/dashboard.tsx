@@ -722,9 +722,8 @@ export default function Dashboard() {
     }
   };
 
-  useEffect(() => {
-    runBacktest();
-  }, [candles]);
+  // Disabled auto-running backtest on candle loading to show candles first.
+  // The user can run the backtest manually via the "Run Backtest" button.
 
   useEffect(() => {
     localStorage.setItem('wyckoff_symbol', symbol);
