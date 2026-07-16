@@ -198,6 +198,13 @@ export default function Dashboard() {
     return parseInt(localStorage.getItem('wyckoff_candle_limit') || '5000');
   });
   const [candleSource, setCandleSource] = useState<'ctrader' | 'metatrader' | 'yfinance'>(() => {
+    const isLocal = typeof window !== 'undefined' && 
+      (window.location.hostname === 'localhost' || 
+       window.location.hostname === '127.0.0.1' || 
+       window.location.hostname.startsWith('192.168.') ||
+       window.location.hostname.startsWith('10.') ||
+       window.location.hostname.startsWith('172.'));
+    if (!isLocal) return 'yfinance';
     return (localStorage.getItem('wyckoff_candle_source') as 'ctrader' | 'metatrader' | 'yfinance') || 'metatrader';
   });
   const [dateRangeOption, setDateRangeOption] = useState<string>(() => {

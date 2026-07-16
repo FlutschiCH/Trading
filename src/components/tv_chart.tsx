@@ -3,6 +3,13 @@ import { createChart, ColorType, CandlestickSeries, HistogramSeries, LineSeries,
 import { Square, PenTool, Trash2, XCircle, RefreshCw, Maximize2, Minimize2, Settings, Play, Pause, SkipBack, SkipForward, X } from 'lucide-react';
 import { calculateDateBounds } from '../App';
 
+const isLocal = typeof window !== 'undefined' && 
+  (window.location.hostname === 'localhost' || 
+   window.location.hostname === '127.0.0.1' || 
+   window.location.hostname.startsWith('192.168.') ||
+   window.location.hostname.startsWith('10.') ||
+   window.location.hostname.startsWith('172.'));
+
 interface Candle {
   time: number;
   open: number;
@@ -1333,10 +1340,15 @@ export default function TVChart({
             <select 
               value={candleSource} 
               onChange={(e) => onCandleSourceChange(e.target.value as 'ctrader' | 'metatrader' | 'yfinance')}
-              style={styles.pairSelect}
+              style={{
+                ...styles.pairSelect,
+                opacity: isLocal ? 1 : 0.7,
+                cursor: isLocal ? 'pointer' : 'not-allowed'
+              }}
+              disabled={!isLocal}
             >
-              <option value="ctrader">cTrader (Inactive)</option>
-              <option value="metatrader">MetaTrader 5</option>
+              {isLocal && <option value="ctrader">cTrader (Inactive)</option>}
+              {isLocal && <option value="metatrader">MetaTrader 5</option>}
               <option value="yfinance">Yahoo Finance</option>
             </select>
           </div>
