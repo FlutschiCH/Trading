@@ -144,21 +144,63 @@ export default function WyckoffBacktester({
   const [newCloseOnEnd, setNewCloseOnEnd] = React.useState(true);
   const [newWeekdays, setNewWeekdays] = React.useState<number[]>([1, 2, 3, 4, 5]);
   const [newColor, setNewColor] = React.useState('#3b82f6'); // Default color
+  const [editingSessionId, setEditingSessionId] = React.useState<string | null>(null);
 
   const handleAddSession = () => {
     if (!newStart || !newEnd) return;
-    const newSession = {
-      id: Math.random().toString(36).substr(2, 9),
-      start: newStart,
-      end: newEnd,
-      closeOnEnd: newCloseOnEnd,
-      weekdays: [...newWeekdays],
-      color: newColor
-    };
-    setTradingSessions([...tradingSessions, newSession]);
+    
+    if (editingSessionId) {
+      setTradingSessions(tradingSessions.map(s => s.id === editingSessionId ? {
+        ...s,
+        start: newStart,
+        end: newEnd,
+        closeOnEnd: newCloseOnEnd,
+        weekdays: [...newWeekdays],
+        color: newColor
+      } : s));
+      setEditingSessionId(null);
+    } else {
+      const newSession = {
+        id: Math.random().toString(36).substr(2, 9),
+        start: newStart,
+        end: newEnd,
+        closeOnEnd: newCloseOnEnd,
+        weekdays: [...newWeekdays],
+        color: newColor
+      };
+      setTradingSessions([...tradingSessions, newSession]);
+    }
+    
+    // Reset form to defaults
+    setNewStart('09:00');
+    setNewEnd('17:00');
+    setNewCloseOnEnd(true);
+    setNewWeekdays([1, 2, 3, 4, 5]);
+    setNewColor('#3b82f6');
+  };
+
+  const handleEditSession = (session: any) => {
+    setEditingSessionId(session.id);
+    setNewStart(session.start);
+    setNewEnd(session.end);
+    setNewCloseOnEnd(session.closeOnEnd);
+    setNewWeekdays([...session.weekdays]);
+    setNewColor(session.color || '#3b82f6');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingSessionId(null);
+    setNewStart('09:00');
+    setNewEnd('17:00');
+    setNewCloseOnEnd(true);
+    setNewWeekdays([1, 2, 3, 4, 5]);
+    setNewColor('#3b82f6');
   };
 
   const handleDeleteSession = (id: string) => {
+    if (editingSessionId === id) {
+      handleCancelEdit();
+    }
     setTradingSessions(tradingSessions.filter(s => s.id !== id));
   };
 
@@ -523,21 +565,37 @@ export default function WyckoffBacktester({
                           {s.closeOnEnd ? 'Close on End' : 'Let run'}
                         </span>
                       </div>
-                      <button
-                        onClick={() => handleDeleteSession(s.id)}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: '#ef4444',
-                          cursor: 'pointer',
-                          fontWeight: 'bold',
-                          fontSize: '12px',
-                          padding: '2px 6px'
-                        }}
-                        title="Delete Session"
-                      >
-                        ✕
-                      </button>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <button
+                          onClick={() => handleEditSession(s)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#3b82f6',
+                            cursor: 'pointer',
+                            fontSize: '11px',
+                            padding: '2px 4px'
+                          }}
+                          title="Edit Session"
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          onClick={() => handleDeleteSession(s.id)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#ef4444',
+                            cursor: 'pointer',
+                            fontWeight: 'bold',
+                            fontSize: '12px',
+                            padding: '2px 4px'
+                          }}
+                          title="Delete Session"
+                        >
+                          ✕
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
@@ -555,7 +613,7 @@ export default function WyckoffBacktester({
             flexDirection: 'column',
             gap: '8px'
           }}>
-            <span style={{ color: '#9ca3af', fontSize: '10px', fontWeight: 'bold' }}>Add Trading Session</span>
+            <span style={{ color: '#9ca3af', fontSize: '10px', fontWeight: 'bold' }}>{editingSessionId ? 'Edit Trading Session' : 'Add Trading Session'}</span>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
               <div style={styles.formGroup}>
                 <label style={{ color: '#9ca3af', fontSize: '9px' }}>Start Time</label>
@@ -640,21 +698,41 @@ export default function WyckoffBacktester({
               </div>
             </div>
 
-            <button
-              onClick={handleAddSession}
-              style={{
-                backgroundColor: 'rgba(59, 130, 246, 0.2)',
-                color: '#3b82f6',
-                border: '1px solid #3b82f6',
-                padding: '4px 8px',
-                borderRadius: '4px',
-                fontSize: '10px',
-                fontWeight: 'bold',
-                cursor: 'pointer'
-              }}
-            >
-              + Add Session Window
-            </button>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                onClick={handleAddSession}
+                style={{
+                  flex: 1,
+                  backgroundColor: editingSessionId ? 'rgba(16, 185, 129, 0.2)' : 'rgba(59, 130, 246, 0.2)',
+                  color: editingSessionId ? '#10b981' : '#3b82f6',
+                  border: '1px solid ' + (editingSessionId ? '#10b981' : '#3b82f6'),
+                  padding: '4px 8px',
+                  borderRadius: '4px',
+                  fontSize: '10px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer'
+                }}
+              >
+                {editingSessionId ? '✏️ Update Session' : '+ Add Session Window'}
+              </button>
+              {editingSessionId && (
+                <button
+                  onClick={handleCancelEdit}
+                  style={{
+                    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                    color: '#ef4444',
+                    border: '1px solid #ef4444',
+                    padding: '4px 8px',
+                    borderRadius: '4px',
+                    fontSize: '10px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
