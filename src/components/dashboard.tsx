@@ -407,7 +407,7 @@ export default function Dashboard() {
   } | null>(null);
   const [selectedTrade, setSelectedTrade] = useState<any>(null);
   const [showModal, setShowModal] = useState<boolean>(false);
-  const [backtestTab, setBacktestTab] = useState<'trades' | 'weekly' | 'monthly' | 'favourites'>('trades');
+  const [backtestTab, setBacktestTab] = useState<'trades' | 'weekly' | 'monthly' | 'hourly' | 'favourites'>('trades');
   const [tradeFilter, setTradeFilter] = useState<'all' | 'wins' | 'losses'>('all');
   const [selectedCandle, setSelectedCandle] = useState<Candle | null>(null);
   const [favouriteCandles, setFavouriteCandles] = useState<any[]>([]);
@@ -1102,15 +1102,15 @@ export default function Dashboard() {
   useEffect(() => {
     if (!initialCandlesLoaded) return;
 
-    fetchAccountData();
-    fetchPositionData();
+    // fetchAccountData();
+    // fetchPositionData();
 
     // Poll account and positions every 5s
-    const interval = setInterval(() => {
-      fetchAccountData();
-      fetchPositionData();
-    }, 5000);
-    return () => clearInterval(interval);
+    // const interval = setInterval(() => {
+    //   fetchAccountData();
+    //   fetchPositionData();
+    // }, 5000);
+    // return () => clearInterval(interval);
   }, [initialCandlesLoaded, symbol]);
 
   const currentConnected = true;
