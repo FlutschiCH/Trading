@@ -13,7 +13,10 @@ class StrategyHandler:
         if not bars_list:
             return {"status": "success", "data": [], "fvgs": []}
             
-        df = pd.DataFrame(bars_list)
+        from wyckoff_handler import WyckoffHandler
+        wyckoff_candles = WyckoffHandler.analyze_wyckoff_structure(bars_list, lookback=lookback)
+        
+        df = pd.DataFrame(wyckoff_candles)
         # Required columns: time, open, high, low, close, volume
         # Check and cast
         for col in ['open', 'high', 'low', 'close', 'volume']:
