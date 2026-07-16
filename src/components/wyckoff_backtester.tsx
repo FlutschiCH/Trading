@@ -618,21 +618,19 @@ export default function WyckoffBacktester({
               <div style={styles.formGroup}>
                 <label style={{ color: '#9ca3af', fontSize: '9px' }}>Start Time</label>
                 <input
-                  type="text"
-                  placeholder="e.g. 09:00"
+                  type="time"
                   value={newStart}
                   onChange={(e) => setNewStart(e.target.value)}
-                  style={{ ...styles.input, padding: '4px 6px', fontSize: '11px' }}
+                  style={{ ...styles.input, padding: '4px 6px', fontSize: '11px', colorScheme: 'dark' }}
                 />
               </div>
               <div style={styles.formGroup}>
                 <label style={{ color: '#9ca3af', fontSize: '9px' }}>End Time</label>
                 <input
-                  type="text"
-                  placeholder="e.g. 17:00"
+                  type="time"
                   value={newEnd}
                   onChange={(e) => setNewEnd(e.target.value)}
-                  style={{ ...styles.input, padding: '4px 6px', fontSize: '11px' }}
+                  style={{ ...styles.input, padding: '4px 6px', fontSize: '11px', colorScheme: 'dark' }}
                 />
               </div>
             </div>
