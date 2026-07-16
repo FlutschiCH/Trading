@@ -1085,6 +1085,8 @@ export default function WyckoffBacktester({
                     paddingBottom: '2px'
                   }}
                 >
+                  Monthly
+                </button>
                 <button 
                   onClick={() => setBacktestTab('hourly')}
                   style={{
