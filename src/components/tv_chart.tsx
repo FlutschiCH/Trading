@@ -206,6 +206,8 @@ export default function TVChart({
   const [fvgCoords, setFvgCoords] = useState<any[]>([]);
   const [sessionCoords, setSessionCoords] = useState<any[]>([]);
   const [wyckoffZones, setWyckoffZones] = useState<any[]>([]);
+  const [supportLineSegments, setSupportLineSegments] = useState<any[]>([]);
+  const [resistanceLineSegments, setResistanceLineSegments] = useState<any[]>([]);
   const selectedTradeRef = useRef(selectedTrade);
 
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
@@ -530,8 +532,43 @@ export default function TVChart({
       }).filter(z => z.x1 !== null && z.x2 !== null);
 
       setWyckoffZones(zoneCoords);
+
+      const supSegs: any[] = [];
+      const resSegs: any[] = [];
+
+      for (let i = 1; i < currentCandles.length; i++) {
+        const cPrev = currentCandles[i - 1];
+        const cCurr = currentCandles[i];
+
+        if (cPrev.support_level !== undefined && cCurr.support_level !== undefined) {
+          const x1 = timeScale.timeToCoordinate(cPrev.time);
+          const x2 = timeScale.timeToCoordinate(cCurr.time);
+          const y1 = series.priceToCoordinate(cPrev.support_level);
+          const y2 = series.priceToCoordinate(cCurr.support_level);
+
+          if (x1 !== null && x2 !== null && y1 !== null && y2 !== null) {
+            supSegs.push({ x1, x2, y1, y2, stage: cCurr.wyckoff_stage });
+          }
+        }
+
+        if (cPrev.resistance_level !== undefined && cCurr.resistance_level !== undefined) {
+          const x1 = timeScale.timeToCoordinate(cPrev.time);
+          const x2 = timeScale.timeToCoordinate(cCurr.time);
+          const y1 = series.priceToCoordinate(cPrev.resistance_level);
+          const y2 = series.priceToCoordinate(cCurr.resistance_level);
+
+          if (x1 !== null && x2 !== null && y1 !== null && y2 !== null) {
+            resSegs.push({ x1, x2, y1, y2, stage: cCurr.wyckoff_stage });
+          }
+        }
+      }
+
+      setSupportLineSegments(supSegs);
+      setResistanceLineSegments(resSegs);
     } else {
       setWyckoffZones([]);
+      setSupportLineSegments([]);
+      setResistanceLineSegments([]);
     }
   };
 
@@ -829,10 +866,11 @@ export default function TVChart({
       }
     }
 
-    const hasAnalysis = candles.some(c => c.tr_high !== undefined);
+    const hasAnalysis = candles.some(c => c.tr_high !== undefined || c.support_level !== undefined);
+    const hasDetailedWyckoff = candles.some(c => c.support_level !== undefined);
 
     if (trHighSeriesRef.current && trLowSeriesRef.current) {
-      if (hasAnalysis && chartSettings.showTrLines) {
+      if (hasAnalysis && chartSettings.showTrLines && !hasDetailedWyckoff) {
         const highData = candles.map(c => ({ time: c.time, value: c.tr_high || c.high }));
         const lowData = candles.map(c => ({ time: c.time, value: c.tr_low || c.low }));
         trHighSeriesRef.current.setData(highData);
@@ -1580,6 +1618,50 @@ export default function TVChart({
                   height={height}
                   fill={fill}
                   style={{ pointerEvents: 'none' }}
+                />
+              );
+            })}
+
+            {chartSettings.showTrLines && supportLineSegments.map((seg, idx) => {
+              let color = '#cbd5e1';
+              if (seg.stage === 'ACCUMULATION') color = '#3b82f6';
+              else if (seg.stage === 'MARKUP') color = '#10b981';
+              else if (seg.stage === 'DISTRIBUTION') color = '#f59e0b';
+              else if (seg.stage === 'MARKDOWN') color = '#ef4444';
+              
+              return (
+                <line
+                  key={`sup-seg-${idx}`}
+                  x1={seg.x1}
+                  y1={seg.y1}
+                  x2={seg.x2}
+                  y2={seg.y2}
+                  stroke={color}
+                  strokeWidth={2}
+                  strokeDasharray="4 2"
+                  style={{ pointerEvents: 'none', opacity: 0.8 }}
+                />
+              );
+            })}
+
+            {chartSettings.showTrLines && resistanceLineSegments.map((seg, idx) => {
+              let color = '#cbd5e1';
+              if (seg.stage === 'ACCUMULATION') color = '#3b82f6';
+              else if (seg.stage === 'MARKUP') color = '#10b981';
+              else if (seg.stage === 'DISTRIBUTION') color = '#f59e0b';
+              else if (seg.stage === 'MARKDOWN') color = '#ef4444';
+              
+              return (
+                <line
+                  key={`res-seg-${idx}`}
+                  x1={seg.x1}
+                  y1={seg.y1}
+                  x2={seg.x2}
+                  y2={seg.y2}
+                  stroke={color}
+                  strokeWidth={2}
+                  strokeDasharray="4 2"
+                  style={{ pointerEvents: 'none', opacity: 0.8 }}
                 />
               );
             })}
