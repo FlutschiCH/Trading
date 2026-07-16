@@ -236,6 +236,8 @@ export default function TVChart({
   const slLineRef = useRef<any>(null);
   const tpLineRef = useRef<any>(null);
   const beLineRef = useRef<any>(null);
+  const wyckoffSupportLineRef = useRef<any>(null);
+  const wyckoffResistanceLineRef = useRef<any>(null);
 
   // Drawing Tools State
   const [activeTool, setActiveTool] = useState<'none' | 'trendline' | 'rectangle' | 'delete'>('none');
@@ -1108,6 +1110,53 @@ export default function TVChart({
     if (trLowSeriesRef.current) trLowSeriesRef.current.applyOptions({ priceFormat });
   }, [symbol, activeCandles]);
 
+  // Update Wyckoff Support & Resistance Price Lines on the Chart
+  useEffect(() => {
+    if (!candlestickSeriesRef.current) return;
+
+    // Clean up previous lines
+    if (wyckoffSupportLineRef.current) {
+      try {
+        candlestickSeriesRef.current.removePriceLine(wyckoffSupportLineRef.current);
+      } catch (e) {}
+      wyckoffSupportLineRef.current = null;
+    }
+    if (wyckoffResistanceLineRef.current) {
+      try {
+        candlestickSeriesRef.current.removePriceLine(wyckoffResistanceLineRef.current);
+      } catch (e) {}
+      wyckoffResistanceLineRef.current = null;
+    }
+
+    const activeCandle = selectedCandle || (activeCandles && activeCandles.length > 0 ? activeCandles[activeCandles.length - 1] : null);
+    if (activeCandle) {
+      if (activeCandle.support_level) {
+        try {
+          wyckoffSupportLineRef.current = candlestickSeriesRef.current.createPriceLine({
+            price: activeCandle.support_level,
+            color: '#ef4444',
+            lineWidth: 1.5,
+            lineStyle: 1, // Dashed
+            axisLabelVisible: true,
+            title: 'Wyckoff Support',
+          });
+        } catch (e) {}
+      }
+      if (activeCandle.resistance_level) {
+        try {
+          wyckoffResistanceLineRef.current = candlestickSeriesRef.current.createPriceLine({
+            price: activeCandle.resistance_level,
+            color: '#10b981',
+            lineWidth: 1.5,
+            lineStyle: 1, // Dashed
+            axisLabelVisible: true,
+            title: 'Wyckoff Resistance',
+          });
+        } catch (e) {}
+      }
+    }
+  }, [selectedCandle, activeCandles]);
+
   useEffect(() => {
     if (candlestickSeriesRef.current) {
       if (entryLineRef.current) {
@@ -1761,17 +1810,27 @@ export default function TVChart({
                 zIndex: 10,
                 backgroundColor: 'rgba(15, 23, 42, 0.85)',
                 backdropFilter: 'blur(8px)',
-                border: '1px solid rgba(51, 65, 85, 0.8)',
-                borderRadius: '8px',
-                padding: '12px',
-                width: '260px',
-                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.4)',
+                border: '1px solid rgba(51, 65, 85, 0.6)',
+                borderRadius: '6px',
+                padding: '6px 10px',
+                fontSize: '11px',
+                color: '#cbd5e1',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
                 pointerEvents: 'auto',
-                fontFamily: 'inherit'
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '4px',
               }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <span style={{ fontSize: '10px', color: '#9ca3af', fontWeight: 'bold', letterSpacing: '0.5px' }}>
-                    WYCKOFF STRUCTURE
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontWeight: 'bold', fontSize: '10px', color: '#9ca3af' }}>WYCKOFF:</span>
+                  <span style={{
+                    fontWeight: 'extrabold',
+                    color: activeCandle.wyckoff_stage === 'ACCUMULATION' ? '#3b82f6' :
+                           activeCandle.wyckoff_stage === 'MARKUP' ? '#10b981' :
+                           activeCandle.wyckoff_stage === 'DISTRIBUTION' ? '#f59e0b' :
+                           activeCandle.wyckoff_stage === 'MARKDOWN' ? '#ef4444' : '#cbd5e1',
+                  }}>
+                    {activeCandle.wyckoff_stage || 'TRANSITION'}
                   </span>
                   {(replayTime !== null || selectedCandle) ? (
                     <button 
@@ -1787,10 +1846,11 @@ export default function TVChart({
                         color: '#3b82f6',
                         fontSize: '9px',
                         cursor: 'pointer',
-                        textDecoration: 'underline'
+                        textDecoration: 'underline',
+                        padding: 0,
                       }}
                     >
-                      Reset to Live
+                      Reset
                     </button>
                   ) : (
                     <span style={{ fontSize: '8px', color: '#10b981', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '3px' }}>
@@ -1799,63 +1859,27 @@ export default function TVChart({
                     </span>
                   )}
                 </div>
+                
+                <div style={{ display: 'flex', gap: '8px', color: '#9ca3af', fontSize: '10px', borderTop: '1px solid rgba(51, 65, 85, 0.4)', paddingTop: '4px' }}>
+                  <span>S: <strong style={{ color: '#ffffff' }}>{activeCandle.support_level ? `$${activeCandle.support_level.toFixed(2)}` : 'N/A'}</strong></span>
+                  <span>R: <strong style={{ color: '#ffffff' }}>{activeCandle.resistance_level ? `$${activeCandle.resistance_level.toFixed(2)}` : 'N/A'}</strong></span>
+                </div>
 
-                {/* 1. CURRENT WYCKOFF PHASE */}
-                <div style={{ marginBottom: '10px' }}>
-                  <div style={{ fontSize: '9px', color: '#9ca3af' }}>Current Phase</div>
+                {activeCandle.wyckoff_signal && (
                   <div style={{
-                    fontSize: '15px',
-                    fontWeight: 'extrabold',
-                    color: activeCandle.wyckoff_stage === 'ACCUMULATION' ? '#3b82f6' :
-                           activeCandle.wyckoff_stage === 'MARKUP' ? '#10b981' :
-                           activeCandle.wyckoff_stage === 'DISTRIBUTION' ? '#f59e0b' :
-                           activeCandle.wyckoff_stage === 'MARKDOWN' ? '#ef4444' : '#cbd5e1',
-                    textShadow: '0 0 10px rgba(0,0,0,0.5)'
+                    color: activeCandle.wyckoff_signal.includes('Spring') ? '#10b981' : '#ef4444',
+                    fontWeight: 'bold',
+                    fontSize: '9px',
+                    backgroundColor: activeCandle.wyckoff_signal.includes('Spring') ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                    border: '1px solid ' + (activeCandle.wyckoff_signal.includes('Spring') ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'),
+                    borderRadius: '4px',
+                    padding: '2px 4px',
+                    textAlign: 'center',
+                    marginTop: '2px',
                   }}>
-                    {activeCandle.wyckoff_stage || 'TRANSITION'}
+                    ⚡ {activeCandle.wyckoff_signal}
                   </div>
-                </div>
-
-                {/* 2. KEY MARKET STRUCTURE */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', borderTop: '1px solid #1e293b', paddingTop: '8px', marginBottom: '8px' }}>
-                  <div>
-                    <div style={{ fontSize: '8px', color: '#9ca3af' }}>Support Floor</div>
-                    <div style={{ fontSize: '11px', color: '#ffffff', fontWeight: 'bold' }}>
-                      {activeCandle.support_level ? `$${activeCandle.support_level.toFixed(2)}` : 'N/A'}
-                    </div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '8px', color: '#9ca3af' }}>Resistance Ceiling</div>
-                    <div style={{ fontSize: '11px', color: '#ffffff', fontWeight: 'bold' }}>
-                      {activeCandle.resistance_level ? `$${activeCandle.resistance_level.toFixed(2)}` : 'N/A'}
-                    </div>
-                  </div>
-                </div>
-
-                {/* 3. LIQUIDITY & TRAP SIGNALS */}
-                <div style={{ borderTop: '1px solid #1e293b', paddingTop: '8px', fontSize: '9px' }}>
-                  <div style={{ color: '#9ca3af', marginBottom: '4px' }}>Traps & Signals:</div>
-                  {activeCandle.wyckoff_signal ? (
-                    <div style={{
-                      color: '#ffffff',
-                      backgroundColor: activeCandle.wyckoff_signal.includes('Spring') ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
-                      border: '1px solid ' + (activeCandle.wyckoff_signal.includes('Spring') ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)'),
-                      borderRadius: '4px',
-                      padding: '4px 6px',
-                      fontWeight: 'bold',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px'
-                    }}>
-                      ⚡ {activeCandle.wyckoff_signal}
-                    </div>
-                  ) : (
-                    <div style={{ color: '#6b7280', fontStyle: 'italic' }}>No trap sweeps detected on bar</div>
-                  )}
-                  <div style={{ marginTop: '6px', color: '#9ca3af' }}>
-                    Time: <span style={{ color: '#ffffff' }}>{new Date(activeCandle.time * 1000).toLocaleString('de-CH', { timeZone: 'UTC' })}</span>
-                  </div>
-                </div>
+                )}
               </div>
             );
           })()}
