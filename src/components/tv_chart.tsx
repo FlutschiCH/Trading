@@ -317,6 +317,8 @@ export default function TVChart({
   const [wyckoffZones, setWyckoffZones] = useState<any[]>([]);
   const [supportLineSegments, setSupportLineSegments] = useState<any[]>([]);
   const [resistanceLineSegments, setResistanceLineSegments] = useState<any[]>([]);
+  const [oversoldCoords, setOversoldCoords] = useState<any[]>([]);
+  const [overboughtCoords, setOverboughtCoords] = useState<any[]>([]);
   const selectedTradeRef = useRef(selectedTrade);
 
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
@@ -674,10 +676,40 @@ export default function TVChart({
 
       setSupportLineSegments(supSegs);
       setResistanceLineSegments(resSegs);
+
+      const oversold: any[] = [];
+      const overbought: any[] = [];
+
+      for (let i = 0; i < currentCandles.length; i++) {
+        const c = currentCandles[i];
+        if (c.support_level !== undefined && c.low < c.support_level) {
+          const x = timeScale.timeToCoordinate(c.time);
+          const ySupport = series.priceToCoordinate(c.support_level);
+          const yLow = series.priceToCoordinate(c.low);
+          
+          if (x !== null && ySupport !== null && yLow !== null) {
+            oversold.push({ x, y1: ySupport, y2: yLow });
+          }
+        }
+        
+        if (c.resistance_level !== undefined && c.high > c.resistance_level) {
+          const x = timeScale.timeToCoordinate(c.time);
+          const yResistance = series.priceToCoordinate(c.resistance_level);
+          const yHigh = series.priceToCoordinate(c.high);
+          
+          if (x !== null && yResistance !== null && yHigh !== null) {
+            overbought.push({ x, y1: yResistance, y2: yHigh });
+          }
+        }
+      }
+      setOversoldCoords(oversold);
+      setOverboughtCoords(overbought);
     } else {
       setWyckoffZones([]);
       setSupportLineSegments([]);
       setResistanceLineSegments([]);
+      setOversoldCoords([]);
+      setOverboughtCoords([]);
     }
   };
 
@@ -2115,6 +2147,76 @@ export default function TVChart({
                       {session.label}
                     </text>
                   )}
+                </g>
+              );
+            })}
+
+            {/* Wyckoff Oversold (Spring) Highlight Shading & Boundary Ticks */}
+            {chartSettings.showTrLines && oversoldCoords.map((coord, idx) => {
+              const rightScaleWidth = chartRef.current ? chartRef.current.priceScale('right').width() : 55;
+              const plotWidth = chartContainerRef.current ? chartContainerRef.current.clientWidth - rightScaleWidth : 0;
+              const plotHeight = chartHeight - 26;
+
+              if (coord.x > plotWidth || coord.y1 > plotHeight) return null;
+
+              const renderX = Math.max(0, Math.min(plotWidth, coord.x));
+              const renderY1 = Math.max(0, Math.min(plotHeight, coord.y1));
+              const renderY2 = Math.max(0, Math.min(plotHeight, coord.y2));
+
+              return (
+                <g key={`oversold-highlight-${idx}`} style={{ pointerEvents: 'none' }}>
+                  <rect
+                    x={renderX - 4}
+                    y={Math.min(renderY1, renderY2)}
+                    width={8}
+                    height={Math.max(1, Math.abs(renderY1 - renderY2))}
+                    fill="rgba(59, 130, 246, 0.25)"
+                    stroke="rgba(59, 130, 246, 0.6)"
+                    strokeWidth={1}
+                  />
+                  <line
+                    x1={renderX - 6}
+                    y1={renderY1}
+                    x2={renderX + 6}
+                    y2={renderY1}
+                    stroke="#fbbf24"
+                    strokeWidth={2}
+                  />
+                </g>
+              );
+            })}
+
+            {/* Wyckoff Overbought (Upthrust) Highlight Shading & Boundary Ticks */}
+            {chartSettings.showTrLines && overboughtCoords.map((coord, idx) => {
+              const rightScaleWidth = chartRef.current ? chartRef.current.priceScale('right').width() : 55;
+              const plotWidth = chartContainerRef.current ? chartContainerRef.current.clientWidth - rightScaleWidth : 0;
+              const plotHeight = chartHeight - 26;
+
+              if (coord.x > plotWidth || coord.y1 > plotHeight) return null;
+
+              const renderX = Math.max(0, Math.min(plotWidth, coord.x));
+              const renderY1 = Math.max(0, Math.min(plotHeight, coord.y1));
+              const renderY2 = Math.max(0, Math.min(plotHeight, coord.y2));
+
+              return (
+                <g key={`overbought-highlight-${idx}`} style={{ pointerEvents: 'none' }}>
+                  <rect
+                    x={renderX - 4}
+                    y={Math.min(renderY1, renderY2)}
+                    width={8}
+                    height={Math.max(1, Math.abs(renderY1 - renderY2))}
+                    fill="rgba(59, 130, 246, 0.25)"
+                    stroke="rgba(59, 130, 246, 0.6)"
+                    strokeWidth={1}
+                  />
+                  <line
+                    x1={renderX - 6}
+                    y1={renderY1}
+                    x2={renderX + 6}
+                    y2={renderY1}
+                    stroke="#fbbf24"
+                    strokeWidth={2}
+                  />
                 </g>
               );
             })}
