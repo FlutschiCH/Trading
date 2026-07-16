@@ -206,6 +206,14 @@ export default function TVChart({
   const selectedTradeRef = useRef(selectedTrade);
   const [chartHeight, setChartHeight] = useState(window.innerWidth < 768 ? 380 : 680);
   const [weisHeight, setWeisHeight] = useState(window.innerWidth < 768 ? 100 : 140);
+  const chartHeightRef = useRef(chartHeight);
+  const weisHeightRef = useRef(weisHeight);
+
+  useEffect(() => {
+    chartHeightRef.current = chartHeight;
+    weisHeightRef.current = weisHeight;
+  }, [chartHeight, weisHeight]);
+
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   const toggleFullscreen = () => {
@@ -651,7 +659,22 @@ export default function TVChart({
 
     window.addEventListener('resize', handleResize);
 
+    // Watch for card/container resizes via ResizeObserver
+    const resizeObserver = new ResizeObserver((entries) => {
+      if (!chartContainerRef.current || !mainChart) return;
+      const width = chartContainerRef.current.clientWidth;
+      if (width > 0) {
+        mainChart.resize(width, chartHeightRef.current);
+        if (weisContainerRef.current && weisChart) {
+          weisChart.resize(weisContainerRef.current.clientWidth, weisHeightRef.current);
+        }
+        updateDrawingCoordinates();
+      }
+    });
+    resizeObserver.observe(chartContainerRef.current);
+
     return () => {
+      resizeObserver.disconnect();
       window.removeEventListener('resize', handleResize);
       dynamicLineSeriesRef.current.forEach((series) => {
         try {
