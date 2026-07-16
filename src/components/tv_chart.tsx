@@ -1438,7 +1438,7 @@ export default function TVChart({
                     fill={fill}
                     stroke={stroke}
                     strokeWidth={1.5}
-                    strokeDasharray="4 4"
+                    strokeDasharray="2 2"
                   />
                   {width > 40 && (
                     <text
