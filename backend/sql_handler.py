@@ -44,6 +44,29 @@ class SQLHandler:
         return sqlite3.connect(LOCAL_DB_PATH)
 
     @classmethod
+    def _execute_sqlite(cls, query: str, params: tuple) -> list:
+        conn = cls.get_sqlite_connection()
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        # Convert MySQL dialect ON DUPLICATE KEY UPDATE to SQLite ON CONFLICT
+        sqlite_query = cls._translate_to_sqlite(query)
+        
+        # Replace %s placeholders with ? placeholders for SQLite
+        sqlite_query = sqlite_query.replace("%s", "?")
+        
+        cursor.execute(sqlite_query, params)
+        if query.strip().upper().startswith("SELECT"):
+            rows = cursor.fetchall()
+            result = [dict(row) for row in rows]
+        else:
+            conn.commit()
+            result = [{"rowcount": cursor.rowcount, "lastrowid": cursor.lastrowid}]
+        cursor.close()
+        conn.close()
+        return result
+
+    @classmethod
     def execute_query(cls, query: str, params: tuple = None) -> list:
         """
         Executes a query with thread-safety and connection failover.
@@ -53,9 +76,15 @@ class SQLHandler:
 
         cls._lock.acquire()
         try:
-            # 1. Try MySQL remote database
+            # 1. Try MySQL remote database connection
             try:
                 conn = cls.get_mysql_connection()
+            except Exception as conn_err:
+                print(f"Remote database connection failed, falling back to local SQLite: {conn_err}", flush=True)
+                return cls._execute_sqlite(query, params)
+
+            # 2. Connection succeeded, execute query on MySQL
+            try:
                 cursor = conn.cursor(dictionary=True)
                 cursor.execute(query, params)
                 if query.strip().upper().startswith("SELECT"):
@@ -66,30 +95,29 @@ class SQLHandler:
                 cursor.close()
                 conn.close()
                 return result
-            except Exception as remote_err:
-                print(f"Remote database error, falling back to local SQLite: {remote_err}", flush=True)
-                
-                # 2. Local SQLite fallback
-                conn = cls.get_sqlite_connection()
-                conn.row_factory = sqlite3.Row
-                cursor = conn.cursor()
-                
-                # Convert MySQL dialect ON DUPLICATE KEY UPDATE to SQLite ON CONFLICT
-                sqlite_query = cls._translate_to_sqlite(query)
-                
-                # Replace %s placeholders with ? placeholders for SQLite
-                sqlite_query = sqlite_query.replace("%s", "?")
-                
-                cursor.execute(sqlite_query, params)
-                if query.strip().upper().startswith("SELECT"):
-                    rows = cursor.fetchall()
-                    result = [dict(row) for row in rows]
+            except Exception as query_err:
+                # Check if connection was lost during execution
+                is_conn_lost = False
+                try:
+                    if not conn.is_connected():
+                        is_conn_lost = True
+                except Exception:
+                    is_conn_lost = True
+
+                if is_conn_lost:
+                    print(f"Remote database connection lost during query execution, falling back to local SQLite: {query_err}", flush=True)
+                    try:
+                        conn.close()
+                    except Exception:
+                        pass
+                    return cls._execute_sqlite(query, params)
                 else:
-                    conn.commit()
-                    result = [{"rowcount": cursor.rowcount, "lastrowid": cursor.lastrowid}]
-                cursor.close()
-                conn.close()
-                return result
+                    # Genuine SQL error (e.g. duplicate column, syntax error), raise it
+                    try:
+                        conn.close()
+                    except Exception:
+                        pass
+                    raise query_err
         finally:
             cls._lock.release()
 

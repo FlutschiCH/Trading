@@ -1363,6 +1363,7 @@ export default function TVChart({
                   strokeWidth={1}
                   style={{ pointerEvents: 'none' }}
                 />
+              );
             })}
 
             {sessionCoords.map((session, index) => {
