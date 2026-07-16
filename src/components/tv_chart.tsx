@@ -40,6 +40,7 @@ interface TVChartProps {
   customFrom?: string;
   customTo?: string;
   onSelectCandle?: (candle: any) => void;
+  selectedCandle?: any;
   enabledIndicators?: { fvg: boolean };
   fvgs?: any[];
   tradeFilter?: 'all' | 'wins' | 'losses';
@@ -71,6 +72,7 @@ export default function TVChart({
   customFrom = '',
   customTo = '',
   onSelectCandle,
+  selectedCandle,
   enabledIndicators,
   fvgs = [],
   tradeFilter = 'all',
@@ -203,6 +205,7 @@ export default function TVChart({
   const [selectedTradeCoords, setSelectedTradeCoords] = useState<{ x1: number; x2: number; type: 'BUY' | 'SELL'; pnl: number } | null>(null);
   const [fvgCoords, setFvgCoords] = useState<any[]>([]);
   const [sessionCoords, setSessionCoords] = useState<any[]>([]);
+  const [wyckoffZones, setWyckoffZones] = useState<any[]>([]);
   const selectedTradeRef = useRef(selectedTrade);
 
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
@@ -496,6 +499,39 @@ export default function TVChart({
       setSessionCoords(activeCoords);
     } else {
       setSessionCoords([]);
+    }
+
+    const currentCandles = candlesRef.current;
+    if (currentCandles && currentCandles.length > 0) {
+      const zones: any[] = [];
+      let currentZone: any = null;
+
+      for (let i = 0; i < currentCandles.length; i++) {
+        const c = currentCandles[i];
+        const stage = c.wyckoff_stage || 'TRANSITION';
+
+        if (!currentZone) {
+          currentZone = { stage, startIdx: i, endIdx: i };
+        } else if (currentZone.stage === stage) {
+          currentZone.endIdx = i;
+        } else {
+          zones.push(currentZone);
+          currentZone = { stage, startIdx: i, endIdx: i };
+        }
+      }
+      if (currentZone) {
+        zones.push(currentZone);
+      }
+
+      const zoneCoords = zones.map(z => {
+        const x1 = timeScale.timeToCoordinate(currentCandles[z.startIdx].time);
+        const x2 = timeScale.timeToCoordinate(currentCandles[z.endIdx].time);
+        return { ...z, x1, x2 };
+      }).filter(z => z.x1 !== null && z.x2 !== null);
+
+      setWyckoffZones(zoneCoords);
+    } else {
+      setWyckoffZones([]);
     }
   };
 
@@ -1402,6 +1438,113 @@ export default function TVChart({
         <div style={{ position: 'relative', height: chartHeight }}>
           <div ref={chartContainerRef} style={{ width: '100%', height: '100%', touchAction: 'none' }} />
 
+          {/* Wyckoff Quantitative Market Structure Overlay */}
+          {(() => {
+            const activeCandle = selectedCandle || (candles && candles.length > 0 ? candles[candles.length - 1] : null);
+            if (!activeCandle) return null;
+
+            return (
+              <div style={{
+                position: 'absolute',
+                top: '12px',
+                left: '12px',
+                zIndex: 10,
+                backgroundColor: 'rgba(15, 23, 42, 0.85)',
+                backdropFilter: 'blur(8px)',
+                border: '1px solid rgba(51, 65, 85, 0.8)',
+                borderRadius: '8px',
+                padding: '12px',
+                width: '260px',
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.4)',
+                pointerEvents: 'auto',
+                fontFamily: 'inherit'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '10px', color: '#9ca3af', fontWeight: 'bold', letterSpacing: '0.5px' }}>
+                    WYCKOFF STRUCTURE
+                  </span>
+                  {selectedCandle ? (
+                    <button 
+                      onClick={() => onSelectCandle && onSelectCandle(null)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#3b82f6',
+                        fontSize: '9px',
+                        cursor: 'pointer',
+                        textDecoration: 'underline'
+                      }}
+                    >
+                      Reset to Live
+                    </button>
+                  ) : (
+                    <span style={{ fontSize: '8px', color: '#10b981', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                      <span style={{ display: 'inline-block', width: '4px', height: '4px', backgroundColor: '#10b981', borderRadius: '50%' }}></span>
+                      LIVE
+                    </span>
+                  )}
+                </div>
+
+                {/* 1. CURRENT WYCKOFF PHASE */}
+                <div style={{ marginBottom: '10px' }}>
+                  <div style={{ fontSize: '9px', color: '#9ca3af' }}>Current Phase</div>
+                  <div style={{
+                    fontSize: '15px',
+                    fontWeight: 'extrabold',
+                    color: activeCandle.wyckoff_stage === 'ACCUMULATION' ? '#3b82f6' :
+                           activeCandle.wyckoff_stage === 'MARKUP' ? '#10b981' :
+                           activeCandle.wyckoff_stage === 'DISTRIBUTION' ? '#f59e0b' :
+                           activeCandle.wyckoff_stage === 'MARKDOWN' ? '#ef4444' : '#cbd5e1',
+                    textShadow: '0 0 10px rgba(0,0,0,0.5)'
+                  }}>
+                    {activeCandle.wyckoff_stage || 'TRANSITION'}
+                  </div>
+                </div>
+
+                {/* 2. KEY MARKET STRUCTURE */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', borderTop: '1px solid #1e293b', paddingTop: '8px', marginBottom: '8px' }}>
+                  <div>
+                    <div style={{ fontSize: '8px', color: '#9ca3af' }}>Support Floor</div>
+                    <div style={{ fontSize: '11px', color: '#ffffff', fontWeight: 'bold' }}>
+                      {activeCandle.support_level ? `$${activeCandle.support_level.toFixed(2)}` : 'N/A'}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '8px', color: '#9ca3af' }}>Resistance Ceiling</div>
+                    <div style={{ fontSize: '11px', color: '#ffffff', fontWeight: 'bold' }}>
+                      {activeCandle.resistance_level ? `$${activeCandle.resistance_level.toFixed(2)}` : 'N/A'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. LIQUIDITY & TRAP SIGNALS */}
+                <div style={{ borderTop: '1px solid #1e293b', paddingTop: '8px', fontSize: '9px' }}>
+                  <div style={{ color: '#9ca3af', marginBottom: '4px' }}>Traps & Signals:</div>
+                  {activeCandle.wyckoff_signal ? (
+                    <div style={{
+                      color: '#ffffff',
+                      backgroundColor: activeCandle.wyckoff_signal.includes('Spring') ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                      border: '1px solid ' + (activeCandle.wyckoff_signal.includes('Spring') ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)'),
+                      borderRadius: '4px',
+                      padding: '4px 6px',
+                      fontWeight: 'bold',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}>
+                      ⚡ {activeCandle.wyckoff_signal}
+                    </div>
+                  ) : (
+                    <div style={{ color: '#6b7280', fontStyle: 'italic' }}>No trap sweeps detected on bar</div>
+                  )}
+                  <div style={{ marginTop: '6px', color: '#9ca3af' }}>
+                    Time: <span style={{ color: '#ffffff' }}>{new Date(activeCandle.time * 1000).toLocaleString('de-CH', { timeZone: 'UTC' })}</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
           <svg
             style={{
               position: 'absolute',
@@ -1413,6 +1556,33 @@ export default function TVChart({
               pointerEvents: 'none',
             }}
           >
+            {/* Background Wyckoff Stage Shading */}
+            {wyckoffZones.map((zone, index) => {
+              const xStart = Math.min(zone.x1, zone.x2);
+              const xEnd = Math.max(zone.x1, zone.x2);
+              const width = Math.max(1, xEnd - xStart);
+              const height = chartHeight - 26;
+
+              let fill = 'transparent';
+              if (zone.stage === 'ACCUMULATION') fill = 'rgba(59, 130, 246, 0.05)';
+              else if (zone.stage === 'MARKUP') fill = 'rgba(16, 185, 129, 0.05)';
+              else if (zone.stage === 'DISTRIBUTION') fill = 'rgba(245, 158, 11, 0.05)';
+              else if (zone.stage === 'MARKDOWN') fill = 'rgba(239, 68, 68, 0.05)';
+
+              if (fill === 'transparent') return null;
+
+              return (
+                <rect
+                  key={`wyckoff-zone-${index}`}
+                  x={xStart}
+                  y={0}
+                  width={width}
+                  height={height}
+                  fill={fill}
+                  style={{ pointerEvents: 'none' }}
+                />
+              );
+            })}
             {chartSettings.showTrades && selectedTradeCoords && (
               <rect
                 x={Math.min(selectedTradeCoords.x1, selectedTradeCoords.x2)}
