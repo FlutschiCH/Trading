@@ -468,8 +468,8 @@ export default function TVChart({
             const t1 = candlesRef.current[sessionActiveStartIdx].time;
             const t2 = candlesRef.current[endIdx].time;
 
-            const x1 = timeScale.logicalToCoordinate(sessionActiveStartIdx as any);
-            const x2 = timeScale.logicalToCoordinate(endIdx as any);
+            const x1 = timeScale.timeToCoordinate(t1);
+            const x2 = timeScale.timeToCoordinate(t2);
             const y1 = series.priceToCoordinate(sessionHigh);
             const y2 = series.priceToCoordinate(sessionLow);
 
