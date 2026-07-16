@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType, CandlestickSeries, HistogramSeries, LineSeries, createSeriesMarkers } from 'lightweight-charts';
-import { Square, PenTool, Trash2, XCircle, RefreshCw, Maximize2, Minimize2, Settings } from 'lucide-react';
+import { Square, PenTool, Trash2, XCircle, RefreshCw, Maximize2, Minimize2, Settings, Play, Pause, SkipBack, SkipForward, X } from 'lucide-react';
 import { calculateDateBounds } from '../App';
 
 interface Candle {
@@ -83,6 +83,95 @@ export default function TVChart({
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const weisContainerRef = useRef<HTMLDivElement>(null);
   
+  const [replayTime, setReplayTime] = useState<number | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1000);
+
+  const activeCandles = replayTime !== null 
+    ? candles.filter(c => Number(c.time) <= replayTime) 
+    : candles;
+
+  const visibleTrades = replayTime !== null 
+    ? (trades || []).filter(t => Number(t.entryTimestamp) <= replayTime)
+    : trades;
+
+  const visibleFvgs = replayTime !== null
+    ? (fvgs || []).filter(f => Number(f.timeStart) <= replayTime)
+    : fvgs;
+
+  const stepForward = () => {
+    if (replayTime === null || !candles || candles.length === 0) return;
+    const currentIndex = candles.findIndex(c => Number(c.time) === replayTime);
+    if (currentIndex !== -1 && currentIndex < candles.length - 1) {
+      const nextCandle = candles[currentIndex + 1];
+      setReplayTime(Number(nextCandle.time));
+      if (onSelectCandleRef.current) {
+        onSelectCandleRef.current(nextCandle);
+      }
+    }
+  };
+
+  const stepBackward = () => {
+    if (replayTime === null || !candles || candles.length === 0) return;
+    const currentIndex = candles.findIndex(c => Number(c.time) === replayTime);
+    if (currentIndex > 0) {
+      const prevCandle = candles[currentIndex - 1];
+      setReplayTime(Number(prevCandle.time));
+      if (onSelectCandleRef.current) {
+        onSelectCandleRef.current(prevCandle);
+      }
+    }
+  };
+
+  // Playback timer for auto-play in replay mode
+  useEffect(() => {
+    if (!isPlaying || replayTime === null || !candles || candles.length === 0) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const currentIndex = candles.findIndex(c => Number(c.time) === replayTime);
+      if (currentIndex !== -1 && currentIndex < candles.length - 1) {
+        const nextCandle = candles[currentIndex + 1];
+        setReplayTime(Number(nextCandle.time));
+        if (onSelectCandleRef.current) {
+          onSelectCandleRef.current(nextCandle);
+        }
+      } else {
+        setIsPlaying(false);
+      }
+    }, playbackSpeed);
+
+    return () => clearInterval(interval);
+  }, [isPlaying, replayTime, candles, playbackSpeed]);
+
+  // Keyboard shortcuts for replay mode
+  useEffect(() => {
+    if (replayTime === null) return;
+
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'SELECT') {
+        return;
+      }
+
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        stepForward();
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        stepBackward();
+      } else if (e.key === ' ' || e.code === 'Space') {
+        e.preventDefault();
+        setIsPlaying(prev => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleGlobalKeyDown);
+    };
+  }, [replayTime, candles, isPlaying, playbackSpeed]);
+
   const [symbolSearch, setSymbolSearch] = useState('');
   const [showSymbolDropdown, setShowSymbolDropdown] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
@@ -160,12 +249,17 @@ export default function TVChart({
   const selectedTradePathSeriesRef = useRef<any>(null);
 
   useEffect(() => {
-    tradesRef.current = trades;
+    tradesRef.current = visibleTrades;
     updateDrawingCoordinates();
-  }, [trades]);
+  }, [visibleTrades]);
 
   useEffect(() => {
-    candlesRef.current = candles;
+    candlesRef.current = activeCandles;
+  }, [activeCandles]);
+
+  const fullCandlesRef = useRef(candles);
+  useEffect(() => {
+    fullCandlesRef.current = candles;
   }, [candles]);
 
   useEffect(() => {
@@ -177,9 +271,9 @@ export default function TVChart({
   }, [onSelectTrade]);
 
   useEffect(() => {
-    fvgsRef.current = fvgs;
+    fvgsRef.current = visibleFvgs;
     updateDrawingCoordinates();
-  }, [fvgs]);
+  }, [visibleFvgs]);
 
   useEffect(() => {
     dateRangeOptionRef.current = dateRangeOption;
@@ -274,7 +368,7 @@ export default function TVChart({
 
   useEffect(() => {
     updateDrawingCoordinates();
-  }, [dateRangeOption, customFrom, customTo, candles, enabledIndicators, fvgs, sessions, sessionsTimezone]);
+  }, [dateRangeOption, customFrom, customTo, activeCandles, enabledIndicators, visibleFvgs, sessions, sessionsTimezone]);
 
   useEffect(() => {
     selectedTradeRef.current = selectedTrade;
@@ -725,10 +819,11 @@ export default function TVChart({
         }
       }
 
-      if (onSelectCandleRef.current && candlesRef.current) {
-        const foundCandle = candlesRef.current.find(c => Number(c.time) === clickTime);
+      if (onSelectCandleRef.current && fullCandlesRef.current) {
+        const foundCandle = fullCandlesRef.current.find(c => Number(c.time) === clickTime);
         if (foundCandle) {
           onSelectCandleRef.current(foundCandle);
+          setReplayTime(clickTime);
         }
       }
     });
@@ -794,16 +889,16 @@ export default function TVChart({
 
   // Update Data Series
   useEffect(() => {
-    if (!candles || candles.length === 0) return;
+    if (!activeCandles || activeCandles.length === 0) return;
 
     if (candlestickSeriesRef.current) {
-      candlestickSeriesRef.current.setData(candles);
+      candlestickSeriesRef.current.setData(activeCandles);
 
-      const entryMarkers = chartSettings.showTrades ? candles
+      const entryMarkers = chartSettings.showTrades ? activeCandles
         .map((c) => {
           if (c.backtest_signal) {
             const isBullish = c.backtest_signal === 'BUY';
-            const trade = (trades || []).find(t => Number(t.entryTimestamp) === Number(c.time));
+            const trade = (visibleTrades || []).find(t => Number(t.entryTimestamp) === Number(c.time));
             const isProfit = trade ? trade.pnl >= 0 : true;
 
             if (trade) {
@@ -832,9 +927,10 @@ export default function TVChart({
         })
         .filter((m) => m !== null) : [];
 
-      const exitMarkers = chartSettings.showTrades ? (trades || [])
+      const exitMarkers = chartSettings.showTrades ? (visibleTrades || [])
         .map((trade) => {
           if (!trade.exitTimestamp) return null;
+          if (replayTime !== null && Number(trade.exitTimestamp) > replayTime) return null;
           if (trade.exitReason === 'Position still open') return null;
           if (trade.exitTimestamp === trade.entryTimestamp) return null;
           const isProfit = trade.pnl >= 0;
@@ -866,13 +962,13 @@ export default function TVChart({
       }
     }
 
-    const hasAnalysis = candles.some(c => c.tr_high !== undefined || c.support_level !== undefined);
-    const hasDetailedWyckoff = candles.some(c => c.support_level !== undefined);
+    const hasAnalysis = activeCandles.some(c => c.tr_high !== undefined || c.support_level !== undefined);
+    const hasDetailedWyckoff = activeCandles.some(c => c.support_level !== undefined);
 
     if (trHighSeriesRef.current && trLowSeriesRef.current) {
       if (hasAnalysis && chartSettings.showTrLines && !hasDetailedWyckoff) {
-        const highData = candles.map(c => ({ time: c.time, value: c.tr_high || c.high }));
-        const lowData = candles.map(c => ({ time: c.time, value: c.tr_low || c.low }));
+        const highData = activeCandles.map(c => ({ time: c.time, value: c.tr_high || c.high }));
+        const lowData = activeCandles.map(c => ({ time: c.time, value: c.tr_low || c.low }));
         trHighSeriesRef.current.setData(highData);
         trLowSeriesRef.current.setData(lowData);
       } else {
@@ -882,7 +978,7 @@ export default function TVChart({
     }
 
     if (weisSeriesRef.current) {
-      const volumeData = candles.map((c) => {
+      const volumeData = activeCandles.map((c) => {
         const isUp = c.close >= c.open;
         return {
           time: c.time,
@@ -893,7 +989,7 @@ export default function TVChart({
       weisSeriesRef.current.setData(volumeData);
     }
 
-    if (chartRef.current && candles.length > 0) {
+    if (chartRef.current && activeCandles.length > 0) {
       dynamicLineSeriesRef.current.forEach((series) => {
         try {
           chartRef.current.removeSeries(series);
@@ -902,11 +998,11 @@ export default function TVChart({
       dynamicLineSeriesRef.current = [];
 
       if (chartSettings.showTrades) {
-        const realTrades = (trades || []).filter(
+        const realTrades = (visibleTrades || []).filter(
           (t) => t.entryTimestamp && t.entryPrice && t.slPrice && t.tpPrice
         );
 
-        const sortedTimes = candles.map((c) => Number(c.time)).sort((a, b) => a - b);
+        const sortedTimes = activeCandles.map((c) => Number(c.time)).sort((a, b) => a - b);
         const SEGMENT_BARS = 3;
 
         realTrades.forEach((trade) => {
@@ -959,16 +1055,16 @@ export default function TVChart({
     }
 
     updateDrawingCoordinates();
-  }, [candles, trades, actualFilter, chartSettings.showTrades, chartSettings.showTrLines]);
+  }, [activeCandles, visibleTrades, actualFilter, chartSettings.showTrades, chartSettings.showTrLines, replayTime]);
 
   // Update price format and precision dynamically based on candle data
   useEffect(() => {
-    if (!candlestickSeriesRef.current || !candles || candles.length === 0) return;
+    if (!candlestickSeriesRef.current || !activeCandles || activeCandles.length === 0) return;
     
     let maxDecimals = 2;
-    const sampleSize = Math.min(candles.length, 20);
+    const sampleSize = Math.min(activeCandles.length, 20);
     for (let i = 0; i < sampleSize; i++) {
-      const candle = candles[i];
+      const candle = activeCandles[i];
       const prices = [candle.open, candle.high, candle.low, candle.close];
       for (const price of prices) {
         if (price !== undefined && price !== null) {
@@ -995,7 +1091,7 @@ export default function TVChart({
     candlestickSeriesRef.current.applyOptions({ priceFormat });
     if (trHighSeriesRef.current) trHighSeriesRef.current.applyOptions({ priceFormat });
     if (trLowSeriesRef.current) trLowSeriesRef.current.applyOptions({ priceFormat });
-  }, [symbol, candles]);
+  }, [symbol, activeCandles]);
 
   useEffect(() => {
     if (candlestickSeriesRef.current) {
@@ -1476,9 +1572,137 @@ export default function TVChart({
         <div style={{ position: 'relative', height: chartHeight }}>
           <div ref={chartContainerRef} style={{ width: '100%', height: '100%', touchAction: 'none' }} />
 
+          {replayTime !== null && (
+            <div style={{
+              position: 'absolute',
+              top: '12px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 100,
+              backgroundColor: 'rgba(15, 23, 42, 0.9)',
+              backdropFilter: 'blur(8px)',
+              border: '1px solid rgba(51, 65, 85, 0.8)',
+              borderRadius: '8px',
+              padding: '6px 12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.5)',
+              pointerEvents: 'auto',
+            }}>
+              <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#38bdf8', marginRight: '4px' }}>
+                REPLAY MODE
+              </span>
+              
+              <button 
+                onClick={stepBackward}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#9ca3af',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: '4px',
+                  transition: 'background-color 0.2s',
+                }}
+                title="Step Backward (Left Arrow)"
+              >
+                <SkipBack size={16} />
+              </button>
+
+              <button 
+                onClick={() => setIsPlaying(!isPlaying)}
+                style={{
+                  background: '#2563eb',
+                  border: 'none',
+                  color: '#ffffff',
+                  cursor: 'pointer',
+                  padding: '6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: '50%',
+                  transition: 'transform 0.2s',
+                }}
+                title={isPlaying ? "Pause (Space)" : "Play (Space)"}
+              >
+                {isPlaying ? <Pause size={14} fill="#ffffff" /> : <Play size={14} fill="#ffffff" />}
+              </button>
+
+              <button 
+                onClick={stepForward}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#9ca3af',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: '4px',
+                  transition: 'background-color 0.2s',
+                }}
+                title="Step Forward (Right Arrow)"
+              >
+                <SkipForward size={16} />
+              </button>
+
+              <select 
+                value={playbackSpeed}
+                onChange={(e) => setPlaybackSpeed(Number(e.target.value))}
+                style={{
+                  backgroundColor: '#1f2937',
+                  border: '1px solid #374151',
+                  borderRadius: '4px',
+                  color: '#ffffff',
+                  fontSize: '11px',
+                  padding: '2px 4px',
+                  cursor: 'pointer',
+                  outline: 'none',
+                }}
+              >
+                <option value="2000">2.0s / bar</option>
+                <option value="1000">1.0s / bar</option>
+                <option value="500">0.5s / bar</option>
+                <option value="200">0.2s / bar</option>
+              </select>
+
+              <div style={{ height: '16px', width: '1px', backgroundColor: '#374151' }}></div>
+
+              <button 
+                onClick={() => {
+                  setReplayTime(null);
+                  setIsPlaying(false);
+                  if (onSelectCandleRef.current) {
+                    onSelectCandleRef.current(null);
+                  }
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#ef4444',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: '4px',
+                  transition: 'background-color 0.2s',
+                }}
+                title="Exit Replay"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          )}
+
           {/* Wyckoff Quantitative Market Structure Overlay */}
           {(() => {
-            const activeCandle = selectedCandle || (candles && candles.length > 0 ? candles[candles.length - 1] : null);
+            const activeCandle = selectedCandle || (activeCandles && activeCandles.length > 0 ? activeCandles[activeCandles.length - 1] : null);
             if (!activeCandle) return null;
 
             return (
@@ -1501,9 +1725,13 @@ export default function TVChart({
                   <span style={{ fontSize: '10px', color: '#9ca3af', fontWeight: 'bold', letterSpacing: '0.5px' }}>
                     WYCKOFF STRUCTURE
                   </span>
-                  {selectedCandle ? (
+                  {(replayTime !== null || selectedCandle) ? (
                     <button 
-                      onClick={() => onSelectCandle && onSelectCandle(null)}
+                      onClick={() => {
+                        setReplayTime(null);
+                        setIsPlaying(false);
+                        if (onSelectCandle) onSelectCandle(null);
+                      }}
                       style={{
                         background: 'none',
                         border: 'none',
