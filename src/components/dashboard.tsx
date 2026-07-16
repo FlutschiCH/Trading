@@ -419,7 +419,12 @@ export default function Dashboard() {
   const [tradingSessions, setTradingSessions] = useState<any[]>(() => {
     try {
       const val = localStorage.getItem('wyckoff_trading_sessions');
-      if (val) return JSON.parse(val);
+      if (val) {
+        const parsed = JSON.parse(val);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
       
       const defaults = [
         { id: 'london', start: '08:00', end: '16:00', closeOnEnd: false, weekdays: [1, 2, 3, 4, 5], color: '#3b82f6' },
