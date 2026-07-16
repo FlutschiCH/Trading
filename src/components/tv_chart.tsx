@@ -86,6 +86,12 @@ export default function TVChart({
   const [replayTime, setReplayTime] = useState<number | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1000);
+  const [replayToolActive, setReplayToolActive] = useState(false);
+
+  const replayToolActiveRef = useRef(replayToolActive);
+  useEffect(() => {
+    replayToolActiveRef.current = replayToolActive;
+  }, [replayToolActive]);
 
   const activeCandles = replayTime !== null 
     ? candles.filter(c => Number(c.time) <= replayTime) 
@@ -823,7 +829,9 @@ export default function TVChart({
         const foundCandle = fullCandlesRef.current.find(c => Number(c.time) === clickTime);
         if (foundCandle) {
           onSelectCandleRef.current(foundCandle);
-          setReplayTime(clickTime);
+          if (replayToolActiveRef.current) {
+            setReplayTime(clickTime);
+          }
         }
       }
     });
@@ -1472,6 +1480,33 @@ export default function TVChart({
           >
             <RefreshCw size={16} className={loadingStrategy ? 'animate-spin' : ''} />
           </button>
+          <button 
+            onClick={() => {
+              if (replayToolActive) {
+                setReplayTime(null);
+                setIsPlaying(false);
+                if (onSelectCandleRef.current) {
+                  onSelectCandleRef.current(null);
+                }
+              }
+              setReplayToolActive(!replayToolActive);
+            }}
+            style={{
+              ...styles.refreshBtn,
+              backgroundColor: replayToolActive ? '#2563eb' : '#1f2937',
+              color: replayToolActive ? '#ffffff' : '#9ca3af',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              fontSize: '12px',
+              fontWeight: 'bold',
+            }}
+            title="Toggle Replay Tool. When active, click a candle to start replay from that point."
+          >
+            <Play size={14} fill={replayToolActive ? "#ffffff" : "none"} />
+            Replay
+          </button>
           <div style={{ position: 'relative' }}>
             <button 
               onClick={() => setShowSettingsDropdown(!showSettingsDropdown)}
@@ -1677,6 +1712,7 @@ export default function TVChart({
                 onClick={() => {
                   setReplayTime(null);
                   setIsPlaying(false);
+                  setReplayToolActive(false);
                   if (onSelectCandleRef.current) {
                     onSelectCandleRef.current(null);
                   }
@@ -1730,6 +1766,7 @@ export default function TVChart({
                       onClick={() => {
                         setReplayTime(null);
                         setIsPlaying(false);
+                        setReplayToolActive(false);
                         if (onSelectCandle) onSelectCandle(null);
                       }}
                       style={{
