@@ -30,8 +30,8 @@ interface WyckoffBacktesterProps {
   backtestFees: string;
   setBacktestFees: (val: string) => void;
   backtestResults: any;
-  backtestTab: 'trades' | 'weekly' | 'monthly' | 'favourites';
-  setBacktestTab: (val: 'trades' | 'weekly' | 'monthly' | 'favourites') => void;
+  backtestTab: 'trades' | 'weekly' | 'monthly' | 'hourly' | 'favourites';
+  setBacktestTab: (val: 'trades' | 'weekly' | 'monthly' | 'hourly' | 'favourites') => void;
   tradeFilter: 'all' | 'wins' | 'losses';
   setTradeFilter: (val: 'all' | 'wins' | 'losses') => void;
   selectedTrade: any;
@@ -1085,7 +1085,20 @@ export default function WyckoffBacktester({
                     paddingBottom: '2px'
                   }}
                 >
-                  Monthly
+                <button 
+                  onClick={() => setBacktestTab('hourly')}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: backtestTab === 'hourly' ? '#3b82f6' : '#9ca3af',
+                    fontWeight: 'bold',
+                    fontSize: '11px',
+                    cursor: 'pointer',
+                    borderBottom: backtestTab === 'hourly' ? '2px solid #3b82f6' : 'none',
+                    paddingBottom: '2px'
+                  }}
+                >
+                  Hourly
                 </button>
               </>
             )}
@@ -1234,6 +1247,78 @@ export default function WyckoffBacktester({
                 </div>
               );
             })}
+
+            {backtestTab === 'hourly' && backtestResults && (() => {
+              const hourlyStats: { [hour: number]: { count: number; wins: number; pnl: number } } = {};
+              
+              (backtestResults.trades || []).forEach((trade: any) => {
+                if (!trade.entryTimestamp) return;
+                const date = new Date(trade.entryTimestamp * 1000);
+                const hour = sessionsTimezone === 'UTC' ? date.getUTCHours() : date.getHours();
+                
+                if (!hourlyStats[hour]) {
+                  hourlyStats[hour] = { count: 0, wins: 0, pnl: 0 };
+                }
+                
+                hourlyStats[hour].count += 1;
+                hourlyStats[hour].pnl += trade.pnl;
+                if (trade.outcome === 'WIN' || trade.pnl >= 0) {
+                  hourlyStats[hour].wins += 1;
+                }
+              });
+
+              const sortedHours = Object.keys(hourlyStats).map(Number).sort((a, b) => a - b);
+
+              if (sortedHours.length === 0) {
+                return <div style={{ color: '#9ca3af', padding: '12px', fontSize: '11px', textAlign: 'center' }}>No trades recorded.</div>;
+              }
+
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1.2fr 0.8fr 1fr 1fr',
+                    padding: '6px 8px',
+                    fontSize: '10px',
+                    fontWeight: 'bold',
+                    color: '#9ca3af',
+                    borderBottom: '1px solid #1e293b'
+                  }}>
+                    <span>Hour (Range)</span>
+                    <span style={{ textAlign: 'center' }}>Trades</span>
+                    <span style={{ textAlign: 'center' }}>Win Rate</span>
+                    <span style={{ textAlign: 'right' }}>Net Profit</span>
+                  </div>
+                  {sortedHours.map((hour) => {
+                    const stats = hourlyStats[hour];
+                    const winRate = (stats.wins / stats.count) * 100;
+                    const hourStart = `${hour.toString().padStart(2, '0')}:00`;
+                    const hourEnd = `${((hour + 1) % 24).toString().padStart(2, '0')}:00`;
+                    const isProfit = stats.pnl >= 0;
+
+                    return (
+                      <div key={hour} style={{
+                        ...styles.positionRow,
+                        display: 'grid',
+                        gridTemplateColumns: '1.2fr 0.8fr 1fr 1fr',
+                        padding: '8px 8px',
+                        alignItems: 'center',
+                        borderLeft: `3px solid ${isProfit ? '#10b981' : '#ef4444'}`
+                      }}>
+                        <span style={{ fontWeight: 'bold', color: '#ffffff' }}>{hourStart} - {hourEnd}</span>
+                        <span style={{ textAlign: 'center', color: '#ffffff' }}>{stats.count}</span>
+                        <span style={{ textAlign: 'center', color: winRate >= 50 ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>
+                          {winRate.toFixed(0)}%
+                        </span>
+                        <span style={{ textAlign: 'right', color: isProfit ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>
+                          {isProfit ? '+' : ''}${stats.pnl.toFixed(2)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
 
             {backtestTab === 'favourites' && favouriteCandles.map((fav: any) => {
               const formattedTime = new Date(fav.candle_time * 1000).toLocaleString('de-CH', { timeZone: 'UTC' });
