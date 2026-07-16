@@ -419,7 +419,14 @@ export default function Dashboard() {
   const [tradingSessions, setTradingSessions] = useState<any[]>(() => {
     try {
       const val = localStorage.getItem('wyckoff_trading_sessions');
-      return val ? JSON.parse(val) : [];
+      if (val) return JSON.parse(val);
+      
+      const defaults = [
+        { id: 'london', start: '08:00', end: '16:00', closeOnEnd: false, weekdays: [1, 2, 3, 4, 5], color: '#3b82f6' },
+        { id: 'newyork', start: '13:00', end: '21:00', closeOnEnd: false, weekdays: [1, 2, 3, 4, 5], color: '#10b981' }
+      ];
+      localStorage.setItem('wyckoff_trading_sessions', JSON.stringify(defaults));
+      return defaults;
     } catch {
       return [];
     }
