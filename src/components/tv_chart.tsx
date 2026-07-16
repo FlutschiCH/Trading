@@ -401,6 +401,7 @@ export default function TVChart({
     }
 
     const currentSessions = sessionsRef.current;
+    console.log("Sessions Debug: currentSessions =", currentSessions, "candles count =", candlesRef.current?.length);
     if (currentSessions && currentSessions.length > 0 && candlesRef.current && candlesRef.current.length > 0) {
       const activeCoords: any[] = [];
 
@@ -491,6 +492,7 @@ export default function TVChart({
         }
       });
 
+      console.log("Sessions Debug: activeCoords =", activeCoords);
       setSessionCoords(activeCoords);
     } else {
       setSessionCoords([]);
