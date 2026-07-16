@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType, CandlestickSeries, HistogramSeries, LineSeries, createSeriesMarkers } from 'lightweight-charts';
-import { Square, PenTool, Trash2, XCircle, RefreshCw, Maximize2, Minimize2 } from 'lucide-react';
+import { Square, PenTool, Trash2, XCircle, RefreshCw, Maximize2, Minimize2, Settings } from 'lucide-react';
 import { calculateDateBounds } from '../App';
 
 interface Candle {
@@ -204,6 +204,30 @@ export default function TVChart({
   const [fvgCoords, setFvgCoords] = useState<any[]>([]);
   const [sessionCoords, setSessionCoords] = useState<any[]>([]);
   const selectedTradeRef = useRef(selectedTrade);
+
+  const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
+  const [chartSettings, setChartSettings] = useState(() => {
+    try {
+      const saved = localStorage.getItem('tv_chart_settings');
+      return saved ? JSON.parse(saved) : {
+        showFvg: true,
+        showSessions: true,
+        showTrades: true,
+        showTrLines: true,
+      };
+    } catch {
+      return {
+        showFvg: true,
+        showSessions: true,
+        showTrades: true,
+        showTrLines: true,
+      };
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem('tv_chart_settings', JSON.stringify(chartSettings));
+  }, [chartSettings]);
   const [chartHeight, setChartHeight] = useState(window.innerWidth < 768 ? 380 : 680);
   const [weisHeight, setWeisHeight] = useState(window.innerWidth < 768 ? 100 : 140);
   const chartHeightRef = useRef(chartHeight);
@@ -700,7 +724,7 @@ export default function TVChart({
     if (candlestickSeriesRef.current) {
       candlestickSeriesRef.current.setData(candles);
 
-      const entryMarkers = candles
+      const entryMarkers = chartSettings.showTrades ? candles
         .map((c) => {
           if (c.backtest_signal) {
             const isBullish = c.backtest_signal === 'BUY';
@@ -731,9 +755,9 @@ export default function TVChart({
           }
           return null;
         })
-        .filter((m) => m !== null);
+        .filter((m) => m !== null) : [];
 
-      const exitMarkers = (trades || [])
+      const exitMarkers = chartSettings.showTrades ? (trades || [])
         .map((trade) => {
           if (!trade.exitTimestamp) return null;
           if (trade.exitReason === 'Position still open') return null;
@@ -754,7 +778,7 @@ export default function TVChart({
             size: 1,
           };
         })
-        .filter((m) => m !== null);
+        .filter((m) => m !== null) : [];
 
       const allMarkers = [...entryMarkers, ...exitMarkers].sort((a, b) => {
         const timeA = typeof a.time === 'number' ? a.time : new Date(a.time).getTime();
@@ -770,7 +794,7 @@ export default function TVChart({
     const hasAnalysis = candles.some(c => c.tr_high !== undefined);
 
     if (trHighSeriesRef.current && trLowSeriesRef.current) {
-      if (hasAnalysis) {
+      if (hasAnalysis && chartSettings.showTrLines) {
         const highData = candles.map(c => ({ time: c.time, value: c.tr_high || c.high }));
         const lowData = candles.map(c => ({ time: c.time, value: c.tr_low || c.low }));
         trHighSeriesRef.current.setData(highData);
@@ -801,63 +825,65 @@ export default function TVChart({
       });
       dynamicLineSeriesRef.current = [];
 
-      const realTrades = (trades || []).filter(
-        (t) => t.entryTimestamp && t.entryPrice && t.slPrice && t.tpPrice
-      );
+      if (chartSettings.showTrades) {
+        const realTrades = (trades || []).filter(
+          (t) => t.entryTimestamp && t.entryPrice && t.slPrice && t.tpPrice
+        );
 
-      const sortedTimes = candles.map((c) => Number(c.time)).sort((a, b) => a - b);
-      const SEGMENT_BARS = 3;
+        const sortedTimes = candles.map((c) => Number(c.time)).sort((a, b) => a - b);
+        const SEGMENT_BARS = 3;
 
-      realTrades.forEach((trade) => {
-        const entryTs = Number(trade.entryTimestamp);
-        const entryIdx = sortedTimes.findIndex((t) => t === entryTs);
-        if (entryIdx === -1) return;
+        realTrades.forEach((trade) => {
+          const entryTs = Number(trade.entryTimestamp);
+          const entryIdx = sortedTimes.findIndex((t) => t === entryTs);
+          if (entryIdx === -1) return;
 
-        const endIdx = Math.min(entryIdx + SEGMENT_BARS, sortedTimes.length);
-        const points = sortedTimes.slice(entryIdx, endIdx);
-        if (points.length === 0) return;
+          const endIdx = Math.min(entryIdx + SEGMENT_BARS, sortedTimes.length);
+          const points = sortedTimes.slice(entryIdx, endIdx);
+          if (points.length === 0) return;
 
-        const isProfit = trade.pnl >= 0;
-        if (actualFilter === 'wins' && !isProfit) return;
-        if (actualFilter === 'losses' && isProfit) return;
+          const isProfit = trade.pnl >= 0;
+          if (actualFilter === 'wins' && !isProfit) return;
+          if (actualFilter === 'losses' && isProfit) return;
 
-        const entryData = points.map((p) => ({ time: p, value: trade.entryPrice }));
-        const slData = points.map((p) => ({ time: p, value: trade.slPrice }));
-        const tpData = points.map((p) => ({ time: p, value: trade.tpPrice }));
+          const entryData = points.map((p) => ({ time: p, value: trade.entryPrice }));
+          const slData = points.map((p) => ({ time: p, value: trade.slPrice }));
+          const tpData = points.map((p) => ({ time: p, value: trade.tpPrice }));
 
-        const addTradeLine = (data: any[], color: string, lineStyle: number = 0) => {
-          const lineSeries = chartRef.current.addSeries(LineSeries, {
-            color,
-            lineWidth: 2,
-            lineStyle,
-            lastValueVisible: false,
-            priceLineVisible: false,
-            crosshairMarkerVisible: false,
-          });
-          lineSeries.setData(data);
-          dynamicLineSeriesRef.current.push(lineSeries);
-        };
+          const addTradeLine = (data: any[], color: string, lineStyle: number = 0) => {
+            const lineSeries = chartRef.current.addSeries(LineSeries, {
+              color,
+              lineWidth: 2,
+              lineStyle,
+              lastValueVisible: false,
+              priceLineVisible: false,
+              crosshairMarkerVisible: false,
+            });
+            lineSeries.setData(data);
+            dynamicLineSeriesRef.current.push(lineSeries);
+          };
 
-        addTradeLine(entryData, '#3b82f6');
-        
-        const hasOriginalSl = trade.originalSlPrice !== undefined && trade.originalSlPrice !== null && trade.originalSlPrice !== trade.slPrice;
-        if (hasOriginalSl) {
-          // Draw BE stop loss line in yellow/orange
-          addTradeLine(slData, '#fbbf24');
-          // Draw original stop loss line in dashed red
-          const originalSlData = points.map((p) => ({ time: p, value: trade.originalSlPrice }));
-          addTradeLine(originalSlData, '#ef4444', 1);
-        } else {
-          // Draw regular stop loss line in red
-          addTradeLine(slData, '#ef4444');
-        }
-        
-        addTradeLine(tpData, '#10b981');
-      });
+          addTradeLine(entryData, '#3b82f6');
+          
+          const hasOriginalSl = trade.originalSlPrice !== undefined && trade.originalSlPrice !== null && trade.originalSlPrice !== trade.slPrice;
+          if (hasOriginalSl) {
+            // Draw BE stop loss line in yellow/orange
+            addTradeLine(slData, '#fbbf24');
+            // Draw original stop loss line in dashed red
+            const originalSlData = points.map((p) => ({ time: p, value: trade.originalSlPrice }));
+            addTradeLine(originalSlData, '#ef4444', 1);
+          } else {
+            // Draw regular stop loss line in red
+            addTradeLine(slData, '#ef4444');
+          }
+          
+          addTradeLine(tpData, '#10b981');
+        });
+      }
     }
 
     updateDrawingCoordinates();
-  }, [candles, trades, actualFilter]);
+  }, [candles, trades, actualFilter, chartSettings.showTrades, chartSettings.showTrLines]);
 
   // Update price format and precision dynamically based on candle data
   useEffect(() => {
@@ -914,49 +940,51 @@ export default function TVChart({
         beLineRef.current = null;
       }
 
-      if (entryPrice) {
-        entryLineRef.current = candlestickSeriesRef.current.createPriceLine({
-          price: entryPrice,
-          color: '#3b82f6',
-          lineWidth: 2,
-          lineStyle: 2,
-          axisLabelVisible: true,
-          title: 'Entry',
-        });
-      }
-      if (slPrice) {
-        slLineRef.current = candlestickSeriesRef.current.createPriceLine({
-          price: slPrice,
-          color: '#ef4444',
-          lineWidth: 2,
-          lineStyle: 1,
-          axisLabelVisible: true,
-          title: 'SL',
-        });
-      }
-      if (tpPrice) {
-        tpLineRef.current = candlestickSeriesRef.current.createPriceLine({
-          price: tpPrice,
-          color: '#10b981',
-          lineWidth: 2,
-          lineStyle: 1,
-          axisLabelVisible: true,
-          title: 'TP',
-        });
-      }
-      if (entryPrice && slPrice) {
-        const bePrice = 2 * entryPrice - slPrice;
-        beLineRef.current = candlestickSeriesRef.current.createPriceLine({
-          price: bePrice,
-          color: '#fbbf24',
-          lineWidth: 2,
-          lineStyle: 1,
-          axisLabelVisible: true,
-          title: '1:1 BE',
-        });
+      if (chartSettings.showTrades) {
+        if (entryPrice) {
+          entryLineRef.current = candlestickSeriesRef.current.createPriceLine({
+            price: entryPrice,
+            color: '#3b82f6',
+            lineWidth: 2,
+            lineStyle: 2,
+            axisLabelVisible: true,
+            title: 'Entry',
+          });
+        }
+        if (slPrice) {
+          slLineRef.current = candlestickSeriesRef.current.createPriceLine({
+            price: slPrice,
+            color: '#ef4444',
+            lineWidth: 2,
+            lineStyle: 1,
+            axisLabelVisible: true,
+            title: 'SL',
+          });
+        }
+        if (tpPrice) {
+          tpLineRef.current = candlestickSeriesRef.current.createPriceLine({
+            price: tpPrice,
+            color: '#10b981',
+            lineWidth: 2,
+            lineStyle: 1,
+            axisLabelVisible: true,
+            title: 'TP',
+          });
+        }
+        if (entryPrice && slPrice) {
+          const bePrice = 2 * entryPrice - slPrice;
+          beLineRef.current = candlestickSeriesRef.current.createPriceLine({
+            price: bePrice,
+            color: '#fbbf24',
+            lineWidth: 2,
+            lineStyle: 1,
+            axisLabelVisible: true,
+            title: '1:1 BE',
+          });
+        }
       }
     }
-  }, [entryPrice, slPrice, tpPrice, candles]);
+  }, [entryPrice, slPrice, tpPrice, candles, chartSettings.showTrades]);
 
   const handleSVGMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
     if (activeTool === 'none' || activeTool === 'delete') return;
@@ -1265,13 +1293,93 @@ export default function TVChart({
               Analyzing Wyckoff & Weis Wave...
             </div>
           )}
-           <button 
+          <button 
             onClick={onRefresh}
             style={styles.refreshBtn}
             title="Refresh chart data"
           >
             <RefreshCw size={16} className={loadingStrategy ? 'animate-spin' : ''} />
           </button>
+          <div style={{ position: 'relative' }}>
+            <button 
+              onClick={() => setShowSettingsDropdown(!showSettingsDropdown)}
+              style={styles.refreshBtn}
+              title="Chart Visibility Settings"
+            >
+              <Settings size={16} />
+            </button>
+            {showSettingsDropdown && (
+              <>
+                <div 
+                  onClick={() => setShowSettingsDropdown(false)}
+                  style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    zIndex: 999
+                  }}
+                />
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  right: 0,
+                  marginTop: '6px',
+                  backgroundColor: '#0f172a',
+                  border: '1px solid #1f2937',
+                  borderRadius: '8px',
+                  padding: '12px',
+                  zIndex: 1000,
+                  boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)',
+                  minWidth: '180px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                }}>
+                  <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#9ca3af', borderBottom: '1px solid #1f2937', paddingBottom: '6px', marginBottom: '4px' }}>
+                    Chart Visibility
+                  </div>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}>
+                    <input 
+                      type="checkbox" 
+                      checked={chartSettings.showFvg} 
+                      onChange={(e) => setChartSettings({ ...chartSettings, showFvg: e.target.checked })}
+                      style={{ cursor: 'pointer' }}
+                    />
+                    Fair Value Gaps (FVG)
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}>
+                    <input 
+                      type="checkbox" 
+                      checked={chartSettings.showSessions} 
+                      onChange={(e) => setChartSettings({ ...chartSettings, showSessions: e.target.checked })}
+                      style={{ cursor: 'pointer' }}
+                    />
+                    Trading Sessions
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}>
+                    <input 
+                      type="checkbox" 
+                      checked={chartSettings.showTrades} 
+                      onChange={(e) => setChartSettings({ ...chartSettings, showTrades: e.target.checked })}
+                      style={{ cursor: 'pointer' }}
+                    />
+                    Trades & Order Levels
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}>
+                    <input 
+                      type="checkbox" 
+                      checked={chartSettings.showTrLines} 
+                      onChange={(e) => setChartSettings({ ...chartSettings, showTrLines: e.target.checked })}
+                      style={{ cursor: 'pointer' }}
+                    />
+                    Trading Range (TR)
+                  </label>
+                </div>
+              </>
+            )}
+          </div>
           <button 
             onClick={toggleFullscreen}
             style={styles.refreshBtn}
@@ -1303,7 +1411,7 @@ export default function TVChart({
               pointerEvents: 'none',
             }}
           >
-            {selectedTradeCoords && (
+            {chartSettings.showTrades && selectedTradeCoords && (
               <rect
                 x={Math.min(selectedTradeCoords.x1, selectedTradeCoords.x2)}
                 y={0}
@@ -1353,7 +1461,7 @@ export default function TVChart({
               </>
             )}
             
-            {enabledIndicators?.fvg && fvgCoords.map((fvg, index) => {
+            {chartSettings.showFvg && (enabledIndicators?.fvg !== false) && fvgCoords.map((fvg, index) => {
               const rightScaleWidth = chartRef.current ? chartRef.current.priceScale('right').width() : 55;
               const plotWidth = chartContainerRef.current ? chartContainerRef.current.clientWidth - rightScaleWidth : 0;
               const plotHeight = chartHeight - 26; // Subtracting bottom time axis height
@@ -1389,7 +1497,7 @@ export default function TVChart({
               );
             })}
 
-            {sessionCoords.map((session, index) => {
+            {chartSettings.showSessions && sessionCoords.map((session, index) => {
               const rightScaleWidth = chartRef.current ? chartRef.current.priceScale('right').width() : 55;
               const plotWidth = chartContainerRef.current ? chartContainerRef.current.clientWidth - rightScaleWidth : 0;
               const plotHeight = chartHeight - 26; // Subtracting bottom time axis height
