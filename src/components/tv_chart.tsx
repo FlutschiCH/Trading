@@ -653,8 +653,8 @@ export default function TVChart({
         const cCurr = currentCandles[i];
 
         if (cPrev.support_level !== undefined && cCurr.support_level !== undefined) {
-          const x1 = timeScale.timeToCoordinate(cPrev.time);
-          const x2 = timeScale.timeToCoordinate(cCurr.time);
+          const x1 = timeScale.logicalToCoordinate(i - 1 as any);
+          const x2 = timeScale.logicalToCoordinate(i as any);
           const y1 = series.priceToCoordinate(cPrev.support_level);
           const y2 = series.priceToCoordinate(cCurr.support_level);
 
@@ -664,8 +664,8 @@ export default function TVChart({
         }
 
         if (cPrev.resistance_level !== undefined && cCurr.resistance_level !== undefined) {
-          const x1 = timeScale.timeToCoordinate(cPrev.time);
-          const x2 = timeScale.timeToCoordinate(cCurr.time);
+          const x1 = timeScale.logicalToCoordinate(i - 1 as any);
+          const x2 = timeScale.logicalToCoordinate(i as any);
           const y1 = series.priceToCoordinate(cPrev.resistance_level);
           const y2 = series.priceToCoordinate(cCurr.resistance_level);
 
@@ -684,7 +684,7 @@ export default function TVChart({
       for (let i = 0; i < currentCandles.length; i++) {
         const c = currentCandles[i];
         if (c.support_level !== undefined && c.low < c.support_level) {
-          const x = timeScale.timeToCoordinate(c.time);
+          const x = timeScale.logicalToCoordinate(i as any);
           const ySupport = series.priceToCoordinate(c.support_level);
           const yLow = series.priceToCoordinate(c.low);
           
@@ -694,7 +694,7 @@ export default function TVChart({
         }
         
         if (c.resistance_level !== undefined && c.high > c.resistance_level) {
-          const x = timeScale.timeToCoordinate(c.time);
+          const x = timeScale.logicalToCoordinate(i as any);
           const yResistance = series.priceToCoordinate(c.resistance_level);
           const yHigh = series.priceToCoordinate(c.high);
           
@@ -730,8 +730,8 @@ export default function TVChart({
         const cPrev = currentCandles[i - 1];
         const cCurr = currentCandles[i];
         
-        const x1 = timeScale.timeToCoordinate(cPrev.time);
-        const x2 = timeScale.timeToCoordinate(cCurr.time);
+        const x1 = timeScale.logicalToCoordinate(i - 1 as any);
+        const x2 = timeScale.logicalToCoordinate(i as any);
         const y1 = series.priceToCoordinate(smaValues[i - 1]);
         const y2 = series.priceToCoordinate(smaValues[i]);
 
