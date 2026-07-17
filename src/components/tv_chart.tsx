@@ -385,7 +385,10 @@ export default function TVChart({
   }, [chartHeight, weisHeight]);
 
   useEffect(() => {
-    updateDrawingCoordinates();
+    const timer = setTimeout(() => {
+      updateDrawingCoordinates();
+    }, 50);
+    return () => clearTimeout(timer);
   }, [dateRangeOption, customFrom, customTo, activeCandles, enabledIndicators, visibleFvgs, sessions, sessionsTimezone]);
 
   useEffect(() => {
