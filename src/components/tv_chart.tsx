@@ -319,6 +319,7 @@ export default function TVChart({
   const [resistanceLineSegments, setResistanceLineSegments] = useState<any[]>([]);
   const [oversoldCoords, setOversoldCoords] = useState<any[]>([]);
   const [overboughtCoords, setOverboughtCoords] = useState<any[]>([]);
+  const [trendLineSegments, setTrendLineSegments] = useState<any[]>([]);
   const selectedTradeRef = useRef(selectedTrade);
 
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
@@ -704,12 +705,54 @@ export default function TVChart({
       }
       setOversoldCoords(oversold);
       setOverboughtCoords(overbought);
+
+      // Compute SMA trend line segments
+      const smaPeriod = 20;
+      const smaValues: number[] = [];
+      for (let i = 0; i < currentCandles.length; i++) {
+        if (i < smaPeriod - 1) {
+          let sum = 0;
+          for (let j = 0; j <= i; j++) {
+            sum += currentCandles[j].close;
+          }
+          smaValues.push(sum / (i + 1));
+        } else {
+          let sum = 0;
+          for (let j = 0; j < smaPeriod; j++) {
+            sum += currentCandles[i - j].close;
+          }
+          smaValues.push(sum / smaPeriod);
+        }
+      }
+
+      const trendSegs: any[] = [];
+      for (let i = 1; i < currentCandles.length; i++) {
+        const cPrev = currentCandles[i - 1];
+        const cCurr = currentCandles[i];
+        
+        const x1 = timeScale.timeToCoordinate(cPrev.time);
+        const x2 = timeScale.timeToCoordinate(cCurr.time);
+        const y1 = series.priceToCoordinate(smaValues[i - 1]);
+        const y2 = series.priceToCoordinate(smaValues[i]);
+
+        if (x1 !== null && x2 !== null && y1 !== null && y2 !== null) {
+          trendSegs.push({
+            x1,
+            x2,
+            y1,
+            y2,
+            stage: cCurr.wyckoff_stage || 'TRANSITION'
+          });
+        }
+      }
+      setTrendLineSegments(trendSegs);
     } else {
       setWyckoffZones([]);
       setSupportLineSegments([]);
       setResistanceLineSegments([]);
       setOversoldCoords([]);
       setOverboughtCoords([]);
+      setTrendLineSegments([]);
     }
   };
 
@@ -2218,6 +2261,27 @@ export default function TVChart({
                     strokeWidth={2}
                   />
                 </g>
+              );
+            })}
+            {/* Wyckoff Colored SMA Trend Line */}
+            {chartSettings.showTrLines && trendLineSegments.map((seg, idx) => {
+              let color = '#cbd5e1';
+              if (seg.stage === 'ACCUMULATION') color = '#3b82f6';
+              else if (seg.stage === 'MARKUP') color = '#10b981';
+              else if (seg.stage === 'DISTRIBUTION') color = '#f59e0b';
+              else if (seg.stage === 'MARKDOWN') color = '#ef4444';
+
+              return (
+                <line
+                  key={`trend-line-seg-${idx}`}
+                  x1={seg.x1}
+                  y1={seg.y1}
+                  x2={seg.x2}
+                  y2={seg.y2}
+                  stroke={color}
+                  strokeWidth={2.5}
+                  style={{ pointerEvents: 'none', opacity: 0.95 }}
+                />
               );
             })}
           </svg>
