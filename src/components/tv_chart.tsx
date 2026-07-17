@@ -277,6 +277,22 @@ export default function TVChart({
     fullCandlesRef.current = candles;
   }, [candles]);
 
+  // Log Wyckoff stage swaps on data load/change
+  useEffect(() => {
+    if (!candles || candles.length === 0) return;
+    
+    let lastLoggedStage = "";
+    candles.forEach((c) => {
+      const stage = c.wyckoff_stage || 'TRANSITION';
+      if (stage !== lastLoggedStage) {
+        const dateStr = new Date(Number(c.time) * 1000).toLocaleString('de-CH', { timeZone: 'UTC' });
+        const bias = stage === 'ACCUMULATION' || stage === 'MARKUP' ? 'Bullish' : (stage === 'DISTRIBUTION' || stage === 'MARKDOWN' ? 'Bearish' : 'Neutral');
+        console.log(`[Frontend Wyckoff Stage Swap] ${lastLoggedStage || 'NONE'} -> ${stage} (${bias}) | Time: ${dateStr}`);
+        lastLoggedStage = stage;
+      }
+    });
+  }, [candles]);
+
   useEffect(() => {
     onSelectCandleRef.current = onSelectCandle;
   }, [onSelectCandle]);
@@ -520,8 +536,6 @@ export default function TVChart({
       setFvgCoords([]);
     }
 
-    const currentSessions = sessionsRef.current;
-    console.log("Sessions Debug: currentSessions =", currentSessions, "candles count =", candlesRef.current?.length);
     if (currentSessions && currentSessions.length > 0 && candlesRef.current && candlesRef.current.length > 0) {
       const activeCoords: any[] = [];
 
@@ -612,7 +626,6 @@ export default function TVChart({
         }
       });
 
-      console.log("Sessions Debug: activeCoords =", activeCoords);
       setSessionCoords(activeCoords);
     } else {
       setSessionCoords([]);

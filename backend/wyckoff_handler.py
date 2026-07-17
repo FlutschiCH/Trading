@@ -126,12 +126,6 @@ class WyckoffHandler:
             else:
                 current_stage = "TRANSITION"
 
-            if current_stage != last_logged_stage:
-                dt_str = datetime.fromtimestamp(df['time'].iloc[i]).strftime('%Y-%m-%d %H:%M:%S')
-                bias = "Bullish" if current_stage in ["ACCUMULATION", "MARKUP"] else ("Bearish" if current_stage in ["DISTRIBUTION", "MARKDOWN"] else "Neutral")
-                print(f"[Wyckoff Stage Swap] {last_logged_stage} -> {current_stage} ({bias}) | Time: {dt_str}")
-                last_logged_stage = current_stage
-
             stages.append(current_stage)
 
         df['wyckoff_stage'] = stages
