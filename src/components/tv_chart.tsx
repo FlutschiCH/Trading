@@ -458,6 +458,7 @@ export default function TVChart({
 
     const currentDrawings = drawingsRef.current;
     const currentPreview = drawingPreviewRef.current;
+    const currentSessions = sessionsRef.current;
 
     const updated = currentDrawings.map((d, index) => {
       const x1 = timeScale.timeToCoordinate(d.start.time);
