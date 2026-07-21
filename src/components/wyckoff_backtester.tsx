@@ -54,6 +54,7 @@ interface WyckoffBacktesterProps {
   setEnabledIndicators: (val: any) => void;
   onRunBacktest: () => void;
   loadingBacktest: boolean;
+  backtestProgress?: number;
   dailyRetryLimit: string;
   setDailyRetryLimit: (val: string) => void;
   allowOppositeClose: boolean;
@@ -122,6 +123,7 @@ export default function WyckoffBacktester({
   setEnabledIndicators,
   onRunBacktest,
   loadingBacktest,
+  backtestProgress = 0,
   dailyRetryLimit,
   setDailyRetryLimit,
   allowOppositeClose,
@@ -1467,7 +1469,24 @@ export default function WyckoffBacktester({
               100% { transform: rotate(360deg); }
             }
           `}</style>
-          <span style={{ color: '#ffffff', fontSize: '12px', fontWeight: 500 }}>Running Backtest...</span>
+          <span style={{ color: '#ffffff', fontSize: '12px', fontWeight: 500 }}>Running Backtest: {backtestProgress}%</span>
+          <div style={{
+            width: '160px',
+            height: '6px',
+            backgroundColor: 'rgba(255, 255, 255, 0.15)',
+            borderRadius: '3px',
+            marginTop: '8px',
+            marginBottom: '4px',
+            overflow: 'hidden'
+          }}>
+            <div style={{
+              width: `${backtestProgress}%`,
+              height: '100%',
+              backgroundColor: '#3b82f6',
+              borderRadius: '3px',
+              transition: 'width 0.2s ease-out'
+            }} />
+          </div>
           <button 
             onClick={onCancelBacktest}
             style={{

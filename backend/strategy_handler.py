@@ -60,68 +60,13 @@ class StrategyHandler:
         timezone: str = 'Local',
         sessions: list = None,
         use_global_close: bool = False,
-        global_close_time: str = ''
+        global_close_time: str = '',
+        progress_callback = None
     ) -> dict:
         """
         Runs the full Wyckoff VSA & Weis Wave backtest simulation in Python.
         """
-        # Helper to convert timestamp to naive datetime in specified timezone
-        def get_candle_datetime(ts, tz_str):
-            from datetime import datetime, timezone as pytimezone
-            if tz_str == 'UTC':
-                return datetime.fromtimestamp(ts, tz=pytimezone.utc).replace(tzinfo=None)
-            else:
-                return datetime.fromtimestamp(ts)
-
-        # Helper to check if datetime falls within defined sessions
-        def is_datetime_in_sessions(dt, sessions_list):
-            if not sessions_list:
-                return True, None
-            wd = dt.weekday() + 1 # 1=Mon, ..., 7=Sun
-            time_val = dt.time()
-            for s in sessions_list:
-                weekdays = s.get("weekdays", [])
-                if wd not in weekdays:
-                    continue
-                try:
-                    sh, sm = map(int, s.get("start", "00:00").split(":"))
-                    eh, em = map(int, s.get("end", "23:59").split(":"))
-                except ValueError:
-                    continue
-                
-                from datetime import time
-                start_time = time(sh, sm)
-                end_time = time(eh, em)
-                if start_time <= end_time:
-                    if start_time <= time_val <= end_time:
-                        return True, s
-                else:
-                    if time_val >= start_time or time_val <= end_time:
-                        return True, s
-            return False, None
-
-        # Helper to check if datetime is in a specific session
-        def is_in_specific_session(dt, s):
-            if not s:
-                return True
-            wd = dt.weekday() + 1
-            time_val = dt.time()
-            weekdays = s.get("weekdays", [])
-            if wd not in weekdays:
-                return False
-            try:
-                sh, sm = map(int, s.get("start", "00:00").split(":"))
-                eh, em = map(int, s.get("end", "23:59").split(":"))
-            except ValueError:
-                return False
-            
-            from datetime import time
-            start_time = time(sh, sm)
-            end_time = time(eh, em)
-            if start_time <= end_time:
-                return start_time <= time_val <= end_time
-            else:
-                return time_val >= start_time or time_val <= end_time
+        from backtest_helpers import get_candle_datetime, is_datetime_in_sessions, is_in_specific_session
 
         # First compute indicators using existing handler
         analysis = StrategyHandler.analyze_market_data(candles, lookback=lookback_window)
@@ -147,43 +92,7 @@ class StrategyHandler:
             if '.' in close_val_str:
                 precision = max(precision, len(close_val_str.split('.')[1]))
         
-        # Helper to determine pip size dynamically based on asset conventions
-        def get_pip_size(sym: str, price: float) -> float:
-            sym_upper = sym.upper()
-            if 'JPY' in sym_upper:
-                return 0.01
-            if 'XAU' in sym_upper or 'GOLD' in sym_upper or 'XAG' in sym_upper:
-                return 0.1
-            is_crypto_pair = any(c in sym_upper for c in ['BTC', 'ETH', 'SOL', 'LTC', 'XRP', 'ADA', 'DOT', 'DOGE', 'LINK', 'UNI', 'PEPE', 'SHIB'])
-            if is_crypto_pair:
-                if price > 1000:
-                    return 1.0
-                elif price > 10:
-                    return 0.1
-                return 0.001
-            forex_currencies = ['EUR', 'GBP', 'AUD', 'NZD', 'USD', 'CAD', 'CHF', 'SEK', 'NOK', 'SGD', 'HKD', 'ZAR', 'MXN']
-            if any(curr in sym_upper for curr in forex_currencies):
-                return 0.0001
-            if price > 1000:
-                return 1.0
-            elif price > 100:
-                return 0.1
-            elif price > 1:
-                return 0.01
-            return 0.0001
-
-        # Helper to determine lot size / contract size multiplier
-        def get_lot_size(sym: str) -> float:
-            sym_upper = sym.upper()
-            if 'XAU' in sym_upper or 'GOLD' in sym_upper or 'XAG' in sym_upper:
-                return 100.0
-            is_crypto_pair = any(c in sym_upper for c in ['BTC', 'ETH', 'SOL', 'LTC', 'XRP', 'ADA', 'DOT', 'DOGE', 'LINK', 'UNI', 'PEPE', 'SHIB'])
-            if is_crypto_pair:
-                return 1.0
-            forex_currencies = ['EUR', 'GBP', 'AUD', 'NZD', 'USD', 'CAD', 'CHF', 'SEK', 'NOK', 'SGD', 'HKD', 'ZAR', 'MXN']
-            if any(curr in sym_upper for curr in forex_currencies):
-                return 100000.0
-            return 1.0
+        from backtest_helpers import get_pip_size, get_lot_size
 
         first_candle = annotated_data[0]
         close_price = float(first_candle.get('close', 0))
@@ -209,6 +118,11 @@ class StrategyHandler:
                     print(f"\r[Backtest Progress] |{bar}| {percent}% ({i+1}/{total_candles})", end="", flush=True)
                     if percent == 100:
                         print(flush=True)
+                    if progress_callback:
+                        try:
+                            progress_callback(percent)
+                        except Exception:
+                            pass
             vsa_pat = c.get('vsa_patterns', '')
             if not vsa_pat:
                 vsa_pat = []

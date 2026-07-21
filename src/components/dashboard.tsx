@@ -225,6 +225,7 @@ export default function Dashboard() {
   const [loadingStrategy, setLoadingStrategy] = useState(false);
   const [initialCandlesLoaded, setInitialCandlesLoaded] = useState(false);
   const [loadingBacktest, setLoadingBacktest] = useState(false);
+  const [backtestProgress, setBacktestProgress] = useState(0);
 
   // Symbol Mapping states
   const [view, setView] = useState<'dashboard' | 'mappings'>('dashboard');
@@ -632,6 +633,7 @@ export default function Dashboard() {
     
     setLoadingBacktest(true);
     try {
+      setBacktestProgress(0);
       const bounds = calculateDateBounds(dateRangeOption, customFrom, customTo);
       const response = await fetch(`${API_BASE_URL}/api/backtest`, {
         method: 'POST',
@@ -666,26 +668,60 @@ export default function Dashboard() {
           ...bounds
         }),
       });
-      const res = await response.json();
-      if (res.status === 'success' && res.data) {
-        setBacktestResults(res.data);
-        setFvgs(res.data.fvgs || []);
-        if (res.data.trades && res.data.trades.length > 0) {
-          setSelectedTrade(res.data.trades[0]);
-        } else {
-          setSelectedTrade(null);
-        }
 
-        // Notify if a signal occurs on the latest candle
-        const analyzedCandles = res.data.candles || [];
-        if (analyzedCandles.length > 0) {
-          const lastCandle = analyzedCandles[analyzedCandles.length - 1];
-          if (lastCandle.backtest_signal && lastCandle.time !== lastNotifiedSignalRef.current) {
-            lastNotifiedSignalRef.current = lastCandle.time;
-            triggerPWAEventNotification(
-              `⚡ Wyckoff Signal Triggered!`,
-              `${lastCandle.backtest_signal} signal found on ${symbol} (${timeframe}) at price $${lastCandle.close.toFixed(2)}`
-            );
+      if (!response.body) {
+        throw new Error("No response body available for streaming");
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+      let done = false;
+      let buffer = "";
+
+      while (!done) {
+        const { value, done: doneReading } = await reader.read();
+        done = doneReading;
+        if (value) {
+          buffer += decoder.decode(value, { stream: !done });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+          
+          for (const line of lines) {
+            if (line.trim()) {
+              try {
+                const parsed = JSON.parse(line.trim());
+                if (parsed.progress !== undefined) {
+                  setBacktestProgress(parsed.progress);
+                }
+                if (parsed.status === 'success' && parsed.data) {
+                  const resData = parsed.data;
+                  setBacktestResults(resData);
+                  setFvgs(resData.fvgs || []);
+                  if (resData.trades && resData.trades.length > 0) {
+                    setSelectedTrade(resData.trades[0]);
+                  } else {
+                    setSelectedTrade(null);
+                  }
+
+                  // Notify if a signal occurs on the latest candle
+                  const analyzedCandles = resData.candles || [];
+                  if (analyzedCandles.length > 0) {
+                    const lastCandle = analyzedCandles[analyzedCandles.length - 1];
+                    if (lastCandle.backtest_signal && lastCandle.time !== lastNotifiedSignalRef.current) {
+                      lastNotifiedSignalRef.current = lastCandle.time;
+                      triggerPWAEventNotification(
+                        `⚡ Wyckoff Signal Triggered!`,
+                        `${lastCandle.backtest_signal} signal found on ${symbol} (${timeframe}) at price $${lastCandle.close.toFixed(2)}`
+                      );
+                    }
+                  }
+                } else if (parsed.status === 'error') {
+                  throw new Error(parsed.message || "Unknown backtest error");
+                }
+              } catch (parseErr) {
+                console.error("Failed to parse JSON chunk:", parseErr);
+              }
+            }
           }
         }
       }
@@ -2123,6 +2159,7 @@ export default function Dashboard() {
                 styles={styles}
                 onRunBacktest={runBacktest}
                 loadingBacktest={loadingBacktest}
+                backtestProgress={backtestProgress}
                 dailyRetryLimit={dailyRetryLimit}
                 setDailyRetryLimit={setDailyRetryLimit}
                 allowOppositeClose={allowOppositeClose}
@@ -2340,6 +2377,7 @@ export default function Dashboard() {
                       styles={styles}
                       onRunBacktest={runBacktest}
                       loadingBacktest={loadingBacktest}
+                      backtestProgress={backtestProgress}
                       dailyRetryLimit={dailyRetryLimit}
                       setDailyRetryLimit={setDailyRetryLimit}
                       allowOppositeClose={allowOppositeClose}
