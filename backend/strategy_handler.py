@@ -15,6 +15,9 @@ class StrategyHandler:
             
         from wyckoff_handler import WyckoffHandler
         wyckoff_candles = WyckoffHandler.analyze_wyckoff_structure(bars_list, lookback=lookback, progress_callback=progress_callback)
+        if wyckoff_candles:
+            print("DEBUG: FIRST CANDLE KEYS =", list(wyckoff_candles[0].keys()), flush=True)
+            print("DEBUG: FIRST CANDLE SMA_20 =", wyckoff_candles[0].get('sma_20'), flush=True)
         return {"status": "success", "data": wyckoff_candles, "fvgs": []}
 
     @staticmethod
