@@ -213,12 +213,16 @@ class MetaTraderHandler:
             
         result = mt5.order_send(request_dict)
         
+        from notification_handler import NotificationHandler
         if result is None:
+            NotificationHandler.play_sound("error")
             return {"status": "error", "message": "MT5 order_send returned None"}
             
         if result.retcode != mt5.TRADE_RETCODE_DONE:
+            NotificationHandler.play_sound("error")
             return {"status": "error", "message": f"MT5 order failed: {result.comment} (retcode: {result.retcode})"}
             
+        NotificationHandler.play_sound("trade_open")
         return {"status": "success", "message": f"Order successfully executed on MT5. Ticket: {result.order}"}
 
     @staticmethod
@@ -251,10 +255,13 @@ class MetaTraderHandler:
             "type_filling": mt5.ORDER_FILLING_IOC,
         }
         result = mt5.order_send(request_dict)
+        from notification_handler import NotificationHandler
         if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
             comment = result.comment if result else "None"
             retcode = result.retcode if result else -1
+            NotificationHandler.play_sound("error")
             return {"status": "error", "message": f"MT5 close failed: {comment} (retcode: {retcode})"}
+        NotificationHandler.play_sound("trade_close")
         return {"status": "success", "message": f"Position {position_id} closed."}
 
     @staticmethod

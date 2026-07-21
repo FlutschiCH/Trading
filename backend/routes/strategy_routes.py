@@ -80,38 +80,71 @@ def backtest():
             return True
         return False
 
-    try:
-        result = StrategyHandler.run_backtest(
-            candles=candles,
-            symbol=symbol,
-            sl_val=sl_val,
-            sl_type=sl_type,
-            rr=rr,
-            size=size,
-            initial_balance=initial_balance,
-            use_risk_sizing=use_risk_sizing,
-            risk_pct=risk_pct,
-            use_break_even=use_break_even,
-            be_trigger_r=be_trigger_r,
-            lookback_window=lookback_window,
-            fees_percent=fees_percent,
-            daily_retry_limit=daily_retry_limit,
-            allow_opposite_close=allow_opposite_close,
-            check_cancelled=check_cancelled,
-            date_from=date_from,
-            date_to=date_to,
-            timezone=timezone,
-            sessions=sessions,
-            use_global_close=use_global_close,
-            global_close_time=global_close_time
-        )
-        return jsonify({"status": "success", "data": result})
-    finally:
+    import queue
+    import threading
+    from flask import Response
+
+    q = queue.Queue()
+
+    def run_in_thread():
+        try:
+            def cb(pct):
+                q.put({"progress": int(15 + (pct / 100) * 83)})
+                
+            res = StrategyHandler.run_backtest(
+                candles=candles,
+                symbol=symbol,
+                sl_val=sl_val,
+                sl_type=sl_type,
+                rr=rr,
+                size=size,
+                initial_balance=initial_balance,
+                use_risk_sizing=use_risk_sizing,
+                risk_pct=risk_pct,
+                use_break_even=use_break_even,
+                be_trigger_r=be_trigger_r,
+                lookback_window=lookback_window,
+                fees_percent=fees_percent,
+                daily_retry_limit=daily_retry_limit,
+                allow_opposite_close=allow_opposite_close,
+                check_cancelled=check_cancelled,
+                date_from=date_from,
+                date_to=date_to,
+                timezone=timezone,
+                sessions=sessions,
+                use_global_close=use_global_close,
+                global_close_time=global_close_time,
+                progress_callback=cb
+            )
+            q.put({"status": "success", "data": res})
+        except Exception as e:
+            q.put({"status": "error", "message": str(e)})
+        finally:
+            q.put(None)
+
+    t = threading.Thread(target=run_in_thread, daemon=True)
+    t.start()
+
+    def generate():
+        import json
+        yield json.dumps({"progress": 10}) + "\n"
+        while True:
+            try:
+                item = q.get()
+                if item is None:
+                    break
+                yield json.dumps(item) + "\n"
+            except Exception as e:
+                yield json.dumps({"status": "error", "message": str(e)}) + "\n"
+                break
+        
         if backtest_id and str(backtest_id) in cancelled_backtests:
             try:
                 cancelled_backtests.remove(str(backtest_id))
             except KeyError:
                 pass
+
+    return Response(generate(), mimetype='application/x-ndjson')
 
 @strategy_routes.route('/risk', methods=['GET', 'POST'])
 def risk():

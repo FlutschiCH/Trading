@@ -84,6 +84,7 @@ def execute_signal(signal_data: dict) -> dict:
     """
     Enforces risk limits, verifies stop loss, logs order details, and routes order to SQLite & mock Interactive Brokers.
     """
+    from notification_handler import NotificationHandler
     signal_id = signal_data.get('signal_id')
     symbol = signal_data.get('symbol')
     action = signal_data.get('action') # 'BUY' or 'SELL'
@@ -101,6 +102,7 @@ def execute_signal(signal_data: dict) -> dict:
     notional = qty * entry_price
     max_notional = RISK_LIMITS["max_notional"]
     if notional > max_notional:
+        NotificationHandler.play_sound("rejected")
         return {
             "status": "REJECTED",
             "message": f"Single trade notional limit exceeded: ${notional:.2f} > ${max_notional:.2f}"
@@ -108,6 +110,7 @@ def execute_signal(signal_data: dict) -> dict:
 
     # 2. Stop-loss distance boundary: Must be between min and max SL percentages
     if stop_loss is None:
+        NotificationHandler.play_sound("rejected")
         return {
             "status": "REJECTED",
             "message": "Stop loss is required for risk safeguard verification."
@@ -119,6 +122,7 @@ def execute_signal(signal_data: dict) -> dict:
     min_sl = RISK_LIMITS["min_stop_loss_pct"]
     max_sl = RISK_LIMITS["max_stop_loss_pct"]
     if sl_pct < min_sl or sl_pct > max_sl:
+        NotificationHandler.play_sound("rejected")
         return {
             "status": "REJECTED",
             "message": f"Stop loss distance of {sl_pct:.2f}% is outside bounds ({min_sl:.2f}% - {max_sl:.2f}%)."
@@ -145,6 +149,7 @@ def execute_signal(signal_data: dict) -> dict:
         max_daily_loss = start_balance * (RISK_LIMITS.get("max_daily_loss_pct", 5.0) / 100.0)
         
         if total_risk > max_daily_loss:
+            NotificationHandler.play_sound("rejected")
             return {
                 "status": "REJECTED",
                 "message": f"Daily committed risk limit exceeded (FTMO 5% Daily Loss safeguard): ${total_risk:.2f} > ${max_daily_loss:.2f}"
@@ -174,6 +179,7 @@ def execute_signal(signal_data: dict) -> dict:
         ))
         conn.commit()
         
+        NotificationHandler.play_sound("trade_open")
         return {
             "status": status,
             "notional": notional,
@@ -182,6 +188,7 @@ def execute_signal(signal_data: dict) -> dict:
         }
     except Exception as e:
         conn.rollback()
+        NotificationHandler.play_sound("error")
         return {
             "status": "ERROR",
             "message": f"Execution failed: {str(e)}"

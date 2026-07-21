@@ -487,7 +487,14 @@ export default function Dashboard() {
     }
   };
 
-  const triggerPWAEventNotification = (title: string, body: string) => {
+  const triggerPWAEventNotification = (title: string, body: string, soundType: string = 'alert') => {
+    // Play local sound on Windows via backend
+    fetch(`${API_BASE_URL}/api/notification/trigger`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: `${title}: ${body}`, sound_type: soundType })
+    }).catch(err => console.error("Failed to trigger local backend sound:", err));
+
     if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
       navigator.serviceWorker.controller.postMessage({
         type: 'SHOW_NOTIFICATION',
@@ -1593,6 +1600,26 @@ export default function Dashboard() {
                   >
                     🔗 Symbol Mappings
                   </a>
+                  <button 
+                    onClick={() => {
+                      setShowMenu(false);
+                      triggerPWAEventNotification("Sound Check", "Local audio sound test completed successfully!", "trade_open");
+                    }}
+                    className="menu-item"
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      textAlign: 'left',
+                      width: '100%',
+                      cursor: 'pointer',
+                      display: 'block',
+                      fontFamily: 'inherit',
+                      padding: '8px 16px',
+                      color: '#94a3b8'
+                    }}
+                  >
+                    🔔 Test Local Sound
+                  </button>
                   <a href="/how-to" className="menu-item" style={{ borderTop: '1px solid #1e293b', paddingTop: '8px', marginTop: '4px' }} onClick={() => setShowMenu(false)}>
                     📖 How It Works
                   </a>

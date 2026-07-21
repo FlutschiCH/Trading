@@ -8,6 +8,8 @@ from routes.yfinance_routes import yfinance_routes
 from routes.favourites_routes import favourites_routes
 from routes.indicator_routes import indicator_routes
 from routes.symbol_mapping_routes import symbol_mapping_routes
+from routes.wyckoff_routes import wyckoff_routes
+from routes.notification_routes import notification_routes
 
 # Create consolidated api blueprint
 api_blueprint = Blueprint('api', __name__)
@@ -22,4 +24,6 @@ api_blueprint.register_blueprint(yfinance_routes)
 api_blueprint.register_blueprint(favourites_routes)
 api_blueprint.register_blueprint(indicator_routes)
 api_blueprint.register_blueprint(symbol_mapping_routes)
+api_blueprint.register_blueprint(wyckoff_routes)
+api_blueprint.register_blueprint(notification_routes)
 
