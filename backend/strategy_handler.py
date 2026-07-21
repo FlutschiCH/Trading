@@ -7,7 +7,7 @@ class StrategyHandler:
     @staticmethod
     def analyze_market_data(bars_list: list, lookback: int = 20) -> dict:
         """
-        Takes raw candlestick data, runs Wyckoff VSA and Weis Wave Volume analysis,
+        Takes raw candlestick data, runs Wyckoff structure analysis,
         and returns the annotated dataset.
         """
         if not bars_list:
@@ -15,27 +15,7 @@ class StrategyHandler:
             
         from wyckoff_handler import WyckoffHandler
         wyckoff_candles = WyckoffHandler.analyze_wyckoff_structure(bars_list, lookback=lookback)
-        
-        df = pd.DataFrame(wyckoff_candles)
-        # Required columns: time, open, high, low, close, volume
-        # Check and cast
-        for col in ['open', 'high', 'low', 'close', 'volume']:
-            if col in df.columns:
-                df[col] = df[col].astype(float)
-        
-        # Calculate VSA patterns using IndicatorHandler
-        patterns = IndicatorHandler.compute_vsa(df, lookback=lookback)
-        df['vsa_patterns'] = patterns
-        
-        # Calculate Weis Wave Volume using IndicatorHandler
-        df = IndicatorHandler.compute_weis_wave(df)
-        
-        # Compute FVGs using IndicatorHandler
-        fvgs = IndicatorHandler.compute_fvgs(df)
-        
-        # Convert df back to dict
-        result_data = df.to_dict(orient='records')
-        return {"status": "success", "data": result_data, "fvgs": fvgs}
+        return {"status": "success", "data": wyckoff_candles, "fvgs": []}
 
     @staticmethod
     def run_backtest(
@@ -123,32 +103,9 @@ class StrategyHandler:
                             progress_callback(percent)
                         except Exception:
                             pass
-            vsa_pat = c.get('vsa_patterns', '')
-            if not vsa_pat:
-                vsa_pat = []
-            elif isinstance(vsa_pat, str):
-                vsa_pat = [x.strip() for x in vsa_pat.split(',') if x.strip()]
-                
-            is_bullish_vsa = any(p in vsa_pat for p in ['Shakeout/Spring', 'Stopping Volume', 'No Supply'])
-            is_bearish_vsa = any(p in vsa_pat for p in ['Upthrust', 'No Demand'])
-            
-            sweep_low = c.get('sweep_low')
-            sweep_high = c.get('sweep_high')
-            
-            should_buy = False
-            should_sell = False
-            
-            # Use float casts to prevent comparison errors
-            low_val = float(c.get('low', 0))
-            high_val = float(c.get('high', 0))
-            close_val = float(c.get('close', 0))
-            
-            if sweep_low is not None:
-                sweep_low = float(sweep_low)
-                should_buy = bool(is_bullish_vsa and low_val < sweep_low and close_val > sweep_low)
-            if sweep_high is not None:
-                sweep_high = float(sweep_high)
-                should_sell = bool(is_bearish_vsa and high_val > sweep_high and close_val < sweep_high)
+            wyckoff_sig = c.get('wyckoff_signal')
+            should_buy = (wyckoff_sig == "Spring detected")
+            should_sell = (wyckoff_sig == "Upthrust detected")
 
             # Convert candle time to naive datetime in configured timezone
             candle_time = int(c.get('time', 0))
@@ -328,9 +285,9 @@ class StrategyHandler:
                     sl_distance = trade_params["sl_distance"]
                     
                     # Record entry triggers for display
-                    vsa_trigger = ", ".join(vsa_pat) if vsa_pat else "None"
-                    sweep_level = sweep_low if trade_type == 'BUY' else sweep_high
-                    weis_trigger = float(c.get('weis_wave_volume', 0.0))
+                    vsa_trigger = str(c.get('wyckoff_signal', 'Spring/Upthrust'))
+                    sweep_level = c.get('support_level') if trade_type == 'BUY' else c.get('resistance_level')
+                    weis_trigger = 0.0
                     
                     active_trade = {
                         'type': trade_type,
