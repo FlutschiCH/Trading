@@ -19,6 +19,7 @@ interface Candle {
   sweep_high?: number;
   sweep_low?: number;
   backtest_signal?: 'BUY' | 'SELL';
+  sma_20?: number;
 }
 
 interface AccountInfo {

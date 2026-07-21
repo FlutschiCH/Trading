@@ -176,6 +176,9 @@ class WyckoffStructure:
         # 3. Stage Classification
         df = cls.classify_wyckoff_stages(df, progress_callback=progress_callback)
         
+        # Calculate 20 SMA of close prices on backend
+        df['sma_20'] = df['close'].rolling(window=20, min_periods=1).mean()
+        
         # Print stage changes and the most recent one
         stage_changes = 0
         last_change_time = None

@@ -22,6 +22,7 @@ interface Candle {
   tr_high?: number;
   tr_low?: number;
   backtest_signal?: 'BUY' | 'SELL';
+  sma_20?: number;
 }
 
 interface TVChartProps {
@@ -725,34 +726,18 @@ export default function TVChart({
       setOversoldCoords(oversold);
       setOverboughtCoords(overbought);
 
-      // Compute SMA trend line segments
-      const smaPeriod = 20;
-      const smaValues: number[] = [];
-      for (let i = 0; i < currentCandles.length; i++) {
-        if (i < smaPeriod - 1) {
-          let sum = 0;
-          for (let j = 0; j <= i; j++) {
-            sum += currentCandles[j].close;
-          }
-          smaValues.push(sum / (i + 1));
-        } else {
-          let sum = 0;
-          for (let j = 0; j < smaPeriod; j++) {
-            sum += currentCandles[i - j].close;
-          }
-          smaValues.push(sum / smaPeriod);
-        }
-      }
-
       const trendSegs: any[] = [];
       for (let i = 1; i < currentCandles.length; i++) {
         const cPrev = currentCandles[i - 1];
         const cCurr = currentCandles[i];
         
+        const smaPrev = cPrev.sma_20 !== undefined && cPrev.sma_20 !== null ? cPrev.sma_20 : cPrev.close;
+        const smaCurr = cCurr.sma_20 !== undefined && cCurr.sma_20 !== null ? cCurr.sma_20 : cCurr.close;
+
         const x1 = timeScale.timeToCoordinate(cPrev.time);
         const x2 = timeScale.timeToCoordinate(cCurr.time);
-        const y1 = series.priceToCoordinate(smaValues[i - 1]);
-        const y2 = series.priceToCoordinate(smaValues[i]);
+        const y1 = series.priceToCoordinate(smaPrev);
+        const y2 = series.priceToCoordinate(smaCurr);
 
         if (x1 !== null && x2 !== null && y1 !== null && y2 !== null) {
           trendSegs.push({
