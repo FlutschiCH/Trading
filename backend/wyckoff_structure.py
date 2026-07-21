@@ -161,6 +161,30 @@ class WyckoffStructure:
         # 3. Stage Classification
         df = cls.classify_wyckoff_stages(df)
         
+        # Print stage changes and the most recent one
+        stage_changes = 0
+        last_change_time = None
+        if len(df) > 0 and 'wyckoff_stage' in df.columns:
+            current_stage = df['wyckoff_stage'].iloc[0]
+            for i in range(1, len(df)):
+                stage = df['wyckoff_stage'].iloc[i]
+                if stage != current_stage:
+                    stage_changes += 1
+                    current_stage = stage
+                    if 'time' in df.columns:
+                        last_change_time = df['time'].iloc[i]
+            
+            recent_time_str = "N/A"
+            if last_change_time is not None:
+                try:
+                    ts = float(last_change_time)
+                    from datetime import datetime
+                    recent_time_str = datetime.utcfromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S UTC')
+                except Exception:
+                    recent_time_str = str(last_change_time)
+            
+            print(f"[Wyckoff Analysis] Found {stage_changes} wyckoff stage changes. Most recent change was at: {recent_time_str}", flush=True)
+
         # Format the output fields to match the expected format
         df['support_level'] = df['rolling_low']
         df['resistance_level'] = df['rolling_high']
