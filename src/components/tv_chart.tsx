@@ -1207,52 +1207,7 @@ export default function TVChart({
     if (trLowSeriesRef.current) trLowSeriesRef.current.applyOptions({ priceFormat });
   }, [symbol, activeCandles]);
 
-  // Update Wyckoff Support & Resistance Price Lines on the Chart
-  useEffect(() => {
-    if (!candlestickSeriesRef.current) return;
 
-    // Clean up previous lines
-    if (wyckoffSupportLineRef.current) {
-      try {
-        candlestickSeriesRef.current.removePriceLine(wyckoffSupportLineRef.current);
-      } catch (e) {}
-      wyckoffSupportLineRef.current = null;
-    }
-    if (wyckoffResistanceLineRef.current) {
-      try {
-        candlestickSeriesRef.current.removePriceLine(wyckoffResistanceLineRef.current);
-      } catch (e) {}
-      wyckoffResistanceLineRef.current = null;
-    }
-
-    const activeCandle = selectedCandle || (activeCandles && activeCandles.length > 0 ? activeCandles[activeCandles.length - 1] : null);
-    if (activeCandle) {
-      if (activeCandle.support_level) {
-        try {
-          wyckoffSupportLineRef.current = candlestickSeriesRef.current.createPriceLine({
-            price: activeCandle.support_level,
-            color: '#ef4444',
-            lineWidth: 1.5,
-            lineStyle: 1, // Dashed
-            axisLabelVisible: true,
-            title: 'Wyckoff Support',
-          });
-        } catch (e) {}
-      }
-      if (activeCandle.resistance_level) {
-        try {
-          wyckoffResistanceLineRef.current = candlestickSeriesRef.current.createPriceLine({
-            price: activeCandle.resistance_level,
-            color: '#10b981',
-            lineWidth: 1.5,
-            lineStyle: 1, // Dashed
-            axisLabelVisible: true,
-            title: 'Wyckoff Resistance',
-          });
-        } catch (e) {}
-      }
-    }
-  }, [selectedCandle, activeCandles]);
 
   useEffect(() => {
     if (candlestickSeriesRef.current) {
