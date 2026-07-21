@@ -655,8 +655,8 @@ export default function TVChart({
       }
 
       const zoneCoords = zones.map(z => {
-        const x1 = timeScale.timeToCoordinate(currentCandles[z.startIdx].time);
-        const x2 = timeScale.timeToCoordinate(currentCandles[z.endIdx].time);
+        const x1 = timeScale.logicalToCoordinate(z.startIdx as any);
+        const x2 = timeScale.logicalToCoordinate(z.endIdx as any);
         return { ...z, x1, x2 };
       }).filter(z => z.x1 !== null && z.x2 !== null);
 
@@ -1003,9 +1003,23 @@ export default function TVChart({
     if (candlestickSeriesRef.current) {
       candlestickSeriesRef.current.setData(activeCandles);
 
-      const entryMarkers = chartSettings.showTrades ? activeCandles
+      const entryMarkers = activeCandles
         .map((c) => {
-          if (c.backtest_signal) {
+          // 1. Check Wyckoff signal (Spring / Upthrust)
+          if (c.wyckoff_signal && chartSettings.showTrLines) {
+            const isSpring = c.wyckoff_signal.includes('Spring');
+            return {
+              time: c.time,
+              position: (isSpring ? 'belowBar' : 'aboveBar') as any,
+              color: isSpring ? '#10b981' : '#ef4444',
+              shape: (isSpring ? 'arrowUp' : 'arrowDown') as any,
+              text: c.wyckoff_signal,
+              size: 1.5,
+            };
+          }
+
+          // 2. Check Backtest Trade Signal
+          if (chartSettings.showTrades && c.backtest_signal) {
             const isBullish = c.backtest_signal === 'BUY';
             const trade = (visibleTrades || []).find(t => Number(t.entryTimestamp) === Number(c.time));
             const isProfit = trade ? trade.pnl >= 0 : true;
@@ -1034,7 +1048,7 @@ export default function TVChart({
           }
           return null;
         })
-        .filter((m) => m !== null) : [];
+        .filter((m) => m !== null);
 
       const exitMarkers = chartSettings.showTrades ? (visibleTrades || [])
         .map((trade) => {
