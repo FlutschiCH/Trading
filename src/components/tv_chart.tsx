@@ -2003,15 +2003,41 @@ export default function TVChart({
               if (fill === 'transparent') return null;
 
               return (
-                <rect
-                  key={`wyckoff-zone-${index}`}
-                  x={xStart}
-                  y={0}
-                  width={width}
-                  height={height}
-                  fill={fill}
-                  style={{ pointerEvents: 'none' }}
-                />
+                <g key={`wyckoff-zone-${index}`}>
+                  <rect
+                    x={xStart}
+                    y={0}
+                    width={width}
+                    height={height}
+                    fill={fill}
+                    style={{ pointerEvents: 'none' }}
+                  />
+                  {width > 50 && (
+                    <text
+                      x={xStart + width / 2}
+                      y={zone.stage === 'ACCUMULATION' ? height - 30 : zone.stage === 'DISTRIBUTION' ? 40 : height / 2}
+                      fill={
+                        zone.stage === 'ACCUMULATION' ? '#3b82f6' :
+                        zone.stage === 'MARKUP' ? '#10b981' :
+                        zone.stage === 'DISTRIBUTION' ? '#f59e0b' :
+                        zone.stage === 'MARKDOWN' ? '#ef4444' : '#cbd5e1'
+                      }
+                      fontSize="10px"
+                      fontWeight="bold"
+                      textAnchor="middle"
+                      style={{
+                        pointerEvents: 'none',
+                        textShadow: '0 1px 3px rgba(0,0,0,0.9), 0 0 4px rgba(0,0,0,0.6)',
+                        letterSpacing: '0.04em'
+                      }}
+                    >
+                      {zone.stage === 'ACCUMULATION' ? 'Accumulation Area' :
+                       zone.stage === 'DISTRIBUTION' ? 'Distribution Area' :
+                       zone.stage === 'MARKUP' ? 'Markup ↗' :
+                       zone.stage === 'MARKDOWN' ? 'Markdown ↘' : zone.stage}
+                    </text>
+                  )}
+                </g>
               );
             })}
 
@@ -2242,6 +2268,20 @@ export default function TVChart({
                     stroke="#fbbf24"
                     strokeWidth={2}
                   />
+                  <text
+                    x={renderX}
+                    y={Math.max(renderY1, renderY2) + 12}
+                    fill="#3b82f6"
+                    fontSize="9px"
+                    fontWeight="bold"
+                    textAnchor="middle"
+                    style={{
+                      pointerEvents: 'none',
+                      textShadow: '0 1px 2px rgba(0,0,0,0.9)'
+                    }}
+                  >
+                    Oversold
+                  </text>
                 </g>
               );
             })}
@@ -2277,6 +2317,20 @@ export default function TVChart({
                     stroke="#fbbf24"
                     strokeWidth={2}
                   />
+                  <text
+                    x={renderX}
+                    y={Math.min(renderY1, renderY2) - 6}
+                    fill="#f59e0b"
+                    fontSize="9px"
+                    fontWeight="bold"
+                    textAnchor="middle"
+                    style={{
+                      pointerEvents: 'none',
+                      textShadow: '0 1px 2px rgba(0,0,0,0.9)'
+                    }}
+                  >
+                    Overbought
+                  </text>
                 </g>
               );
             })}
