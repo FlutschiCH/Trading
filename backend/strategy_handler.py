@@ -5,7 +5,7 @@ from trading_handler import TradingHandler
 
 class StrategyHandler:
     @staticmethod
-    def analyze_market_data(bars_list: list, lookback: int = 20) -> dict:
+    def analyze_market_data(bars_list: list, lookback: int = 20, progress_callback=None) -> dict:
         """
         Takes raw candlestick data, runs Wyckoff structure analysis,
         and returns the annotated dataset.
@@ -14,7 +14,7 @@ class StrategyHandler:
             return {"status": "success", "data": [], "fvgs": []}
             
         from wyckoff_handler import WyckoffHandler
-        wyckoff_candles = WyckoffHandler.analyze_wyckoff_structure(bars_list, lookback=lookback)
+        wyckoff_candles = WyckoffHandler.analyze_wyckoff_structure(bars_list, lookback=lookback, progress_callback=progress_callback)
         return {"status": "success", "data": wyckoff_candles, "fvgs": []}
 
     @staticmethod
@@ -46,7 +46,8 @@ class StrategyHandler:
         """
         Runs the full Wyckoff structure analysis backtest in Python.
         """
-        analysis = StrategyHandler.analyze_market_data(candles, lookback=lookback_window)
+        print(f"\n[Backtest] Starting Wyckoff Structure Analysis backtest for {symbol} on {len(candles)} candles...", flush=True)
+        analysis = StrategyHandler.analyze_market_data(candles, lookback=lookback_window, progress_callback=progress_callback)
         annotated_data = list(analysis.get('data', []))
         
         if progress_callback:

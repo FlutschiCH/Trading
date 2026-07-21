@@ -61,7 +61,7 @@ class WyckoffStructure:
         return df
 
     @staticmethod
-    def classify_wyckoff_stages(df: pd.DataFrame) -> pd.DataFrame:
+    def classify_wyckoff_stages(df: pd.DataFrame, progress_callback=None) -> pd.DataFrame:
         """
         Classifies each candle into one of the Wyckoff stages:
         - ACCUMULATION: Sideways consolidation near support, or following a Spring.
@@ -80,8 +80,23 @@ class WyckoffStructure:
         current_stage = "TRANSITION"
         last_spring_idx = -100
         last_upthrust_idx = -100
+        last_percent = -1
         
         for i in range(n):
+            if progress_callback and n > 0:
+                percent = int(((i + 1) / n) * 100)
+                if percent != last_percent and percent % 5 == 0:
+                    last_percent = percent
+                    bar_length = 20
+                    filled_length = int(bar_length * percent // 100)
+                    bar = '█' * filled_length + '-' * (bar_length - filled_length)
+                    print(f"\r[Wyckoff Analysis Progress] |{bar}| {percent}% ({i+1}/{n})", end="", flush=True)
+                    if percent == 100:
+                        print(flush=True)
+                    try:
+                        progress_callback(percent)
+                    except Exception:
+                        pass
             c_close = df['close'].iloc[i]
             sup = df['rolling_low'].iloc[i]
             res = df['rolling_high'].iloc[i]
@@ -130,7 +145,7 @@ class WyckoffStructure:
         return df
 
     @classmethod
-    def analyze_structure(cls, candles: list, lookback: int = 20) -> list:
+    def analyze_structure(cls, candles: list, lookback: int = 20, progress_callback=None) -> list:
         """
         Runs the full pipeline to analyze the Wyckoff structure of the candles.
         """
@@ -159,7 +174,7 @@ class WyckoffStructure:
         df = cls.detect_liquidity_sweeps(df)
         
         # 3. Stage Classification
-        df = cls.classify_wyckoff_stages(df)
+        df = cls.classify_wyckoff_stages(df, progress_callback=progress_callback)
         
         # Print stage changes and the most recent one
         stage_changes = 0
