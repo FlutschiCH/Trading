@@ -190,9 +190,25 @@ class StrategyHandler:
         pip_size = get_pip_size(symbol, close_price)
         lot_size = get_lot_size(symbol)
 
+        total_candles = len(annotated_data)
+        last_percent = -1
+        print(f"\n[Backtest] Starting backtest simulation for {symbol} on {total_candles} candles...", flush=True)
+
         for i, c in enumerate(annotated_data):
             if check_cancelled and check_cancelled():
                 break
+            
+            # Progress logging
+            if total_candles > 0:
+                percent = int(((i + 1) / total_candles) * 100)
+                if percent != last_percent and percent % 5 == 0:
+                    last_percent = percent
+                    bar_length = 20
+                    filled_length = int(bar_length * percent // 100)
+                    bar = '█' * filled_length + '-' * (bar_length - filled_length)
+                    print(f"\r[Backtest Progress] |{bar}| {percent}% ({i+1}/{total_candles})", end="", flush=True)
+                    if percent == 100:
+                        print(flush=True)
             vsa_pat = c.get('vsa_patterns', '')
             if not vsa_pat:
                 vsa_pat = []
