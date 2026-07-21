@@ -134,4 +134,12 @@ if __name__ == '__main__':
     port = int(os.environ.get("PORT", 8751))
     print(f"Starting gevent WSGI Server on port {port}...", flush=True)
     http_server = WSGIServer(('0.0.0.0', port), app)
+    
+    # Play startup sound once local server is ready
+    try:
+        from notification_handler import NotificationHandler
+        NotificationHandler.play_sound("startup")
+    except Exception as e:
+        print(f"Failed to play startup sound: {e}", flush=True)
+        
     http_server.serve_forever()

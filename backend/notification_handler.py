@@ -11,6 +11,7 @@ class NotificationHandler:
         # Define sound file mappings from Windows Media folder
         media_dir = "C:\\Windows\\Media"
         sound_map = {
+            "startup": os.path.join(media_dir, "chimes.wav"),
             "trade_open": os.path.join(media_dir, "tada.wav"),
             "trade_close": os.path.join(media_dir, "notify.wav"),
             "error": os.path.join(media_dir, "chord.wav"),
