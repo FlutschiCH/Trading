@@ -341,6 +341,13 @@ export default function TVChart({
 
   const [legendOffset, setLegendOffset] = useState({ x: 0, y: 0 });
   const [isDraggingLegend, setIsDraggingLegend] = useState(false);
+  const [hiddenStages, setHiddenStages] = useState<string[]>([]);
+  
+  const toggleStageVisibility = (stage: string) => {
+    setHiddenStages(prev => 
+      prev.includes(stage) ? prev.filter(s => s !== stage) : [...prev, stage]
+    );
+  };
   const dragStartOffset = useRef({ x: 0, y: 0 });
 
   const handleLegendMouseDown = (e: React.MouseEvent) => {
@@ -1782,23 +1789,93 @@ export default function TVChart({
               WYCKOFF CYCLE
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '9px', fontWeight: '500', color: '#f1f5f9' }}>
+              <div 
+                onClick={() => toggleStageVisibility('ACCUMULATION')}
+                onMouseDown={(e) => e.stopPropagation()}
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '6px', 
+                  fontSize: '9px', 
+                  fontWeight: '500', 
+                  color: '#f1f5f9', 
+                  cursor: 'pointer',
+                  opacity: hiddenStages.includes('ACCUMULATION') ? 0.35 : 1,
+                  textDecoration: hiddenStages.includes('ACCUMULATION') ? 'line-through' : 'none'
+                }}
+              >
                 <div style={{ width: '10px', height: '3px', backgroundColor: '#3b82f6', borderRadius: '1.5px' }} />
                 Accumulation
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '9px', fontWeight: '500', color: '#f1f5f9' }}>
+              <div 
+                onClick={() => toggleStageVisibility('MARKUP')}
+                onMouseDown={(e) => e.stopPropagation()}
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '6px', 
+                  fontSize: '9px', 
+                  fontWeight: '500', 
+                  color: '#f1f5f9', 
+                  cursor: 'pointer',
+                  opacity: hiddenStages.includes('MARKUP') ? 0.35 : 1,
+                  textDecoration: hiddenStages.includes('MARKUP') ? 'line-through' : 'none'
+                }}
+              >
                 <div style={{ width: '10px', height: '3px', backgroundColor: '#10b981', borderRadius: '1.5px' }} />
                 Markup
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '9px', fontWeight: '500', color: '#f1f5f9' }}>
+              <div 
+                onClick={() => toggleStageVisibility('DISTRIBUTION')}
+                onMouseDown={(e) => e.stopPropagation()}
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '6px', 
+                  fontSize: '9px', 
+                  fontWeight: '500', 
+                  color: '#f1f5f9', 
+                  cursor: 'pointer',
+                  opacity: hiddenStages.includes('DISTRIBUTION') ? 0.35 : 1,
+                  textDecoration: hiddenStages.includes('DISTRIBUTION') ? 'line-through' : 'none'
+                }}
+              >
                 <div style={{ width: '10px', height: '3px', backgroundColor: '#f59e0b', borderRadius: '1.5px' }} />
                 Distribution
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '9px', fontWeight: '500', color: '#f1f5f9' }}>
+              <div 
+                onClick={() => toggleStageVisibility('MARKDOWN')}
+                onMouseDown={(e) => e.stopPropagation()}
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '6px', 
+                  fontSize: '9px', 
+                  fontWeight: '500', 
+                  color: '#f1f5f9', 
+                  cursor: 'pointer',
+                  opacity: hiddenStages.includes('MARKDOWN') ? 0.35 : 1,
+                  textDecoration: hiddenStages.includes('MARKDOWN') ? 'line-through' : 'none'
+                }}
+              >
                 <div style={{ width: '10px', height: '3px', backgroundColor: '#ef4444', borderRadius: '1.5px' }} />
                 Markdown
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '9px', fontWeight: '500', color: '#f1f5f9' }}>
+              <div 
+                onClick={() => toggleStageVisibility('TRANSITION')}
+                onMouseDown={(e) => e.stopPropagation()}
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '6px', 
+                  fontSize: '9px', 
+                  fontWeight: '500', 
+                  color: '#f1f5f9', 
+                  cursor: 'pointer',
+                  opacity: hiddenStages.includes('TRANSITION') ? 0.35 : 1,
+                  textDecoration: hiddenStages.includes('TRANSITION') ? 'line-through' : 'none'
+                }}
+              >
                 <div style={{ width: '10px', height: '3px', backgroundColor: '#cbd5e1', borderRadius: '1.5px' }} />
                 Transition
               </div>
@@ -2374,6 +2451,7 @@ export default function TVChart({
             })}
             {/* Wyckoff Colored SMA Trend Line */}
             {trendLineSegments.map((seg, idx) => {
+              if (hiddenStages.includes(seg.stage)) return null;
               let color = '#cbd5e1';
               if (seg.stage === 'ACCUMULATION') color = '#3b82f6';
               else if (seg.stage === 'MARKUP') color = '#10b981';
