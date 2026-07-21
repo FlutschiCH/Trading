@@ -2020,14 +2020,7 @@ export default function TVChart({
 
               return (
                 <g key={`wyckoff-zone-${index}`}>
-                  <rect
-                    x={xStart}
-                    y={0}
-                    width={width}
-                    height={height}
-                    fill={fill}
-                    style={{ pointerEvents: 'none' }}
-                  />
+
                   {width > 50 && (
                     <text
                       x={xStart + width / 2}
