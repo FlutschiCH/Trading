@@ -2109,52 +2109,7 @@ export default function TVChart({
               pointerEvents: 'none',
             }}
           >
-            {/* Background Wyckoff Stage Shading */}
-            {wyckoffZones.map((zone, index) => {
-              const xStart = Math.min(zone.x1, zone.x2);
-              const xEnd = Math.max(zone.x1, zone.x2);
-              const width = Math.max(1, xEnd - xStart);
-              const height = chartHeight - 26;
 
-              let fill = 'transparent';
-              if (zone.stage === 'ACCUMULATION') fill = 'rgba(59, 130, 246, 0.05)';
-              else if (zone.stage === 'MARKUP') fill = 'rgba(16, 185, 129, 0.05)';
-              else if (zone.stage === 'DISTRIBUTION') fill = 'rgba(245, 158, 11, 0.05)';
-              else if (zone.stage === 'MARKDOWN') fill = 'rgba(239, 68, 68, 0.05)';
-
-              if (fill === 'transparent') return null;
-
-              return (
-                <g key={`wyckoff-zone-${index}`}>
-
-                  {width > 50 && (
-                    <text
-                      x={xStart + width / 2}
-                      y={zone.stage === 'ACCUMULATION' ? height - 30 : zone.stage === 'DISTRIBUTION' ? 40 : height / 2}
-                      fill={
-                        zone.stage === 'ACCUMULATION' ? '#3b82f6' :
-                        zone.stage === 'MARKUP' ? '#10b981' :
-                        zone.stage === 'DISTRIBUTION' ? '#f59e0b' :
-                        zone.stage === 'MARKDOWN' ? '#ef4444' : '#cbd5e1'
-                      }
-                      fontSize="10px"
-                      fontWeight="bold"
-                      textAnchor="middle"
-                      style={{
-                        pointerEvents: 'none',
-                        textShadow: '0 1px 3px rgba(0,0,0,0.9), 0 0 4px rgba(0,0,0,0.6)',
-                        letterSpacing: '0.04em'
-                      }}
-                    >
-                      {zone.stage === 'ACCUMULATION' ? 'Accumulation Area' :
-                       zone.stage === 'DISTRIBUTION' ? 'Distribution Area' :
-                       zone.stage === 'MARKUP' ? 'Markup ↗' :
-                       zone.stage === 'MARKDOWN' ? 'Markdown ↘' : zone.stage}
-                    </text>
-                  )}
-                </g>
-              );
-            })}
 
             {chartSettings.showTrLines && supportLineSegments.map((seg, idx) => {
               let color = '#cbd5e1';
