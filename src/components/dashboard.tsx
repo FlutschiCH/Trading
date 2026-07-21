@@ -619,7 +619,7 @@ export default function Dashboard() {
   );
 
   const runBacktest = async () => {
-    if (!candles || candles.length === 0) return;
+    if (!symbol) return;
     
     if (backtestAbortControllerRef.current) {
       backtestAbortControllerRef.current.abort();
@@ -640,7 +640,9 @@ export default function Dashboard() {
         },
         signal: controller.signal,
         body: JSON.stringify({
-          candles,
+          candleSource,
+          timeframe,
+          limit: candleLimit,
           symbol,
           slVal: parseFloat(backtestSL) || 1.0,
           slType: backtestSLType,

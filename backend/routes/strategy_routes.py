@@ -32,8 +32,29 @@ def backtest():
     Exposes Python-based backtesting engine to frontend dashboard.
     """
     payload = request.get_json(silent=True) or {}
-    candles = payload.get('candles', [])
     symbol = payload.get('symbol', 'BTCUSD')
+    candle_source = payload.get('candleSource', 'metatrader')
+    timeframe = payload.get('timeframe') or payload.get('interval', '15m')
+    limit = int(payload.get('limit', 1000))
+    date_from = payload.get('date_from')
+    date_to = payload.get('date_to')
+
+    # Fetch up-to-date candles on the backend
+    if candle_source == 'yfinance':
+        from yfinance_handler import YFinanceHandler
+        candles = YFinanceHandler.fetch_candles(symbol=symbol, timeframe=timeframe, limit=limit)
+    else:
+        from metatrader_handler import MetaTraderHandler
+        candles = MetaTraderHandler.fetch_candles(
+            symbol=symbol,
+            timeframe=timeframe,
+            limit=limit,
+            date_from=date_from,
+            date_to=date_to
+        )
+    
+    if not candles:
+        return jsonify({"status": "error", "message": "Failed to fetch up-to-date candles for backtest."}), 400
     sl_val = float(payload.get('slVal', 1.0))
     sl_type = payload.get('slType', 'pct')
     rr = float(payload.get('rr', 2.0))
@@ -47,8 +68,6 @@ def backtest():
     fees_percent = float(payload.get('feesPercent', 0.0))
     daily_retry_limit = int(payload.get('dailyRetryLimit', 0))
     allow_opposite_close = bool(payload.get('allowOppositeClose', True))
-    date_from = payload.get('date_from')
-    date_to = payload.get('date_to')
     backtest_id = payload.get('backtestId')
     
     timezone = payload.get('timezone', 'Local')
