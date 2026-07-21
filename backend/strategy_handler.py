@@ -50,8 +50,41 @@ class StrategyHandler:
         Runs the full Wyckoff structure analysis backtest in Python.
         """
         print(f"\n[Backtest] Starting Wyckoff Structure Analysis backtest for {symbol} on {len(candles)} candles...", flush=True)
-        analysis = StrategyHandler.analyze_market_data(candles, lookback=lookback_window, progress_callback=progress_callback)
+        
+        # 1. Run Market Data Analysis (0% to 50% progress)
+        wrapped_cb = None
+        if progress_callback:
+            wrapped_cb = lambda p: progress_callback(int(p / 2))
+            
+        analysis = StrategyHandler.analyze_market_data(candles, lookback=lookback_window, progress_callback=wrapped_cb)
         annotated_data = list(analysis.get('data', []))
+        
+        # 2. Run Trade Simulation (50% to 100% progress)
+        from backtest_helpers import run_trade_simulation
+        sim_result = run_trade_simulation(
+            annotated_data=annotated_data,
+            symbol=symbol,
+            sl_val=sl_val,
+            sl_type=sl_type,
+            rr=rr,
+            size=size,
+            initial_balance=initial_balance,
+            use_risk_sizing=use_risk_sizing,
+            risk_pct=risk_pct,
+            use_break_even=use_break_even,
+            be_trigger_r=be_trigger_r,
+            fees_percent=fees_percent,
+            daily_retry_limit=daily_retry_limit,
+            allow_opposite_close=allow_opposite_close,
+            check_cancelled=check_cancelled,
+            date_from=date_from,
+            date_to=date_to,
+            timezone=timezone,
+            sessions=sessions,
+            use_global_close=use_global_close,
+            global_close_time=global_close_time,
+            progress_callback=progress_callback
+        )
         
         if progress_callback:
             try:
@@ -70,16 +103,16 @@ class StrategyHandler:
                     "date_to": date_to
                 },
                 "metrics": {
-                    "winRate": 0.0,
-                    "netPnl": 0.0,
-                    "profitFactor": 0.0,
-                    "totalTrades": 0,
-                    "maxDrawdown": 0.0,
-                    "maxDailyLoss": 0.0,
-                    "dailyLossBreached": False,
+                    "winRate": sim_result["winRate"],
+                    "netPnl": sim_result["netPnl"],
+                    "profitFactor": sim_result["profitFactor"],
+                    "totalTrades": sim_result["totalTrades"],
+                    "maxDrawdown": sim_result["maxDrawdown"],
+                    "maxDailyLoss": sim_result["maxDailyLoss"],
+                    "dailyLossBreached": sim_result["dailyLossBreached"],
                     "candleCount": len(annotated_data)
                 },
-                "trades": []
+                "trades": sim_result["completed_trades_raw"]
             }
             results_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'backtest_results.json')
             with open(results_path, 'w') as f:
@@ -88,16 +121,16 @@ class StrategyHandler:
             print(f"Failed to save backtest results to JSON: {e}", flush=True)
 
         return {
-            "trades": [],
-            "winRate": 0.0,
-            "netPnl": 0.0,
-            "profitFactor": 0.0,
-            "totalTrades": 0,
-            "maxDrawdown": 0.0,
-            "maxDailyLoss": 0.0,
-            "dailyLossBreached": False,
+            "trades": sim_result["trades"],
+            "winRate": sim_result["winRate"],
+            "netPnl": sim_result["netPnl"],
+            "profitFactor": sim_result["profitFactor"],
+            "totalTrades": sim_result["totalTrades"],
+            "maxDrawdown": sim_result["maxDrawdown"],
+            "maxDailyLoss": sim_result["maxDailyLoss"],
+            "dailyLossBreached": sim_result["dailyLossBreached"],
             "candles": annotated_data,
-            "monthlyBreakdown": {},
-            "weeklyBreakdown": {},
+            "monthlyBreakdown": sim_result["monthlyBreakdown"],
+            "weeklyBreakdown": sim_result["weeklyBreakdown"],
             "fvgs": []
         }
