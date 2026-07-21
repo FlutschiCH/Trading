@@ -176,8 +176,9 @@ def run_trade_simulation(
                         pass
 
         wyckoff_sig = c.get('wyckoff_signal')
-        should_buy = (wyckoff_sig == "Spring detected")
-        should_sell = (wyckoff_sig == "Upthrust detected")
+        stage = c.get('wyckoff_stage', 'TRANSITION')
+        should_buy = (wyckoff_sig == "Spring detected") and (stage != "DISTRIBUTION")
+        should_sell = (wyckoff_sig == "Upthrust detected") and (stage != "ACCUMULATION")
 
         # Convert candle time to naive datetime in configured timezone
         candle_time = int(c.get('time', 0))
