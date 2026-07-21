@@ -731,26 +731,11 @@ export default function TVChart({
         const cPrev = currentCandles[i - 1];
         const cCurr = currentCandles[i];
         
-        let smaPrev = cPrev.sma_20;
-        let smaCurr = cCurr.sma_20;
+        const smaPrev = cPrev.sma_20;
+        const smaCurr = cCurr.sma_20;
         
         if (smaPrev === undefined || smaPrev === null || smaCurr === undefined || smaCurr === null) {
-          const smaPeriod = 20;
-          let sumPrev = 0;
-          let countPrev = 0;
-          for (let j = Math.max(0, i - 1 - smaPeriod + 1); j <= i - 1; j++) {
-            sumPrev += currentCandles[j].close;
-            countPrev++;
-          }
-          smaPrev = countPrev > 0 ? sumPrev / countPrev : cPrev.close;
-
-          let sumCurr = 0;
-          let countCurr = 0;
-          for (let j = Math.max(0, i - smaPeriod + 1); j <= i; j++) {
-            sumCurr += currentCandles[j].close;
-            countCurr++;
-          }
-          smaCurr = countCurr > 0 ? sumCurr / countCurr : cCurr.close;
+          continue;
         }
 
         const x1 = timeScale.timeToCoordinate(cPrev.time);
