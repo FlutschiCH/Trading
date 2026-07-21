@@ -1720,6 +1720,50 @@ export default function TVChart({
         <div style={{ position: 'relative', height: chartHeight }}>
           <div ref={chartContainerRef} style={{ width: '100%', height: '100%', touchAction: 'none' }} />
 
+          {/* Wyckoff Legend */}
+          <div style={{
+            position: 'absolute',
+            top: '12px',
+            right: '12px',
+            backgroundColor: 'rgba(15, 23, 42, 0.85)',
+            backdropFilter: 'blur(8px)',
+            border: '1px solid rgba(51, 65, 85, 0.8)',
+            borderRadius: '8px',
+            padding: '8px 12px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '6px',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.5)',
+            zIndex: 50,
+            pointerEvents: 'none'
+          }}>
+            <div style={{ fontSize: '9px', fontWeight: 'bold', color: '#94a3b8', letterSpacing: '0.05em', borderBottom: '1px solid rgba(148, 163, 184, 0.1)', paddingBottom: '4px', marginBottom: '2px' }}>
+              WYCKOFF CYCLE
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '9px', fontWeight: '500', color: '#f1f5f9' }}>
+                <div style={{ width: '10px', height: '3px', backgroundColor: '#3b82f6', borderRadius: '1.5px' }} />
+                Accumulation
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '9px', fontWeight: '500', color: '#f1f5f9' }}>
+                <div style={{ width: '10px', height: '3px', backgroundColor: '#10b981', borderRadius: '1.5px' }} />
+                Markup
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '9px', fontWeight: '500', color: '#f1f5f9' }}>
+                <div style={{ width: '10px', height: '3px', backgroundColor: '#f59e0b', borderRadius: '1.5px' }} />
+                Distribution
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '9px', fontWeight: '500', color: '#f1f5f9' }}>
+                <div style={{ width: '10px', height: '3px', backgroundColor: '#ef4444', borderRadius: '1.5px' }} />
+                Markdown
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '9px', fontWeight: '500', color: '#f1f5f9' }}>
+                <div style={{ width: '10px', height: '3px', backgroundColor: '#cbd5e1', borderRadius: '1.5px' }} />
+                Transition
+              </div>
+            </div>
+          </div>
+
           {replayTime !== null && (
             <div style={{
               position: 'absolute',
@@ -2288,7 +2332,7 @@ export default function TVChart({
               );
             })}
             {/* Wyckoff Colored SMA Trend Line */}
-            {chartSettings.showTrLines && trendLineSegments.map((seg, idx) => {
+            {trendLineSegments.map((seg, idx) => {
               let color = '#cbd5e1';
               if (seg.stage === 'ACCUMULATION') color = '#3b82f6';
               else if (seg.stage === 'MARKUP') color = '#10b981';
