@@ -1097,8 +1097,11 @@ export default function TVChart({
 
           const baseColor = isProfit ? '#10b981' : '#ef4444';
 
+          const exitTime = Number(trade.exitTimestamp);
+          if (isNaN(exitTime)) return null;
+
           return {
-            time: trade.exitTimestamp,
+            time: exitTime as any,
             position: (trade.type === 'BUY' ? 'aboveBar' : 'belowBar') as any,
             color: baseColor,
             shape: 'circle' as any,
@@ -1108,11 +1111,10 @@ export default function TVChart({
         })
         .filter((m) => m !== null) : [];
 
-      const allMarkers = [...entryMarkers, ...exitMarkers].sort((a, b) => {
-        const timeA = typeof a.time === 'number' ? a.time : new Date(a.time).getTime();
-        const timeB = typeof b.time === 'number' ? b.time : new Date(b.time).getTime();
-        return timeA - timeB;
-      });
+      const validCandleTimes = new Set(activeCandles.map(c => Number(c.time)));
+      const allMarkers = [...entryMarkers, ...exitMarkers]
+        .filter((m) => m && m.time != null && !isNaN(Number(m.time)) && validCandleTimes.has(Number(m.time)))
+        .sort((a, b) => Number(a.time) - Number(b.time));
 
       if (markersPluginRef.current) {
         markersPluginRef.current.setMarkers(allMarkers);
