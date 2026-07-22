@@ -1111,13 +1111,21 @@ export default function TVChart({
         })
         .filter((m) => m !== null) : [];
 
-      const validCandleTimes = new Set(activeCandles.map(c => Number(c.time)));
+      const validCandleTimes = new Set(activeCandles.flatMap(c => [c.time, Number(c.time)]));
       const allMarkers = [...entryMarkers, ...exitMarkers]
-        .filter((m) => m && m.time != null && !isNaN(Number(m.time)) && validCandleTimes.has(Number(m.time)))
-        .sort((a, b) => Number(a.time) - Number(b.time));
+        .filter((m) => m && m.time != null && m.time !== '' && validCandleTimes.has(m.time))
+        .sort((a, b) => {
+          const timeA = typeof a.time === 'number' ? a.time : new Date(a.time).getTime();
+          const timeB = typeof b.time === 'number' ? b.time : new Date(b.time).getTime();
+          return timeA - timeB;
+        });
 
       if (markersPluginRef.current) {
-        markersPluginRef.current.setMarkers(allMarkers);
+        try {
+          markersPluginRef.current.setMarkers(allMarkers);
+        } catch (err) {
+          console.warn('Failed to set markers on chart:', err);
+        }
       }
     }
 
