@@ -486,6 +486,7 @@ def run_trade_simulation(
             'time': 'Open',
             'timestamp': int(final_candle.get('time', 0)),
             'slPrice': float(active_trade['sl_price']),
+            'originalSlPrice': float(active_trade['original_sl']),
             'tpPrice': float(active_trade['tp_price']),
             'entryTimestamp': int(active_trade['entry_timestamp']),
             'exitTimestamp': int(final_candle.get('time', 0)),
@@ -495,6 +496,21 @@ def run_trade_simulation(
             'triggerReason': active_trade.get('trigger_reason')
         })
         current_balance += pnl_usd
+
+    # Ensure all trade price and numeric fields are non-null and non-NaN
+    import math
+    for t in completed_trades:
+        for field in ['entryPrice', 'exitPrice', 'pnl', 'fees', 'slPrice', 'originalSlPrice', 'tpPrice', 'qty']:
+            val = t.get(field)
+            if val is None or (isinstance(val, float) and (math.isnan(val) or math.isinf(val))):
+                if field == 'originalSlPrice':
+                    t[field] = t.get('slPrice') or t.get('entryPrice') or 0.0
+                elif field in ['slPrice', 'tpPrice']:
+                    t[field] = t.get('entryPrice') or 0.0
+                else:
+                    t[field] = 0.0
+            else:
+                t[field] = float(val)
 
     total_trades = len(completed_trades)
     wins = len([t for t in completed_trades if t['outcome'] == 'WIN'])
