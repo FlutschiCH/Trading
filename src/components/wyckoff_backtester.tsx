@@ -549,7 +549,7 @@ export default function WyckoffBacktester({
           >
             <option value="default">Standard (Immediate Entry on Spring/Upthrust)</option>
             <option value="confirmation">Bullish/Bearish Confirmation (Close above/below Signal High/Low)</option>
-            <option value="duration">Minimum Stage Duration (Accumulation/Distribution >= 3 bars)</option>
+            <option value="duration">Minimum Stage Duration (Accumulation/Distribution &gt;= 3 bars)</option>
             <option value="both">Both Confirmation & Minimum Stage Duration</option>
           </select>
         </div>
