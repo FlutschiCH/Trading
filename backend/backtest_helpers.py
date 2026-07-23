@@ -125,7 +125,8 @@ def run_trade_simulation(
     sessions: list = None,
     use_global_close: bool = False,
     global_close_time: str = '',
-    progress_callback = None
+    progress_callback = None,
+    entry_stability_rule: str = 'default'
 ) -> dict:
     """
     Simulates the Wyckoff strategy trade executions on the annotated candle list.
@@ -137,6 +138,16 @@ def run_trade_simulation(
     completed_trades = []
     current_balance = initial_balance
     daily_trades_count = {}
+    
+    # State for entry stability rules
+    pending_buy = False
+    pending_sell = False
+    spring_high = None
+    upthrust_low = None
+    pending_buy_age = 0
+    pending_sell_age = 0
+    accum_consec_bars = 0
+    dist_consec_bars = 0
     
     # Determine decimal precision dynamically from the input candle data
     precision = 2
@@ -177,8 +188,80 @@ def run_trade_simulation(
 
         wyckoff_sig = c.get('wyckoff_signal')
         stage = c.get('wyckoff_stage', 'TRANSITION')
-        should_buy = (wyckoff_sig == "Spring detected") and (stage != "DISTRIBUTION")
-        should_sell = (wyckoff_sig == "Upthrust detected") and (stage != "ACCUMULATION")
+
+        # Update stage consecutive bars counter
+        if stage == "ACCUMULATION":
+            accum_consec_bars += 1
+        else:
+            accum_consec_bars = 0
+
+        if stage == "DISTRIBUTION":
+            dist_consec_bars += 1
+        else:
+            dist_consec_bars = 0
+
+        # Increment age and enforce a max age for pending setups (e.g. 15 candles)
+        if pending_buy:
+            pending_buy_age += 1
+            if pending_buy_age > 15:
+                pending_buy = False
+
+        if pending_sell:
+            pending_sell_age += 1
+            if pending_sell_age > 15:
+                pending_sell = False
+
+        # Set up signal triggers
+        if wyckoff_sig == "Spring detected":
+            pending_buy = True
+            spring_high = float(c.get('high', 0))
+            pending_buy_age = 0
+            pending_sell = False  # Cancel opposite signal
+
+        if wyckoff_sig == "Upthrust detected":
+            pending_sell = True
+            upthrust_low = float(c.get('low', 0))
+            pending_sell_age = 0
+            pending_buy = False  # Cancel opposite signal
+
+        should_buy = False
+        should_sell = False
+
+        # Evaluate pending buy trigger
+        if pending_buy:
+            duration_ok = True
+            if entry_stability_rule in ('duration', 'both'):
+                duration_ok = (accum_consec_bars >= 3)
+
+            confirmation_ok = True
+            if entry_stability_rule in ('confirmation', 'both'):
+                confirmation_ok = (float(c.get('close', 0)) > spring_high)
+
+            if duration_ok and confirmation_ok:
+                if stage != "DISTRIBUTION":
+                    should_buy = True
+                    pending_buy = False
+
+            if wyckoff_sig == "Upthrust detected" or stage == "DISTRIBUTION":
+                pending_buy = False
+
+        # Evaluate pending sell trigger
+        if pending_sell:
+            duration_ok = True
+            if entry_stability_rule in ('duration', 'both'):
+                duration_ok = (dist_consec_bars >= 3)
+
+            confirmation_ok = True
+            if entry_stability_rule in ('confirmation', 'both'):
+                confirmation_ok = (float(c.get('close', 0)) < upthrust_low)
+
+            if duration_ok and confirmation_ok:
+                if stage != "ACCUMULATION":
+                    should_sell = True
+                    pending_sell = False
+
+            if wyckoff_sig == "Spring detected" or stage == "ACCUMULATION":
+                pending_sell = False
 
         # Convert candle time to naive datetime in configured timezone
         candle_time = int(c.get('time', 0))

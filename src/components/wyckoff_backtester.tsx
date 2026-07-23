@@ -68,6 +68,8 @@ interface WyckoffBacktesterProps {
   setUseGlobalClose: (val: boolean) => void;
   globalCloseTime: string;
   setGlobalCloseTime: (val: string) => void;
+  entryStabilityRule: string;
+  setEntryStabilityRule: (val: string) => void;
 }
 
 export default function WyckoffBacktester({
@@ -136,7 +138,9 @@ export default function WyckoffBacktester({
   useGlobalClose,
   setUseGlobalClose,
   globalCloseTime,
-  setGlobalCloseTime
+  setGlobalCloseTime,
+  entryStabilityRule,
+  setEntryStabilityRule
 }: WyckoffBacktesterProps) {
   const [copied, setCopied] = React.useState(false);
 
@@ -533,6 +537,21 @@ export default function WyckoffBacktester({
               step="1"
             />
           </div>
+        </div>
+
+        {/* Entry Stability Rule */}
+        <div style={styles.formGroup}>
+          <label style={{ color: '#9ca3af', fontSize: '11px' }}>Entry Stability Rule</label>
+          <select
+            value={entryStabilityRule}
+            onChange={(e) => setEntryStabilityRule(e.target.value)}
+            style={styles.input}
+          >
+            <option value="default">Standard (Immediate Entry on Spring/Upthrust)</option>
+            <option value="confirmation">Bullish/Bearish Confirmation (Close above/below Signal High/Low)</option>
+            <option value="duration">Minimum Stage Duration (Accumulation/Distribution >= 3 bars)</option>
+            <option value="both">Both Confirmation & Minimum Stage Duration</option>
+          </select>
         </div>
 
         {/* Trading Sessions & Safeguards */}

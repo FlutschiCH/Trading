@@ -423,6 +423,8 @@ export default function Dashboard() {
   const [favNotesInput, setFavNotesInput] = useState<string>('');
   const [locateTimestamp, setLocateTimestamp] = useState<number | null>(null);
 
+  const [entryStabilityRule, setEntryStabilityRule] = useState<string>(() => localStorage.getItem('wyckoff_backtest_entry_stability_rule') || 'default');
+
   // Sessions & Auto-Close Safeguards
   const [sessionsTimezone, setSessionsTimezone] = useState<'UTC' | 'Local'>(() => (localStorage.getItem('wyckoff_sessions_timezone') as 'UTC' | 'Local') || 'Local');
   const [tradingSessions, setTradingSessions] = useState<any[]>(() => {
@@ -673,6 +675,7 @@ export default function Dashboard() {
           sessions: tradingSessions,
           useGlobalClose,
           globalCloseTime,
+          entryStabilityRule,
           ...bounds
         }),
       });
@@ -771,7 +774,8 @@ export default function Dashboard() {
           timezone: sessionsTimezone,
           sessions: tradingSessions,
           useGlobalClose,
-          globalCloseTime
+          globalCloseTime,
+          entryStabilityRule
         }),
       });
       const result = await response.json();
@@ -853,6 +857,10 @@ export default function Dashboard() {
   useEffect(() => {
     localStorage.setItem('wyckoff_backtest_be', backtestBE);
   }, [backtestBE]);
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_backtest_entry_stability_rule', entryStabilityRule);
+  }, [entryStabilityRule]);
 
   useEffect(() => {
     localStorage.setItem('wyckoff_backtest_use_be', useBreakEven.toString());
@@ -2178,6 +2186,8 @@ export default function Dashboard() {
                 setCustomFrom={setCustomFrom}
                 customTo={customTo}
                 setCustomTo={setCustomTo}
+                entryStabilityRule={entryStabilityRule}
+                setEntryStabilityRule={setEntryStabilityRule}
                 candleLimit={candleLimit}
                 setCandleLimit={setCandleLimit}
                 favouriteCandles={favouriteCandles}
@@ -2396,6 +2406,8 @@ export default function Dashboard() {
                       setCustomFrom={setCustomFrom}
                       customTo={customTo}
                       setCustomTo={setCustomTo}
+                      entryStabilityRule={entryStabilityRule}
+                      setEntryStabilityRule={setEntryStabilityRule}
                       candleLimit={candleLimit}
                       setCandleLimit={setCandleLimit}
                       favouriteCandles={favouriteCandles}

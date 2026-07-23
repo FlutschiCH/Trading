@@ -37,7 +37,8 @@ class LiveStrategyHandler:
                 ("timezone", "VARCHAR(10) DEFAULT 'Local'"),
                 ("sessions", "TEXT"),
                 ("useGlobalClose", "TINYINT(1) DEFAULT 0"),
-                ("globalCloseTime", "VARCHAR(5) DEFAULT ''")
+                ("globalCloseTime", "VARCHAR(5) DEFAULT ''"),
+                ("entryStabilityRule", "VARCHAR(20) DEFAULT 'default'")
             ]:
                 try:
                     SQLHandler.execute_query(f"ALTER TABLE live_strategies ADD COLUMN {col_name} {col_type}")
@@ -55,10 +56,10 @@ class LiveStrategyHandler:
         INSERT INTO live_strategies (
             symbol, status, timeframe, slVal, slType, rr, size, 
             useRiskSizing, riskPct, useBreakEven, beTriggerR, lookbackWindow, deployedAt,
-            timezone, sessions, useGlobalClose, globalCloseTime
+            timezone, sessions, useGlobalClose, globalCloseTime, entryStabilityRule
         ) VALUES (
             %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-            %s, %s, %s, %s
+            %s, %s, %s, %s, %s
         ) ON DUPLICATE KEY UPDATE 
             status=VALUES(status),
             timeframe=VALUES(timeframe),
@@ -75,7 +76,8 @@ class LiveStrategyHandler:
             timezone=VALUES(timezone),
             sessions=VALUES(sessions),
             useGlobalClose=VALUES(useGlobalClose),
-            globalCloseTime=VALUES(globalCloseTime)
+            globalCloseTime=VALUES(globalCloseTime),
+            entryStabilityRule=VALUES(entryStabilityRule)
         """
         params = (
             strategy["symbol"],
@@ -94,7 +96,8 @@ class LiveStrategyHandler:
             strategy.get("timezone", "Local"),
             json.dumps(strategy.get("sessions", [])),
             1 if strategy.get("useGlobalClose", False) else 0,
-            strategy.get("globalCloseTime", "")
+            strategy.get("globalCloseTime", ""),
+            strategy.get("entryStabilityRule", "default")
         )
         try:
             SQLHandler.execute_query(query, params)
@@ -150,7 +153,8 @@ class LiveStrategyHandler:
                     "timezone": row.get("timezone", "Local") or "Local",
                     "sessions": sessions_list,
                     "useGlobalClose": bool(row.get("useGlobalClose", False)),
-                    "globalCloseTime": row.get("globalCloseTime", "") or ""
+                    "globalCloseTime": row.get("globalCloseTime", "") or "",
+                    "entryStabilityRule": row.get("entryStabilityRule", "default") or "default"
                 }
         except Exception as e:
             print(f"Error fetching strategy from DB: {e}", flush=True)

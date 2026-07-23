@@ -25,7 +25,12 @@ def live_strategy():
             "useBreakEven": bool(payload.get("useBreakEven", False)),
             "beTriggerR": float(payload.get("beTriggerR", 1.0)),
             "lookbackWindow": int(payload.get("lookbackWindow", 20)),
-            "deployedAt": time.strftime("%Y-%m-%d %H:%M:%S")
+            "deployedAt": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "timezone": payload.get("timezone", "Local"),
+            "sessions": payload.get("sessions", []),
+            "useGlobalClose": bool(payload.get("useGlobalClose", False)),
+            "globalCloseTime": payload.get("globalCloseTime", ""),
+            "entryStabilityRule": payload.get("entryStabilityRule", "default")
         }
         
         success = LiveStrategyHandler.save_strategy(strategy_config)

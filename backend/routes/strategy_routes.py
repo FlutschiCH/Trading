@@ -74,6 +74,7 @@ def backtest():
     sessions = payload.get('sessions', [])
     use_global_close = bool(payload.get('useGlobalClose', False))
     global_close_time = payload.get('globalCloseTime', '')
+    entry_stability_rule = payload.get('entryStabilityRule', 'default')
 
     def check_cancelled():
         if backtest_id and str(backtest_id) in cancelled_backtests:
@@ -114,7 +115,8 @@ def backtest():
                 sessions=sessions,
                 use_global_close=use_global_close,
                 global_close_time=global_close_time,
-                progress_callback=cb
+                progress_callback=cb,
+                entry_stability_rule=entry_stability_rule
             )
             q.put({"status": "success", "data": res})
         except Exception as e:

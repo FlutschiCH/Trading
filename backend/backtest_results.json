@@ -4,17 +4,17 @@
         "symbol": "EURUSD.ecn",
         "lookback_window": 20,
         "date_from": 1782856800,
-        "date_to": 1784642001
+        "date_to": 1784824362
     },
     "metrics": {
-        "winRate": 36.36363636363637,
-        "netPnl": -445.50862996324855,
-        "profitFactor": 0.26033541955864153,
-        "totalTrades": 11,
+        "winRate": 41.66666666666667,
+        "netPnl": -218.14039883047934,
+        "profitFactor": 0.6378280560096727,
+        "totalTrades": 12,
         "maxDrawdown": 4.930150338391494,
         "maxDailyLoss": 1.11939663910001,
         "dailyLossBreached": false,
-        "candleCount": 4222
+        "candleCount": 4830
     },
     "trades": [
         {
@@ -170,30 +170,30 @@
         {
             "id": 6,
             "type": "SELL",
-            "entryPrice": 1.13898,
-            "exitPrice": 1.14098,
+            "entryPrice": 1.1395,
+            "exitPrice": 1.1415,
             "pnl": -98.03054907776271,
             "fees": 0.0294003446199428,
             "outcome": "LOSS",
-            "time": "2026-07-14 15:20:00",
-            "timestamp": 1784042400,
-            "slPrice": 1.14098,
-            "originalSlPrice": 1.14098,
-            "tpPrice": 1.13098,
-            "entryTimestamp": 1784005500,
-            "exitTimestamp": 1784042400,
+            "time": "2026-07-14 15:25:00",
+            "timestamp": 1784042700,
+            "slPrice": 1.1415,
+            "originalSlPrice": 1.1415,
+            "tpPrice": 1.1315,
+            "entryTimestamp": 1784017800,
+            "exitTimestamp": 1784042700,
             "exitReason": "Hit Stop Loss",
-            "duration": 124,
+            "duration": 84,
             "qty": 0.49000574366571337,
             "triggerReason": {
                 "vsa_patterns": "Upthrust detected",
-                "sweep_level": 1.13907,
+                "sweep_level": 1.13951,
                 "weis_wave_volume": 0.0,
                 "entry_candle": {
-                    "open": 1.13906,
-                    "high": 1.13913,
-                    "low": 1.13896,
-                    "close": 1.13898
+                    "open": 1.1394,
+                    "high": 1.13959,
+                    "low": 1.13939,
+                    "close": 1.1395
                 }
             }
         },
@@ -344,6 +344,35 @@
                     "high": 1.14422,
                     "low": 1.14399,
                     "close": 1.14413
+                }
+            }
+        },
+        {
+            "id": 12,
+            "type": "SELL",
+            "entryPrice": 1.14298,
+            "exitPrice": 1.13822,
+            "pnl": 227.3682311327692,
+            "fees": 0.028663474110110252,
+            "outcome": "WIN",
+            "time": "Open",
+            "timestamp": 1784824200,
+            "slPrice": 1.1419800000000002,
+            "tpPrice": 1.13498,
+            "entryTimestamp": 1784788800,
+            "exitTimestamp": 1784824200,
+            "exitReason": "Position still open",
+            "duration": 119,
+            "qty": 0.47772456850183753,
+            "triggerReason": {
+                "vsa_patterns": "Upthrust detected",
+                "sweep_level": 1.14299,
+                "weis_wave_volume": 0.0,
+                "entry_candle": {
+                    "open": 1.14295,
+                    "high": 1.143,
+                    "low": 1.14293,
+                    "close": 1.14298
                 }
             }
         }
