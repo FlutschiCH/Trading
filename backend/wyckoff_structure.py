@@ -152,6 +152,8 @@ class WyckoffStructure:
         if not candles:
             return []
             
+        from candle_sanitizer import sanitize_and_fill_candles
+        candles = sanitize_and_fill_candles(candles)
         df = pd.DataFrame(candles)
         
         # Ensure correct data types
@@ -165,7 +167,8 @@ class WyckoffStructure:
             df['support_level'] = np.nan
             df['resistance_level'] = np.nan
             df['wyckoff_signal'] = None
-            return df.to_dict(orient='records')
+            res = df.to_dict(orient='records')
+            return sanitize_and_fill_candles(res)
             
         # 1. Support and Resistance
         df = cls.calculate_support_resistance(df, lookback)
@@ -214,4 +217,5 @@ class WyckoffStructure:
         # Replace NaN values with None/nan for JSON compatibility
         df = df.replace({np.nan: None})
         
-        return df.to_dict(orient='records')
+        from candle_sanitizer import sanitize_and_fill_candles
+        return sanitize_and_fill_candles(df.to_dict(orient='records'))

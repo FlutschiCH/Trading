@@ -91,7 +91,8 @@ class MetaTraderHandler:
                 "volume": float(r['tick_volume'])
             })
 
-        return candles
+        from candle_sanitizer import sanitize_and_fill_candles
+        return sanitize_and_fill_candles(candles, timeframe=timeframe)
 
     @staticmethod
     def get_account_info(login: int = 2002061314, password: str = "Godzilla_12", server: str = "JustMarkets-Demo") -> dict:

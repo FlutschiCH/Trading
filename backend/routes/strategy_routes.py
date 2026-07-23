@@ -210,7 +210,9 @@ def historical_candles():
                     "close": float(item[4]),
                     "volume": float(item[5])
                 })
-            return jsonify({"status": "success", "data": candles})
+            from candle_sanitizer import sanitize_and_fill_candles
+            sanitized_candles = sanitize_and_fill_candles(candles, timeframe=timeframe)
+            return jsonify({"status": "success", "data": sanitized_candles})
     except Exception as e:
         print(f"Failed to fetch {binance_symbol} from Binance API: {e}. Returning empty list.", flush=True)
         return jsonify({"status": "success", "data": []})

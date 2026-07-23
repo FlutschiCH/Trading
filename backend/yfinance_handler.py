@@ -68,7 +68,8 @@ class YFinanceHandler:
                     "close": float(row['Close']),
                     "volume": float(row['Volume'])
                 })
-            return candles
+            from candle_sanitizer import sanitize_and_fill_candles
+            return sanitize_and_fill_candles(candles, timeframe=timeframe)
         except Exception as e:
             print(f"yfinance fetch error for {yf_symbol}: {e}", flush=True)
             return []
