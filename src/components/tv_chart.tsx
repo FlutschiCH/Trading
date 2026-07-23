@@ -1034,8 +1034,18 @@ export default function TVChart({
   useEffect(() => {
     if (!activeCandles || activeCandles.length === 0) return;
 
+    const getNormalizedTime = (t: any) => {
+      if (typeof t === 'number') return t;
+      const num = Number(t);
+      return isNaN(num) ? t : num;
+    };
+
     if (candlestickSeriesRef.current) {
-      candlestickSeriesRef.current.setData(activeCandles);
+      const normalizedCandles = activeCandles.map(c => ({
+        ...c,
+        time: getNormalizedTime(c.time)
+      }));
+      candlestickSeriesRef.current.setData(normalizedCandles);
 
       const entryMarkers = activeCandles
         .map((c) => {
@@ -1043,7 +1053,7 @@ export default function TVChart({
           if (c.wyckoff_signal && chartSettings.showTrLines) {
             const isSpring = c.wyckoff_signal.includes('Spring');
             return {
-              time: c.time,
+              time: getNormalizedTime(c.time),
               position: (isSpring ? 'belowBar' : 'aboveBar') as any,
               color: isSpring ? '#10b981' : '#ef4444',
               shape: (isSpring ? 'arrowUp' : 'arrowDown') as any,
@@ -1072,7 +1082,7 @@ export default function TVChart({
             }
 
             return {
-              time: c.time,
+              time: getNormalizedTime(c.time),
               position: (isBullish ? 'belowBar' : 'aboveBar') as any,
               color: baseColor,
               shape: (isBullish ? 'arrowUp' : 'arrowDown') as any,
@@ -1101,7 +1111,7 @@ export default function TVChart({
           if (isNaN(exitTime)) return null;
 
           return {
-            time: exitTime as any,
+            time: getNormalizedTime(exitTime) as any,
             position: (trade.type === 'BUY' ? 'aboveBar' : 'belowBar') as any,
             color: baseColor,
             shape: 'circle' as any,
@@ -1111,9 +1121,14 @@ export default function TVChart({
         })
         .filter((m) => m !== null) : [];
 
-      const validCandleTimes = new Set(activeCandles.flatMap(c => [c.time, Number(c.time)]));
+      const validCandleTimes = new Set(activeCandles.map(c => getNormalizedTime(c.time)));
       const allMarkers = [...entryMarkers, ...exitMarkers]
-        .filter((m) => m && m.time != null && m.time !== '' && validCandleTimes.has(m.time) && m.position != null && m.color != null && m.shape != null)
+        .filter((m) => {
+          if (!m || m.time == null || m.time === '') return false;
+          const normalizedTime = getNormalizedTime(m.time);
+          return validCandleTimes.has(normalizedTime) && m.position != null && m.color != null && m.shape != null;
+        })
+        .map(m => ({ ...m, time: getNormalizedTime(m.time) }))
         .sort((a, b) => {
           const timeA = typeof a.time === 'number' ? a.time : new Date(a.time).getTime();
           const timeB = typeof b.time === 'number' ? b.time : new Date(b.time).getTime();
@@ -1141,8 +1156,8 @@ export default function TVChart({
 
     if (trHighSeriesRef.current && trLowSeriesRef.current) {
       if (hasAnalysis && chartSettings.showTrLines && !hasDetailedWyckoff) {
-        const highData = activeCandles.map(c => ({ time: c.time, value: c.tr_high || c.high }));
-        const lowData = activeCandles.map(c => ({ time: c.time, value: c.tr_low || c.low }));
+        const highData = activeCandles.map(c => ({ time: getNormalizedTime(c.time), value: c.tr_high || c.high }));
+        const lowData = activeCandles.map(c => ({ time: getNormalizedTime(c.time), value: c.tr_low || c.low }));
         trHighSeriesRef.current.setData(highData);
         trLowSeriesRef.current.setData(lowData);
       } else {
@@ -1155,7 +1170,7 @@ export default function TVChart({
       const volumeData = activeCandles.map((c) => {
         const isUp = c.close >= c.open;
         return {
-          time: c.time,
+          time: getNormalizedTime(c.time),
           value: c.volume || 0,
           color: isUp ? 'rgba(16, 185, 129, 0.6)' : 'rgba(239, 68, 68, 0.6)',
         };
