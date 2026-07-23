@@ -114,7 +114,8 @@ class StrategyHandler:
                     "dailyLossBreached": sim_result["dailyLossBreached"],
                     "candleCount": len(annotated_data)
                 },
-                "trades": sim_result["completed_trades_raw"]
+                "trades": sim_result["completed_trades_raw"],
+                "candles": annotated_data
             }
             results_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'backtest_results.json')
             with open(results_path, 'w') as f:
