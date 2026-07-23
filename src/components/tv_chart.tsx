@@ -1113,7 +1113,7 @@ export default function TVChart({
 
       const validCandleTimes = new Set(activeCandles.flatMap(c => [c.time, Number(c.time)]));
       const allMarkers = [...entryMarkers, ...exitMarkers]
-        .filter((m) => m && m.time != null && m.time !== '' && validCandleTimes.has(m.time))
+        .filter((m) => m && m.time != null && m.time !== '' && validCandleTimes.has(m.time) && m.position != null && m.color != null && m.shape != null)
         .sort((a, b) => {
           const timeA = typeof a.time === 'number' ? a.time : new Date(a.time).getTime();
           const timeB = typeof b.time === 'number' ? b.time : new Date(b.time).getTime();
@@ -1122,7 +1122,14 @@ export default function TVChart({
 
       if (markersPluginRef.current) {
         try {
-          markersPluginRef.current.setMarkers(allMarkers);
+          markersPluginRef.current.setMarkers(allMarkers.map(m => ({
+            time: m.time,
+            position: m.position,
+            color: m.color,
+            shape: m.shape,
+            text: m.text || '',
+            size: m.size || 1
+          })));
         } catch (err) {
           console.warn('Failed to set markers on chart:', err);
         }
