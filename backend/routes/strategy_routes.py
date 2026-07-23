@@ -42,7 +42,13 @@ def backtest():
     # Fetch up-to-date candles on the backend
     if candle_source == 'yfinance':
         from yfinance_handler import YFinanceHandler
-        candles = YFinanceHandler.fetch_candles(symbol=symbol, timeframe=timeframe, limit=limit)
+        candles = YFinanceHandler.fetch_candles(
+            symbol=symbol,
+            timeframe=timeframe,
+            limit=limit,
+            date_from=date_from,
+            date_to=date_to
+        )
     else:
         from metatrader_handler import MetaTraderHandler
         candles = MetaTraderHandler.fetch_candles(

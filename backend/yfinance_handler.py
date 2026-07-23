@@ -8,7 +8,7 @@ import time
 
 class YFinanceHandler:
     @staticmethod
-    def fetch_candles(symbol: str, timeframe: str, limit: int = 1000) -> list:
+    def fetch_candles(symbol: str, timeframe: str, limit: int = 1000, date_from: int = None, date_to: int = None) -> list:
         if not YF_AVAILABLE:
             print("yfinance package not available.", flush=True)
             return []
@@ -50,7 +50,14 @@ class YFinanceHandler:
             
         try:
             ticker = yf.Ticker(yf_symbol)
-            df = ticker.history(period=period, interval=yf_interval)
+            import datetime
+            if date_from is not None and date_to is not None:
+                dt_start = datetime.datetime.fromtimestamp(int(date_from))
+                dt_end = datetime.datetime.fromtimestamp(int(date_to))
+                df = ticker.history(start=dt_start, end=dt_end, interval=yf_interval)
+            else:
+                df = ticker.history(period=period, interval=yf_interval)
+                
             if df.empty:
                 return []
                 
