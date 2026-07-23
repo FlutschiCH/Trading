@@ -152,8 +152,8 @@ class MetaTraderHandler:
                 "volume": p.volume,
                 "entry_price": p.price_open,
                 "unrealized_profit": p.profit,
-                "stop_loss": p.sl if p.sl > 0 else None,
-                "take_profit": p.tp if p.tp > 0 else None,
+                "stop_loss": float(p.sl) if p.sl > 0 else 0.0,
+                "take_profit": float(p.tp) if p.tp > 0 else 0.0,
                 "entry_timestamp": int(p.time)
             })
         return res

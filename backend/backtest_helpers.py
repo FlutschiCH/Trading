@@ -499,18 +499,27 @@ def run_trade_simulation(
 
     # Ensure all trade price and numeric fields are non-null and non-NaN
     import math
+    def safe_float(val, fallback=0.0) -> float:
+        if val is None:
+            return fallback
+        try:
+            f_val = float(val)
+            if math.isnan(f_val) or math.isinf(f_val):
+                return fallback
+            return f_val
+        except Exception:
+            return fallback
+
     for t in completed_trades:
-        for field in ['entryPrice', 'exitPrice', 'pnl', 'fees', 'slPrice', 'originalSlPrice', 'tpPrice', 'qty']:
-            val = t.get(field)
-            if val is None or (isinstance(val, float) and (math.isnan(val) or math.isinf(val))):
-                if field == 'originalSlPrice':
-                    t[field] = t.get('slPrice') or t.get('entryPrice') or 0.0
-                elif field in ['slPrice', 'tpPrice']:
-                    t[field] = t.get('entryPrice') or 0.0
-                else:
-                    t[field] = 0.0
-            else:
-                t[field] = float(val)
+        entry = safe_float(t.get('entryPrice'), 0.0)
+        t['entryPrice'] = entry
+        t['exitPrice'] = safe_float(t.get('exitPrice'), entry)
+        t['pnl'] = safe_float(t.get('pnl'), 0.0)
+        t['fees'] = safe_float(t.get('fees'), 0.0)
+        t['slPrice'] = safe_float(t.get('slPrice'), entry)
+        t['originalSlPrice'] = safe_float(t.get('originalSlPrice'), t['slPrice'])
+        t['tpPrice'] = safe_float(t.get('tpPrice'), entry)
+        t['qty'] = safe_float(t.get('qty'), 1.0)
 
     total_trades = len(completed_trades)
     wins = len([t for t in completed_trades if t['outcome'] == 'WIN'])
