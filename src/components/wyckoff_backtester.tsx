@@ -423,6 +423,31 @@ export default function WyckoffBacktester({
           >
             {isOptimizeMode ? '⚡ Run Range Optimization' : '🔄 Run Backtest'}
           </button>
+          {!isReadOnly && !isOptimizeMode && (
+            <button
+              onClick={deployLiveStrategy}
+              disabled={isDeploying}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                backgroundColor: '#ef4444',
+                color: '#ffffff',
+                border: 'none',
+                padding: '6px 12px',
+                borderRadius: '4px',
+                cursor: isDeploying ? 'not-allowed' : 'pointer',
+                fontWeight: 500,
+                fontSize: '11px',
+                transition: 'background-color 0.2s',
+                opacity: isDeploying ? 0.7 : 1,
+              }}
+              onMouseOver={(e) => !isDeploying && (e.currentTarget.style.backgroundColor = '#dc2626')}
+              onMouseOut={(e) => !isDeploying && (e.currentTarget.style.backgroundColor = '#ef4444')}
+            >
+              {isDeploying ? '⏳ Deploying...' : '🚀 Deploy Live'}
+            </button>
+          )}
         </div>
 
         {backtestResults && (
