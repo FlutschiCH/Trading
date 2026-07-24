@@ -38,11 +38,16 @@ class LiveRunner:
                 # Get active strategies
                 strategies = LiveStrategyHandler.get_all_strategies()
                 active_strategies = [s for s in strategies if s.get("status") == "active"]
+                print(f"[Live Runner DEBUG] Total strategies in DB: {len(strategies)}", flush=True)
+                for s in strategies:
+                    print(f"  - Strategy ID: {s.get('id')}, Status: {s.get('status')}, Broker: {s.get('broker')}, Symbol: {s.get('symbol')}", flush=True)
+                print(f"[Live Runner DEBUG] Active strategies to run: {[(s.get('id'), s.get('broker'), s.get('symbol')) for s in active_strategies]}", flush=True)
 
                 for strategy in active_strategies:
                     if cls._stop_event.is_set():
                         break
                     try:
+                        print(f"[Live Runner DEBUG] Evaluating strategy {strategy.get('id')} ({strategy.get('symbol')}) with broker '{strategy.get('broker')}'", flush=True)
                         cls._evaluate_strategy(strategy)
                     except Exception as e:
                         print(f"[Live Runner] Error evaluating strategy {strategy.get('id')}: {e}", flush=True)
@@ -65,6 +70,7 @@ class LiveRunner:
         from live_strategy_handler import LiveStrategyHandler
         from broker_factory import BrokerFactory
         handler = BrokerFactory.get_handler(broker_name)
+        print(f"[Live Runner DEBUG] Resolved handler for broker '{broker_name}': {handler.__name__ if handler else 'None'}", flush=True)
 
         # Fetch candles
         candles = handler.fetch_candles(
