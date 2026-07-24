@@ -110,29 +110,8 @@ if __name__ == '__main__':
         LiveRunner.start()
     except Exception as e:
         print(f"Failed to start live runner: {e}", flush=True)
-    # Initialize and login to MetaTrader 5 (Windows only)
-    try:
-        import sys
-        if sys.platform == 'win32':
-            import MetaTrader5 as mt5
-            mt5_login_str = os.environ.get("MT5_LOGIN")
-            mt5_login = int(mt5_login_str) if mt5_login_str else None
-            mt5_password = os.environ.get("MT5_PASSWORD")
-            mt5_server = os.environ.get("MT5_SERVER")
-            
-            if mt5_login and mt5_password and mt5_server:
-                print(f"Logging into MetaTrader 5 on startup: Account {mt5_login} on server {mt5_server}...", flush=True)
-                if mt5.initialize(login=mt5_login, password=mt5_password, server=mt5_server):
-                    print("Successfully initialized and logged into MetaTrader 5 on startup!", flush=True)
-                else:
-                    error_code, error_desc = mt5.last_error()
-                    print(f"Failed to log into MetaTrader 5 on startup: error code {error_code}, desc: {error_desc}", flush=True)
-            else:
-                print("MetaTrader 5 startup skipped (missing credentials in .env).", flush=True)
-        else:
-            print("MetaTrader 5 startup skipped (non-Windows platform).", flush=True)
-    except Exception as e:
-        print(f"MT5 Startup Connection Error: {e}", flush=True)
+    # MetaTrader 5 auto-login sequence skipped for cTrader headless focus
+    print("MetaTrader 5 startup skipped on this deployment configuration.", flush=True)
 
     # Restore active strategies from DB on startup
     try:
