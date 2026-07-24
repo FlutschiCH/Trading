@@ -1,3 +1,11 @@
+import logging
+try:
+    import MetaTrader5 as mt5
+    MT5_AVAILABLE = True
+except ImportError:
+    MT5_AVAILABLE = False
+    logging.warning("MetaTrader5 package is not installed or not supported on this platform. Running in mock/simulation mode.")
+
 from base_broker_handler import BaseBrokerHandler
 
 class MetaTraderHandler(BaseBrokerHandler):
