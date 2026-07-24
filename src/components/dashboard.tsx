@@ -2690,7 +2690,7 @@ export default function Dashboard() {
           }}>
             {panelOrder.map((panelId) => {
               const isDragOver = dragOverId === panelId;
-              const defaultWidth = panelId === 'chart' ? 'calc(66.6% - 16px)' : 'calc(33.3% - 16px)';
+              const defaultWidth = panelId === 'chart' ? 'calc(50% - 16px)' : 'calc(25% - 16px)';
               const dragStyles = {
                 width: cardWidths[panelId] ? `${cardWidths[panelId]}px` : defaultWidth,
               flexGrow: cardWidths[panelId] ? 0 : 1,
