@@ -85,6 +85,7 @@ interface WyckoffBacktesterProps {
   optimizationResults: any[] | null;
   setOptimizationResults: (val: any[] | null) => void;
   onRunOptimization: () => void;
+  onSaveSettings?: () => void;
 }
 
 export default function WyckoffBacktester({
@@ -169,7 +170,8 @@ export default function WyckoffBacktester({
   setRRStep,
   optimizationResults,
   setOptimizationResults,
-  onRunOptimization
+  onRunOptimization,
+  onSaveSettings
 }: WyckoffBacktesterProps) {
   const [copied, setCopied] = React.useState(false);
 
@@ -373,7 +375,30 @@ export default function WyckoffBacktester({
         gap: '12px',
         fontSize: '12px',
       }}>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '-4px' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginBottom: '-4px' }}>
+          {onSaveSettings && (
+            <button
+              onClick={onSaveSettings}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                backgroundColor: '#475569',
+                color: '#ffffff',
+                border: 'none',
+                padding: '6px 12px',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontWeight: 500,
+                fontSize: '11px',
+                transition: 'background-color 0.2s',
+              }}
+              onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#334155'}
+              onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#475569'}
+            >
+              💾 Save Settings
+            </button>
+          )}
           <button
             onClick={isOptimizeMode ? onRunOptimization : onRunBacktest}
             style={{

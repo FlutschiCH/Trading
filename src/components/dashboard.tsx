@@ -480,6 +480,172 @@ export default function Dashboard() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  const getBacktestSettingsObject = () => {
+    return {
+      backtestSL,
+      backtestSLType,
+      backtestRR,
+      backtestSize,
+      lookbackWindow,
+      backtestBalance,
+      backtestRiskPct,
+      useRiskSizing,
+      backtestBE,
+      useBreakEven,
+      backtestFees,
+      dailyRetryLimit,
+      allowOppositeClose,
+      enabledIndicators,
+      hiddenStages,
+      entryStabilityRule,
+      sessionsTimezone,
+      tradingSessions,
+      useGlobalClose,
+      globalCloseTime,
+      isOptimizeMode,
+      rrStart,
+      rrEnd,
+      rrStep,
+    };
+  };
+
+  const applyBacktestSettingsObject = (settings: any) => {
+    if (!settings) return;
+    if (settings.backtestSL !== undefined) {
+      setBacktestSL(settings.backtestSL);
+      localStorage.setItem('wyckoff_backtest_sl', settings.backtestSL);
+    }
+    if (settings.backtestSLType !== undefined) {
+      setBacktestSLType(settings.backtestSLType);
+      localStorage.setItem('wyckoff_backtest_sl_type', settings.backtestSLType);
+    }
+    if (settings.backtestRR !== undefined) {
+      setBacktestRR(settings.backtestRR);
+      localStorage.setItem('wyckoff_backtest_rr', settings.backtestRR);
+    }
+    if (settings.backtestSize !== undefined) {
+      setBacktestSize(settings.backtestSize);
+      localStorage.setItem('wyckoff_backtest_size', settings.backtestSize);
+    }
+    if (settings.lookbackWindow !== undefined) {
+      setLookbackWindow(settings.lookbackWindow);
+      localStorage.setItem('wyckoff_backtest_lookback', settings.lookbackWindow);
+    }
+    if (settings.backtestBalance !== undefined) {
+      setBacktestBalance(settings.backtestBalance);
+      localStorage.setItem('wyckoff_backtest_balance', settings.backtestBalance);
+    }
+    if (settings.backtestRiskPct !== undefined) {
+      setBacktestRiskPct(settings.backtestRiskPct);
+      localStorage.setItem('wyckoff_backtest_risk_pct', settings.backtestRiskPct);
+    }
+    if (settings.useRiskSizing !== undefined) {
+      setUseRiskSizing(settings.useRiskSizing);
+      localStorage.setItem('wyckoff_backtest_use_risk_sizing', String(settings.useRiskSizing));
+    }
+    if (settings.backtestBE !== undefined) {
+      setBacktestBE(settings.backtestBE);
+      localStorage.setItem('wyckoff_backtest_be', settings.backtestBE);
+    }
+    if (settings.useBreakEven !== undefined) {
+      setUseBreakEven(settings.useBreakEven);
+      localStorage.setItem('wyckoff_backtest_use_be', String(settings.useBreakEven));
+    }
+    if (settings.backtestFees !== undefined) {
+      setBacktestFees(settings.backtestFees);
+      localStorage.setItem('wyckoff_backtest_fees', settings.backtestFees);
+    }
+    if (settings.dailyRetryLimit !== undefined) {
+      setDailyRetryLimit(settings.dailyRetryLimit);
+      localStorage.setItem('wyckoff_backtest_daily_retry_limit', settings.dailyRetryLimit);
+    }
+    if (settings.allowOppositeClose !== undefined) {
+      setAllowOppositeClose(settings.allowOppositeClose);
+      localStorage.setItem('wyckoff_backtest_allow_opposite_close', String(settings.allowOppositeClose));
+    }
+    if (settings.enabledIndicators !== undefined) {
+      setEnabledIndicators(settings.enabledIndicators);
+    }
+    if (settings.hiddenStages !== undefined) {
+      setHiddenStages(settings.hiddenStages);
+    }
+    if (settings.entryStabilityRule !== undefined) {
+      setEntryStabilityRule(settings.entryStabilityRule);
+      localStorage.setItem('wyckoff_backtest_entry_stability_rule', settings.entryStabilityRule);
+    }
+    if (settings.sessionsTimezone !== undefined) {
+      setSessionsTimezone(settings.sessionsTimezone);
+      localStorage.setItem('wyckoff_sessions_timezone', settings.sessionsTimezone);
+    }
+    if (settings.tradingSessions !== undefined) {
+      setTradingSessions(settings.tradingSessions);
+      localStorage.setItem('wyckoff_trading_sessions', JSON.stringify(settings.tradingSessions));
+    }
+    if (settings.useGlobalClose !== undefined) {
+      setUseGlobalClose(settings.useGlobalClose);
+      localStorage.setItem('wyckoff_use_global_close', String(settings.useGlobalClose));
+    }
+    if (settings.globalCloseTime !== undefined) {
+      setGlobalCloseTime(settings.globalCloseTime);
+      localStorage.setItem('wyckoff_global_close_time', settings.globalCloseTime);
+    }
+    if (settings.isOptimizeMode !== undefined) {
+      setIsOptimizeMode(settings.isOptimizeMode);
+      localStorage.setItem('wyckoff_optimize_mode', String(settings.isOptimizeMode));
+    }
+    if (settings.rrStart !== undefined) {
+      setRRStart(settings.rrStart);
+      localStorage.setItem('wyckoff_rr_start', settings.rrStart);
+    }
+    if (settings.rrEnd !== undefined) {
+      setRREnd(settings.rrEnd);
+      localStorage.setItem('wyckoff_rr_end', settings.rrEnd);
+    }
+    if (settings.rrStep !== undefined) {
+      setRRStep(settings.rrStep);
+      localStorage.setItem('wyckoff_rr_step', settings.rrStep);
+    }
+  };
+
+  const saveBacktestSettings = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/backtest-settings/save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          symbol,
+          timeframe,
+          settings: getBacktestSettingsObject()
+        })
+      });
+      const data = await response.json();
+      if (data.status === 'success') {
+        alert("Backtest settings successfully saved to database!");
+      } else {
+        alert(`Error saving backtest settings: ${data.message}`);
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert(`Network error saving backtest settings: ${err.message || err}`);
+    }
+  };
+
+  // Load settings when symbol or timeframe changes
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/api/backtest-settings/load`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ symbol, timeframe })
+    })
+      .then(res => res.json())
+      .then(res => {
+        if (res.status === 'success' && res.settings && Object.keys(res.settings).length > 0) {
+          applyBacktestSettingsObject(res.settings);
+        }
+      })
+      .catch(err => console.error("Error loading backtest settings:", err));
+  }, [symbol, timeframe]);
+
   // Live strategy states
   const [liveStrategy, setLiveStrategy] = useState<any>(null);
   const [isDeploying, setIsDeploying] = useState(false);
@@ -2363,6 +2529,7 @@ export default function Dashboard() {
                 optimizationResults={optimizationResults}
                 setOptimizationResults={setOptimizationResults}
                 onRunOptimization={runOptimization}
+                onSaveSettings={saveBacktestSettings}
               />
             )}
           </div>
@@ -2598,6 +2765,7 @@ export default function Dashboard() {
                       optimizationResults={optimizationResults}
                       setOptimizationResults={setOptimizationResults}
                       onRunOptimization={runOptimization}
+                      onSaveSettings={saveBacktestSettings}
                     />
                   </div>
                   {renderResizeHandle('backtester')}
