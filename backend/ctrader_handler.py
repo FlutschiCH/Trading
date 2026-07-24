@@ -27,8 +27,8 @@ class CTraderHandler(BaseBrokerHandler):
         account_id = int(account_id_str) if account_id_str else None
         token = os.environ.get("CTRADER_ACCESS_TOKEN")
 
-        # Determine host based on account_id
-        is_demo = "demo" in str(account_id_str).lower() if account_id_str else True
+        # Use live.ctraderapi.com for all real broker accounts (including FTMO challenges)
+        is_demo = False
         host = "demo.ctraderapi.com" if is_demo else "live.ctraderapi.com"
         url = f"wss://{host}:5036"
 
@@ -45,7 +45,8 @@ class CTraderHandler(BaseBrokerHandler):
             }
             ws.send(json.dumps(app_auth))
             res1 = json.loads(ws.recv())
-            if res1.get("payloadType") == 50: # Error
+            print(f"App Auth Response: {res1}")
+            if res1.get("payloadType") == 50 or res1.get("payloadType") == 2142: # Error
                 raise ConnectionError(f"Application Authentication Failed: {res1.get('payload')}")
 
             # 2. Send Account Auth (payloadType = 2102) if token & account are available
@@ -60,7 +61,8 @@ class CTraderHandler(BaseBrokerHandler):
                 }
                 ws.send(json.dumps(acc_auth))
                 res2 = json.loads(ws.recv())
-                if res2.get("payloadType") == 50: # Error
+                print(f"Account Auth Response: {res2}")
+                if res2.get("payloadType") == 50 or res2.get("payloadType") == 2142: # Error
                     raise ConnectionError(f"Account Authentication Failed: {res2.get('payload')}")
 
             # 3. Dispatch requested OpenAPI message
@@ -126,6 +128,10 @@ class CTraderHandler(BaseBrokerHandler):
             # Typically returns ProtoOAGetAccountListByAccessTokenRes containing ctidTraderAccount
             if res and "payload" in res:
                 accounts = res["payload"].get("ctidTraderAccount", [])
+                print(f"--- AUTHORIZED C-TRADER ACCOUNTS DETECTED BY TOKEN ---")
+                for a in accounts:
+                    print(f"-> Account ID: {a.get('ctidTraderAccountId')}, Broker: {a.get('traderLogin')}, Live/Demo: {a.get('isLive')}")
+                print(f"-----------------------------------------------------")
                 account_id = os.environ.get("CTRADER_OPENAPI_ACCOUNT_ID")
                 for acc in accounts:
                     if str(acc.get("ctidTraderAccountId")) == str(account_id):
@@ -185,12 +191,12 @@ class CTraderHandler(BaseBrokerHandler):
             elif "gbp" in symbol.lower():
                 symbol_id = 2
                 
-            # Place Order using payloadType = 2129 (ProtoOANewOrderReq)
+            # Place Order using payloadType = 2106 (ProtoOANewOrderReq)
             payload = {
                 "symbolId": symbol_id,
                 "orderType": "MARKET" if price is None else "LIMIT",
                 "tradeSide": side.upper(),
-                "volume": int(volume * 100000) # Convert lots to units
+                "volume": int(volume * 10000000) # Convert lots to units scaled by 100
             }
             if price is not None:
                 payload["limitPrice"] = price
@@ -199,29 +205,37 @@ class CTraderHandler(BaseBrokerHandler):
             if take_profit is not None:
                 payload["takeProfit"] = take_profit
                 
-            res = CTraderHandler._send_and_receive(2129, payload)
-            if res.get("payloadType") == 2130: # ProtoOAExecutionEvent
+            res = CTraderHandler._send_and_receive(2106, payload)
+            p_type = res.get("payloadType")
+            if p_type == 2130: # ProtoOAExecutionEvent
                 order_id = res.get("payload", {}).get("order", {}).get("orderId")
                 return {"status": "success", "message": f"Order successfully accepted by cTrader OpenAPI. ID: {order_id}"}
-            elif res.get("payloadType") == 50:
+            elif p_type == 2142: # ProtoOAErrorRes
+                err = res.get("payload", {})
+                return {"status": "error", "message": f"cTrader Error {err.get('errorCode')}: {err.get('description')}"}
+            elif p_type == 50:
                 return {"status": "error", "message": f"Order rejected: {res.get('payload')}"}
                 
-            return {"status": "success", "message": f"Order dispatched. Response payloadType: {res.get('payloadType')}"}
+            return {"status": "success", "message": f"Order dispatched. Response payloadType: {p_type}, payload: {res.get('payload')}"}
         except Exception as e:
             return {"status": "error", "message": f"cTrader OpenAPI connection error: {str(e)}"}
 
     @staticmethod
     def close_position(position_id: int, symbol: str, side: str, volume: float, **kwargs) -> dict:
         try:
-            # Close Position using payloadType = 2133 (ProtoOAClosePositionReq)
+            # Close Position using payloadType = 2111 (ProtoOAClosePositionReq)
             payload = {
                 "positionId": position_id,
-                "volume": int(volume * 100000)
+                "volume": int(volume * 10000000) # Convert lots to units scaled by 100
             }
-            res = CTraderHandler._send_and_receive(2133, payload)
-            if res.get("payloadType") == 2130:
+            res = CTraderHandler._send_and_receive(2111, payload)
+            p_type = res.get("payloadType")
+            if p_type == 2130:
                 return {"status": "success", "message": f"Position {position_id} successfully closed via OpenAPI."}
-            return {"status": "error", "message": f"Close position failed. Response payloadType: {res.get('payloadType')}"}
+            elif p_type == 2142:
+                err = res.get("payload", {})
+                return {"status": "error", "message": f"cTrader Close Error {err.get('errorCode')}: {err.get('description')}"}
+            return {"status": "error", "message": f"Close position failed. Response payloadType: {p_type}, payload: {res.get('payload')}"}
         except Exception as e:
             return {"status": "error", "message": f"Failed to close position via OpenAPI: {str(e)}"}
 
