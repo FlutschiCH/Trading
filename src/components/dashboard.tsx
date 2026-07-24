@@ -2045,6 +2045,28 @@ export default function Dashboard() {
               </>
             )}
           </div>
+          <button 
+            onClick={() => setView(view === 'trades' ? 'dashboard' : 'trades')} 
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              backgroundColor: view === 'trades' ? '#2563eb' : '#1e293b',
+              border: view === 'trades' ? '1px solid #3b82f6' : '1px solid #334155',
+              cursor: 'pointer',
+              borderRadius: '6px',
+              padding: '6px 12px',
+              color: '#ffffff',
+              fontWeight: 'bold',
+              fontSize: '11px',
+              outline: 'none',
+              transition: 'all 0.2s',
+              marginLeft: '8px',
+              height: '32px'
+            }}
+          >
+            📈 Trades {view === 'trades' && '✓'}
+          </button>
         </div>
 
         {view !== 'mappings' && (
