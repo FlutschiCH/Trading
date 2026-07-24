@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Activity, X, TrendingUp, TrendingDown, Clock, HelpCircle, RefreshCw, Menu, ChevronDown } from 'lucide-react';
+import { Activity, X, TrendingUp, TrendingDown, Clock, HelpCircle, RefreshCw, Menu, ChevronDown, Sun, Moon } from 'lucide-react';
 import TVChart from './tv_chart';
 import WyckoffBacktester from './wyckoff_backtester';
 import HowToPage from './how_to_page';
@@ -173,6 +173,43 @@ export default function Dashboard() {
   const [authUsername, setAuthUsername] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [authError, setAuthError] = useState('');
+
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => (localStorage.getItem('theme') as 'dark' | 'light') || 'dark');
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === 'light') {
+      root.style.setProperty('--app-bg', '#f8fafc');
+      root.style.setProperty('--app-text', '#0f172a');
+      root.style.setProperty('--app-text-muted', '#64748b');
+      root.style.setProperty('--app-card-bg', '#ffffff');
+      root.style.setProperty('--app-card-border', '#e2e8f0');
+      root.style.setProperty('--app-header-bg', '#ffffff');
+      root.style.setProperty('--app-panel-header-bg', '#f1f5f9');
+      root.style.setProperty('--app-input-bg', '#ffffff');
+      root.style.setProperty('--app-input-border', '#cbd5e1');
+      root.style.setProperty('--app-input-text', '#0f172a');
+      root.style.setProperty('--app-hover-bg', '#f1f5f9');
+    } else {
+      root.style.setProperty('--app-bg', '#0b0f19');
+      root.style.setProperty('--app-text', '#f3f4f6');
+      root.style.setProperty('--app-text-muted', '#9ca3af');
+      root.style.setProperty('--app-card-bg', '#111827');
+      root.style.setProperty('--app-card-border', '#1f2937');
+      root.style.setProperty('--app-header-bg', '#111827');
+      root.style.setProperty('--app-panel-header-bg', '#1e293b');
+      root.style.setProperty('--app-input-bg', '#0b0f19');
+      root.style.setProperty('--app-input-border', '#1f2937');
+      root.style.setProperty('--app-input-text', '#ffffff');
+      root.style.setProperty('--app-hover-bg', '#1e293b');
+    }
+  }, [theme]);
+
+  const toggleTheme = () => {
+    const nextTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(nextTheme);
+    localStorage.setItem('theme', nextTheme);
+  };
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1620,15 +1657,15 @@ export default function Dashboard() {
   const styles = {
     container: {
       minHeight: '100vh',
-      backgroundColor: '#0b0f19',
-      color: '#f3f4f6',
+      backgroundColor: 'var(--app-bg)',
+      color: 'var(--app-text)',
       display: 'flex',
       flexDirection: 'column' as const,
       fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     },
     header: {
-      backgroundColor: '#111827',
-      borderBottom: '1px solid #1f2937',
+      backgroundColor: 'var(--app-header-bg)',
+      borderBottom: '1px solid var(--app-card-border)',
       padding: '16px 24px',
       display: 'flex',
       justifyContent: 'space-between',
@@ -1681,8 +1718,8 @@ export default function Dashboard() {
       gap: '16px',
     },
     modeTabs: {
-      backgroundColor: '#0b0f19',
-      border: '1px solid #1f2937',
+      backgroundColor: 'var(--app-bg)',
+      border: '1px solid var(--app-card-border)',
       borderRadius: '8px',
       padding: '4px',
       display: 'flex',
@@ -1690,7 +1727,7 @@ export default function Dashboard() {
     },
     modeBtn: (active: boolean) => ({
       backgroundColor: active ? '#3b82f6' : 'transparent',
-      color: active ? '#ffffff' : '#9ca3af',
+      color: active ? '#ffffff' : 'var(--app-text-muted)',
       padding: '6px 12px',
       borderRadius: '6px',
       border: 'none',
@@ -1707,11 +1744,11 @@ export default function Dashboard() {
       fontSize: '12px',
     },
     pairSelect: {
-      backgroundColor: '#0b0f19',
-      border: '1px solid #1f2937',
+      backgroundColor: 'var(--app-bg)',
+      border: '1px solid var(--app-card-border)',
       borderRadius: '6px',
       padding: '4px 8px',
-      color: '#ffffff',
+      color: 'var(--app-input-text)',
       fontWeight: 'bold',
       cursor: 'pointer',
       outline: 'none',
@@ -1735,8 +1772,8 @@ export default function Dashboard() {
       }
     },
     orderCard: {
-      backgroundColor: '#111827',
-      border: '1px solid #1f2937',
+      backgroundColor: 'var(--app-card-bg)',
+      border: '1px solid var(--app-card-border)',
       borderRadius: '12px',
       padding: '16px',
       display: 'flex',
@@ -1744,10 +1781,10 @@ export default function Dashboard() {
       gap: '16px',
     },
     cardTitle: {
-      color: '#e5e7eb',
+      color: 'var(--app-text)',
       fontWeight: 'bold',
       fontSize: '14px',
-      borderBottom: '1px solid #1f2937',
+      borderBottom: '1px solid var(--app-card-border)',
       paddingBottom: '8px',
       margin: 0,
     },
@@ -1764,12 +1801,12 @@ export default function Dashboard() {
       border: 'none',
       cursor: 'pointer',
       transition: 'all 0.2s',
-      backgroundColor: active ? (isBuy ? '#10b981' : '#ef4444') : '#1f2937',
-      color: active ? '#ffffff' : '#9ca3af',
+      backgroundColor: active ? (isBuy ? '#10b981' : '#ef4444') : 'var(--app-hover-bg)',
+      color: active ? '#ffffff' : 'var(--app-text-muted)',
     }),
     walletContainer: {
-      backgroundColor: '#0b0f19',
-      border: '1px solid #1f2937',
+      backgroundColor: 'var(--app-bg)',
+      border: '1px solid var(--app-card-border)',
       borderRadius: '8px',
       padding: '10px',
       fontSize: '12px',
@@ -1788,8 +1825,8 @@ export default function Dashboard() {
       fontSize: '12px',
     },
     orderTypeTabs: {
-      backgroundColor: '#0b0f19',
-      border: '1px solid #1f2937',
+      backgroundColor: 'var(--app-bg)',
+      border: '1px solid var(--app-card-border)',
       borderRadius: '8px',
       padding: '4px',
       display: 'flex',
@@ -1802,8 +1839,8 @@ export default function Dashboard() {
       fontSize: '10px',
       border: 'none',
       cursor: 'pointer',
-      backgroundColor: active ? '#1f2937' : 'transparent',
-      color: active ? '#ffffff' : '#9ca3af',
+      backgroundColor: active ? 'var(--app-hover-bg)' : 'transparent',
+      color: active ? 'var(--app-text)' : 'var(--app-text-muted)',
       fontWeight: 'bold',
       transition: 'all 0.2s',
     }),
@@ -1813,11 +1850,11 @@ export default function Dashboard() {
       gap: '4px',
     },
     input: {
-      backgroundColor: '#0b0f19',
-      border: '1px solid #1f2937',
+      backgroundColor: 'var(--app-input-bg)',
+      border: '1px solid var(--app-input-border)',
       borderRadius: '6px',
       padding: '6px 10px',
-      color: '#ffffff',
+      color: 'var(--app-input-text)',
       outline: 'none',
     },
     submitBtn: (isBuy: boolean) => ({
@@ -1842,8 +1879,8 @@ export default function Dashboard() {
       overflowY: 'auto' as const,
     },
     positionRow: {
-      backgroundColor: '#0b0f19',
-      border: '1px solid #1f2937',
+      backgroundColor: 'var(--app-bg)',
+      border: '1px solid var(--app-card-border)',
       borderRadius: '6px',
       padding: '8px',
       display: 'flex',
@@ -1973,19 +2010,37 @@ export default function Dashboard() {
               flexShrink: 0,
             }}
           />
-          <div style={{ position: 'relative' }}>
+            <button 
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: 'var(--app-panel-header-bg)',
+                border: '1px solid var(--app-card-border)',
+                cursor: 'pointer',
+                borderRadius: '6px',
+                padding: '6px',
+                color: 'var(--app-text)',
+                outline: 'none',
+                transition: 'all 0.2s',
+              }}
+              title={theme === 'dark' ? "Switch to Light Mode" : "Switch to Dark Mode"}
+            >
+              {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+            </button>
             <button 
               onClick={() => setShowMenu(!showMenu)} 
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
-                backgroundColor: '#1e293b',
-                border: '1px solid #334155',
+                backgroundColor: 'var(--app-panel-header-bg)',
+                border: '1px solid var(--app-card-border)',
                 cursor: 'pointer',
                 borderRadius: '6px',
                 padding: '6px 12px',
-                color: '#ffffff',
+                color: 'var(--app-text)',
                 fontWeight: 'bold',
                 fontSize: '11px',
                 outline: 'none',
@@ -2780,34 +2835,33 @@ export default function Dashboard() {
             width: '100%',
           }}>
             {panelOrder.map((panelId) => {
-              const isDragOver = dragOverId === panelId;
               const defaultWidth = panelId === 'chart' ? 'calc(50% - 16px)' : 'calc(25% - 16px)';
               const dragStyles = {
                 width: cardWidths[panelId] ? `${cardWidths[panelId]}px` : defaultWidth,
               flexGrow: cardWidths[panelId] ? 0 : 1,
               flexShrink: 1,
               minWidth: '280px',
-              border: isDragOver ? '2px dashed #3b82f6' : '1px solid #1f2937',
+              border: isDragOver ? '2px dashed #3b82f6' : '1px solid var(--app-card-border)',
               borderRadius: '12px',
-              backgroundColor: '#0f172a',
+              backgroundColor: 'var(--app-card-bg)',
               transition: activeResize ? 'none' : 'border 0.2s, opacity 0.2s',
               opacity: isDragOver ? 0.75 : 1,
               position: 'relative' as const,
               overflow: 'hidden',
             };
-
+ 
             const headerStyle = {
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
-              backgroundColor: '#1e293b',
+              backgroundColor: 'var(--app-panel-header-bg)',
               padding: '10px 16px',
               cursor: 'grab',
               userSelect: 'none' as const,
-              borderBottom: '1px solid #111827',
+              borderBottom: '1px solid var(--app-card-border)',
               fontSize: '12px',
               fontWeight: 'bold',
-              color: '#d1d5db',
+              color: 'var(--app-text)',
             };
 
             const contentStyle = {
