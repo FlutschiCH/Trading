@@ -422,6 +422,7 @@ export default function Dashboard() {
   const [favouriteCandles, setFavouriteCandles] = useState<any[]>([]);
   const [favNotesInput, setFavNotesInput] = useState<string>('');
   const [locateTimestamp, setLocateTimestamp] = useState<number | null>(null);
+  const [hiddenStages, setHiddenStages] = useState<string[]>([]);
 
   const [entryStabilityRule, setEntryStabilityRule] = useState<string>(() => localStorage.getItem('wyckoff_backtest_entry_stability_rule') || 'default');
 
@@ -2141,6 +2142,7 @@ export default function Dashboard() {
                 sessions={tradingSessions}
                 sessionsTimezone={sessionsTimezone}
                 selectedCandle={selectedCandle}
+                hiddenStages={hiddenStages}
               />
             ) : (
               <WyckoffBacktester
@@ -2212,6 +2214,8 @@ export default function Dashboard() {
                 setUseGlobalClose={setUseGlobalClose}
                 globalCloseTime={globalCloseTime}
                 setGlobalCloseTime={setGlobalCloseTime}
+                hiddenStages={hiddenStages}
+                setHiddenStages={setHiddenStages}
               />
             )}
           </div>
@@ -2308,6 +2312,7 @@ export default function Dashboard() {
                       sessions={tradingSessions}
                       sessionsTimezone={sessionsTimezone}
                       selectedCandle={selectedCandle}
+                      hiddenStages={hiddenStages}
                     />
                   </div>
                   {renderResizeHandle('chart')}
@@ -2432,6 +2437,8 @@ export default function Dashboard() {
                       setUseGlobalClose={setUseGlobalClose}
                       globalCloseTime={globalCloseTime}
                       setGlobalCloseTime={setGlobalCloseTime}
+                      hiddenStages={hiddenStages}
+                      setHiddenStages={setHiddenStages}
                     />
                   </div>
                   {renderResizeHandle('backtester')}

@@ -56,6 +56,7 @@ interface TVChartProps {
   sessions?: any[];
   sessionsTimezone?: 'UTC' | 'Local';
   locateTimestamp?: number | null;
+  hiddenStages?: string[];
 }
 
 export default function TVChart({ 
@@ -88,7 +89,8 @@ export default function TVChart({
   onTradeFilterChange,
   sessions = [],
   sessionsTimezone = 'Local',
-  locateTimestamp = null
+  locateTimestamp = null,
+  hiddenStages = []
 }: TVChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const weisContainerRef = useRef<HTMLDivElement>(null);
@@ -340,49 +342,6 @@ export default function TVChart({
   const [overboughtCoords, setOverboughtCoords] = useState<any[]>([]);
   const [trendLineSegments, setTrendLineSegments] = useState<any[]>([]);
   const selectedTradeRef = useRef(selectedTrade);
-
-  const [legendOffset, setLegendOffset] = useState({ x: 0, y: 0 });
-  const [isDraggingLegend, setIsDraggingLegend] = useState(false);
-  const [hiddenStages, setHiddenStages] = useState<string[]>([]);
-  
-  const toggleStageVisibility = (stage: string) => {
-    setHiddenStages(prev => 
-      prev.includes(stage) ? prev.filter(s => s !== stage) : [...prev, stage]
-    );
-  };
-  const dragStartOffset = useRef({ x: 0, y: 0 });
-
-  const handleLegendMouseDown = (e: React.MouseEvent) => {
-    if (e.button !== 0) return;
-    setIsDraggingLegend(true);
-    dragStartOffset.current = {
-      x: e.clientX - legendOffset.x,
-      y: e.clientY - legendOffset.y
-    };
-    e.preventDefault();
-  };
-
-  useEffect(() => {
-    if (!isDraggingLegend) return;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      setLegendOffset({
-        x: e.clientX - dragStartOffset.current.x,
-        y: e.clientY - dragStartOffset.current.y
-      });
-    };
-
-    const handleMouseUp = () => {
-      setIsDraggingLegend(false);
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isDraggingLegend, legendOffset]);
 
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
   const [chartSettings, setChartSettings] = useState(() => {
@@ -1799,124 +1758,7 @@ export default function TVChart({
         <div style={{ position: 'relative', height: chartHeight }}>
           <div ref={chartContainerRef} style={{ width: '100%', height: '100%', touchAction: 'none' }} />
 
-          {/* Wyckoff Legend */}
-          <div 
-            onMouseDown={handleLegendMouseDown}
-            style={{
-              position: 'absolute',
-              top: '12px',
-              right: '12px',
-              transform: `translate(${legendOffset.x}px, ${legendOffset.y}px)`,
-              cursor: isDraggingLegend ? 'grabbing' : 'grab',
-              backgroundColor: 'rgba(15, 23, 42, 0.85)',
-              backdropFilter: 'blur(8px)',
-              border: '1px solid rgba(51, 65, 85, 0.8)',
-              borderRadius: '8px',
-              padding: '8px 12px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '6px',
-              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.5)',
-              zIndex: 50,
-              pointerEvents: 'auto',
-              userSelect: 'none'
-            }}>
-            <div style={{ fontSize: '9px', fontWeight: 'bold', color: '#94a3b8', letterSpacing: '0.05em', borderBottom: '1px solid rgba(148, 163, 184, 0.1)', paddingBottom: '4px', marginBottom: '2px' }}>
-              WYCKOFF CYCLE
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <div 
-                onClick={() => toggleStageVisibility('ACCUMULATION')}
-                onMouseDown={(e) => e.stopPropagation()}
-                style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '6px', 
-                  fontSize: '9px', 
-                  fontWeight: '500', 
-                  color: '#f1f5f9', 
-                  cursor: 'pointer',
-                  opacity: hiddenStages.includes('ACCUMULATION') ? 0.35 : 1,
-                  textDecoration: hiddenStages.includes('ACCUMULATION') ? 'line-through' : 'none'
-                }}
-              >
-                <div style={{ width: '10px', height: '3px', backgroundColor: '#3b82f6', borderRadius: '1.5px' }} />
-                Accumulation
-              </div>
-              <div 
-                onClick={() => toggleStageVisibility('MARKUP')}
-                onMouseDown={(e) => e.stopPropagation()}
-                style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '6px', 
-                  fontSize: '9px', 
-                  fontWeight: '500', 
-                  color: '#f1f5f9', 
-                  cursor: 'pointer',
-                  opacity: hiddenStages.includes('MARKUP') ? 0.35 : 1,
-                  textDecoration: hiddenStages.includes('MARKUP') ? 'line-through' : 'none'
-                }}
-              >
-                <div style={{ width: '10px', height: '3px', backgroundColor: '#10b981', borderRadius: '1.5px' }} />
-                Markup
-              </div>
-              <div 
-                onClick={() => toggleStageVisibility('DISTRIBUTION')}
-                onMouseDown={(e) => e.stopPropagation()}
-                style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '6px', 
-                  fontSize: '9px', 
-                  fontWeight: '500', 
-                  color: '#f1f5f9', 
-                  cursor: 'pointer',
-                  opacity: hiddenStages.includes('DISTRIBUTION') ? 0.35 : 1,
-                  textDecoration: hiddenStages.includes('DISTRIBUTION') ? 'line-through' : 'none'
-                }}
-              >
-                <div style={{ width: '10px', height: '3px', backgroundColor: '#f59e0b', borderRadius: '1.5px' }} />
-                Distribution
-              </div>
-              <div 
-                onClick={() => toggleStageVisibility('MARKDOWN')}
-                onMouseDown={(e) => e.stopPropagation()}
-                style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '6px', 
-                  fontSize: '9px', 
-                  fontWeight: '500', 
-                  color: '#f1f5f9', 
-                  cursor: 'pointer',
-                  opacity: hiddenStages.includes('MARKDOWN') ? 0.35 : 1,
-                  textDecoration: hiddenStages.includes('MARKDOWN') ? 'line-through' : 'none'
-                }}
-              >
-                <div style={{ width: '10px', height: '3px', backgroundColor: '#ef4444', borderRadius: '1.5px' }} />
-                Markdown
-              </div>
-              <div 
-                onClick={() => toggleStageVisibility('TRANSITION')}
-                onMouseDown={(e) => e.stopPropagation()}
-                style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '6px', 
-                  fontSize: '9px', 
-                  fontWeight: '500', 
-                  color: '#f1f5f9', 
-                  cursor: 'pointer',
-                  opacity: hiddenStages.includes('TRANSITION') ? 0.35 : 1,
-                  textDecoration: hiddenStages.includes('TRANSITION') ? 'line-through' : 'none'
-                }}
-              >
-                <div style={{ width: '10px', height: '3px', backgroundColor: '#cbd5e1', borderRadius: '1.5px' }} />
-                Transition
-              </div>
-            </div>
-          </div>
+
 
           {replayTime !== null && (
             <div style={{

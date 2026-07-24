@@ -70,6 +70,8 @@ interface WyckoffBacktesterProps {
   setGlobalCloseTime: (val: string) => void;
   entryStabilityRule: string;
   setEntryStabilityRule: (val: string) => void;
+  hiddenStages?: string[];
+  setHiddenStages?: (stages: string[]) => void;
 }
 
 export default function WyckoffBacktester({
@@ -140,7 +142,9 @@ export default function WyckoffBacktester({
   globalCloseTime,
   setGlobalCloseTime,
   entryStabilityRule,
-  setEntryStabilityRule
+  setEntryStabilityRule,
+  hiddenStages = [],
+  setHiddenStages
 }: WyckoffBacktesterProps) {
   const [copied, setCopied] = React.useState(false);
 
@@ -156,6 +160,7 @@ export default function WyckoffBacktester({
       session: false,
       indicators: false,
       dateRange: false,
+      wyckoffStructure: false,
       trades: false
     };
   });
@@ -870,6 +875,57 @@ export default function WyckoffBacktester({
               />
               Fair Value Gap (FVG)
             </label>
+          </div>
+        </CollapsibleCard>
+
+        <CollapsibleCard title="Wyckoff Structure" sectionKey="wyckoffStructure">
+          <div style={{ fontSize: '9px', fontWeight: 'bold', color: '#94a3b8', letterSpacing: '0.05em', borderBottom: '1px solid rgba(148, 163, 184, 0.1)', paddingBottom: '4px', marginBottom: '2px' }}>
+            WYCKOFF CYCLE FILTER (CLICK TO TOGGLE HIDING TREND LINE)
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            {[
+              { id: 'ACCUMULATION', label: 'Accumulation', color: '#3b82f6' },
+              { id: 'MARKUP', label: 'Markup', color: '#10b981' },
+              { id: 'DISTRIBUTION', label: 'Distribution', color: '#f59e0b' },
+              { id: 'MARKDOWN', label: 'Markdown', color: '#ef4444' },
+              { id: 'TRANSITION', label: 'Transition', color: '#cbd5e1' }
+            ].map(stage => {
+              const isHidden = hiddenStages.includes(stage.id);
+              return (
+                <div 
+                  key={stage.id}
+                  onClick={() => {
+                    if (setHiddenStages) {
+                      setHiddenStages(
+                        isHidden 
+                          ? hiddenStages.filter(s => s !== stage.id) 
+                          : [...hiddenStages, stage.id]
+                      );
+                    }
+                  }}
+                  style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '6px', 
+                    fontSize: '10px', 
+                    fontWeight: '500', 
+                    color: '#f1f5f9', 
+                    cursor: 'pointer',
+                    opacity: isHidden ? 0.35 : 1,
+                    textDecoration: isHidden ? 'line-through' : 'none',
+                    padding: '3px 6px',
+                    borderRadius: '3px',
+                    backgroundColor: 'rgba(31, 41, 55, 0.2)',
+                    transition: 'opacity 0.15s, background-color 0.15s'
+                  }}
+                  onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(31, 41, 55, 0.4)'}
+                  onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'rgba(31, 41, 55, 0.2)'}
+                >
+                  <div style={{ width: '10px', height: '3px', backgroundColor: stage.color, borderRadius: '1.5px' }} />
+                  {stage.label}
+                </div>
+              );
+            })}
           </div>
         </CollapsibleCard>
 
