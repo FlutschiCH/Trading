@@ -3,6 +3,8 @@ import { Activity, X, TrendingUp, TrendingDown, Clock, HelpCircle, RefreshCw, Me
 import TVChart from './tv_chart';
 import WyckoffBacktester from './wyckoff_backtester';
 import HowToPage from './how_to_page';
+import LiveTradesPanel from './live_trades_panel';
+import SymbolMappingsView from './symbol_mappings_view';
 import { API_BASE_URL } from '../api';
 import '../App.css';
 
@@ -270,154 +272,7 @@ export default function Dashboard() {
   const [loadingBacktest, setLoadingBacktest] = useState(false);
   const [backtestProgress, setBacktestProgress] = useState(0);
 
-  // Symbol Mapping states
   const [view, setView] = useState<'dashboard' | 'mappings' | 'trades'>('dashboard');
-  const [symbolMappings, setSymbolMappings] = useState<any[]>([]);
-  const [newMainSymbol, setNewMainSymbol] = useState('');
-  const [newBrokerKey, setNewBrokerKey] = useState('metatrader:JustMarkets-Demo');
-  const [customBrokerKey, setCustomBrokerKey] = useState('');
-  const [newBrokerSymbol, setNewBrokerSymbol] = useState('');
-  const [mappingMessage, setMappingMessage] = useState('');
-
-  const [brokerSymbols, setBrokerSymbols] = useState<string[]>([]);
-  const [loadingBrokerSymbols, setLoadingBrokerSymbols] = useState(false);
-  const [brokerSymbolSearch, setBrokerSymbolSearch] = useState('');
-  const [showBrokerSymbolDropdown, setShowBrokerSymbolDropdown] = useState(false);
-
-  const fetchBrokerSymbols = async (key: string) => {
-    setLoadingBrokerSymbols(true);
-    try {
-      let endpoint = '';
-      if (key.startsWith('metatrader')) {
-        endpoint = '/api/metatrader/symbols';
-      } else if (key.startsWith('ctrader')) {
-        endpoint = '/api/ctrader/symbols';
-      } else if (key === 'yfinance') {
-        endpoint = '/api/yfinance/symbols';
-      }
-
-      if (endpoint) {
-        const res = await fetch(`${API_BASE_URL}${endpoint}`);
-        const data = await res.json();
-        if (data.status === 'success' && Array.isArray(data.data)) {
-          setBrokerSymbols(data.data);
-        } else if (Array.isArray(data)) {
-          setBrokerSymbols(data);
-        } else if (data && Array.isArray(data.data)) {
-          setBrokerSymbols(data.data);
-        } else {
-          setBrokerSymbols([]);
-        }
-      } else {
-        setBrokerSymbols([]);
-      }
-    } catch (err) {
-      console.error("Failed to fetch broker symbols:", err);
-      setBrokerSymbols([]);
-    } finally {
-      setLoadingBrokerSymbols(false);
-    }
-  };
-
-  useEffect(() => {
-    if (view === 'mappings') {
-      const finalKey = newBrokerKey === 'custom' ? customBrokerKey : newBrokerKey;
-      fetchBrokerSymbols(finalKey);
-    }
-  }, [newBrokerKey, customBrokerKey, view]);
-
-  const handleSelectBrokerSymbol = (sym: string) => {
-    setNewBrokerSymbol(sym);
-    setBrokerSymbolSearch(sym);
-    setShowBrokerSymbolDropdown(false);
-    
-    // Auto-suggest Main Symbol: e.g. "EURUSD.ecn" -> "EURUSD"
-    const suggestedMain = sym
-      .split('.')[0]
-      .split('_')[0]
-      .split('-')[0]
-      .toUpperCase()
-      .replace(/[^A-Z0-9]/g, '');
-      
-    if (suggestedMain) {
-      setNewMainSymbol(suggestedMain);
-    }
-  };
-
-  const fetchSymbolMappings = async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/symbol-mappings`);
-      const data = await res.json();
-      if (data.status === 'success') {
-        setSymbolMappings(data.data);
-      }
-    } catch (e) {
-      console.error("Failed to fetch symbol mappings:", e);
-    }
-  };
-
-  useEffect(() => {
-    if (initialCandlesLoaded) {
-      fetchSymbolMappings();
-    }
-  }, [initialCandlesLoaded]);
-
-  const handleAddMapping = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isProdHost && !isAuthenticated) {
-      alert("Action disabled in read-only mode.");
-      return;
-    }
-    const finalBrokerKey = newBrokerKey === 'custom' ? customBrokerKey : newBrokerKey;
-    if (!newMainSymbol || !finalBrokerKey || !newBrokerSymbol) {
-      setMappingMessage('All fields are required');
-      return;
-    }
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/symbol-mappings`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          main_symbol: newMainSymbol.toUpperCase().trim(),
-          broker_key: finalBrokerKey.trim(),
-          broker_symbol: newBrokerSymbol.trim()
-        })
-      });
-      const data = await res.json();
-      if (data.status === 'success') {
-        setMappingMessage('Mapping saved successfully!');
-        setNewMainSymbol('');
-        setNewBrokerSymbol('');
-        fetchSymbolMappings();
-      } else {
-        setMappingMessage(data.message || 'Failed to save mapping');
-      }
-    } catch (err) {
-      setMappingMessage('Network error');
-    }
-  };
-
-  const handleDeleteMapping = async (id: number) => {
-    if (isProdHost && !isAuthenticated) {
-      alert("Action disabled in read-only mode.");
-      return;
-    }
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/symbol-mappings`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id })
-      });
-      const data = await res.json();
-      if (data.status === 'success') {
-        fetchSymbolMappings();
-      }
-    } catch (err) {
-      console.error("Failed to delete mapping:", err);
-    }
-  };
-
-  // Connection states
   const [connectionMode, setConnectionMode] = useState<'openapi' | 'fix'>('fix');
   const [isConnectedOpenAPI] = useState(true);
   const [isConnectedFIX] = useState(true);
@@ -2207,286 +2062,12 @@ export default function Dashboard() {
       </header>
 
       {view === 'mappings' ? (
-        <div style={{
-          padding: '24px',
-          maxWidth: '1200px',
-          margin: '0 auto',
-          width: '100%',
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '24px'
-        }}>
-          {/* Back button & Title */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ color: '#3b82f6' }}>🔗</span> Symbol Mappings Configuration
-            </h2>
-            <button 
-              onClick={() => setView('dashboard')}
-              style={{
-                backgroundColor: '#1e293b',
-                color: '#cbd5e1',
-                border: '1px solid #334155',
-                padding: '8px 16px',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                fontSize: '12px',
-                transition: 'all 0.2s'
-              }}
-            >
-              ← Back to Dashboard
-            </button>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 2fr', gap: '24px', alignItems: 'start' }}>
-            {/* Left side: Add Mapping Form */}
-            <div style={{
-              backgroundColor: '#0f172a',
-              border: '1px solid #1e293b',
-              borderRadius: '12px',
-              padding: '20px',
-            }}>
-              <h3 style={{ margin: '0 0 16px 0', fontSize: '14px', color: '#f8fafc', fontWeight: 'bold' }}>Add / Update Mapping</h3>
-              <form onSubmit={handleAddMapping} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Main Symbol (Unified)</label>
-                  <input 
-                    type="text" 
-                    placeholder="e.g. EURUSD" 
-                    value={newMainSymbol} 
-                    onChange={e => setNewMainSymbol(e.target.value)}
-                    style={{
-                      width: '100%',
-                      backgroundColor: '#1e293b',
-                      border: '1px solid #334155',
-                      borderRadius: '6px',
-                      padding: '8px 12px',
-                      color: '#f8fafc',
-                      fontSize: '12px',
-                      outline: 'none'
-                    }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Broker Config Key</label>
-                  <select 
-                    value={newBrokerKey} 
-                    onChange={e => setNewBrokerKey(e.target.value)}
-                    style={{
-                      width: '100%',
-                      backgroundColor: '#1e293b',
-                      border: '1px solid #334155',
-                      borderRadius: '6px',
-                      padding: '8px 12px',
-                      color: '#f8fafc',
-                      fontSize: '12px',
-                      outline: 'none'
-                    }}
-                  >
-                    <option value="metatrader:JustMarkets-Demo">MetaTrader (JustMarkets-Demo)</option>
-                    <option value="metatrader:FTMO-Demo">MetaTrader (FTMO-Demo)</option>
-                    <option value="ctrader:live.ftmo.17151091">cTrader (live.ftmo.17151091)</option>
-                    <option value="yfinance">Yahoo Finance</option>
-                    <option value="custom">Custom/Other Server Key</option>
-                  </select>
-                </div>
-                {newBrokerKey === 'custom' && (
-                  <div>
-                    <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Custom Key</label>
-                    <input 
-                      type="text" 
-                      placeholder="metatrader:Server-Name or ctrader:SenderCompID" 
-                      value={customBrokerKey} 
-                      onChange={e => setCustomBrokerKey(e.target.value)}
-                      style={{
-                        width: '100%',
-                        backgroundColor: '#1e293b',
-                        border: '1px solid #334155',
-                        borderRadius: '6px',
-                        padding: '8px 12px',
-                        color: '#f8fafc',
-                        fontSize: '12px',
-                        outline: 'none'
-                      }}
-                    />
-                  </div>
-                )}
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Broker Symbol</label>
-                  <div style={{ position: 'relative' }}>
-                    <input 
-                      type="text" 
-                      placeholder={loadingBrokerSymbols ? "Loading broker symbols..." : "Search/select symbol (e.g. EURUSD.ecn)"}
-                      value={showBrokerSymbolDropdown ? brokerSymbolSearch : newBrokerSymbol} 
-                      onFocus={() => {
-                        setBrokerSymbolSearch('');
-                        setShowBrokerSymbolDropdown(true);
-                      }}
-                      onChange={e => {
-                        setBrokerSymbolSearch(e.target.value);
-                        setNewBrokerSymbol(e.target.value);
-                      }}
-                      style={{
-                        width: '100%',
-                        backgroundColor: '#1e293b',
-                        border: '1px solid #334155',
-                        borderRadius: '6px',
-                        padding: '8px 12px',
-                        color: '#f8fafc',
-                        fontSize: '12px',
-                        outline: 'none'
-                      }}
-                    />
-                    {showBrokerSymbolDropdown && (
-                      <>
-                        <div 
-                          onClick={() => setShowBrokerSymbolDropdown(false)}
-                          style={{
-                            position: 'fixed',
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            zIndex: 999
-                          }}
-                        />
-                        <div style={{
-                          position: 'absolute',
-                          top: '100%',
-                          left: 0,
-                          right: 0,
-                          backgroundColor: '#0f172a',
-                          border: '1px solid #334155',
-                          borderRadius: '6px',
-                          maxHeight: '200px',
-                          overflowY: 'auto',
-                          zIndex: 1000,
-                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)',
-                          minWidth: '150px'
-                        }}>
-                          {brokerSymbols.filter(s => s.toLowerCase().includes(brokerSymbolSearch.toLowerCase())).length > 0 ? (
-                            brokerSymbols
-                              .filter(s => s.toLowerCase().includes(brokerSymbolSearch.toLowerCase()))
-                              .map(sym => (
-                                <div 
-                                  key={sym}
-                                  onClick={() => handleSelectBrokerSymbol(sym)}
-                                  style={{
-                                    padding: '8px 12px',
-                                    cursor: 'pointer',
-                                    fontSize: '12px',
-                                    color: '#d1d5db',
-                                    backgroundColor: newBrokerSymbol === sym ? '#2563eb' : 'transparent',
-                                    transition: 'background-color 0.15s'
-                                  }}
-                                  onMouseEnter={(e) => {
-                                    if (newBrokerSymbol !== sym) e.currentTarget.style.backgroundColor = '#1e293b';
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    if (newBrokerSymbol !== sym) e.currentTarget.style.backgroundColor = 'transparent';
-                                  }}
-                                >
-                                  {sym}
-                                </div>
-                              ))
-                          ) : (
-                            <div style={{ padding: '8px 12px', fontSize: '12px', color: '#6b7280' }}>
-                              {loadingBrokerSymbols ? "Fetching symbols..." : "No matching symbols found"}
-                            </div>
-                          )}
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-                {mappingMessage && (
-                  <div style={{
-                    fontSize: '11px',
-                    color: mappingMessage.includes('successfully') ? '#10b981' : '#ef4444',
-                    backgroundColor: mappingMessage.includes('successfully') ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                    border: `1px solid ${mappingMessage.includes('successfully') ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`,
-                    padding: '8px 12px',
-                    borderRadius: '6px',
-                    textAlign: 'center'
-                  }}>
-                    {mappingMessage}
-                  </div>
-                )}
-                <button 
-                  type="submit"
-                  style={{
-                    backgroundColor: '#2563eb',
-                    color: '#ffffff',
-                    border: 'none',
-                    borderRadius: '6px',
-                    padding: '10px',
-                    fontSize: '12px',
-                    fontWeight: 'bold',
-                    cursor: 'pointer',
-                    boxShadow: '0 4px 12px rgba(37, 99, 235, 0.2)'
-                  }}
-                >
-                  Save Mapping
-                </button>
-              </form>
-            </div>
-
-            {/* Right side: Existing Mappings List */}
-            <div style={{
-              backgroundColor: '#0f172a',
-              border: '1px solid #1e293b',
-              borderRadius: '12px',
-              padding: '20px',
-              overflowX: 'auto'
-            }}>
-              <h3 style={{ margin: '0 0 16px 0', fontSize: '14px', color: '#f8fafc', fontWeight: 'bold' }}>Active Mappings</h3>
-              {symbolMappings.length === 0 ? (
-                <div style={{ color: '#64748b', fontSize: '12px', textAlign: 'center', padding: '24px' }}>
-                  No symbol mappings configured. Mappings fallback to standard symbols.
-                </div>
-              ) : (
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid #1e293b', textAlign: 'left', color: '#94a3b8' }}>
-                      <th style={{ padding: '8px' }}>Main Symbol</th>
-                      <th style={{ padding: '8px' }}>Broker Config Key</th>
-                      <th style={{ padding: '8px' }}>Mapped Broker Symbol</th>
-                      <th style={{ padding: '8px', textAlign: 'right' }}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {symbolMappings.map(m => (
-                      <tr key={m.id} style={{ borderBottom: '1px solid #1e293b', color: '#cbd5e1' }}>
-                        <td style={{ padding: '8px', fontWeight: 'bold' }}>{m.main_symbol}</td>
-                        <td style={{ padding: '8px', fontFamily: 'monospace', color: '#94a3b8' }}>{m.broker_key}</td>
-                        <td style={{ padding: '8px', color: '#f59e0b', fontFamily: 'monospace' }}>{m.broker_symbol}</td>
-                        <td style={{ padding: '8px', textAlign: 'right' }}>
-                          <button 
-                            onClick={() => handleDeleteMapping(m.id)}
-                            style={{
-                              backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                              color: '#ef4444',
-                              border: '1px solid rgba(239, 68, 68, 0.2)',
-                              borderRadius: '4px',
-                              padding: '4px 8px',
-                              fontSize: '11px',
-                              cursor: 'pointer',
-                              fontWeight: 'bold'
-                            }}
-                          >
-                            Delete
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </div>
-        </div>
+        <SymbolMappingsView
+          isMobile={isMobile}
+          setView={setView}
+          isProdHost={isProdHost}
+          isAuthenticated={isAuthenticated}
+        />
       ) : (
         <>
       {/* Main Grid View */}
@@ -2787,79 +2368,16 @@ export default function Dashboard() {
                 onSaveSettings={saveBacktestSettings}
               />
             ) : (
-              <div style={{ padding: '16px' }}>
-                <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', color: '#f8fafc', fontWeight: 'bold' }}>📈 Live Trades & P&L</h3>
-                
-                {/* Stats Grid */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
-                  <div style={{ backgroundColor: '#0b0f19', border: '1px solid #1f2937', borderRadius: '8px', padding: '12px' }}>
-                    <span style={{ fontSize: '10px', color: '#94a3b8', display: 'block' }}>DAILY P&L</span>
-                    <span style={{ fontSize: '16px', fontWeight: 'bold', color: dailyPnl >= 0 ? '#10b981' : '#ef4444' }}>
-                      {dailyPnl >= 0 ? '+' : ''}${dailyPnl.toFixed(2)}
-                    </span>
-                  </div>
-                  <div style={{ backgroundColor: '#0b0f19', border: '1px solid #1f2937', borderRadius: '8px', padding: '12px' }}>
-                    <span style={{ fontSize: '10px', color: '#94a3b8', display: 'block' }}>WEEKLY P&L</span>
-                    <span style={{ fontSize: '16px', fontWeight: 'bold', color: weeklyPnl >= 0 ? '#10b981' : '#ef4444' }}>
-                      {weeklyPnl >= 0 ? '+' : ''}${weeklyPnl.toFixed(2)}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Open Positions */}
-                <h4 style={{ margin: '0 0 10px 0', fontSize: '13px', color: '#f8fafc', fontWeight: 'bold' }}>Active Positions</h4>
-                {openPositions.length === 0 ? (
-                  <div style={{ color: '#64748b', fontSize: '12px', paddingBottom: '20px' }}>No active positions.</div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
-                    {openPositions.map(p => (
-                      <div key={p.position_id} style={{ backgroundColor: '#0b0f19', border: '1px solid #1f2937', borderRadius: '8px', padding: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                          <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#f8fafc' }}>{p.symbol} ({p.volume})</span>
-                          <span style={{ fontSize: '10px', color: p.trade_side === 'BUY' ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>{p.trade_side} @ {p.entry_price.toFixed(5)}</span>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <span style={{ fontSize: '12px', fontWeight: 'bold', color: p.unrealized_profit >= 0 ? '#10b981' : '#ef4444' }}>${p.unrealized_profit.toFixed(2)}</span>
-                          <button 
-                            onClick={() => handleClosePosition(p)}
-                            style={{
-                              backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                              color: '#ef4444',
-                              border: '1px solid rgba(239, 68, 68, 0.2)',
-                              borderRadius: '6px',
-                              padding: '4px 10px',
-                              fontSize: '11px',
-                              cursor: 'pointer',
-                              fontWeight: 'bold'
-                            }}
-                          >
-                            Close
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Closed Deals */}
-                <h4 style={{ margin: '0 0 10px 0', fontSize: '13px', color: '#f8fafc', fontWeight: 'bold' }}>History</h4>
-                {loadingHistory ? (
-                  <div style={{ color: '#64748b', fontSize: '12px' }}>Loading history...</div>
-                ) : historyError ? (
-                  <div style={{ color: '#ef4444', fontSize: '12px' }}>{historyError}</div>
-                ) : historyTrades.length === 0 ? (
-                  <div style={{ color: '#64748b', fontSize: '12px' }}>No history found.</div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '250px', overflowY: 'auto' }}>
-                    {historyTrades.slice(0, 15).map(h => (
-                      <div key={h.ticket} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', borderBottom: '1px solid #1f2937', paddingBottom: '6px' }}>
-                        <span style={{ color: '#94a3b8' }}>{h.symbol} ({h.volume})</span>
-                        <span style={{ fontWeight: 'bold', color: h.profit >= 0 ? '#10b981' : '#ef4444' }}>{h.profit >= 0 ? '+' : ''}${h.profit.toFixed(2)}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <LiveTradesPanel
+                dailyPnl={dailyPnl}
+                weeklyPnl={weeklyPnl}
+                openPositions={openPositions}
+                historyTrades={historyTrades}
+                loadingHistory={loadingHistory}
+                historyError={historyError}
+                handleClosePosition={handleClosePosition}
+                isMobileLayout={true}
+              />
             )}
           </div>
         ) : (
@@ -3118,75 +2636,17 @@ export default function Dashboard() {
                     <span>📈 Live Trades & P&L</span>
                     <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header to Move</span>
                   </div>
-                  <div className="no-drag" style={{ ...contentStyle, height: '100%', overflowY: 'auto' }}>
-                    {/* Stats Grid */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
-                      <div style={{ backgroundColor: '#0b0f19', border: '1px solid #1f2937', borderRadius: '8px', padding: '10px' }}>
-                        <span style={{ fontSize: '10px', color: '#94a3b8', display: 'block' }}>DAILY P&L</span>
-                        <span style={{ fontSize: '14px', fontWeight: 'bold', color: dailyPnl >= 0 ? '#10b981' : '#ef4444' }}>
-                          {dailyPnl >= 0 ? '+' : ''}${dailyPnl.toFixed(2)}
-                        </span>
-                      </div>
-                      <div style={{ backgroundColor: '#0b0f19', border: '1px solid #1f2937', borderRadius: '8px', padding: '10px' }}>
-                        <span style={{ fontSize: '10px', color: '#94a3b8', display: 'block' }}>WEEKLY P&L</span>
-                        <span style={{ fontSize: '14px', fontWeight: 'bold', color: weeklyPnl >= 0 ? '#10b981' : '#ef4444' }}>
-                          {weeklyPnl >= 0 ? '+' : ''}${weeklyPnl.toFixed(2)}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Open Positions */}
-                    <h4 style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#f8fafc', fontWeight: 'bold' }}>Positions</h4>
-                    {openPositions.length === 0 ? (
-                      <div style={{ color: '#64748b', fontSize: '11px', paddingBottom: '16px' }}>No active positions.</div>
-                    ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
-                        {openPositions.map(p => (
-                          <div key={p.position_id} style={{ backgroundColor: '#0b0f19', border: '1px solid #1f2937', borderRadius: '6px', padding: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                              <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#f8fafc' }}>{p.symbol} ({p.volume})</span>
-                              <span style={{ fontSize: '9px', color: p.trade_side === 'BUY' ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>{p.trade_side} @ {p.entry_price.toFixed(5)}</span>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <span style={{ fontSize: '11px', fontWeight: 'bold', color: p.unrealized_profit >= 0 ? '#10b981' : '#ef4444' }}>${p.unrealized_profit.toFixed(2)}</span>
-                              <button 
-                                onClick={() => handleClosePosition(p)}
-                                style={{
-                                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                                  color: '#ef4444',
-                                  border: '1px solid rgba(239, 68, 68, 0.2)',
-                                  borderRadius: '4px',
-                                  padding: '2px 6px',
-                                  fontSize: '9px',
-                                  cursor: 'pointer'
-                                }}
-                              >
-                                Close
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Closed Deals */}
-                    <h4 style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#f8fafc', fontWeight: 'bold' }}>History</h4>
-                    {loadingHistory ? (
-                      <div style={{ color: '#64748b', fontSize: '11px' }}>Loading...</div>
-                    ) : historyError ? (
-                      <div style={{ color: '#ef4444', fontSize: '11px' }}>{historyError}</div>
-                    ) : historyTrades.length === 0 ? (
-                      <div style={{ color: '#64748b', fontSize: '11px' }}>No history.</div>
-                    ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '180px', overflowY: 'auto' }}>
-                        {historyTrades.slice(0, 10).map(h => (
-                          <div key={h.ticket} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', borderBottom: '1px solid #1f2937', paddingBottom: '4px' }}>
-                            <span style={{ color: '#94a3b8' }}>{h.symbol} ({h.volume})</span>
-                            <span style={{ fontWeight: 'bold', color: h.profit >= 0 ? '#10b981' : '#ef4444' }}>{h.profit >= 0 ? '+' : ''}${h.profit.toFixed(2)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                  <div className="no-drag" style={contentStyle}>
+                    <LiveTradesPanel
+                      dailyPnl={dailyPnl}
+                      weeklyPnl={weeklyPnl}
+                      openPositions={openPositions}
+                      historyTrades={historyTrades}
+                      loadingHistory={loadingHistory}
+                      historyError={historyError}
+                      handleClosePosition={handleClosePosition}
+                      isMobileLayout={false}
+                    />
                   </div>
                   {renderResizeHandle('trades')}
                 </div>
