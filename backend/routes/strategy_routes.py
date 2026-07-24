@@ -123,7 +123,8 @@ def backtest():
                 use_global_close=use_global_close,
                 global_close_time=global_close_time,
                 progress_callback=cb,
-                entry_stability_rule=entry_stability_rule
+                entry_stability_rule=entry_stability_rule,
+                broker=candle_source
             )
             q.put({"status": "success", "data": res})
         except Exception as e:
@@ -362,10 +363,22 @@ def backtest_optimize():
 def get_backtest_results():
     """
     Exposes the latest generated backtest_results.json.
+    Supports optional 'broker' and 'symbol' query parameters to retrieve specific run results.
     """
     import os
     import json
-    results_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'backtest_results.json')
+    broker = request.args.get('broker')
+    symbol = request.args.get('symbol')
+    
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    results_path = os.path.join(base_dir, 'backtest_results.json')
+    
+    if broker and symbol:
+        specific_filename = f"backtest_results_{broker.lower()}_{symbol.upper()}.json"
+        specific_path = os.path.join(base_dir, specific_filename)
+        if os.path.exists(specific_path):
+            results_path = specific_path
+
     if os.path.exists(results_path):
         try:
             with open(results_path, 'r') as f:

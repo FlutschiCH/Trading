@@ -42,7 +42,8 @@ class StrategyHandler:
         use_global_close: bool = False,
         global_close_time: str = '',
         progress_callback = None,
-        entry_stability_rule: str = 'default'
+        entry_stability_rule: str = 'default',
+        broker: str = 'metatrader'
     ) -> dict:
         """
         Runs the full Wyckoff structure analysis backtest in Python.
@@ -120,6 +121,11 @@ class StrategyHandler:
             }
             results_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'backtest_results.json')
             with open(results_path, 'w') as f:
+                json.dump(results_to_save, f, indent=4)
+            # Save specific backtest results for broker + symbol
+            specific_filename = f"backtest_results_{broker.lower()}_{symbol.upper()}.json"
+            specific_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), specific_filename)
+            with open(specific_path, 'w') as f:
                 json.dump(results_to_save, f, indent=4)
         except Exception as e:
             print(f"Failed to save backtest results to JSON: {e}", flush=True)
