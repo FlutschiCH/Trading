@@ -72,7 +72,7 @@ interface WyckoffBacktesterProps {
   setEntryStabilityRule: (val: string) => void;
   hiddenStages?: string[];
   setHiddenStages?: (stages: string[]) => void;
-  
+
   // Optimization props
   isOptimizeMode: boolean;
   setIsOptimizeMode: (val: boolean) => void;
@@ -158,7 +158,7 @@ export default function WyckoffBacktester({
   setEntryStabilityRule,
   hiddenStages = [],
   setHiddenStages,
-  
+
   isOptimizeMode,
   setIsOptimizeMode,
   rrStart,
@@ -212,7 +212,7 @@ export default function WyckoffBacktester({
         overflow: 'hidden',
         transition: 'all 0.2s'
       }}>
-        <div 
+        <div
           onClick={() => toggleSection(sectionKey)}
           style={{
             display: 'flex',
@@ -253,7 +253,7 @@ export default function WyckoffBacktester({
 
   const handleAddSession = () => {
     if (!newStart || !newEnd) return;
-    
+
     if (editingSessionId) {
       setTradingSessions(tradingSessions.map(s => s.id === editingSessionId ? {
         ...s,
@@ -276,7 +276,7 @@ export default function WyckoffBacktester({
       };
       setTradingSessions([...tradingSessions, newSession]);
     }
-    
+
     // Reset form to defaults
     setNewStart('09:00');
     setNewEnd('17:00');
@@ -327,7 +327,7 @@ export default function WyckoffBacktester({
       const backendUrl = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1')
         ? 'http://localhost:8751/api/backtest/results'
         : `${window.location.origin}/api/backtest/results`;
-        
+
       const res = await fetch(backendUrl);
       const json = await res.json();
       if (json.status === 'success') {
@@ -374,7 +374,7 @@ export default function WyckoffBacktester({
         fontSize: '12px',
       }}>
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '-4px' }}>
-          <button 
+          <button
             onClick={isOptimizeMode ? onRunOptimization : onRunBacktest}
             style={{
               display: 'flex',
@@ -446,9 +446,9 @@ export default function WyckoffBacktester({
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             <div style={styles.formGroup}>
               <label style={{ color: '#9ca3af', fontSize: '11px' }}>Starting Balance ($)</label>
-              <input 
-                type="number" 
-                value={backtestBalance} 
+              <input
+                type="number"
+                value={backtestBalance}
                 onChange={(e) => setBacktestBalance(e.target.value)}
                 style={styles.input}
                 min="100"
@@ -457,9 +457,9 @@ export default function WyckoffBacktester({
 
             <div style={styles.formGroup}>
               <label style={{ color: '#9ca3af', fontSize: '11px' }}>Fees per side (%)</label>
-              <input 
-                type="number" 
-                value={backtestFees} 
+              <input
+                type="number"
+                value={backtestFees}
                 onChange={(e) => setBacktestFees(e.target.value)}
                 style={styles.input}
                 step="0.01"
@@ -472,8 +472,8 @@ export default function WyckoffBacktester({
           <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '12px', alignItems: 'end' }}>
             <div style={{ ...styles.formGroup, justifyContent: 'center', height: '100%' }}>
               <label style={{ color: '#9ca3af', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', margin: 0 }}>
-                <input 
-                  type="checkbox" 
+                <input
+                  type="checkbox"
                   checked={useRiskSizing}
                   onChange={(e) => setUseRiskSizing(e.target.checked)}
                   style={{ cursor: 'pointer' }}
@@ -485,9 +485,9 @@ export default function WyckoffBacktester({
             {useRiskSizing ? (
               <div style={styles.formGroup}>
                 <label style={{ color: '#9ca3af', fontSize: '11px' }}>Risk %</label>
-                <input 
-                  type="number" 
-                  value={backtestRiskPct} 
+                <input
+                  type="number"
+                  value={backtestRiskPct}
                   onChange={(e) => setBacktestRiskPct(e.target.value)}
                   style={styles.input}
                   step="0.1"
@@ -498,9 +498,9 @@ export default function WyckoffBacktester({
             ) : (
               <div style={styles.formGroup}>
                 <label style={{ color: '#9ca3af', fontSize: '11px' }}>Qty (Size)</label>
-                <input 
-                  type="number" 
-                  value={backtestSize} 
+                <input
+                  type="number"
+                  value={backtestSize}
                   onChange={(e) => setBacktestSize(e.target.value)}
                   style={styles.input}
                   step="0.1"
@@ -527,9 +527,9 @@ export default function WyckoffBacktester({
             <div style={styles.formGroup}>
               <label style={{ color: '#9ca3af', fontSize: '11px' }}>Stop Loss</label>
               <div style={{ display: 'flex', gap: '4px' }}>
-                <input 
-                  type="number" 
-                  value={backtestSL} 
+                <input
+                  type="number"
+                  value={backtestSL}
                   onChange={(e) => setBacktestSL(e.target.value)}
                   style={{ ...styles.input, flexGrow: 1, minWidth: 0 }}
                   step={backtestSLType === 'pct' ? '0.1' : '1'}
@@ -562,9 +562,9 @@ export default function WyckoffBacktester({
             {!isOptimizeMode ? (
               <div style={styles.formGroup}>
                 <label style={{ color: '#9ca3af', fontSize: '11px' }}>RR Ratio</label>
-                <input 
-                  type="number" 
-                  value={backtestRR} 
+                <input
+                  type="number"
+                  value={backtestRR}
                   onChange={(e) => setBacktestRR(e.target.value)}
                   style={styles.input}
                   step="0.1"
@@ -608,8 +608,8 @@ export default function WyckoffBacktester({
           <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '12px', alignItems: 'end' }}>
             <div style={{ ...styles.formGroup, height: '100%', justifyContent: 'center' }}>
               <label style={{ color: '#9ca3af', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', margin: 0 }}>
-                <input 
-                  type="checkbox" 
+                <input
+                  type="checkbox"
                   checked={useBreakEven}
                   onChange={(e) => setUseBreakEven(e.target.checked)}
                   style={{ cursor: 'pointer' }}
@@ -621,9 +621,9 @@ export default function WyckoffBacktester({
             {useBreakEven ? (
               <div style={styles.formGroup}>
                 <label style={{ color: '#9ca3af', fontSize: '11px' }}>BE Trigger (R)</label>
-                <input 
-                  type="number" 
-                  value={backtestBE} 
+                <input
+                  type="number"
+                  value={backtestBE}
                   onChange={(e) => setBacktestBE(e.target.value)}
                   style={styles.input}
                   step="0.1"
@@ -633,9 +633,9 @@ export default function WyckoffBacktester({
             ) : (
               <div style={styles.formGroup}>
                 <label style={{ color: '#9ca3af', fontSize: '11px' }}>Sweep Lookback</label>
-                <input 
-                  type="number" 
-                  value={lookbackWindow} 
+                <input
+                  type="number"
+                  value={lookbackWindow}
                   onChange={(e) => setLookbackWindow(e.target.value)}
                   style={styles.input}
                   min="5"
@@ -648,8 +648,8 @@ export default function WyckoffBacktester({
           {/* Allow Opposite Close setting */}
           <div style={styles.formGroup}>
             <label style={{ color: '#9ca3af', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', margin: 0 }}>
-              <input 
-                type="checkbox" 
+              <input
+                type="checkbox"
                 checked={allowOppositeClose}
                 onChange={(e) => setAllowOppositeClose(e.target.checked)}
                 style={{ cursor: 'pointer' }}
@@ -663,9 +663,9 @@ export default function WyckoffBacktester({
             {useBreakEven && (
               <div style={styles.formGroup}>
                 <label style={{ color: '#9ca3af', fontSize: '11px' }}>Sweep Lookback (Bars)</label>
-                <input 
-                  type="number" 
-                  value={lookbackWindow} 
+                <input
+                  type="number"
+                  value={lookbackWindow}
                   onChange={(e) => setLookbackWindow(e.target.value)}
                   style={styles.input}
                   min="5"
@@ -675,9 +675,9 @@ export default function WyckoffBacktester({
             )}
             <div style={styles.formGroup}>
               <label style={{ color: '#9ca3af', fontSize: '11px' }}>Daily Retry Limit</label>
-              <input 
-                type="number" 
-                value={dailyRetryLimit} 
+              <input
+                type="number"
+                value={dailyRetryLimit}
                 onChange={(e) => {
                   const val = Math.max(0, parseInt(e.target.value) || 0);
                   setDailyRetryLimit(val.toString());
@@ -763,14 +763,14 @@ export default function WyckoffBacktester({
                     }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <input 
+                          <input
                             type="checkbox"
                             checked={s.active !== false}
                             onChange={() => toggleSessionActive(s.id)}
                             style={{ cursor: 'pointer' }}
                           />
-                          <span style={{ 
-                            color: '#ffffff', 
+                          <span style={{
+                            color: '#ffffff',
                             fontWeight: 'bold',
                             textDecoration: s.active === false ? 'line-through' : 'none',
                             opacity: s.active === false ? 0.5 : 1
@@ -952,8 +952,8 @@ export default function WyckoffBacktester({
         <CollapsibleCard title="Indicators" sectionKey="indicators">
           <div style={{ display: 'flex', gap: '16px' }}>
             <label style={{ color: '#cbd5e1', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-              <input 
-                type="checkbox" 
+              <input
+                type="checkbox"
                 checked={enabledIndicators?.fvg}
                 onChange={(e) => setEnabledIndicators({ ...enabledIndicators, fvg: e.target.checked })}
                 style={{ cursor: 'pointer' }}
@@ -977,24 +977,24 @@ export default function WyckoffBacktester({
             ].map(stage => {
               const isHidden = hiddenStages.includes(stage.id);
               return (
-                <div 
+                <div
                   key={stage.id}
                   onClick={() => {
                     if (setHiddenStages) {
                       setHiddenStages(
-                        isHidden 
-                          ? hiddenStages.filter(s => s !== stage.id) 
+                        isHidden
+                          ? hiddenStages.filter(s => s !== stage.id)
                           : [...hiddenStages, stage.id]
                       );
                     }
                   }}
-                  style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: '6px', 
-                    fontSize: '10px', 
-                    fontWeight: '500', 
-                    color: '#f1f5f9', 
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: '10px',
+                    fontWeight: '500',
+                    color: '#f1f5f9',
                     cursor: 'pointer',
                     opacity: isHidden ? 0.35 : 1,
                     textDecoration: isHidden ? 'line-through' : 'none',
@@ -1018,7 +1018,7 @@ export default function WyckoffBacktester({
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontWeight: 'bold', color: '#cbd5e1', fontSize: '11px' }}>Date Range Settings</span>
             {dateRangeOption !== 'last_candles' && (
-              <button 
+              <button
                 onClick={() => {
                   setDateRangeOption('last_candles');
                   setCustomFrom('');
@@ -1038,11 +1038,11 @@ export default function WyckoffBacktester({
               </button>
             )}
           </div>
-          
+
           <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '12px', alignItems: 'end' }}>
             <div style={styles.formGroup}>
               <label style={{ color: '#9ca3af', fontSize: '11px' }}>Filter Option</label>
-              <select 
+              <select
                 value={dateRangeOption}
                 onChange={(e) => setDateRangeOption(e.target.value)}
                 style={styles.input}
@@ -1055,11 +1055,11 @@ export default function WyckoffBacktester({
                 <option value="custom">Custom Range</option>
               </select>
             </div>
-            
+
             {dateRangeOption === 'last_candles' && (
               <div style={styles.formGroup}>
                 <label style={{ color: '#9ca3af', fontSize: '11px' }}>Candle Limit</label>
-                <select 
+                <select
                   value={candleLimit}
                   onChange={(e) => setCandleLimit(parseInt(e.target.value))}
                   style={styles.input}
@@ -1077,8 +1077,8 @@ export default function WyckoffBacktester({
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               <div style={styles.formGroup}>
                 <label style={{ color: '#9ca3af', fontSize: '11px' }}>From Date</label>
-                <input 
-                  type="datetime-local" 
+                <input
+                  type="datetime-local"
                   value={customFrom}
                   onChange={(e) => setCustomFrom(e.target.value)}
                   style={styles.input}
@@ -1086,8 +1086,8 @@ export default function WyckoffBacktester({
               </div>
               <div style={styles.formGroup}>
                 <label style={{ color: '#9ca3af', fontSize: '11px' }}>To Date</label>
-                <input 
-                  type="datetime-local" 
+                <input
+                  type="datetime-local"
                   value={customTo}
                   onChange={(e) => setCustomTo(e.target.value)}
                   style={styles.input}
@@ -1116,672 +1116,673 @@ export default function WyckoffBacktester({
                 <span style={{ textAlign: 'right' }}>Prof. Fact</span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '350px', overflowY: 'auto' }}>
-              {optimizationResults.map((r, idx) => {
-                const isProfit = r.netPnl >= 0;
-                return (
-                  <div key={idx} style={{
-                    ...styles.positionRow,
-                    display: 'grid',
-                    gridTemplateColumns: '1fr 1fr 1.2fr 1fr 1fr',
-                    padding: '8px 8px',
-                    alignItems: 'center',
-                    borderLeft: `3px solid ${isProfit ? '#10b981' : '#ef4444'}`,
-                    backgroundColor: 'rgba(31, 41, 55, 0.25)',
-                    borderRadius: '4px'
+                {optimizationResults.map((r, idx) => {
+                  const isProfit = r.netPnl >= 0;
+                  return (
+                    <div key={idx} style={{
+                      ...styles.positionRow,
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 1fr 1.2fr 1fr 1fr',
+                      padding: '8px 8px',
+                      alignItems: 'center',
+                      borderLeft: `3px solid ${isProfit ? '#10b981' : '#ef4444'}`,
+                      backgroundColor: 'rgba(31, 41, 55, 0.25)',
+                      borderRadius: '4px'
+                    }}>
+                      <span style={{ fontWeight: 'bold', color: '#ffffff' }}>1:{r.rr.toFixed(1)}</span>
+                      <span style={{ textAlign: 'center', color: r.winRate >= 50 ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>
+                        {r.winRate.toFixed(1)}%
+                      </span>
+                      <span style={{ textAlign: 'center', color: isProfit ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>
+                        ${r.netPnl.toFixed(2)}
+                      </span>
+                      <span style={{ textAlign: 'center', color: '#ffffff' }}>{r.totalTrades}</span>
+                      <span style={{ textAlign: 'right', color: '#ffffff', fontWeight: 'bold' }}>{r.profitFactor.toFixed(2)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </CollapsibleCard>
+        )}
+
+        {(backtestResults || favouriteCandles.length > 0) && (
+          <CollapsibleCard title="Trades & Results" sectionKey="trades">
+            {backtestResults && (
+              <>
+                {backtestResults.dailyLossBreached && (
+                  <div style={{
+                    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                    border: '1px solid #ef4444',
+                    borderRadius: '8px',
+                    padding: '8px',
+                    color: '#ef4444',
+                    fontSize: '11px',
+                    fontWeight: 'bold',
+                    textAlign: 'center',
+                    marginTop: '4px'
                   }}>
-                    <span style={{ fontWeight: 'bold', color: '#ffffff' }}>1:{r.rr.toFixed(1)}</span>
-                    <span style={{ textAlign: 'center', color: r.winRate >= 50 ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>
-                      {r.winRate.toFixed(1)}%
+                    ⚠️ FTMO 5% Daily Loss Rule Breached!
+                  </div>
+                )}
+
+                {/* AI Assistant Helpers */}
+                <div style={{
+                  backgroundColor: 'rgba(30, 41, 59, 0.4)',
+                  border: '1px solid #1e293b',
+                  borderRadius: '8px',
+                  padding: '10px',
+                  marginTop: '8px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: '#cbd5e1', fontSize: '10px', fontWeight: 'bold', letterSpacing: '0.5px' }}>ASK AI ASSISTANT</span>
+                    {copied && <span style={{ color: '#10b981', fontSize: '10px', fontWeight: 'bold' }}>✓ Copied!</span>}
+                  </div>
+
+                  <button
+                    onClick={handleCopy}
+                    style={{
+                      backgroundColor: copied ? '#065f46' : '#2563eb',
+                      border: 'none',
+                      color: '#ffffff',
+                      padding: '6px 12px',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '11px',
+                      fontWeight: 'bold',
+                      transition: 'all 0.2s',
+                      textAlign: 'center',
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    {copied ? '✓ JSON Copied!' : '📋 Copy backtest_results.json'}
+                  </button>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px' }}>
+                    <a
+                      href="https://gemini.google.com/"
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{
+                        backgroundColor: '#1e293b',
+                        border: '1px solid #334155',
+                        color: '#60a5fa',
+                        padding: '6px 4px',
+                        borderRadius: '4px',
+                        textDecoration: 'none',
+                        textAlign: 'center',
+                        fontSize: '11px',
+                        fontWeight: 'bold',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '4px',
+                        transition: 'background-color 0.2s'
+                      }}
+                      onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#334155')}
+                      onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#1e293b')}
+                    >
+                      ✨ Gemini
+                    </a>
+                    <a
+                      href="https://chatgpt.com/"
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{
+                        backgroundColor: '#1e293b',
+                        border: '1px solid #334155',
+                        color: '#10b981',
+                        padding: '6px 4px',
+                        borderRadius: '4px',
+                        textDecoration: 'none',
+                        textAlign: 'center',
+                        fontSize: '11px',
+                        fontWeight: 'bold',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '4px',
+                        transition: 'background-color 0.2s'
+                      }}
+                      onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#334155')}
+                      onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#1e293b')}
+                    >
+                      💬 ChatGPT
+                    </a>
+                    <a
+                      href="https://grok.com/"
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{
+                        backgroundColor: '#1e293b',
+                        border: '1px solid #334155',
+                        color: '#f59e0b',
+                        padding: '6px 4px',
+                        borderRadius: '4px',
+                        textDecoration: 'none',
+                        textAlign: 'center',
+                        fontSize: '11px',
+                        fontWeight: 'bold',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '4px',
+                        transition: 'background-color 0.2s'
+                      }}
+                      onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#334155')}
+                      onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#1e293b')}
+                    >
+                      🚀 Grok
+                    </a>
+                  </div>
+                </div>
+              </>
+            )}
+
+            <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid #1f2937', paddingBottom: '4px', marginTop: '8px' }}>
+              {backtestResults && (
+                <>
+                  <button
+                    onClick={() => setBacktestTab('trades')}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: backtestTab === 'trades' ? '#3b82f6' : '#9ca3af',
+                      fontWeight: 'bold',
+                      fontSize: '11px',
+                      cursor: 'pointer',
+                      borderBottom: backtestTab === 'trades' ? '2px solid #3b82f6' : 'none',
+                      paddingBottom: '2px'
+                    }}
+                  >
+                    Trades ({backtestResults.trades.length})
+                  </button>
+                  <button
+                    onClick={() => setBacktestTab('weekly')}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: backtestTab === 'weekly' ? '#3b82f6' : '#9ca3af',
+                      fontWeight: 'bold',
+                      fontSize: '11px',
+                      cursor: 'pointer',
+                      borderBottom: backtestTab === 'weekly' ? '2px solid #3b82f6' : 'none',
+                      paddingBottom: '2px'
+                    }}
+                  >
+                    Weekly
+                  </button>
+                  <button
+                    onClick={() => setBacktestTab('monthly')}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: backtestTab === 'monthly' ? '#3b82f6' : '#9ca3af',
+                      fontWeight: 'bold',
+                      fontSize: '11px',
+                      cursor: 'pointer',
+                      borderBottom: backtestTab === 'monthly' ? '2px solid #3b82f6' : 'none',
+                      paddingBottom: '2px'
+                    }}
+                  >
+                    Monthly
+                  </button>
+                  <button
+                    onClick={() => setBacktestTab('hourly')}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: backtestTab === 'hourly' ? '#3b82f6' : '#9ca3af',
+                      fontWeight: 'bold',
+                      fontSize: '11px',
+                      cursor: 'pointer',
+                      borderBottom: backtestTab === 'hourly' ? '2px solid #3b82f6' : 'none',
+                      paddingBottom: '2px'
+                    }}
+                  >
+                    Hourly
+                  </button>
+                </>
+              )}
+              <button
+                onClick={() => setBacktestTab('favourites')}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: backtestTab === 'favourites' ? '#eab308' : '#9ca3af',
+                  fontWeight: 'bold',
+                  fontSize: '11px',
+                  cursor: 'pointer',
+                  borderBottom: backtestTab === 'favourites' ? '2px solid #eab308' : 'none',
+                  paddingBottom: '2px'
+                }}
+              >
+                ⭐ Favourites ({favouriteCandles.length})
+              </button>
+            </div>
+
+            {backtestTab === 'trades' && backtestResults && (
+              <div style={{ display: 'flex', gap: '8px', padding: '6px 0', alignItems: 'center', marginBottom: '4px' }}>
+                <span style={{ fontSize: '10px', color: '#9ca3af' }}>Filter:</span>
+                <button
+                  onClick={() => setTradeFilter('all')}
+                  style={{
+                    background: tradeFilter === 'all' ? '#1f2937' : 'none',
+                    border: '1px solid #1f2937',
+                    color: tradeFilter === 'all' ? '#ffffff' : '#9ca3af',
+                    fontSize: '9px',
+                    fontWeight: 'bold',
+                    padding: '2px 8px',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s'
+                  }}
+                >
+                  All
+                </button>
+                <button
+                  onClick={() => setTradeFilter('wins')}
+                  style={{
+                    background: tradeFilter === 'wins' ? 'rgba(16, 185, 129, 0.2)' : 'none',
+                    border: '1px solid rgba(16, 185, 129, 0.4)',
+                    color: '#10b981',
+                    fontSize: '9px',
+                    fontWeight: 'bold',
+                    padding: '2px 8px',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s'
+                  }}
+                >
+                  Wins
+                </button>
+                <button
+                  onClick={() => setTradeFilter('losses')}
+                  style={{
+                    background: tradeFilter === 'losses' ? 'rgba(239, 68, 68, 0.2)' : 'none',
+                    border: '1px solid rgba(239, 68, 68, 0.4)',
+                    color: '#ef4444',
+                    fontSize: '9px',
+                    fontWeight: 'bold',
+                    padding: '2px 8px',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s'
+                  }}
+                >
+                  Losses
+                </button>
+              </div>
+            )}
+
+            <div style={{ ...styles.positionsList, maxHeight: '350px', overflowY: 'auto' }}>
+              {backtestTab === 'trades' && backtestResults && backtestResults.trades.map((trade: any) => (
+                <div
+                  key={trade.id}
+                  onClick={() => {
+                    setSelectedTrade(trade);
+                    setShowModal(true);
+                  }}
+                  style={{
+                    ...styles.positionRow,
+                    cursor: 'pointer',
+                    border: selectedTrade?.id === trade.id
+                      ? '1.5px solid #3b82f6'
+                      : (trade.pnl >= 0 ? '1.5px solid rgba(16, 185, 129, 0.4)' : '1.5px solid rgba(239, 68, 68, 0.4)'),
+                    transform: selectedTrade?.id === trade.id ? 'scale(1.02)' : 'scale(1)',
+                    opacity: tradeFilter === 'all'
+                      ? 1
+                      : (tradeFilter === 'wins' ? (trade.pnl >= 0 ? 1 : 0.3) : (trade.pnl < 0 ? 1 : 0.3)),
+                    transition: 'all 0.15s'
+                  }}
+                >
+                  <div style={styles.posDetails}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{
+                        fontSize: '9px',
+                        fontWeight: 'bold',
+                        textTransform: 'uppercase',
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        border: `1.5px solid ${trade.type === 'BUY' ? '#10b981' : '#ef4444'}`,
+                        backgroundColor: trade.type === 'BUY' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                        color: trade.type === 'BUY' ? '#10b981' : '#ef4444',
+                        display: 'inline-block',
+                        lineHeight: '1',
+                      }}>
+                        {trade.type}
+                      </span>
+                      <span style={{ color: '#ffffff', fontWeight: 'bold' }}>
+                        @{formatPrice(trade.entryPrice, symbol)}
+                      </span>
+                    </div>
+                    <span style={{ fontSize: '10px', color: '#6b7280' }}>
+                      Exit: {formatPrice(trade.exitPrice, symbol)} | Fees: ${trade.fees ? trade.fees.toFixed(2) : '0.00'} | {trade.time}
                     </span>
-                    <span style={{ textAlign: 'center', color: isProfit ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>
-                      ${r.netPnl.toFixed(2)}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={styles.posPnl(trade.pnl >= 0)}>
+                      {trade.pnl >= 0 ? '+' : ''}${trade.pnl.toFixed(2)}
                     </span>
-                    <span style={{ textAlign: 'center', color: '#ffffff' }}>{r.totalTrades}</span>
-                    <span style={{ textAlign: 'right', color: '#ffffff', fontWeight: 'bold' }}>{r.profitFactor.toFixed(2)}</span>
+                    {onLocateCandle && trade.entryTimestamp && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onLocateCandle({
+                            symbol: symbol,
+                            timeframe: timeframe,
+                            candle_time: trade.entryTimestamp
+                          });
+                        }}
+                        style={{
+                          background: 'rgba(59, 130, 246, 0.15)',
+                          border: '1px solid rgba(59, 130, 246, 0.3)',
+                          color: '#3b82f6',
+                          borderRadius: '4px',
+                          padding: '2px 6px',
+                          fontSize: '9px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                        title="Go to Trade"
+                      >
+                        📍
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+              {backtestTab === 'weekly' && backtestResults && backtestResults.weeklyBreakdown && Object.keys(backtestResults.weeklyBreakdown).sort().reverse().map((week) => {
+                const pnl = backtestResults.weeklyBreakdown![week];
+                return (
+                  <div key={week} style={styles.positionRow}>
+                    <span style={{ fontWeight: 'bold', color: '#ffffff' }}>{week}</span>
+                    <span style={styles.posPnl(pnl >= 0)}>
+                      {pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}
+                    </span>
+                  </div>
+                );
+              })}
+
+              {backtestTab === 'monthly' && backtestResults && backtestResults.monthlyBreakdown && Object.keys(backtestResults.monthlyBreakdown).sort().reverse().map((month) => {
+                const pnl = backtestResults.monthlyBreakdown![month];
+                return (
+                  <div key={month} style={styles.positionRow}>
+                    <span style={{ fontWeight: 'bold', color: '#ffffff' }}>{month}</span>
+                    <span style={styles.posPnl(pnl >= 0)}>
+                      {pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}
+                    </span>
+                  </div>
+                );
+              })}
+
+              {backtestTab === 'hourly' && backtestResults && (() => {
+                const hourlyStats: { [hour: number]: { count: number; wins: number; pnl: number } } = {};
+
+                (backtestResults.trades || []).forEach((trade: any) => {
+                  if (!trade.entryTimestamp) return;
+                  const date = new Date(trade.entryTimestamp * 1000);
+                  const hour = sessionsTimezone === 'UTC' ? date.getUTCHours() : date.getHours();
+
+                  if (!hourlyStats[hour]) {
+                    hourlyStats[hour] = { count: 0, wins: 0, pnl: 0 };
+                  }
+
+                  hourlyStats[hour].count += 1;
+                  hourlyStats[hour].pnl += trade.pnl;
+                  if (trade.outcome === 'WIN' || trade.pnl >= 0) {
+                    hourlyStats[hour].wins += 1;
+                  }
+                });
+
+                const sortedHours = Object.keys(hourlyStats).map(Number).sort((a, b) => a - b);
+
+                if (sortedHours.length === 0) {
+                  return <div style={{ color: '#9ca3af', padding: '12px', fontSize: '11px', textAlign: 'center' }}>No trades recorded.</div>;
+                }
+
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: '1.2fr 0.8fr 1fr 1fr',
+                      padding: '6px 8px',
+                      fontSize: '10px',
+                      fontWeight: 'bold',
+                      color: '#9ca3af',
+                      borderBottom: '1px solid #1e293b'
+                    }}>
+                      <span>Hour (Range)</span>
+                      <span style={{ textAlign: 'center' }}>Trades</span>
+                      <span style={{ textAlign: 'center' }}>Win Rate</span>
+                      <span style={{ textAlign: 'right' }}>Net Profit</span>
+                    </div>
+                    {sortedHours.map((hour) => {
+                      const stats = hourlyStats[hour];
+                      const winRate = (stats.wins / stats.count) * 100;
+                      const hourStart = `${hour.toString().padStart(2, '0')}:00`;
+                      const hourEnd = `${((hour + 1) % 24).toString().padStart(2, '0')}:00`;
+                      const isProfit = stats.pnl >= 0;
+
+                      return (
+                        <div key={hour} style={{
+                          ...styles.positionRow,
+                          display: 'grid',
+                          gridTemplateColumns: '1.2fr 0.8fr 1fr 1fr',
+                          padding: '8px 8px',
+                          alignItems: 'center',
+                          borderLeft: `3px solid ${isProfit ? '#10b981' : '#ef4444'}`
+                        }}>
+                          <span style={{ fontWeight: 'bold', color: '#ffffff' }}>{hourStart} - {hourEnd}</span>
+                          <span style={{ textAlign: 'center', color: '#ffffff' }}>{stats.count}</span>
+                          <span style={{ textAlign: 'center', color: winRate >= 50 ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>
+                            {winRate.toFixed(0)}%
+                          </span>
+                          <span style={{ textAlign: 'right', color: isProfit ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>
+                            {isProfit ? '+' : ''}${stats.pnl.toFixed(2)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+
+              {backtestTab === 'favourites' && favouriteCandles.map((fav: any) => {
+                const formattedTime = new Date(fav.candle_time * 1000).toLocaleString('de-CH', { timeZone: 'UTC' });
+                return (
+                  <div
+                    key={fav.id}
+                    style={{
+                      ...styles.positionRow,
+                      flexDirection: 'column',
+                      alignItems: 'stretch',
+                      gap: '10px',
+                      border: '1px solid #334155',
+                      padding: '12px',
+                      backgroundColor: '#0f172a'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{
+                          fontSize: '9px',
+                          fontWeight: 'bold',
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          backgroundColor: 'rgba(234, 179, 8, 0.12)',
+                          border: '1px solid #eab308',
+                          color: '#eab308'
+                        }}>
+                          {fav.symbol}
+                        </span>
+                        <span style={{ fontSize: '11px', color: '#ffffff', fontWeight: 'bold' }}>
+                          {formattedTime}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        {onLocateCandle && (
+                          <button
+                            onClick={() => onLocateCandle(fav)}
+                            style={{
+                              background: 'rgba(59, 130, 246, 0.15)',
+                              border: '1px solid rgba(59, 130, 246, 0.3)',
+                              color: '#3b82f6',
+                              borderRadius: '4px',
+                              padding: '3px 8px',
+                              fontSize: '10px',
+                              fontWeight: 'bold',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            📍 Chart
+                          </button>
+                        )}
+                        {onDeleteFavourite && (
+                          <button
+                            onClick={() => onDeleteFavourite(fav.id)}
+                            style={{
+                              background: 'rgba(239, 68, 68, 0.15)',
+                              border: '1px solid rgba(239, 68, 68, 0.3)',
+                              color: '#ef4444',
+                              borderRadius: '4px',
+                              padding: '3px 8px',
+                              fontSize: '10px',
+                              fontWeight: 'bold',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            🗑️
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div style={{ fontSize: '10px', color: '#94a3b8', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <div>OHLC: <span style={{ color: '#f8fafc', fontFamily: 'monospace' }}>O:{fav.open_val.toFixed(2)} H:{fav.high_val.toFixed(2)} L:{fav.low_val.toFixed(2)} C:{fav.close_val.toFixed(2)}</span></div>
+                      {fav.vsa_patterns && <div>VSA: <span style={{ color: '#fbbf24' }}>{fav.vsa_patterns}</span></div>}
+                      {fav.weis_wave_volume !== null && fav.weis_wave_volume !== undefined && (
+                        <div>Weis Vol: <span style={{ color: '#10b981' }}>{fav.weis_wave_volume.toFixed(1)}</span></div>
+                      )}
+                    </div>
+
+                    <div style={{ borderTop: '1px solid #1e293b', paddingTop: '8px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <input
+                        type="text"
+                        defaultValue={fav.notes || ''}
+                        placeholder="Add notes..."
+                        onBlur={(e) => {
+                          if (onUpdateNotes && e.target.value !== (fav.notes || '')) {
+                            onUpdateNotes(fav.id, e.target.value);
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && onUpdateNotes) {
+                            onUpdateNotes(fav.id, (e.target as HTMLInputElement).value);
+                            (e.target as HTMLInputElement).blur();
+                          }
+                        }}
+                        style={{
+                          flex: 1,
+                          backgroundColor: '#1e293b',
+                          border: '1px solid #334155',
+                          borderRadius: '4px',
+                          padding: '4px 8px',
+                          color: '#f8fafc',
+                          fontSize: '11px',
+                          outline: 'none'
+                        }}
+                      />
+                    </div>
                   </div>
                 );
               })}
             </div>
-          </div>
-        </CollapsibleCard>
-      )}
+          </CollapsibleCard>
+        )}
 
-      {(backtestResults || favouriteCandles.length > 0) && (
-        <CollapsibleCard title="Trades & Results" sectionKey="trades">
-          {backtestResults && (
-            <>
-              {backtestResults.dailyLossBreached && (
-                <div style={{
-                  backgroundColor: 'rgba(239, 68, 68, 0.15)',
-                  border: '1px solid #ef4444',
-                  borderRadius: '8px',
-                  padding: '8px',
-                  color: '#ef4444',
-                  fontSize: '11px',
-                  fontWeight: 'bold',
-                  textAlign: 'center',
-                  marginTop: '4px'
-                }}>
-                  ⚠️ FTMO 5% Daily Loss Rule Breached!
-                </div>
-              )}
-
-              {/* AI Assistant Helpers */}
-              <div style={{
-                backgroundColor: 'rgba(30, 41, 59, 0.4)',
-                border: '1px solid #1e293b',
-                borderRadius: '8px',
-                padding: '10px',
-                marginTop: '8px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '8px'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ color: '#cbd5e1', fontSize: '10px', fontWeight: 'bold', letterSpacing: '0.5px' }}>ASK AI ASSISTANT</span>
-                  {copied && <span style={{ color: '#10b981', fontSize: '10px', fontWeight: 'bold' }}>✓ Copied!</span>}
-                </div>
-                
-                <button
-                  onClick={handleCopy}
-                  style={{
-                    backgroundColor: copied ? '#065f46' : '#2563eb',
-                    border: 'none',
-                    color: '#ffffff',
-                    padding: '6px 12px',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '11px',
-                    fontWeight: 'bold',
-                    transition: 'all 0.2s',
-                    textAlign: 'center',
-                    width: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '4px'
-                  }}
-                >
-                  {copied ? '✓ JSON Copied!' : '📋 Copy backtest_results.json'}
-                </button>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px' }}>
-                  <a
-                    href="https://gemini.google.com/"
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{
-                      backgroundColor: '#1e293b',
-                      border: '1px solid #334155',
-                      color: '#60a5fa',
-                      padding: '6px 4px',
-                      borderRadius: '4px',
-                      textDecoration: 'none',
-                      textAlign: 'center',
-                      fontSize: '11px',
-                      fontWeight: 'bold',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '4px',
-                      transition: 'background-color 0.2s'
-                    }}
-                    onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#334155')}
-                    onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#1e293b')}
-                  >
-                    ✨ Gemini
-                  </a>
-                  <a
-                    href="https://chatgpt.com/"
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{
-                      backgroundColor: '#1e293b',
-                      border: '1px solid #334155',
-                      color: '#10b981',
-                      padding: '6px 4px',
-                      borderRadius: '4px',
-                      textDecoration: 'none',
-                      textAlign: 'center',
-                      fontSize: '11px',
-                      fontWeight: 'bold',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '4px',
-                      transition: 'background-color 0.2s'
-                    }}
-                    onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#334155')}
-                    onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#1e293b')}
-                  >
-                    💬 ChatGPT
-                  </a>
-                  <a
-                    href="https://grok.com/"
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{
-                      backgroundColor: '#1e293b',
-                      border: '1px solid #334155',
-                      color: '#f59e0b',
-                      padding: '6px 4px',
-                      borderRadius: '4px',
-                      textDecoration: 'none',
-                      textAlign: 'center',
-                      fontSize: '11px',
-                      fontWeight: 'bold',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '4px',
-                      transition: 'background-color 0.2s'
-                    }}
-                    onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#334155')}
-                    onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#1e293b')}
-                  >
-                    🚀 Grok
-                  </a>
-                </div>
-              </div>
-            </>
-          )}
-
-          <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid #1f2937', paddingBottom: '4px', marginTop: '8px' }}>
-            {backtestResults && (
-              <>
-                <button 
-                  onClick={() => setBacktestTab('trades')}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: backtestTab === 'trades' ? '#3b82f6' : '#9ca3af',
-                    fontWeight: 'bold',
-                    fontSize: '11px',
-                    cursor: 'pointer',
-                    borderBottom: backtestTab === 'trades' ? '2px solid #3b82f6' : 'none',
-                    paddingBottom: '2px'
-                  }}
-                >
-                  Trades ({backtestResults.trades.length})
-                </button>
-                <button 
-                  onClick={() => setBacktestTab('weekly')}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: backtestTab === 'weekly' ? '#3b82f6' : '#9ca3af',
-                    fontWeight: 'bold',
-                    fontSize: '11px',
-                    cursor: 'pointer',
-                    borderBottom: backtestTab === 'weekly' ? '2px solid #3b82f6' : 'none',
-                    paddingBottom: '2px'
-                  }}
-                >
-                  Weekly
-                </button>
-                <button 
-                  onClick={() => setBacktestTab('monthly')}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: backtestTab === 'monthly' ? '#3b82f6' : '#9ca3af',
-                    fontWeight: 'bold',
-                    fontSize: '11px',
-                    cursor: 'pointer',
-                    borderBottom: backtestTab === 'monthly' ? '2px solid #3b82f6' : 'none',
-                    paddingBottom: '2px'
-                  }}
-                >
-                  Monthly
-                </button>
-                <button 
-                  onClick={() => setBacktestTab('hourly')}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: backtestTab === 'hourly' ? '#3b82f6' : '#9ca3af',
-                    fontWeight: 'bold',
-                    fontSize: '11px',
-                    cursor: 'pointer',
-                    borderBottom: backtestTab === 'hourly' ? '2px solid #3b82f6' : 'none',
-                    paddingBottom: '2px'
-                  }}
-                >
-                  Hourly
-                </button>
-              </>
-            )}
-            <button 
-              onClick={() => setBacktestTab('favourites')}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: backtestTab === 'favourites' ? '#eab308' : '#9ca3af',
-                fontWeight: 'bold',
-                fontSize: '11px',
-                cursor: 'pointer',
-                borderBottom: backtestTab === 'favourites' ? '2px solid #eab308' : 'none',
-                paddingBottom: '2px'
-              }}
-            >
-              ⭐ Favourites ({favouriteCandles.length})
-            </button>
-          </div>
-
-          {backtestTab === 'trades' && backtestResults && (
-            <div style={{ display: 'flex', gap: '8px', padding: '6px 0', alignItems: 'center', marginBottom: '4px' }}>
-              <span style={{ fontSize: '10px', color: '#9ca3af' }}>Filter:</span>
-              <button 
-                onClick={() => setTradeFilter('all')}
-                style={{
-                  background: tradeFilter === 'all' ? '#1f2937' : 'none',
-                  border: '1px solid #1f2937',
-                  color: tradeFilter === 'all' ? '#ffffff' : '#9ca3af',
-                  fontSize: '9px',
-                  fontWeight: 'bold',
-                  padding: '2px 8px',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s'
-                }}
-              >
-                All
-              </button>
-              <button 
-                onClick={() => setTradeFilter('wins')}
-                style={{
-                  background: tradeFilter === 'wins' ? 'rgba(16, 185, 129, 0.2)' : 'none',
-                  border: '1px solid rgba(16, 185, 129, 0.4)',
-                  color: '#10b981',
-                  fontSize: '9px',
-                  fontWeight: 'bold',
-                  padding: '2px 8px',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s'
-                }}
-              >
-                Wins
-              </button>
-              <button 
-                onClick={() => setTradeFilter('losses')}
-                style={{
-                  background: tradeFilter === 'losses' ? 'rgba(239, 68, 68, 0.2)' : 'none',
-                  border: '1px solid rgba(239, 68, 68, 0.4)',
-                  color: '#ef4444',
-                  fontSize: '9px',
-                  fontWeight: 'bold',
-                  padding: '2px 8px',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s'
-                }}
-              >
-                Losses
-              </button>
-            </div>
-          )}
-
-          <div style={{ ...styles.positionsList, maxHeight: '350px', overflowY: 'auto' }}>
-            {backtestTab === 'trades' && backtestResults && backtestResults.trades.map((trade: any) => (
-              <div 
-                key={trade.id} 
-                onClick={() => {
-                  setSelectedTrade(trade);
-                  setShowModal(true);
-                }}
-                style={{
-                  ...styles.positionRow,
-                  cursor: 'pointer',
-                  border: selectedTrade?.id === trade.id 
-                    ? '1.5px solid #3b82f6' 
-                    : (trade.pnl >= 0 ? '1.5px solid rgba(16, 185, 129, 0.4)' : '1.5px solid rgba(239, 68, 68, 0.4)'),
-                  transform: selectedTrade?.id === trade.id ? 'scale(1.02)' : 'scale(1)',
-                  opacity: tradeFilter === 'all' 
-                    ? 1 
-                    : (tradeFilter === 'wins' ? (trade.pnl >= 0 ? 1 : 0.3) : (trade.pnl < 0 ? 1 : 0.3)),
-                  transition: 'all 0.15s'
-                }}
-              >
-                <div style={styles.posDetails}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{
-                      fontSize: '9px',
-                      fontWeight: 'bold',
-                      textTransform: 'uppercase',
-                      padding: '2px 6px',
-                      borderRadius: '4px',
-                      border: `1.5px solid ${trade.type === 'BUY' ? '#10b981' : '#ef4444'}`,
-                      backgroundColor: trade.type === 'BUY' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
-                      color: trade.type === 'BUY' ? '#10b981' : '#ef4444',
-                      display: 'inline-block',
-                      lineHeight: '1',
-                    }}>
-                      {trade.type}
-                    </span>
-                    <span style={{ color: '#ffffff', fontWeight: 'bold' }}>
-                      @{formatPrice(trade.entryPrice, symbol)}
-                    </span>
-                  </div>
-                  <span style={{ fontSize: '10px', color: '#6b7280' }}>
-                    Exit: {formatPrice(trade.exitPrice, symbol)} | Fees: ${trade.fees ? trade.fees.toFixed(2) : '0.00'} | {trade.time}
-                  </span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={styles.posPnl(trade.pnl >= 0)}>
-                    {trade.pnl >= 0 ? '+' : ''}${trade.pnl.toFixed(2)}
-                  </span>
-                  {onLocateCandle && trade.entryTimestamp && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onLocateCandle({
-                          symbol: symbol,
-                          timeframe: timeframe,
-                          candle_time: trade.entryTimestamp
-                        });
-                      }}
-                      style={{
-                        background: 'rgba(59, 130, 246, 0.15)',
-                        border: '1px solid rgba(59, 130, 246, 0.3)',
-                        color: '#3b82f6',
-                        borderRadius: '4px',
-                        padding: '2px 6px',
-                        fontSize: '9px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                      title="Go to Trade"
-                    >
-                      📍
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-
-            {backtestTab === 'weekly' && backtestResults && backtestResults.weeklyBreakdown && Object.keys(backtestResults.weeklyBreakdown).sort().reverse().map((week) => {
-              const pnl = backtestResults.weeklyBreakdown![week];
-              return (
-                <div key={week} style={styles.positionRow}>
-                  <span style={{ fontWeight: 'bold', color: '#ffffff' }}>{week}</span>
-                  <span style={styles.posPnl(pnl >= 0)}>
-                    {pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}
-                  </span>
-                </div>
-              );
-            })}
-
-            {backtestTab === 'monthly' && backtestResults && backtestResults.monthlyBreakdown && Object.keys(backtestResults.monthlyBreakdown).sort().reverse().map((month) => {
-              const pnl = backtestResults.monthlyBreakdown![month];
-              return (
-                <div key={month} style={styles.positionRow}>
-                  <span style={{ fontWeight: 'bold', color: '#ffffff' }}>{month}</span>
-                  <span style={styles.posPnl(pnl >= 0)}>
-                    {pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}
-                  </span>
-                </div>
-              );
-            })}
-
-            {backtestTab === 'hourly' && backtestResults && (() => {
-              const hourlyStats: { [hour: number]: { count: number; wins: number; pnl: number } } = {};
-              
-              (backtestResults.trades || []).forEach((trade: any) => {
-                if (!trade.entryTimestamp) return;
-                const date = new Date(trade.entryTimestamp * 1000);
-                const hour = sessionsTimezone === 'UTC' ? date.getUTCHours() : date.getHours();
-                
-                if (!hourlyStats[hour]) {
-                  hourlyStats[hour] = { count: 0, wins: 0, pnl: 0 };
-                }
-                
-                hourlyStats[hour].count += 1;
-                hourlyStats[hour].pnl += trade.pnl;
-                if (trade.outcome === 'WIN' || trade.pnl >= 0) {
-                  hourlyStats[hour].wins += 1;
-                }
-              });
-
-              const sortedHours = Object.keys(hourlyStats).map(Number).sort((a, b) => a - b);
-
-              if (sortedHours.length === 0) {
-                return <div style={{ color: '#9ca3af', padding: '12px', fontSize: '11px', textAlign: 'center' }}>No trades recorded.</div>;
-              }
-
-              return (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: '1.2fr 0.8fr 1fr 1fr',
-                    padding: '6px 8px',
-                    fontSize: '10px',
-                    fontWeight: 'bold',
-                    color: '#9ca3af',
-                    borderBottom: '1px solid #1e293b'
-                  }}>
-                    <span>Hour (Range)</span>
-                    <span style={{ textAlign: 'center' }}>Trades</span>
-                    <span style={{ textAlign: 'center' }}>Win Rate</span>
-                    <span style={{ textAlign: 'right' }}>Net Profit</span>
-                  </div>
-                  {sortedHours.map((hour) => {
-                    const stats = hourlyStats[hour];
-                    const winRate = (stats.wins / stats.count) * 100;
-                    const hourStart = `${hour.toString().padStart(2, '0')}:00`;
-                    const hourEnd = `${((hour + 1) % 24).toString().padStart(2, '0')}:00`;
-                    const isProfit = stats.pnl >= 0;
-
-                    return (
-                      <div key={hour} style={{
-                        ...styles.positionRow,
-                        display: 'grid',
-                        gridTemplateColumns: '1.2fr 0.8fr 1fr 1fr',
-                        padding: '8px 8px',
-                        alignItems: 'center',
-                        borderLeft: `3px solid ${isProfit ? '#10b981' : '#ef4444'}`
-                      }}>
-                        <span style={{ fontWeight: 'bold', color: '#ffffff' }}>{hourStart} - {hourEnd}</span>
-                        <span style={{ textAlign: 'center', color: '#ffffff' }}>{stats.count}</span>
-                        <span style={{ textAlign: 'center', color: winRate >= 50 ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>
-                          {winRate.toFixed(0)}%
-                        </span>
-                        <span style={{ textAlign: 'right', color: isProfit ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>
-                          {isProfit ? '+' : ''}${stats.pnl.toFixed(2)}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })()}
-
-            {backtestTab === 'favourites' && favouriteCandles.map((fav: any) => {
-              const formattedTime = new Date(fav.candle_time * 1000).toLocaleString('de-CH', { timeZone: 'UTC' });
-              return (
-                <div 
-                  key={fav.id}
-                  style={{
-                    ...styles.positionRow,
-                    flexDirection: 'column',
-                    alignItems: 'stretch',
-                    gap: '10px',
-                    border: '1px solid #334155',
-                    padding: '12px',
-                    backgroundColor: '#0f172a'
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{
-                        fontSize: '9px',
-                        fontWeight: 'bold',
-                        padding: '2px 6px',
-                        borderRadius: '4px',
-                        backgroundColor: 'rgba(234, 179, 8, 0.12)',
-                        border: '1px solid #eab308',
-                        color: '#eab308'
-                      }}>
-                        {fav.symbol}
-                      </span>
-                      <span style={{ fontSize: '11px', color: '#ffffff', fontWeight: 'bold' }}>
-                        {formattedTime}
-                      </span>
-                    </div>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      {onLocateCandle && (
-                        <button
-                          onClick={() => onLocateCandle(fav)}
-                          style={{
-                            background: 'rgba(59, 130, 246, 0.15)',
-                            border: '1px solid rgba(59, 130, 246, 0.3)',
-                            color: '#3b82f6',
-                            borderRadius: '4px',
-                            padding: '3px 8px',
-                            fontSize: '10px',
-                            fontWeight: 'bold',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          📍 Chart
-                        </button>
-                      )}
-                      {onDeleteFavourite && (
-                        <button
-                          onClick={() => onDeleteFavourite(fav.id)}
-                          style={{
-                            background: 'rgba(239, 68, 68, 0.15)',
-                            border: '1px solid rgba(239, 68, 68, 0.3)',
-                            color: '#ef4444',
-                            borderRadius: '4px',
-                            padding: '3px 8px',
-                            fontSize: '10px',
-                            fontWeight: 'bold',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          🗑️
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  <div style={{ fontSize: '10px', color: '#94a3b8', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <div>OHLC: <span style={{ color: '#f8fafc', fontFamily: 'monospace' }}>O:{fav.open_val.toFixed(2)} H:{fav.high_val.toFixed(2)} L:{fav.low_val.toFixed(2)} C:{fav.close_val.toFixed(2)}</span></div>
-                    {fav.vsa_patterns && <div>VSA: <span style={{ color: '#fbbf24' }}>{fav.vsa_patterns}</span></div>}
-                    {fav.weis_wave_volume !== null && fav.weis_wave_volume !== undefined && (
-                      <div>Weis Vol: <span style={{ color: '#10b981' }}>{fav.weis_wave_volume.toFixed(1)}</span></div>
-                    )}
-                  </div>
-
-                  <div style={{ borderTop: '1px solid #1e293b', paddingTop: '8px', display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <input 
-                      type="text"
-                      defaultValue={fav.notes || ''}
-                      placeholder="Add notes..."
-                      onBlur={(e) => {
-                        if (onUpdateNotes && e.target.value !== (fav.notes || '')) {
-                          onUpdateNotes(fav.id, e.target.value);
-                        }
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && onUpdateNotes) {
-                          onUpdateNotes(fav.id, (e.target as HTMLInputElement).value);
-                          (e.target as HTMLInputElement).blur();
-                        }
-                      }}
-                      style={{
-                        flex: 1,
-                        backgroundColor: '#1e293b',
-                        border: '1px solid #334155',
-                        borderRadius: '4px',
-                        padding: '4px 8px',
-                        color: '#f8fafc',
-                        fontSize: '11px',
-                        outline: 'none'
-                      }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </CollapsibleCard>
-      )}
-      
-      {loadingBacktest && (
-        <div style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(15, 23, 42, 0.6)',
-          backdropFilter: 'blur(4px)',
-          zIndex: 50,
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          flexDirection: 'column',
-          borderRadius: '8px',
-          pointerEvents: 'all'
-        }}>
+        {loadingBacktest && (
           <div style={{
-            width: '32px',
-            height: '32px',
-            border: '3px solid rgba(255, 255, 255, 0.1)',
-            borderTop: '3px solid #3b82f6',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite',
-            marginBottom: '8px'
-          }} />
-          <style>{`
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.6)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 50,
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            flexDirection: 'column',
+            borderRadius: '8px',
+            pointerEvents: 'all'
+          }}>
+            <div style={{
+              width: '32px',
+              height: '32px',
+              border: '3px solid rgba(255, 255, 255, 0.1)',
+              borderTop: '3px solid #3b82f6',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite',
+              marginBottom: '8px'
+            }} />
+            <style>{`
             @keyframes spin {
               0% { transform: rotate(0deg); }
               100% { transform: rotate(360deg); }
             }
           `}</style>
-          <span style={{ color: '#ffffff', fontSize: '12px', fontWeight: 500 }}>Running Backtest: {backtestProgress}%</span>
-          <div style={{
-            width: '160px',
-            height: '6px',
-            backgroundColor: 'rgba(255, 255, 255, 0.15)',
-            borderRadius: '3px',
-            marginTop: '8px',
-            marginBottom: '4px',
-            overflow: 'hidden'
-          }}>
+            <span style={{ color: '#ffffff', fontSize: '12px', fontWeight: 500 }}>Running Backtest: {backtestProgress}%</span>
             <div style={{
-              width: `${backtestProgress}%`,
-              height: '100%',
-              backgroundColor: '#3b82f6',
+              width: '160px',
+              height: '6px',
+              backgroundColor: 'rgba(255, 255, 255, 0.15)',
               borderRadius: '3px',
-              transition: 'width 0.2s ease-out'
-            }} />
+              marginTop: '8px',
+              marginBottom: '4px',
+              overflow: 'hidden'
+            }}>
+              <div style={{
+                width: `${backtestProgress}%`,
+                height: '100%',
+                backgroundColor: '#3b82f6',
+                borderRadius: '3px',
+                transition: 'width 0.2s ease-out'
+              }} />
+            </div>
+            <button
+              onClick={onCancelBacktest}
+              style={{
+                marginTop: '12px',
+                backgroundColor: '#ef4444',
+                color: '#ffffff',
+                border: 'none',
+                padding: '6px 16px',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontWeight: 500,
+                fontSize: '11px',
+                transition: 'background-color 0.2s',
+              }}
+              onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#dc2626'}
+              onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#ef4444'}
+            >
+              🛑 Stop Backtest
+            </button>
           </div>
-          <button 
-            onClick={onCancelBacktest}
-            style={{
-              marginTop: '12px',
-              backgroundColor: '#ef4444',
-              color: '#ffffff',
-              border: 'none',
-              padding: '6px 16px',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontWeight: 500,
-              fontSize: '11px',
-              transition: 'background-color 0.2s',
-            }}
-            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#dc2626'}
-            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#ef4444'}
-          >
-            🛑 Stop Backtest
-          </button>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
