@@ -161,6 +161,9 @@ class CTraderHandler(BaseBrokerHandler):
                     if tb_time == 0:
                         tb_time = int(from_ms // 1000)
 
+                    # Hardcode +2 hours (7200 seconds) offset shift to match MetaTrader server time
+                    tb_time += 7200
+
                     candles_list.append({
                         "time": tb_time,
                         "open": open_price,
