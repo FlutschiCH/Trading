@@ -201,6 +201,49 @@ export default function TVChart({
   const actualFilter = onTradeFilterChange ? tradeFilter : localTradeFilter;
   const setActualFilter = onTradeFilterChange || setLocalTradeFilter;
 
+  const [favoriteSymbols, setFavoriteSymbols] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('wyckoff_fav_symbols');
+      return saved ? JSON.parse(saved) : ['BTCUSD', 'EURUSD', 'XAUUSD'];
+    } catch {
+      return ['BTCUSD', 'EURUSD', 'XAUUSD'];
+    }
+  });
+
+  const [favoriteTimeframes, setFavoriteTimeframes] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('wyckoff_fav_timeframes');
+      return saved ? JSON.parse(saved) : ['5m', '15m', '1h', '4h'];
+    } catch {
+      return ['5m', '15m', '1h', '4h'];
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_fav_symbols', JSON.stringify(favoriteSymbols));
+  }, [favoriteSymbols]);
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_fav_timeframes', JSON.stringify(favoriteTimeframes));
+  }, [favoriteTimeframes]);
+
+  const toggleFavoriteSymbol = (sym: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setFavoriteSymbols(prev => 
+      prev.includes(sym) ? prev.filter(s => s !== sym) : [...prev, sym]
+    );
+  };
+
+  const toggleFavoriteTimeframe = (tf: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setFavoriteTimeframes(prev => 
+      prev.includes(tf) ? prev.filter(t => t !== tf) : [...prev, tf]
+    );
+  };
+
+  const activeFavSymbols = favoriteSymbols.filter(s => availableSymbols.includes(s));
+  const activeFavTimeframes = favoriteTimeframes.filter(t => availableTimeframes.includes(t));
+
   const filteredSymbols = availableSymbols.filter(s => s.toLowerCase().includes(symbolSearch.toLowerCase()));
 
   useEffect(() => {
@@ -1499,102 +1542,205 @@ export default function TVChart({
           {/* Symbol Search Input */}
           <div style={{ ...styles.pairGroup, position: 'relative' }}>
             <span style={{ color: '#9ca3af', fontSize: '10px' }}>Symbol</span>
-            <div style={{ position: 'relative' }}>
-              <input 
-                type="text"
-                placeholder="Search symbol..."
-                value={showSymbolDropdown ? symbolSearch : symbol}
-                onFocus={() => {
-                  setSymbolSearch('');
-                  setShowSymbolDropdown(true);
-                }}
-                onChange={(e) => setSymbolSearch(e.target.value)}
-                onKeyDown={handleKeyDown}
-                style={{
-                  ...styles.pairSelect,
-                  backgroundColor: '#1e293b',
-                  color: '#ffffff',
-                  border: '1px solid #334155',
-                  padding: '4px 8px',
-                  fontSize: '12px',
-                  width: '120px'
-                }}
-              />
-              {showSymbolDropdown && (
-                <>
-                  <div 
-                    onClick={() => setShowSymbolDropdown(false)}
-                    style={{
-                      position: 'fixed',
-                      top: 0,
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <div style={{ position: 'relative' }}>
+                <input 
+                  type="text"
+                  placeholder="Search symbol..."
+                  value={showSymbolDropdown ? symbolSearch : symbol}
+                  onFocus={() => {
+                    setSymbolSearch('');
+                    setShowSymbolDropdown(true);
+                  }}
+                  onChange={(e) => setSymbolSearch(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  style={{
+                    ...styles.pairSelect,
+                    backgroundColor: '#1e293b',
+                    color: '#ffffff',
+                    border: '1px solid #334155',
+                    padding: '4px 8px',
+                    fontSize: '12px',
+                    width: '120px'
+                  }}
+                />
+                {showSymbolDropdown && (
+                  <>
+                    <div 
+                      onClick={() => setShowSymbolDropdown(false)}
+                      style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        zIndex: 999
+                      }}
+                    />
+                    <div style={{
+                      position: 'absolute',
+                      top: '100%',
                       left: 0,
                       right: 0,
-                      bottom: 0,
-                      zIndex: 999
-                    }}
-                  />
-                  <div style={{
-                    position: 'absolute',
-                    top: '100%',
-                    left: 0,
-                    right: 0,
-                    backgroundColor: '#0f172a',
-                    border: '1px solid #334155',
-                    borderRadius: '6px',
-                    maxHeight: '200px',
-                    overflowY: 'auto',
-                    zIndex: 1000,
-                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)',
-                    minWidth: '150px'
-                  }}>
-                    {filteredSymbols.length > 0 ? (
-                      filteredSymbols
-                        .map((sym, idx) => (
-                          <div 
-                            key={sym}
-                            onClick={() => {
-                              onSymbolChange(sym);
-                              setShowSymbolDropdown(false);
-                            }}
-                            style={{
-                              padding: '6px 10px',
-                              cursor: 'pointer',
-                              fontSize: '12px',
-                              color: '#ffffff',
-                              backgroundColor: idx === highlightedIndex ? '#2563eb' : (symbol === sym ? 'rgba(37, 99, 235, 0.3)' : 'transparent'),
-                              transition: 'background-color 0.15s'
-                            }}
-                            onMouseEnter={() => {
-                              setHighlightedIndex(idx);
-                            }}
-                          >
-                            {sym}
-                          </div>
-                        ))
-                    ) : (
-                      <div style={{ padding: '6px 10px', fontSize: '11px', color: '#6b7280' }}>
-                        No results found
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
+                      backgroundColor: '#0f172a',
+                      border: '1px solid #334155',
+                      borderRadius: '6px',
+                      maxHeight: '200px',
+                      overflowY: 'auto',
+                      zIndex: 1000,
+                      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)',
+                      minWidth: '160px'
+                    }}>
+                      {filteredSymbols.length > 0 ? (
+                        filteredSymbols
+                          .map((sym, idx) => (
+                            <div 
+                              key={sym}
+                              onClick={() => {
+                                onSymbolChange(sym);
+                                setShowSymbolDropdown(false);
+                              }}
+                              style={{
+                                padding: '6px 10px',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                color: '#ffffff',
+                                backgroundColor: idx === highlightedIndex ? '#2563eb' : (symbol === sym ? 'rgba(37, 99, 235, 0.3)' : 'transparent'),
+                                transition: 'background-color 0.15s',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center'
+                              }}
+                              onMouseEnter={() => {
+                                setHighlightedIndex(idx);
+                              }}
+                            >
+                              <span>{sym}</span>
+                              <span 
+                                onClick={(e) => toggleFavoriteSymbol(sym, e)}
+                                style={{ 
+                                  color: favoriteSymbols.includes(sym) ? '#f59e0b' : '#4b5563',
+                                  fontSize: '14px',
+                                  padding: '2px 4px',
+                                  cursor: 'pointer',
+                                  transition: 'color 0.15s'
+                                }}
+                              >
+                                ★
+                              </span>
+                            </div>
+                          ))
+                      ) : (
+                        <div style={{ padding: '6px 10px', fontSize: '11px', color: '#6b7280' }}>
+                          No results found
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+              <button
+                onClick={() => toggleFavoriteSymbol(symbol)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: favoriteSymbols.includes(symbol) ? '#f59e0b' : '#4b5563',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                  padding: '2px 4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'color 0.15s'
+                }}
+                title={favoriteSymbols.includes(symbol) ? "Remove from Favorites" : "Add to Favorites"}
+              >
+                ★
+              </button>
             </div>
           </div>
+
+          {/* Quick Favorite Symbols Shortcuts */}
+          {activeFavSymbols.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+              {activeFavSymbols.map(sym => (
+                <button
+                  key={sym}
+                  onClick={() => onSymbolChange(sym)}
+                  style={{
+                    backgroundColor: symbol === sym ? 'rgba(59, 130, 246, 0.2)' : '#1e293b',
+                    border: `1px solid ${symbol === sym ? '#3b82f6' : '#334155'}`,
+                    color: symbol === sym ? '#3b82f6' : '#d1d5db',
+                    fontSize: '11px',
+                    padding: '3px 8px',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s'
+                  }}
+                >
+                  {sym}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Timeframe */}
           <div style={styles.pairGroup}>
             <span style={{ color: '#9ca3af', fontSize: '10px' }}>Timeframe</span>
-            <select 
-              value={timeframe} 
-              onChange={(e) => onTimeframeChange(e.target.value)}
-              style={styles.pairSelect}
-            >
-              {availableTimeframes.map(tf => (
-                <option key={tf} value={tf}>{tf}</option>
-              ))}
-            </select>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <select 
+                value={timeframe} 
+                onChange={(e) => onTimeframeChange(e.target.value)}
+                style={styles.pairSelect}
+              >
+                {availableTimeframes.map(tf => (
+                  <option key={tf} value={tf}>{tf}</option>
+                ))}
+              </select>
+              <button
+                onClick={() => toggleFavoriteTimeframe(timeframe)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: favoriteTimeframes.includes(timeframe) ? '#f59e0b' : '#4b5563',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                  padding: '2px 4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'color 0.15s'
+                }}
+                title={favoriteTimeframes.includes(timeframe) ? "Remove from Favorites" : "Add to Favorites"}
+              >
+                ★
+              </button>
+            </div>
           </div>
+
+          {/* Quick Favorite Timeframes Shortcuts */}
+          {activeFavTimeframes.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+              {activeFavTimeframes.map(tf => (
+                <button
+                  key={tf}
+                  onClick={() => onTimeframeChange(tf)}
+                  style={{
+                    backgroundColor: timeframe === tf ? 'rgba(59, 130, 246, 0.2)' : '#1e293b',
+                    border: `1px solid ${timeframe === tf ? '#3b82f6' : '#334155'}`,
+                    color: timeframe === tf ? '#3b82f6' : '#d1d5db',
+                    fontSize: '11px',
+                    padding: '3px 8px',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s'
+                  }}
+                >
+                  {tf}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Trades Filter */}
           <div style={styles.pairGroup}>
