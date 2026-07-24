@@ -1218,25 +1218,6 @@ export default function Dashboard() {
         setCandles(rawCandles);
         setLoading(false);
         setInitialCandlesLoaded(true);
-
-        // Send to Flask analyze endpoint for VSA patterns & Weis Wave aggregation in the background
-        try {
-          const analysisResponse = await fetch(`${API_BASE_URL}/api/analyze`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              candles: rawCandles,
-              lookback: parseInt(lookbackWindow) || 20
-            }),
-          });
-          const analysisResult = await analysisResponse.json();
-          if (analysisResult.status === 'success') {
-            setCandles(analysisResult.data);
-            setFvgs(analysisResult.fvgs || []);
-          }
-        } catch (analysisErr) {
-          console.error("Failed to run Flask analyze endpoint:", analysisErr);
-        }
       }
     } catch (error) {
       console.error('Error fetching candles:', error);
