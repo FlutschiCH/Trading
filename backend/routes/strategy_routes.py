@@ -50,8 +50,9 @@ def backtest():
             date_to=date_to
         )
     else:
-        from metatrader_handler import MetaTraderHandler
-        candles = MetaTraderHandler.fetch_candles(
+        from broker_factory import BrokerFactory
+        handler = BrokerFactory.get_handler(candle_source)
+        candles = handler.fetch_candles(
             symbol=symbol,
             timeframe=timeframe,
             limit=limit,
