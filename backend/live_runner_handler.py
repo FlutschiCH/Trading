@@ -3,7 +3,6 @@ import threading
 import traceback
 from datetime import datetime, timezone as pytimezone
 from live_strategy_handler import LiveStrategyHandler
-from metatrader_handler import MetaTraderHandler, MT5_AVAILABLE
 from indicator_handler import IndicatorHandler
 from trading_handler import TradingHandler
 from wyckoff_handler import WyckoffHandler
