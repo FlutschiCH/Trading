@@ -1197,6 +1197,7 @@ export default function Dashboard() {
     // Disabled regular fetches to only work with backtest data
     setLoading(false);
     setLoadingStrategy(false);
+    setInitialCandlesLoaded(true);
     return;
     try {
       let rawCandles: Candle[] = [];
