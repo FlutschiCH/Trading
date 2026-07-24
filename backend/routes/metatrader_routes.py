@@ -20,6 +20,24 @@ def get_metatrader_candles():
     password = payload.get('password', metavar_pass)
     server = payload.get('server', metavar_server)
 
+    # Sync regular fetch with backtest parameters if they are not explicitly specified
+    if date_from is None and date_to is None:
+        import os
+        import json
+        try:
+            results_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'backtest_results.json')
+            if os.path.exists(results_path):
+                with open(results_path, 'r') as f:
+                    bt_data = json.load(f)
+                settings = bt_data.get("settings", {})
+                if settings.get("symbol") == symbol:
+                    date_from = settings.get("date_from")
+                    date_to = settings.get("date_to")
+                    if "limit" in settings:
+                        limit = int(settings["limit"])
+        except Exception:
+            pass
+
     candles = MetaTraderHandler.fetch_candles(
         symbol=symbol,
         timeframe=timeframe,

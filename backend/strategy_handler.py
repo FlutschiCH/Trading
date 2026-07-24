@@ -102,7 +102,8 @@ class StrategyHandler:
                     "symbol": symbol,
                     "lookback_window": lookback_window,
                     "date_from": date_from,
-                    "date_to": date_to
+                    "date_to": date_to,
+                    "limit": len(annotated_data)
                 },
                 "metrics": {
                     "winRate": sim_result["winRate"],
