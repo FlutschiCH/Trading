@@ -539,6 +539,19 @@ export default function Dashboard() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  const handleRestartServer = async () => {
+    if (!window.confirm("Are you sure you want to update and restart the backend server?")) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/system/restart`, {
+        method: 'POST'
+      });
+      const data = await res.json();
+      alert(data.message || "Restart command sent. The server should be back in a few seconds.");
+    } catch (e) {
+      alert("Error sending restart command. Please verify the server is running.");
+    }
+  };
+
   const getBacktestSettingsObject = () => {
     return {
       backtestSL,
@@ -2133,6 +2146,27 @@ export default function Dashboard() {
                     }}
                   >
                     🔔 Test Local Sound
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setShowMenu(false);
+                      handleRestartServer();
+                    }}
+                    className="menu-item"
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      textAlign: 'left',
+                      width: '100%',
+                      cursor: 'pointer',
+                      display: 'block',
+                      fontFamily: 'inherit',
+                      padding: '8px 16px',
+                      color: '#ef4444',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    🔄 Update & Restart Server
                   </button>
                   <a href="/how-to" className="menu-item" style={{ borderTop: '1px solid #1e293b', paddingTop: '8px', marginTop: '4px' }} onClick={() => setShowMenu(false)}>
                     📖 How It Works
