@@ -55,6 +55,7 @@ interface TVChartProps {
   onTradeFilterChange?: (filter: 'all' | 'wins' | 'losses') => void;
   sessions?: any[];
   sessionsTimezone?: 'UTC' | 'Local';
+  locateTimestamp?: number | null;
 }
 
 export default function TVChart({ 
@@ -86,7 +87,8 @@ export default function TVChart({
   tradeFilter = 'all',
   onTradeFilterChange,
   sessions = [],
-  sessionsTimezone = 'Local'
+  sessionsTimezone = 'Local',
+  locateTimestamp = null
 }: TVChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const weisContainerRef = useRef<HTMLDivElement>(null);
@@ -484,6 +486,23 @@ export default function TVChart({
       }
     }
   }, [selectedTrade]);
+
+  useEffect(() => {
+    if (locateTimestamp && chartRef.current && activeCandles && activeCandles.length > 0) {
+      const idx = activeCandles.findIndex(c => Number(c.time) === Number(locateTimestamp));
+      if (idx !== -1) {
+        try {
+          const timeScale = chartRef.current.timeScale();
+          timeScale.setVisibleLogicalRange({
+            from: idx - 30,
+            to: idx + 30
+          });
+        } catch (e) {
+          console.error('Failed to locate timestamp:', e);
+        }
+      }
+    }
+  }, [locateTimestamp, activeCandles]);
 
   useEffect(() => {
     drawingsRef.current = drawings;

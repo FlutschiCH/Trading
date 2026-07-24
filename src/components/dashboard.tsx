@@ -2639,6 +2639,35 @@ export default function Dashboard() {
                   {selectedTrade.exitReason || 'Unknown'}
                 </span>
               </div>
+              {selectedTrade.entryTimestamp && (
+                <button
+                  onClick={() => {
+                    handleLocateCandle({
+                      symbol: symbol,
+                      timeframe: timeframe,
+                      candle_time: selectedTrade.entryTimestamp
+                    });
+                    setShowModal(false);
+                  }}
+                  style={{
+                    marginTop: '8px',
+                    backgroundColor: '#2563eb',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    padding: '8px',
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  📍 Go to Trade
+                </button>
+              )}
             </div>
           </div>
         </div>
