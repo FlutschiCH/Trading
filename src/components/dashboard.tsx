@@ -2388,6 +2388,7 @@ export default function Dashboard() {
             width: '100%',
           }}>
             {panelOrder.map((panelId) => {
+              const isDragOver = dragOverId === panelId;
               const defaultWidth = panelId === 'chart' ? 'calc(50% - 16px)' : 'calc(25% - 16px)';
               const dragStyles = {
                 width: cardWidths[panelId] ? `${cardWidths[panelId]}px` : defaultWidth,
