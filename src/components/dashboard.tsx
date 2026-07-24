@@ -2064,7 +2064,7 @@ export default function Dashboard() {
               <button
                 onClick={async () => {
                   try {
-                    const response = await fetch('/api/ctrader/order', {
+                    const response = await fetch(`${API_BASE_URL}/api/ctrader/order`, {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({ symbol: 'EURUSD', order_type: 'buy', volume: 0.01 })
