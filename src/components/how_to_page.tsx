@@ -181,10 +181,46 @@ export default function HowToPage() {
           </a>
         </header>
 
+        {/* Section 0: Wyckoff Market Structure Engine */}
+        <div style={styles.section}>
+          <h2 style={styles.sectionTitle}>
+            <Layers size={22} style={{ color: '#38bdf8' }} /> Wyckoff Structure & Stage Classification Engine
+          </h2>
+          <p style={{ margin: 0 }}>
+            {renderTextWithMarkdown("Our backend engine runs a rigorous quantitative analysis defined in `wyckoff_structure.py` to identify market structure boundaries, sweeps, and phases:")}
+          </p>
+          <div style={styles.grid}>
+            <div style={styles.card}>
+              <h3 style={styles.cardTitle('#38bdf8')}>
+                <Compass size={16} /> 1. Support & Resistance Ranges
+              </h3>
+              <p style={{ fontSize: '13px', margin: 0 }}>
+                {renderTextWithMarkdown("Calculates a rolling low (**Support**) and high (**Resistance**) over a user-defined lookback window (default 20 candles). This establishes the boundary of the trading range.")}
+              </p>
+            </div>
+            <div style={styles.card}>
+              <h3 style={styles.cardTitle('#eab308')}>
+                <RefreshCcw size={16} /> 2. Liquidity Sweeps Detection
+              </h3>
+              <p style={{ fontSize: '13px', margin: 0 }}>
+                {renderTextWithMarkdown("• **Spring (Bullish Sweep)**: Candle low sweeps below support, candle closes back above support, and volume is above average (**Volume > Average * 1.1**).\n• **Upthrust (Bearish Sweep)**: Candle high sweeps above resistance, candle closes back below resistance, and volume is above average.")}
+              </p>
+            </div>
+            <div style={styles.card}>
+              <h3 style={styles.cardTitle('#34d399')}>
+                <Layers size={16} /> 3. Phase Stage Classification
+              </h3>
+              <p style={{ fontSize: '13px', margin: 0 }}>
+                {renderTextWithMarkdown("Each candle is classified into one of five structural stages:\n• **ACCUMULATION**: Consolidation near support or following a Spring.\n• **DISTRIBUTION**: Consolidation near resistance or following an Upthrust.\n• **MARKUP**: Out-of-range breakout above resistance with an upward-sloping 50 SMA.\n• **MARKDOWN**: Out-of-range breakout below support with a downward-sloping 50 SMA.\n• **TRANSITION**: Neutral phase/uncertainty.")}
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Section 1: Overview */}
         <div style={styles.section}>
           <h2 style={styles.sectionTitle}>
-            <Layers size={22} style={{ color: '#38bdf8' }} /> Strategy Methodology Overview
+            <BookOpen size={22} style={{ color: '#38bdf8' }} /> Strategy Methodology Overview
           </h2>
           <div style={styles.rowLayout}>
             <div style={styles.textContent}>
@@ -240,10 +276,10 @@ export default function HowToPage() {
             <div style={styles.stepBlock}>
               <div style={styles.stepBadge}>2</div>
               <h3 style={{ fontSize: '15px', fontWeight: 'bold', color: '#ffffff', margin: '0 0 6px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <ShieldCheck size={16} style={{ color: '#34d399' }} /> Step 2: Confirming Professional Absorption (VSA Validation)
+                <ShieldCheck size={16} style={{ color: '#34d399' }} /> Step 2: Confirming Sweep Volume & Applying Entry Stability Rules
               </h3>
               <p style={{ margin: 0, fontSize: '13px', color: '#94a3b8' }}>
-                {renderTextWithMarkdown("Once a sweep triggers, the system immediately assesses the candlestick metrics at the close of the bar. For a valid signal, we verify institutional buying or selling via **Closing Location Ratio (CLR)** and rolling percentile ranks. A Spring requires a close in the upper third (**CLR ≥ 0.33**) on high volume (**Volume Decile ≥ 7**), confirming supply has been absorbed.")}
+                {renderTextWithMarkdown("Once a sweep triggers, we check the volume confirmation (**Volume > 1.1x average**). We then evaluate our selected **Entry Stability Rule**:\n• **Default**: Direct execution immediately upon sweep detection.\n• **Duration**: Require that the stage remains in ACCUMULATION (for buy) or DISTRIBUTION (for sell) for at least 3 consecutive candles.\n• **Confirmation**: Require price to break out above the Spring's high (for buy) or below the Upthrust's low (for sell) within 15 candles.\n• **Both**: Requires both duration (3 consecutive candles in stage) and confirmation breakout.")}
               </p>
             </div>
 
@@ -253,27 +289,27 @@ export default function HowToPage() {
                 <Flame size={16} style={{ color: '#a78bfa' }} /> Step 3: Cumulative Wave Volume Verification (Weis Wave Check)
               </h3>
               <p style={{ margin: 0, fontSize: '13px', color: '#94a3b8' }}>
-                {renderTextWithMarkdown("Next, the cumulative **Weis Wave Volume** is checked. If entering a buy trade, we verify that selling force in previous down waves was dry, or that the current entry wave shows a strong influx of effort compared to corrective pullbacks, indicating that momentum has shifted in our favor.")}
+                {renderTextWithMarkdown("Next, the cumulative **Weis Wave Volume** is verified. If entering a buy trade, we verify that selling force in previous down waves was dry, or that the current entry wave shows a strong influx of effort compared to corrective pullbacks, indicating that momentum has shifted in our favor.")}
               </p>
             </div>
 
             <div style={styles.stepBlock}>
               <div style={styles.stepBadge}>4</div>
               <h3 style={{ fontSize: '15px', fontWeight: 'bold', color: '#ffffff', margin: '0 0 6px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Award size={16} style={{ color: '#fbbf24' }} /> Step 4: Execution & Risk Configuration (Signal 1)
+                <Award size={16} style={{ color: '#fbbf24' }} /> Step 4: Execution & Risk Sizing
               </h3>
               <p style={{ margin: 0, fontSize: '13px', color: '#94a3b8' }}>
-                {renderTextWithMarkdown("Upon validation of steps 1, 2, and 3, a **Signal 1 (Entry)** is triggered. The system calculates position sizing based on account balance and target risk percentage, setting a protective **Stop Loss (SL)** right outside the sweep extreme, and placing the **Take Profit (TP)** target at the configured Reward ratio.")}
+                {renderTextWithMarkdown("Upon validation of all filters, a buy or sell trade is executed. The system calculates position sizing based on account balance and target risk percentage, setting a protective **Stop Loss (SL)** right outside the sweep extreme, and placing the **Take Profit (TP)** target at the configured Risk-to-Reward ratio.")}
               </p>
             </div>
 
             <div style={styles.stepBlock}>
               <div style={styles.stepBadge}>5</div>
               <h3 style={{ fontSize: '15px', fontWeight: 'bold', color: '#ffffff', margin: '0 0 6px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <RefreshCcw size={16} style={{ color: '#10b981' }} /> Step 5: Active Management & Trail to Break Even (Signal 2)
+                <RefreshCcw size={16} style={{ color: '#10b981' }} /> Step 5: Active Management & Trail to Break Even (BE)
               </h3>
               <p style={{ margin: 0, fontSize: '13px', color: '#94a3b8' }}>
-                {renderTextWithMarkdown("As the trade progresses, the system monitors price movements. Once the profit reaches a **1:1 Risk-to-Reward ratio (1R)**, the strategy fires **Signal 2 (Break Even Modification)** to trail the Stop Loss to the exact Entry Price, locking in a risk-free trade while waiting for the final TP target.")}
+                {renderTextWithMarkdown("As the trade progresses, once the profit reaches the configured **Break Even Trigger Ratio** (e.g. 1.0R), the strategy trails the Stop Loss to **Entry + 0.5 * SL distance**, locking in a partially protected, risk-free trade while waiting for the final TP target.")}
               </p>
             </div>
 
