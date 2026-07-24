@@ -1195,19 +1195,19 @@ export default function Dashboard() {
     try {
       let rawCandles: Candle[] = [];
       try {
-        const sourcePath = candleSource === 'yfinance' ? 'yfinance' : (candleSource === 'metatrader' ? 'metatrader' : 'ctrader');
-        const response = await fetch(`${API_BASE_URL}/api/${sourcePath}/candles`, {
+        const response = await fetch(`${API_BASE_URL}/api/trade/candles`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            broker: candleSource,
             symbol: symbol,
             interval: timeframe,
             limit: candleLimit,
           }),
         });
         const result = await response.json();
-        if (result.status === 'success') {
-          rawCandles = result.data.sort((a: Candle, b: Candle) => a.time - b.time);
+        if (Array.isArray(result)) {
+          rawCandles = result.sort((a: Candle, b: Candle) => a.time - b.time);
         }
       } catch (err) {
         console.warn("Using local historical mock generation fallback.");
@@ -1247,13 +1247,13 @@ export default function Dashboard() {
     }
   };
 
-  // MetaTrader 5 / cTrader API endpoints
+  // Unified API endpoints
   const fetchAccountData = async () => {
     try {
-      const endpoint = candleSource === 'ctrader' ? '/api/ctrader/account' : '/api/metatrader/account';
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      const response = await fetch(`${API_BASE_URL}/api/trade/account`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ broker: candleSource })
       });
       const result = await response.json();
       if (result.status === 'success') {
@@ -1266,10 +1266,10 @@ export default function Dashboard() {
 
   const fetchPositionData = async () => {
     try {
-      const endpoint = candleSource === 'ctrader' ? '/api/ctrader/positions' : '/api/metatrader/positions';
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      const response = await fetch(`${API_BASE_URL}/api/trade/positions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ broker: candleSource })
       });
       const result = await response.json();
       if (result.status === 'success') {
@@ -1284,10 +1284,10 @@ export default function Dashboard() {
     setLoadingHistory(true);
     setHistoryError('');
     try {
-      const endpoint = candleSource === 'ctrader' ? '/api/ctrader/history' : '/api/metatrader/history';
-      const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+      const res = await fetch(`${API_BASE_URL}/api/trade/history`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ broker: candleSource })
       });
       const data = await res.json();
       if (data.status === 'success') {
@@ -1311,12 +1311,11 @@ export default function Dashboard() {
       return;
     }
     try {
-      const endpoint = candleSource === 'ctrader' ? '/api/ctrader/close' : '/api/metatrader/close';
-      // In cTrader handler, close expects payload parameter keys: position_id, symbol, side, volume
-      const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+      const res = await fetch(`${API_BASE_URL}/api/trade/close`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          broker: candleSource,
           position_id: pos.position_id,
           symbol: pos.symbol,
           side: pos.trade_side,
@@ -1474,11 +1473,11 @@ export default function Dashboard() {
       return;
     }
     try {
-      const endpoint = candleSource === 'ctrader' ? '/api/ctrader/order' : '/api/metatrader/order';
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      const response = await fetch(`${API_BASE_URL}/api/trade/order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          broker: candleSource,
           symbol: symbol,
           order_type: tradeType,
           volume: parseFloat(amount),

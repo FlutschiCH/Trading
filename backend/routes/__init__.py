@@ -12,6 +12,7 @@ from routes.wyckoff_routes import wyckoff_routes
 from routes.notification_routes import notification_routes
 from routes.backtest_settings_routes import backtest_settings_routes
 from routes.system_routes import system_routes
+from routes.trading_routes import trading_routes
 
 # Create consolidated api blueprint
 api_blueprint = Blueprint('api', __name__)
@@ -30,4 +31,5 @@ api_blueprint.register_blueprint(wyckoff_routes)
 api_blueprint.register_blueprint(notification_routes)
 api_blueprint.register_blueprint(backtest_settings_routes)
 api_blueprint.register_blueprint(system_routes)
+api_blueprint.register_blueprint(trading_routes)
 
