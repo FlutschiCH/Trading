@@ -100,6 +100,12 @@ if __name__ == '__main__':
         t.start()
     except Exception as e:
         print(f"Failed to start auto-closer thread: {e}", flush=True)
+
+    try:
+        from live_runner_handler import LiveRunner
+        LiveRunner.start()
+    except Exception as e:
+        print(f"Failed to start live runner: {e}", flush=True)
     # Initialize and login to MetaTrader 5 (Windows only)
     try:
         import sys

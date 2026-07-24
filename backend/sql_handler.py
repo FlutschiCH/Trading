@@ -136,13 +136,15 @@ class SQLHandler:
                     break
             
             # Determine conflict target key (primary key or unique key)
-            conflict_target = "symbol"
+            conflict_target = "id"
             if "trades" in table_name.lower():
                 conflict_target = "signal_id"
             elif "favourite_candles" in table_name.lower():
                 conflict_target = "symbol, timeframe, candle_time"
             elif "symbol_mappings" in table_name.lower():
                 conflict_target = "main_symbol, broker_key"
+            elif "live_strategies" in table_name.lower():
+                conflict_target = "id"
             
             parts = query.split("ON DUPLICATE KEY UPDATE")
             if len(parts) == 2:

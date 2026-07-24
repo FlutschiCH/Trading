@@ -159,7 +159,7 @@ class MetaTraderHandler:
         return res
 
     @staticmethod
-    def create_order(symbol: str, side: str, volume: float, price: float = None, stop_loss: float = None, take_profit: float = None, login: int = 2002061314, password: str = "Godzilla_12", server: str = "JustMarkets-Demo") -> dict:
+    def create_order(symbol: str, side: str, volume: float, price: float = None, stop_loss: float = None, take_profit: float = None, magic: int = 234000, login: int = 2002061314, password: str = "Godzilla_12", server: str = "JustMarkets-Demo") -> dict:
         """
         Dispatches buy/sell order to MT5.
         """
@@ -201,7 +201,7 @@ class MetaTraderHandler:
             "type": action_type,
             "price": float(price),
             "deviation": 20,
-            "magic": 234000,
+            "magic": int(magic),
             "comment": "Wyckoff MT5 Order",
             "type_time": mt5.ORDER_TIME_GTC,
             "type_filling": mt5.ORDER_FILLING_IOC,

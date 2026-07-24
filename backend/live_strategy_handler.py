@@ -11,10 +11,20 @@ class LiveStrategyHandler:
         """
         Initializes the schema for live strategies in the DB.
         """
+        # Check if table has 'id' column, if not drop it to migrate
+        try:
+            SQLHandler.execute_query("SELECT id FROM live_strategies LIMIT 1")
+        except Exception:
+            try:
+                SQLHandler.execute_query("DROP TABLE IF EXISTS live_strategies")
+            except Exception:
+                pass
+
         # Create MySQL style table
         create_mysql = """
         CREATE TABLE IF NOT EXISTS live_strategies (
-            symbol VARCHAR(50) PRIMARY KEY,
+            id VARCHAR(50) PRIMARY KEY,
+            symbol VARCHAR(50) NOT NULL,
             status VARCHAR(20) NOT NULL,
             timeframe VARCHAR(10) NOT NULL,
             slVal DOUBLE NOT NULL,
@@ -26,24 +36,16 @@ class LiveStrategyHandler:
             useBreakEven TINYINT(1) NOT NULL,
             beTriggerR DOUBLE NOT NULL,
             lookbackWindow INT NOT NULL,
-            deployedAt VARCHAR(50) NOT NULL
+            deployedAt VARCHAR(50) NOT NULL,
+            timezone VARCHAR(10) DEFAULT 'Local',
+            sessions TEXT,
+            useGlobalClose TINYINT(1) DEFAULT 0,
+            globalCloseTime VARCHAR(5) DEFAULT '',
+            entryStabilityRule VARCHAR(20) DEFAULT 'default'
         )
         """
         try:
             SQLHandler.execute_query(create_mysql)
-            
-            # Add columns if not exist
-            for col_name, col_type in [
-                ("timezone", "VARCHAR(10) DEFAULT 'Local'"),
-                ("sessions", "TEXT"),
-                ("useGlobalClose", "TINYINT(1) DEFAULT 0"),
-                ("globalCloseTime", "VARCHAR(5) DEFAULT ''"),
-                ("entryStabilityRule", "VARCHAR(20) DEFAULT 'default'")
-            ]:
-                try:
-                    SQLHandler.execute_query(f"ALTER TABLE live_strategies ADD COLUMN {col_name} {col_type}")
-                except Exception:
-                    pass
         except Exception as e:
             print(f"Error initializing live_strategies DB table: {e}", flush=True)
 
@@ -52,15 +54,20 @@ class LiveStrategyHandler:
         """
         Saves the strategy configuration to the SQL database using an upsert pattern.
         """
+        if "id" not in strategy or not strategy["id"]:
+            import uuid
+            strategy["id"] = str(uuid.uuid4())
+
         query = """
         INSERT INTO live_strategies (
-            symbol, status, timeframe, slVal, slType, rr, size, 
+            id, symbol, status, timeframe, slVal, slType, rr, size, 
             useRiskSizing, riskPct, useBreakEven, beTriggerR, lookbackWindow, deployedAt,
             timezone, sessions, useGlobalClose, globalCloseTime, entryStabilityRule
         ) VALUES (
-            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
             %s, %s, %s, %s, %s
         ) ON DUPLICATE KEY UPDATE 
+            symbol=VALUES(symbol),
             status=VALUES(status),
             timeframe=VALUES(timeframe),
             slVal=VALUES(slVal),
@@ -80,6 +87,7 @@ class LiveStrategyHandler:
             entryStabilityRule=VALUES(entryStabilityRule)
         """
         params = (
+            strategy["id"],
             strategy["symbol"],
             strategy["status"],
             strategy["timeframe"],
@@ -110,15 +118,14 @@ class LiveStrategyHandler:
             return False
 
     @staticmethod
-    def get_strategy(symbol: str = None) -> dict:
+    def get_strategy(strategy_id: str = None) -> dict:
         """
-        Gets the strategy for a symbol from the database.
+        Gets the strategy by ID from the database, or the latest if none provided.
         """
-        if symbol:
-            query = "SELECT * FROM live_strategies WHERE symbol = %s"
-            params = (symbol,)
+        if strategy_id:
+            query = "SELECT * FROM live_strategies WHERE id = %s"
+            params = (strategy_id,)
         else:
-            # Get latest deployed active strategy
             query = "SELECT * FROM live_strategies ORDER BY deployedAt DESC LIMIT 1"
             params = ()
 
@@ -126,40 +133,10 @@ class LiveStrategyHandler:
             results = SQLHandler.execute_query(query, params)
             if results:
                 row = results[0]
-                
-                # Parse sessions safely
-                sessions_raw = row.get("sessions")
-                sessions_list = []
-                if sessions_raw:
-                    try:
-                        sessions_list = json.loads(sessions_raw)
-                    except Exception:
-                        pass
-                
-                return {
-                    "symbol": row["symbol"],
-                    "status": row["status"],
-                    "timeframe": row["timeframe"],
-                    "slVal": float(row["slVal"]),
-                    "slType": row["slType"],
-                    "rr": float(row["rr"]),
-                    "size": float(row["size"]),
-                    "useRiskSizing": bool(row["useRiskSizing"]),
-                    "riskPct": float(row["riskPct"]),
-                    "useBreakEven": bool(row["useBreakEven"]),
-                    "beTriggerR": float(row["beTriggerR"]),
-                    "lookbackWindow": int(row["lookbackWindow"]),
-                    "deployedAt": row["deployedAt"],
-                    "timezone": row.get("timezone", "Local") or "Local",
-                    "sessions": sessions_list,
-                    "useGlobalClose": bool(row.get("useGlobalClose", False)),
-                    "globalCloseTime": row.get("globalCloseTime", "") or "",
-                    "entryStabilityRule": row.get("entryStabilityRule", "default") or "default"
-                }
+                return LiveStrategyHandler._row_to_dict(row)
         except Exception as e:
             print(f"Error fetching strategy from DB: {e}", flush=True)
         
-        # Fallback to local active_strategy.json if DB fails
         if os.path.exists(CONFIG_PATH):
             try:
                 with open(CONFIG_PATH, 'r') as f:
@@ -169,22 +146,78 @@ class LiveStrategyHandler:
         return None
 
     @staticmethod
-    def is_trading_allowed(symbol: str) -> tuple:
+    def get_all_strategies() -> list:
         """
-        Checks if trading is currently allowed for the symbol based on active sessions.
+        Retrieves all live strategies from the database.
+        """
+        query = "SELECT * FROM live_strategies ORDER BY deployedAt DESC"
+        try:
+            results = SQLHandler.execute_query(query)
+            return [LiveStrategyHandler._row_to_dict(row) for row in results]
+        except Exception as e:
+            print(f"Error fetching all strategies from DB: {e}", flush=True)
+            return []
+
+    @staticmethod
+    def delete_strategy(strategy_id: str) -> bool:
+        """
+        Deletes a live strategy by ID.
+        """
+        query = "DELETE FROM live_strategies WHERE id = %s"
+        try:
+            SQLHandler.execute_query(query, (strategy_id,))
+            return True
+        except Exception as e:
+            print(f"Error deleting strategy {strategy_id}: {e}", flush=True)
+            return False
+
+    @staticmethod
+    def _row_to_dict(row: dict) -> dict:
+        sessions_raw = row.get("sessions")
+        sessions_list = []
+        if sessions_raw:
+            try:
+                sessions_list = json.loads(sessions_raw)
+            except Exception:
+                pass
+        return {
+            "id": row["id"],
+            "symbol": row["symbol"],
+            "status": row["status"],
+            "timeframe": row["timeframe"],
+            "slVal": float(row["slVal"]),
+            "slType": row["slType"],
+            "rr": float(row["rr"]),
+            "size": float(row["size"]),
+            "useRiskSizing": bool(row["useRiskSizing"]),
+            "riskPct": float(row["riskPct"]),
+            "useBreakEven": bool(row["useBreakEven"]),
+            "beTriggerR": float(row["beTriggerR"]),
+            "lookbackWindow": int(row["lookbackWindow"]),
+            "deployedAt": row["deployedAt"],
+            "timezone": row.get("timezone", "Local") or "Local",
+            "sessions": sessions_list,
+            "useGlobalClose": bool(row.get("useGlobalClose", False)),
+            "globalCloseTime": row.get("globalCloseTime", "") or "",
+            "entryStabilityRule": row.get("entryStabilityRule", "default") or "default"
+        }
+
+    @staticmethod
+    def is_trading_allowed(strategy_id: str) -> tuple:
+        """
+        Checks if trading is currently allowed for the strategy based on its active sessions.
         Returns (is_allowed, error_message).
         """
-        strategy = LiveStrategyHandler.get_strategy(symbol)
+        strategy = LiveStrategyHandler.get_strategy(strategy_id)
         if not strategy or strategy.get("status") != "active":
-            return True, "" # No active strategy deployed, allow manual trading without restrictions
+            return True, ""
             
         sessions = [s for s in strategy.get("sessions", []) if s.get("active", True)]
         if not sessions:
-            return True, "" # No sessions configured, allow trading anytime
+            return True, ""
             
         timezone_str = strategy.get("timezone", "Local")
         
-        # Get current time in specified timezone
         import time
         from datetime import datetime, timezone as pytimezone
         ts = time.time()
@@ -193,7 +226,7 @@ class LiveStrategyHandler:
         else:
             dt_now = datetime.fromtimestamp(ts)
             
-        wd = dt_now.weekday() + 1 # 1=Mon, ..., 7=Sun
+        wd = dt_now.weekday() + 1
         time_val = dt_now.time()
         
         in_session = False
@@ -231,12 +264,10 @@ class LiveStrategyHandler:
         Called on startup to fetch active strategies from the database
         and rebuild active_strategy.json.
         """
-        # Initialize DB tables on startup
         LiveStrategyHandler.init_db()
-
         strategy = LiveStrategyHandler.get_strategy()
         if strategy and strategy.get("status") == "active":
-            print(f"Startup Recovery: Restoring active live strategy for {strategy['symbol']} from DB.", flush=True)
+            print(f"Startup Recovery: Restoring active live strategy {strategy['id']} for {strategy['symbol']} from DB.", flush=True)
             try:
                 with open(CONFIG_PATH, 'w') as f:
                     json.dump(strategy, f, indent=4)
