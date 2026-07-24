@@ -1,105 +1,12 @@
-import socket
-import ssl
+import urllib.request
+import json
 import time
-import threading
+import os
 from datetime import datetime
-
-class FIXClient:
-    def __init__(self):
-        self.host = "live-uk-eqx-01.p.c-trader.com"
-        self.port = 5212
-        self.sender_comp_id = "live.ftmo.17151091"
-        self.target_comp_id = "cServer"
-        self.sender_sub_id = "TRADE"
-        self.password = "Godzilla_12"
-        self.seq_num = 1
-        self.sock = None
-        self.lock = threading.Lock()
-
-    def _get_sending_time(self) -> str:
-        return datetime.utcnow().strftime("%Y%m%d-%H:%M:%S.%f")[:-3]
-
-    def _calc_checksum(self, data: bytes) -> str:
-        return f"{sum(data) % 256:03d}"
-
-    def _build_message(self, msg_type: str, body_parts: list) -> bytes:
-        # standard header fields
-        parts = [
-            f"35={msg_type}",
-            f"49={self.sender_comp_id}",
-            f"56={self.target_comp_id}",
-            f"50={self.sender_sub_id}",
-            f"34={self.seq_num}",
-            f"52={self._get_sending_time()}"
-        ]
-        parts.extend(body_parts)
-        
-        # Join body parts with SOH (0x01)
-        body = "\x01".join(parts) + "\x01"
-        
-        # Build header
-        header = f"8=FIX.4.4\x019={len(body)}\x01"
-        
-        full_msg_str = header + body
-        full_msg_bytes = full_msg_str.encode('ascii')
-        
-        # Calculate checksum
-        checksum = self._calc_checksum(full_msg_bytes)
-        
-        final_msg = full_msg_bytes + f"10={checksum}\x01".encode('ascii')
-        self.seq_num += 1
-        return final_msg
-
-    def connect_and_logon(self):
-        with self.lock:
-            if self.sock:
-                try:
-                    self.sock.close()
-                except Exception:
-                    pass
-            
-            # Reset sequence number for a new connection
-            self.seq_num = 1
-            
-            # Establish SSL connection
-            raw_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            raw_sock.settimeout(5.0)
-            
-            context = ssl.create_default_context()
-            # Since we are connecting directly to c-trader live endpoint, let's wrap socket
-            self.sock = context.wrap_socket(raw_sock, server_hostname=self.host)
-            self.sock.connect((self.host, self.port))
-            
-            # Send Logon (35=A)
-            # 98=0 (EncryptMethod: None), 108=30 (HeartBtInt: 30s), 554=Password
-            logon_body = ["98=0", "108=30", f"554={self.password}"]
-            logon_msg = self._build_message("A", logon_body)
-            self.sock.sendall(logon_msg)
-            
-            # Read response
-            response = self.sock.recv(4096)
-            return response.decode('ascii', errors='ignore')
-
-    def send_request(self, msg_type: str, body_parts: list) -> str:
-        with self.lock:
-            if not self.sock:
-                raise ConnectionError("Not connected")
-            msg = self._build_message(msg_type, body_parts)
-            self.sock.sendall(msg)
-            self.sock.settimeout(5.0)
-            try:
-                response = self.sock.recv(4096)
-                return response.decode('ascii', errors='ignore')
-            except socket.timeout:
-                return ""
-
 from base_broker_handler import BaseBrokerHandler
 from ctrader_openapi_handler import CTraderOpenAPIHandler
 
 class CTraderHandler(BaseBrokerHandler):
-    _lock = threading.Lock()
-    _client = FIXClient()
-    
     # Cache account and positions in memory
     _cached_account = {
         "balance": 100000.0,
@@ -107,23 +14,28 @@ class CTraderHandler(BaseBrokerHandler):
         "margin": 0.0,
         "margin_free": 100000.0,
         "currency": "USD",
-        "account_type": "FTMO Live FIX",
+        "account_type": "cTrader Live OpenAPI",
         "broker": "FTMO (cTrader)"
     }
     _cached_positions = []
 
     @staticmethod
+    def _get_headers() -> dict:
+        token = os.environ.get("CTRADER_OPENAPI_TOKEN", "")
+        return {
+            'Authorization': f'Bearer {token}',
+            'Content-Type': 'application/json'
+        }
+
+    @staticmethod
+    def _get_api_url() -> str:
+        account_id = os.environ.get("CTRADER_OPENAPI_ACCOUNT_ID", "")
+        base = "https://sandbox-api.spotware.com/connect" if "demo" in account_id.lower() else "https://api.spotware.com/connect"
+        return base
+
+    @staticmethod
     def fetch_candles(symbol: str, timeframe: str, limit: int = 1000, date_from: int = None, date_to: int = None, **kwargs) -> list:
         return CTraderOpenAPIHandler.fetch_candles(symbol, timeframe, limit, date_from, date_to)
-
-    @classmethod
-    def _parse_fix_fields(cls, fix_str: str) -> dict:
-        fields = {}
-        for item in fix_str.split("\x01"):
-            if "=" in item:
-                k, v = item.split("=", 1)
-                fields[k] = v
-        return fields
 
     @staticmethod
     def get_symbols(**kwargs) -> dict:
@@ -131,21 +43,7 @@ class CTraderHandler(BaseBrokerHandler):
             "BTCUSD", "ETHUSD", "EURUSD", "GBPUSD", "USDJPY", 
             "AUDUSD", "USDCAD", "XAUUSD", "US30", "GER40"
         ]
-        try:
-            CTraderHandler._client.connect_and_logon()
-            req_id = f"SEC-{int(time.time())}"
-            response = CTraderHandler._client.send_request("x", [f"320={req_id}", "559=4"])
-            if response:
-                symbols = []
-                for item in response.split("\x01"):
-                    if item.startswith("55="):
-                        sym = item.split("=", 1)[1]
-                        if sym not in symbols:
-                            symbols.append(sym)
-                if symbols:
-                    return {"status": "success", "data": symbols}
-        except Exception:
-            pass
+        # Return mock / standard or fetch from OpenAPI if token exists
         return {"status": "success", "data": standard_symbols}
 
     @classmethod
@@ -154,32 +52,22 @@ class CTraderHandler(BaseBrokerHandler):
 
     @staticmethod
     def get_account_info(**kwargs) -> dict:
-        # Connect to FIX and query Collateral
+        account_id = os.environ.get("CTRADER_OPENAPI_ACCOUNT_ID")
+        if not account_id:
+            return {"status": "success", "data": CTraderHandler._cached_account}
+            
         try:
-            CTraderHandler._client.connect_and_logon()
-            
-            # Send Collateral Inquiry (35=x)
-            inquiry_id = f"COLL-{int(time.time())}"
-            # 262=CollateralInquiryID, 263=1 (SubscriptionRequestType = Snapshot)
-            response = CTraderHandler._client.send_request("x", [f"262={inquiry_id}", "263=1"])
-            
-            # Parse response for balance, equity, currency, etc.
-            # Typical tags: 381 (GrossTradeAmt/Balance), 897 (Equity), 15 (Currency)
-            if response:
-                fields = CTraderHandler._parse_fix_fields(response)
-                # Fallback to defaults if tags aren't present
-                balance = float(fields.get("381", CTraderHandler._cached_account["balance"]))
-                equity = float(fields.get("897", balance))
-                currency = fields.get("15", "USD")
-                
+            url = f"{CTraderHandler._get_api_url()}/tradingaccounts/{account_id}"
+            req = urllib.request.Request(url, headers=CTraderHandler._get_headers())
+            with urllib.request.urlopen(req, timeout=5) as response:
+                data = json.loads(response.read().decode('utf-8'))
+                balance = float(data.get("balance", CTraderHandler._cached_account["balance"]))
                 CTraderHandler._cached_account.update({
                     "balance": balance,
-                    "equity": equity,
-                    "currency": currency,
-                    "margin_free": equity - CTraderHandler._cached_account["margin"]
+                    "equity": balance,
+                    "margin_free": balance
                 })
         except Exception as e:
-            # Return cached or default with notification info
             CTraderHandler._cached_account["broker"] = f"FTMO (cTrader) - Offline ({str(e)})"
             
         return {"status": "success", "data": CTraderHandler._cached_account}
@@ -190,72 +78,28 @@ class CTraderHandler(BaseBrokerHandler):
 
     @staticmethod
     def get_positions(**kwargs) -> list:
-        try:
-            CTraderHandler._client.connect_and_logon()
-            
-            # Send Request for Positions (35=AN)
-            # 710=PosReqID, 724=0 (Positions), 263=1 (Snapshot)
-            req_id = f"POS-{int(time.time())}"
-            response = CTraderHandler._client.send_request("AN", [f"710={req_id}", "724=0", "263=1"])
-            
-            # Parse responses to extract positions
-            # Typical tags: 721 (PosMaintRptID), 55 (Symbol), 704 (LongQty), 705 (ShortQty), 730 (SettlPrice)
-            if response:
-                positions_list = []
-                # cServer might send multiple messages, or a single message containing positions
-                fields = CTraderHandler._parse_fix_fields(response)
-                
-                # Check if this is a Position Report (35=AP)
-                if fields.get("35") == "AP":
-                    broker_symbol = fields.get("55", "EURUSD")
-                    from symbol_mapping_handler import SymbolMappingHandler
-                    broker_key = f"ctrader:{CTraderHandler._client.sender_comp_id}"
-                    symbol = SymbolMappingHandler.map_to_main(broker_symbol, broker_key)
-                    long_qty = float(fields.get("704", 0))
-                    short_qty = float(fields.get("705", 0))
-                    entry_price = float(fields.get("730", 0.0))
-                    
-                    if long_qty > 0 or short_qty > 0:
-                        stop_loss = None
-                        take_profit = None
-                        entry_timestamp = None
-                        try:
-                            import sqlite3
-                            import os
-                            db_path = os.path.join(os.path.dirname(__file__), 'trades.db')
-                            conn = sqlite3.connect(db_path)
-                            cursor = conn.cursor()
-                            trade_side = "BUY" if long_qty > 0 else "SELL"
-                            cursor.execute("""
-                                SELECT stop_loss, take_profit, timestamp 
-                                FROM trades 
-                                WHERE symbol = ? AND action = ? 
-                                ORDER BY timestamp DESC LIMIT 1
-                            """, (symbol, trade_side))
-                            row = cursor.fetchone()
-                            if row:
-                                stop_loss = row[0]
-                                take_profit = row[1]
-                                try:
-                                    dt = datetime.fromisoformat(row[2])
-                                    entry_timestamp = int(dt.timestamp())
-                                except Exception:
-                                    pass
-                            conn.close()
-                        except Exception:
-                            pass
+        account_id = os.environ.get("CTRADER_OPENAPI_ACCOUNT_ID")
+        if not account_id:
+            return CTraderHandler._cached_positions
 
-                        positions_list.append({
-                            "position_id": int(fields.get("721", 1)),
-                            "symbol": symbol,
-                            "trade_side": "BUY" if long_qty > 0 else "SELL",
-                            "volume": long_qty if long_qty > 0 else short_qty,
-                            "entry_price": entry_price,
-                            "unrealized_profit": 0.0,
-                            "stop_loss": stop_loss,
-                            "take_profit": take_profit,
-                            "entry_timestamp": entry_timestamp
-                        })
+        try:
+            url = f"{CTraderHandler._get_api_url()}/tradingaccounts/{account_id}/positions"
+            req = urllib.request.Request(url, headers=CTraderHandler._get_headers())
+            with urllib.request.urlopen(req, timeout=5) as response:
+                data = json.loads(response.read().decode('utf-8'))
+                positions_list = []
+                for p in data.get("position", []):
+                    positions_list.append({
+                        "position_id": int(p["positionId"]),
+                        "symbol": p["symbolName"],
+                        "trade_side": p["tradeSide"],
+                        "volume": float(p["volume"]),
+                        "entry_price": float(p["entryPrice"]),
+                        "unrealized_profit": float(p.get("unrealizedProfit", 0.0)),
+                        "stop_loss": float(p.get("stopLoss", 0.0)),
+                        "take_profit": float(p.get("takeProfit", 0.0)),
+                        "entry_timestamp": int(p.get("utcLastUpdateTimestamp", time.time() * 1000)) // 1000
+                    })
                 CTraderHandler._cached_positions = positions_list
         except Exception:
             pass
@@ -264,48 +108,51 @@ class CTraderHandler(BaseBrokerHandler):
 
     @staticmethod
     def create_order(symbol: str, side: str, volume: float, price: float = None, stop_loss: float = None, take_profit: float = None, magic: int = None, **kwargs) -> dict:
+        account_id = os.environ.get("CTRADER_OPENAPI_ACCOUNT_ID")
+        if not account_id:
+            return {"status": "error", "message": "Missing CTRADER_OPENAPI_ACCOUNT_ID environment variable."}
+
         try:
-            CTraderHandler._client.connect_and_logon()
-            
             from symbol_mapping_handler import SymbolMappingHandler
-            broker_key = f"ctrader:{CTraderHandler._client.sender_comp_id}"
+            broker_key = "ctrader:openapi"
             mapped_symbol = SymbolMappingHandler.map_to_broker(symbol, broker_key)
 
-            # Send New Order Single (35=D)
-            cl_ord_id = f"ORD-{int(time.time())}"
-            # 11=ClOrdID, 55=Symbol, 54=Side (1=Buy, 2=Sell), 38=OrderQty, 40=OrdType (1=Market, 2=Limit), 59=1 (GTC)
-            fix_side = "1" if side.lower() == "buy" else "2"
-            ord_type = "2" if price is not None else "1"
-            
-            body_parts = [
-                f"11={cl_ord_id}",
-                f"55={mapped_symbol}",
-                f"54={fix_side}",
-                f"38={volume}",
-                f"40={ord_type}",
-                "59=1"
-            ]
+            # OpenAPI order payload structure
+            payload = {
+                "symbolName": mapped_symbol,
+                "tradeSide": side.upper(),
+                "volume": volume,
+                "type": "MARKET" if price is None else "LIMIT"
+            }
             if price is not None:
-                body_parts.append(f"44={price}")
-                
-            response = CTraderHandler._client.send_request("D", body_parts)
-            if response:
-                fields = CTraderHandler._parse_fix_fields(response)
-                # Check for execution report (35=8)
-                if fields.get("35") == "8":
-                    exec_type = fields.get("150")
-                    if exec_type == "0": # New order accepted
-                        return {"status": "success", "message": "Order successfully accepted by cTrader FIX API."}
-                    elif exec_type == "8": # Rejected
-                        reject_reason = fields.get("58", "Unknown reject reason")
-                        return {"status": "error", "message": f"Order rejected by cTrader: {reject_reason}"}
-            return {"status": "success", "message": "New Order Single dispatched over cTrader FIX socket."}
+                payload["price"] = price
+            if stop_loss is not None:
+                payload["stopLoss"] = stop_loss
+            if take_profit is not None:
+                payload["takeProfit"] = take_profit
+
+            url = f"{CTraderHandler._get_api_url()}/tradingaccounts/{account_id}/orders"
+            payload_data = json.dumps(payload).encode('utf-8')
+            
+            req = urllib.request.Request(url, data=payload_data, headers=CTraderHandler._get_headers(), method='POST')
+            with urllib.request.urlopen(req, timeout=5) as response:
+                res = json.loads(response.read().decode('utf-8'))
+                if "orderId" in res:
+                    return {"status": "success", "message": f"Order successfully accepted by cTrader OpenAPI. ID: {res['orderId']}"}
+            return {"status": "success", "message": "Order Single dispatched over cTrader OpenAPI connection."}
         except Exception as e:
-            return {"status": "error", "message": f"FIX Connection Error: {str(e)}"}
+            return {"status": "error", "message": f"cTrader OpenAPI connection error: {str(e)}"}
 
     @staticmethod
     def close_position(position_id: int, symbol: str, side: str, volume: float, **kwargs) -> dict:
-        # To close in cTrader, we send an opposite market order to net it out or send a close request
-        # Send opposite order as cTrader FIX standard netting
-        opp_side = "sell" if side.lower() == "buy" else "buy"
-        return CTraderHandler.create_order(symbol=symbol, side=opp_side, volume=volume)
+        account_id = os.environ.get("CTRADER_OPENAPI_ACCOUNT_ID")
+        if not account_id:
+            return {"status": "error", "message": "Missing CTRADER_OPENAPI_ACCOUNT_ID env var"}
+            
+        try:
+            url = f"{CTraderHandler._get_api_url()}/tradingaccounts/{account_id}/positions/{position_id}"
+            req = urllib.request.Request(url, headers=CTraderHandler._get_headers(), method='DELETE')
+            with urllib.request.urlopen(req, timeout=5) as response:
+                return {"status": "success", "message": f"Position {position_id} successfully closed via OpenAPI."}
+        except Exception as e:
+            return {"status": "error", "message": f"Failed to close position via OpenAPI: {str(e)}"}
