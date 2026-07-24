@@ -327,6 +327,10 @@ export default function Dashboard() {
 
   const handleAddMapping = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isProdHost && !isAuthenticated) {
+      alert("Action disabled in read-only mode.");
+      return;
+    }
     const finalBrokerKey = newBrokerKey === 'custom' ? customBrokerKey : newBrokerKey;
     if (!newMainSymbol || !finalBrokerKey || !newBrokerSymbol) {
       setMappingMessage('All fields are required');
@@ -357,6 +361,10 @@ export default function Dashboard() {
   };
 
   const handleDeleteMapping = async (id: number) => {
+    if (isProdHost && !isAuthenticated) {
+      alert("Action disabled in read-only mode.");
+      return;
+    }
     try {
       const res = await fetch(`${API_BASE_URL}/api/symbol-mappings`, {
         method: 'DELETE',
@@ -622,6 +630,10 @@ export default function Dashboard() {
   };
 
   const saveBacktestSettings = async () => {
+    if (isProdHost && !isAuthenticated) {
+      alert("Action disabled in read-only mode.");
+      return;
+    }
     try {
       const response = await fetch(`${API_BASE_URL}/api/backtest-settings/save`, {
         method: 'POST',
@@ -824,6 +836,10 @@ export default function Dashboard() {
   );
 
   const runBacktest = async () => {
+    if (isProdHost && !isAuthenticated) {
+      alert("Action disabled in read-only mode.");
+      return;
+    }
     if (!symbol) return;
     
     if (backtestAbortControllerRef.current) {
@@ -945,6 +961,10 @@ export default function Dashboard() {
   };
 
   const runOptimization = async () => {
+    if (isProdHost && !isAuthenticated) {
+      alert("Action disabled in read-only mode.");
+      return;
+    }
     if (!symbol) return;
     
     if (backtestAbortControllerRef.current) {
@@ -1052,6 +1072,10 @@ export default function Dashboard() {
   };
 
   const deployLiveStrategy = async () => {
+    if (isProdHost && !isAuthenticated) {
+      alert("Action disabled in read-only mode.");
+      return;
+    }
     setIsDeploying(true);
     try {
       const response = await fetch(`${API_BASE_URL}/api/live/strategy`, {
@@ -1377,6 +1401,10 @@ export default function Dashboard() {
   };
 
   const handleClosePosition = async (pos: any) => {
+    if (isProdHost && !isAuthenticated) {
+      alert("Action disabled in read-only mode.");
+      return;
+    }
     if (!window.confirm(`Are you sure you want to close position ${pos.position_id} (${pos.symbol})?`)) {
       return;
     }
@@ -1444,6 +1472,10 @@ export default function Dashboard() {
   };
 
   const handleSaveFavourite = async (candle: Candle, notes: string = '') => {
+    if (isProdHost && !isAuthenticated) {
+      alert("Action disabled in read-only mode.");
+      return;
+    }
     try {
       const response = await fetch(`${API_BASE_URL}/api/favourites/save`, {
         method: 'POST',
@@ -1477,6 +1509,10 @@ export default function Dashboard() {
   };
 
   const handleDeleteFavourite = async (favId: number) => {
+    if (isProdHost && !isAuthenticated) {
+      alert("Action disabled in read-only mode.");
+      return;
+    }
     try {
       const response = await fetch(`${API_BASE_URL}/api/favourites/delete`, {
         method: 'POST',
@@ -1495,6 +1531,10 @@ export default function Dashboard() {
   };
 
   const handleUpdateFavouriteNotes = async (favId: number, notes: string) => {
+    if (isProdHost && !isAuthenticated) {
+      alert("Action disabled in read-only mode.");
+      return;
+    }
     try {
       const response = await fetch(`${API_BASE_URL}/api/favourites/update-notes`, {
         method: 'POST',
@@ -1525,6 +1565,10 @@ export default function Dashboard() {
 
   const handleExecuteTrade = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isProdHost && !isAuthenticated) {
+      alert("Action disabled in read-only mode.");
+      return;
+    }
     try {
       const response = await fetch(`${API_BASE_URL}/api/metatrader/order`, {
         method: 'POST',
@@ -2551,6 +2595,7 @@ export default function Dashboard() {
               />
             ) : (
               <WyckoffBacktester
+                isReadOnly={isProdHost && !isAuthenticated}
                 symbol={symbol}
                 timeframe={timeframe}
                 liveStrategy={liveStrategy}
@@ -2786,6 +2831,7 @@ export default function Dashboard() {
                   </div>
                   <div className="no-drag" style={contentStyle}>
                     <WyckoffBacktester
+                      isReadOnly={isProdHost && !isAuthenticated}
                       symbol={symbol}
                       timeframe={timeframe}
                       liveStrategy={liveStrategy}

@@ -86,6 +86,7 @@ interface WyckoffBacktesterProps {
   setOptimizationResults: (val: any[] | null) => void;
   onRunOptimization: () => void;
   onSaveSettings?: () => void;
+  isReadOnly?: boolean;
 }
 
 export default function WyckoffBacktester({
@@ -171,7 +172,8 @@ export default function WyckoffBacktester({
   optimizationResults,
   setOptimizationResults,
   onRunOptimization,
-  onSaveSettings
+  onSaveSettings,
+  isReadOnly = false
 }: WyckoffBacktesterProps) {
   const [copied, setCopied] = React.useState(false);
 
@@ -369,12 +371,13 @@ export default function WyckoffBacktester({
 
   return (
     <div className="no-drag" style={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
-      <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '12px',
-        fontSize: '12px',
-      }}>
+      <fieldset disabled={isReadOnly} style={{ border: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px',
+          fontSize: '12px',
+        }}>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginBottom: '-4px' }}>
           {onSaveSettings && (
             <button
@@ -1170,6 +1173,8 @@ export default function WyckoffBacktester({
             </div>
           </CollapsibleCard>
         )}
+        </div>
+      </fieldset>
 
         {(backtestResults || favouriteCandles.length > 0) && (
           <CollapsibleCard title="Trades & Results" sectionKey="trades">
@@ -1807,7 +1812,6 @@ export default function WyckoffBacktester({
             </button>
           </div>
         )}
-      </div>
     </div>
   );
 }
