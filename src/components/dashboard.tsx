@@ -468,7 +468,17 @@ export default function Dashboard() {
   const [useGlobalClose, setUseGlobalClose] = useState<boolean>(() => localStorage.getItem('wyckoff_use_global_close') === 'true');
   const [globalCloseTime, setGlobalCloseTime] = useState<string>(() => localStorage.getItem('wyckoff_global_close_time') || '21:50');
 
-  const [panelOrder, setPanelOrder] = useState<string[]>(['chart', 'backtester']);
+  const [panelOrder, setPanelOrder] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('wyckoff_desk_panel_order');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.includes('trades')) return parsed;
+        return [...parsed, 'trades'];
+      }
+    } catch {}
+    return ['chart', 'backtester', 'trades'];
+  });
   const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   // Responsive mobile states
@@ -1547,31 +1557,18 @@ export default function Dashboard() {
   useEffect(() => {
     if (!initialCandlesLoaded) return;
 
-    // fetchAccountData();
-    // fetchPositionData();
+    fetchAccountData();
+    fetchPositionData();
+    fetchHistoryTrades();
 
-    // Poll account and positions every 5s
-    // const interval = setInterval(() => {
-    //   fetchAccountData();
-    //   fetchPositionData();
-    // }, 5000);
-    // return () => clearInterval(interval);
-  }, [initialCandlesLoaded, symbol]);
-
-  useEffect(() => {
-    if (view === 'trades') {
+    // Poll account, positions, and history every 10s
+    const interval = setInterval(() => {
       fetchAccountData();
       fetchPositionData();
       fetchHistoryTrades();
-      
-      const interval = setInterval(() => {
-        fetchAccountData();
-        fetchPositionData();
-        fetchHistoryTrades();
-      }, 5000);
-      return () => clearInterval(interval);
-    }
-  }, [view]);
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [initialCandlesLoaded, symbol]);
 
   const currentConnected = true;
 
@@ -2045,28 +2042,6 @@ export default function Dashboard() {
               </>
             )}
           </div>
-          <button 
-            onClick={() => setView(view === 'trades' ? 'dashboard' : 'trades')} 
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              backgroundColor: view === 'trades' ? '#2563eb' : '#1e293b',
-              border: view === 'trades' ? '1px solid #3b82f6' : '1px solid #334155',
-              cursor: 'pointer',
-              borderRadius: '6px',
-              padding: '6px 12px',
-              color: '#ffffff',
-              fontWeight: 'bold',
-              fontSize: '11px',
-              outline: 'none',
-              transition: 'all 0.2s',
-              marginLeft: '8px',
-              height: '32px'
-            }}
-          >
-            📈 Trades {view === 'trades' && '✓'}
-          </button>
         </div>
 
         {view !== 'mappings' && (
@@ -2376,178 +2351,6 @@ export default function Dashboard() {
                 </table>
               )}
             </div>
-          </div>
-        </div>
-      ) : view === 'trades' ? (
-        <div style={{
-          padding: '24px',
-          maxWidth: '1200px',
-          margin: '0 auto',
-          width: '100%',
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '24px'
-        }}>
-          {/* Header */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ color: '#3b82f6' }}>📈</span> Live Trades, History & Statistics
-            </h2>
-            <button 
-              onClick={() => setView('dashboard')}
-              style={{
-                backgroundColor: '#1e293b',
-                color: '#cbd5e1',
-                border: '1px solid #334155',
-                padding: '8px 16px',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                fontSize: '12px',
-                transition: 'all 0.2s'
-              }}
-            >
-              ← Back to Dashboard
-            </button>
-          </div>
-
-          {/* Statistics Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-            <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', padding: '16px' }}>
-              <span style={{ fontSize: '11px', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>DAILY P&L</span>
-              <span style={{ fontSize: '20px', fontWeight: 'bold', color: dailyPnl >= 0 ? '#10b981' : '#ef4444' }}>
-                {dailyPnl >= 0 ? '+' : ''}${dailyPnl.toFixed(2)}
-              </span>
-            </div>
-            <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', padding: '16px' }}>
-              <span style={{ fontSize: '11px', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>WEEKLY P&L</span>
-              <span style={{ fontSize: '20px', fontWeight: 'bold', color: weeklyPnl >= 0 ? '#10b981' : '#ef4444' }}>
-                {weeklyPnl >= 0 ? '+' : ''}${weeklyPnl.toFixed(2)}
-              </span>
-            </div>
-            <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', padding: '16px' }}>
-              <span style={{ fontSize: '11px', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>ACCOUNT BALANCE</span>
-              <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#f8fafc' }}>
-                ${accountInfo?.balance ? accountInfo.balance.toFixed(2) : '100000.00'}
-              </span>
-            </div>
-            <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', padding: '16px' }}>
-              <span style={{ fontSize: '11px', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>ACCOUNT EQUITY</span>
-              <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#f8fafc' }}>
-                ${accountInfo?.equity ? accountInfo.equity.toFixed(2) : '100000.00'}
-              </span>
-            </div>
-          </div>
-
-          {/* Open Positions */}
-          <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', padding: '20px' }}>
-            <h3 style={{ margin: '0 0 16px 0', fontSize: '14px', color: '#f8fafc', fontWeight: 'bold' }}>Live Open Positions</h3>
-            {openPositions.length === 0 ? (
-              <div style={{ color: '#64748b', fontSize: '12px', textAlign: 'center', padding: '24px' }}>
-                No active open positions.
-              </div>
-            ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid #1e293b', textAlign: 'left', color: '#94a3b8' }}>
-                      <th style={{ padding: '8px' }}>Position ID</th>
-                      <th style={{ padding: '8px' }}>Symbol</th>
-                      <th style={{ padding: '8px' }}>Side</th>
-                      <th style={{ padding: '8px' }}>Volume</th>
-                      <th style={{ padding: '8px' }}>Entry Price</th>
-                      <th style={{ padding: '8px' }}>SL / TP</th>
-                      <th style={{ padding: '8px' }}>Profit</th>
-                      <th style={{ padding: '8px', textAlign: 'right' }}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {openPositions.map(p => (
-                      <tr key={p.position_id} style={{ borderBottom: '1px solid #1e293b', color: '#cbd5e1' }}>
-                        <td style={{ padding: '8px' }}>{p.position_id}</td>
-                        <td style={{ padding: '8px', fontWeight: 'bold' }}>{p.symbol}</td>
-                        <td style={{ padding: '8px', color: p.trade_side === 'BUY' ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>{p.trade_side}</td>
-                        <td style={{ padding: '8px' }}>{p.volume.toFixed(2)}</td>
-                        <td style={{ padding: '8px' }}>{p.entry_price.toFixed(5)}</td>
-                        <td style={{ padding: '8px', color: '#94a3b8' }}>
-                          SL: {p.stop_loss ? p.stop_loss.toFixed(5) : 'None'} | TP: {p.take_profit ? p.take_profit.toFixed(5) : 'None'}
-                        </td>
-                        <td style={{ padding: '8px', fontWeight: 'bold', color: p.unrealized_profit >= 0 ? '#10b981' : '#ef4444' }}>
-                          ${p.unrealized_profit.toFixed(2)}
-                        </td>
-                        <td style={{ padding: '8px', textAlign: 'right' }}>
-                          <button 
-                            onClick={() => handleClosePosition(p)}
-                            style={{
-                              backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                              color: '#ef4444',
-                              border: '1px solid rgba(239, 68, 68, 0.2)',
-                              borderRadius: '4px',
-                              padding: '4px 8px',
-                              fontSize: '11px',
-                              cursor: 'pointer',
-                              fontWeight: 'bold'
-                            }}
-                          >
-                            Close Position
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          {/* Trade History */}
-          <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', padding: '20px' }}>
-            <h3 style={{ margin: '0 0 16px 0', fontSize: '14px', color: '#f8fafc', fontWeight: 'bold' }}>Closed Trades History (Last 30 Days)</h3>
-            {loadingHistory ? (
-              <div style={{ color: '#64748b', fontSize: '12px', textAlign: 'center', padding: '24px' }}>
-                Loading history...
-              </div>
-            ) : historyError ? (
-              <div style={{ color: '#ef4444', fontSize: '12px', textAlign: 'center', padding: '24px' }}>
-                {historyError}
-              </div>
-            ) : historyTrades.length === 0 ? (
-              <div style={{ color: '#64748b', fontSize: '12px', textAlign: 'center', padding: '24px' }}>
-                No historical trades found in the last 30 days.
-              </div>
-            ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid #1e293b', textAlign: 'left', color: '#94a3b8' }}>
-                      <th style={{ padding: '8px' }}>Time</th>
-                      <th style={{ padding: '8px' }}>Ticket</th>
-                      <th style={{ padding: '8px' }}>Symbol</th>
-                      <th style={{ padding: '8px' }}>Side</th>
-                      <th style={{ padding: '8px' }}>Volume</th>
-                      <th style={{ padding: '8px' }}>Price</th>
-                      <th style={{ padding: '8px' }}>Profit</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {historyTrades.map(h => (
-                      <tr key={h.ticket} style={{ borderBottom: '1px solid #1e293b', color: '#cbd5e1' }}>
-                        <td style={{ padding: '8px', color: '#94a3b8' }}>{formatDateTime(h.timestamp)}</td>
-                        <td style={{ padding: '8px' }}>{h.ticket}</td>
-                        <td style={{ padding: '8px', fontWeight: 'bold' }}>{h.symbol}</td>
-                        <td style={{ padding: '8px', color: h.trade_side === 'BUY' ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>{h.trade_side}</td>
-                        <td style={{ padding: '8px' }}>{h.volume.toFixed(2)}</td>
-                        <td style={{ padding: '8px' }}>{h.price.toFixed(5)}</td>
-                        <td style={{ padding: '8px', fontWeight: 'bold', color: h.profit >= 0 ? '#10b981' : '#ef4444' }}>
-                          {h.profit >= 0 ? '+' : ''}${h.profit.toFixed(2)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
           </div>
         </div>
       ) : (
@@ -3069,6 +2872,97 @@ export default function Dashboard() {
                     />
                   </div>
                   {renderResizeHandle('backtester')}
+                </div>
+              );
+            }
+
+            if (panelId === 'trades') {
+              return (
+                <div
+                  key="trades"
+                  onDragOver={(e) => handleDragOver(e, 'trades')}
+                  onDrop={(e) => handleDrop(e, 'trades')}
+                  style={dragStyles}
+                >
+                  <div 
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, 'trades')}
+                    style={headerStyle}
+                  >
+                    <span>📈 Live Trades & P&L</span>
+                    <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header to Move</span>
+                  </div>
+                  <div className="no-drag" style={{ ...contentStyle, height: '100%', overflowY: 'auto' }}>
+                    {/* Stats Grid */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
+                      <div style={{ backgroundColor: '#0b0f19', border: '1px solid #1f2937', borderRadius: '8px', padding: '10px' }}>
+                        <span style={{ fontSize: '10px', color: '#94a3b8', display: 'block' }}>DAILY P&L</span>
+                        <span style={{ fontSize: '14px', fontWeight: 'bold', color: dailyPnl >= 0 ? '#10b981' : '#ef4444' }}>
+                          {dailyPnl >= 0 ? '+' : ''}${dailyPnl.toFixed(2)}
+                        </span>
+                      </div>
+                      <div style={{ backgroundColor: '#0b0f19', border: '1px solid #1f2937', borderRadius: '8px', padding: '10px' }}>
+                        <span style={{ fontSize: '10px', color: '#94a3b8', display: 'block' }}>WEEKLY P&L</span>
+                        <span style={{ fontSize: '14px', fontWeight: 'bold', color: weeklyPnl >= 0 ? '#10b981' : '#ef4444' }}>
+                          {weeklyPnl >= 0 ? '+' : ''}${weeklyPnl.toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Open Positions */}
+                    <h4 style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#f8fafc', fontWeight: 'bold' }}>Positions</h4>
+                    {openPositions.length === 0 ? (
+                      <div style={{ color: '#64748b', fontSize: '11px', paddingBottom: '16px' }}>No active positions.</div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+                        {openPositions.map(p => (
+                          <div key={p.position_id} style={{ backgroundColor: '#0b0f19', border: '1px solid #1f2937', borderRadius: '6px', padding: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                              <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#f8fafc' }}>{p.symbol} ({p.volume})</span>
+                              <span style={{ fontSize: '9px', color: p.trade_side === 'BUY' ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>{p.trade_side} @ {p.entry_price.toFixed(5)}</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontSize: '11px', fontWeight: 'bold', color: p.unrealized_profit >= 0 ? '#10b981' : '#ef4444' }}>${p.unrealized_profit.toFixed(2)}</span>
+                              <button 
+                                onClick={() => handleClosePosition(p)}
+                                style={{
+                                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                  color: '#ef4444',
+                                  border: '1px solid rgba(239, 68, 68, 0.2)',
+                                  borderRadius: '4px',
+                                  padding: '2px 6px',
+                                  fontSize: '9px',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                Close
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Closed Deals */}
+                    <h4 style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#f8fafc', fontWeight: 'bold' }}>History</h4>
+                    {loadingHistory ? (
+                      <div style={{ color: '#64748b', fontSize: '11px' }}>Loading...</div>
+                    ) : historyError ? (
+                      <div style={{ color: '#ef4444', fontSize: '11px' }}>{historyError}</div>
+                    ) : historyTrades.length === 0 ? (
+                      <div style={{ color: '#64748b', fontSize: '11px' }}>No history.</div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '180px', overflowY: 'auto' }}>
+                        {historyTrades.slice(0, 10).map(h => (
+                          <div key={h.ticket} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', borderBottom: '1px solid #1f2937', paddingBottom: '4px' }}>
+                            <span style={{ color: '#94a3b8' }}>{h.symbol} ({h.volume})</span>
+                            <span style={{ fontWeight: 'bold', color: h.profit >= 0 ? '#10b981' : '#ef4444' }}>{h.profit >= 0 ? '+' : ''}${h.profit.toFixed(2)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {renderResizeHandle('trades')}
                 </div>
               );
             }
