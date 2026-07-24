@@ -13,6 +13,11 @@ class BaseBrokerHandler(ABC):
 
     @staticmethod
     @abstractmethod
+    def get_account(**kwargs) -> dict:
+        pass
+
+    @staticmethod
+    @abstractmethod
     def get_positions(**kwargs) -> list:
         pass
 

@@ -141,6 +141,13 @@ class MetaTraderHandler(BaseBrokerHandler):
         }
 
     @staticmethod
+    def get_account(**kwargs) -> dict:
+        info = MetaTraderHandler.get_account_info(**kwargs)
+        if not info:
+            return {"status": "error", "message": "Failed to retrieve MetaTrader 5 account info"}
+        return {"status": "success", "data": info}
+
+    @staticmethod
     def get_positions(login: int = 2002061314, password: str = "Godzilla_12", server: str = "JustMarkets-Demo", **kwargs) -> list:
         """
         Fetches open positions from MetaTrader 5.
