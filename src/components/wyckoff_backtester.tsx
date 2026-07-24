@@ -464,20 +464,35 @@ export default function WyckoffBacktester({
         </div>
 
         {backtestResults && (
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: '8px',
-            backgroundColor: '#1e293b',
-            padding: '8px',
-            borderRadius: '6px',
-            border: '1px solid #334155',
-            marginTop: '4px'
-          }}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2px' }}>
-              <span style={{ color: '#9ca3af', fontSize: '9px', textTransform: 'uppercase', fontWeight: 600 }}>Trades</span>
-              <span style={{ color: '#ffffff', fontSize: '11px', fontWeight: 'bold' }}>{backtestResults.totalTrades}</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              backgroundColor: '#1e293b',
+              padding: '6px 12px',
+              borderRadius: '6px',
+              border: '1px solid #334155',
+              fontSize: '11px',
+              fontWeight: 500,
+              color: '#9ca3af'
+            }}>
+              <span>Backtest Overview</span>
+              <span style={{ color: '#38bdf8', fontWeight: 'bold' }}>{symbol} • {timeframe}</span>
             </div>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: '8px',
+              backgroundColor: '#1e293b',
+              padding: '8px',
+              borderRadius: '6px',
+              border: '1px solid #334155'
+            }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2px' }}>
+                <span style={{ color: '#9ca3af', fontSize: '9px', textTransform: 'uppercase', fontWeight: 600 }}>Trades</span>
+                <span style={{ color: '#ffffff', fontSize: '11px', fontWeight: 'bold' }}>{backtestResults.totalTrades}</span>
+              </div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2px' }}>
               <span style={{ color: '#9ca3af', fontSize: '9px', textTransform: 'uppercase', fontWeight: 600 }}>Win Rate</span>
               <span style={{ color: backtestResults.winRate >= 50 ? '#10b981' : '#ef4444', fontSize: '11px', fontWeight: 'bold' }}>
@@ -504,6 +519,7 @@ export default function WyckoffBacktester({
                 {(backtestResults.maxDailyLoss ?? 0).toFixed(2)}%
               </span>
             </div>
+          </div>
           </div>
         )}
         {/* Collapsible Cards */}
