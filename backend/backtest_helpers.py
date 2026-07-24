@@ -13,11 +13,12 @@ def is_datetime_in_sessions(dt: datetime, sessions_list: list) -> tuple:
     """
     Helper to check if datetime falls within defined sessions.
     """
-    if not sessions_list:
+    active_sessions = [s for s in sessions_list if s.get("active", True)] if sessions_list else []
+    if not active_sessions:
         return True, None
     wd = dt.weekday() + 1  # 1=Mon, ..., 7=Sun
     time_val = dt.time()
-    for s in sessions_list:
+    for s in active_sessions:
         weekdays = s.get("weekdays", [])
         if wd not in weekdays:
             continue
@@ -41,7 +42,7 @@ def is_in_specific_session(dt: datetime, s: dict) -> bool:
     """
     Helper to check if datetime is in a specific session.
     """
-    if not s:
+    if not s or not s.get("active", True):
         return True
     wd = dt.weekday() + 1
     time_val = dt.time()

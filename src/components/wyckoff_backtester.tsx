@@ -246,7 +246,8 @@ export default function WyckoffBacktester({
         end: newEnd,
         closeOnEnd: newCloseOnEnd,
         weekdays: [...newWeekdays],
-        color: newColor
+        color: newColor,
+        active: true
       };
       setTradingSessions([...tradingSessions, newSession]);
     }
@@ -282,6 +283,10 @@ export default function WyckoffBacktester({
       handleCancelEdit();
     }
     setTradingSessions(tradingSessions.filter(s => s.id !== id));
+  };
+
+  const toggleSessionActive = (id: string) => {
+    setTradingSessions(tradingSessions.map(s => s.id === id ? { ...s, active: s.active === false ? true : false } : s));
   };
 
   const toggleWeekday = (day: number) => {
@@ -689,9 +694,20 @@ export default function WyckoffBacktester({
                     }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span style={{ color: '#ffffff', fontWeight: 'bold' }}>{s.start} - {s.end} ({daysStr})</span>
+                          <input 
+                            type="checkbox"
+                            checked={s.active !== false}
+                            onChange={() => toggleSessionActive(s.id)}
+                            style={{ cursor: 'pointer' }}
+                          />
+                          <span style={{ 
+                            color: '#ffffff', 
+                            fontWeight: 'bold',
+                            textDecoration: s.active === false ? 'line-through' : 'none',
+                            opacity: s.active === false ? 0.5 : 1
+                          }}>{s.start} - {s.end} ({daysStr})</span>
                         </div>
-                        <span style={{ color: '#9ca3af', fontSize: '9px' }}>
+                        <span style={{ color: '#9ca3af', fontSize: '9px', opacity: s.active === false ? 0.5 : 1 }}>
                           {s.closeOnEnd ? 'Close on End' : 'Let run'}
                         </span>
                       </div>

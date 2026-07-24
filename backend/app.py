@@ -35,7 +35,7 @@ def run_auto_closer():
             if strategy and strategy.get("status") == "active":
                 symbol = strategy.get("symbol")
                 timezone_str = strategy.get("timezone", "Local")
-                sessions = strategy.get("sessions", [])
+                sessions = [s for s in strategy.get("sessions", []) if s.get("active", True)]
                 use_global_close = strategy.get("useGlobalClose", False)
                 global_close_time = strategy.get("globalCloseTime", "")
 
@@ -126,7 +126,8 @@ if __name__ == '__main__':
 
     # Restore active strategies from DB on startup
     try:
-        LiveStrategyHandler.restore_active_strategies()
+        # LiveStrategyHandler.restore_active_strategies()
+        pass
     except Exception as e:
         print(f"Startup Recovery Error: {e}", flush=True)
 

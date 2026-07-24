@@ -178,7 +178,7 @@ class LiveStrategyHandler:
         if not strategy or strategy.get("status") != "active":
             return True, "" # No active strategy deployed, allow manual trading without restrictions
             
-        sessions = strategy.get("sessions", [])
+        sessions = [s for s in strategy.get("sessions", []) if s.get("active", True)]
         if not sessions:
             return True, "" # No sessions configured, allow trading anytime
             
