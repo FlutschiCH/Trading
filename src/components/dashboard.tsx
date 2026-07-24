@@ -2011,7 +2011,7 @@ export default function Dashboard() {
             }}
           />
             <button 
-              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              onClick={toggleTheme}
               style={{
                 display: 'flex',
                 alignItems: 'center',
