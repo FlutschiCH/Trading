@@ -3,14 +3,18 @@ import json
 import time
 from sql_handler import SQLHandler
 
-CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'active_strategy.json')
+# No local config path
 
 class LiveStrategyHandler:
+    _db_initialized = False
+
     @staticmethod
     def init_db():
         """
         Initializes the schema for live strategies in the DB.
         """
+        if LiveStrategyHandler._db_initialized:
+            return
         # Check if table has 'id' column, if not drop it to migrate
         try:
             SQLHandler.execute_query("SELECT id FROM live_strategies LIMIT 1")
@@ -46,14 +50,17 @@ class LiveStrategyHandler:
         """
         try:
             SQLHandler.execute_query(create_mysql)
+            LiveStrategyHandler._db_initialized = True
         except Exception as e:
             print(f"Error initializing live_strategies DB table: {e}", flush=True)
+
 
     @staticmethod
     def save_strategy(strategy: dict) -> bool:
         """
         Saves the strategy configuration to the SQL database using an upsert pattern.
         """
+        LiveStrategyHandler.init_db()
         if "id" not in strategy or not strategy["id"]:
             import uuid
             strategy["id"] = str(uuid.uuid4())
@@ -109,9 +116,6 @@ class LiveStrategyHandler:
         )
         try:
             SQLHandler.execute_query(query, params)
-            # Write to active_strategy.json locally for cache compatibility
-            with open(CONFIG_PATH, 'w') as f:
-                json.dump(strategy, f, indent=4)
             return True
         except Exception as e:
             print(f"Failed to save live strategy: {e}", flush=True)
@@ -122,6 +126,7 @@ class LiveStrategyHandler:
         """
         Gets the strategy by ID from the database, or the latest if none provided.
         """
+        LiveStrategyHandler.init_db()
         if strategy_id:
             query = "SELECT * FROM live_strategies WHERE id = %s"
             params = (strategy_id,)
@@ -137,12 +142,6 @@ class LiveStrategyHandler:
         except Exception as e:
             print(f"Error fetching strategy from DB: {e}", flush=True)
         
-        if os.path.exists(CONFIG_PATH):
-            try:
-                with open(CONFIG_PATH, 'r') as f:
-                    return json.load(f)
-            except Exception:
-                pass
         return None
 
     @staticmethod
@@ -150,6 +149,7 @@ class LiveStrategyHandler:
         """
         Retrieves all live strategies from the database.
         """
+        LiveStrategyHandler.init_db()
         query = "SELECT * FROM live_strategies ORDER BY deployedAt DESC"
         try:
             results = SQLHandler.execute_query(query)
@@ -163,6 +163,7 @@ class LiveStrategyHandler:
         """
         Deletes a live strategy by ID.
         """
+        LiveStrategyHandler.init_db()
         query = "DELETE FROM live_strategies WHERE id = %s"
         try:
             SQLHandler.execute_query(query, (strategy_id,))
@@ -261,17 +262,11 @@ class LiveStrategyHandler:
     @staticmethod
     def restore_active_strategies():
         """
-        Called on startup to fetch active strategies from the database
-        and rebuild active_strategy.json.
+        Called on startup to fetch active strategies from the database.
         """
         LiveStrategyHandler.init_db()
         strategy = LiveStrategyHandler.get_strategy()
         if strategy and strategy.get("status") == "active":
-            print(f"Startup Recovery: Restoring active live strategy {strategy['id']} for {strategy['symbol']} from DB.", flush=True)
-            try:
-                with open(CONFIG_PATH, 'w') as f:
-                    json.dump(strategy, f, indent=4)
-            except Exception as e:
-                print(f"Error writing active_strategy.json on startup: {e}", flush=True)
+            print(f"Startup Recovery: Active live strategy {strategy['id']} for {strategy['symbol']} is ready in DB.", flush=True)
         else:
             print("Startup Recovery: No active live strategy found in DB.", flush=True)
