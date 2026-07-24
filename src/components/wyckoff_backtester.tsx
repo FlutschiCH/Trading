@@ -1097,25 +1097,25 @@ export default function WyckoffBacktester({
           )}
         </CollapsibleCard>
 
-       {optimizationResults && optimizationResults.length > 0 && (
-        <CollapsibleCard title="Optimization Results" sectionKey="optimization">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr 1.2fr 1fr 1fr',
-              padding: '6px 8px',
-              fontSize: '10px',
-              fontWeight: 'bold',
-              color: '#9ca3af',
-              borderBottom: '1px solid #1e293b'
-            }}>
-              <span>RR Ratio</span>
-              <span style={{ textAlign: 'center' }}>Win Rate</span>
-              <span style={{ textAlign: 'center' }}>Net Profit</span>
-              <span style={{ textAlign: 'center' }}>Trades</span>
-              <span style={{ textAlign: 'right' }}>Prof. Fact</span>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '350px', overflowY: 'auto' }}>
+        {optimizationResults && optimizationResults.length > 0 && (
+          <CollapsibleCard title="Optimization Results" sectionKey="optimization">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr 1.2fr 1fr 1fr',
+                padding: '6px 8px',
+                fontSize: '10px',
+                fontWeight: 'bold',
+                color: '#9ca3af',
+                borderBottom: '1px solid #1e293b'
+              }}>
+                <span>RR Ratio</span>
+                <span style={{ textAlign: 'center' }}>Win Rate</span>
+                <span style={{ textAlign: 'center' }}>Net Profit</span>
+                <span style={{ textAlign: 'center' }}>Trades</span>
+                <span style={{ textAlign: 'right' }}>Prof. Fact</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '350px', overflowY: 'auto' }}>
               {optimizationResults.map((r, idx) => {
                 const isProfit = r.netPnl >= 0;
                 return (
