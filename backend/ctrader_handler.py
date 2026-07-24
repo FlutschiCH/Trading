@@ -156,3 +156,16 @@ class CTraderHandler(BaseBrokerHandler):
                 return {"status": "success", "message": f"Position {position_id} successfully closed via OpenAPI."}
         except Exception as e:
             return {"status": "error", "message": f"Failed to close position via OpenAPI: {str(e)}"}
+
+if __name__ == '__main__':
+    # Load dotenv if running directly
+    from dotenv import load_dotenv
+    load_dotenv()
+    print("Testing cTrader OpenAPI connection...")
+    acc_info = CTraderHandler.get_account_info()
+    print(f"Account Info: {acc_info}")
+    
+    # Place a test EURUSD buy trade (0.01 lot or 1000 units depending on broker mapping)
+    print("Placing test market order...")
+    res = CTraderHandler.create_order(symbol="EURUSD", side="buy", volume=1000)
+    print(f"Order Result: {res}")
