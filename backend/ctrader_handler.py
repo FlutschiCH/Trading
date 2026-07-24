@@ -45,8 +45,8 @@ class CTraderHandler(BaseBrokerHandler):
             }
             ws.send(json.dumps(app_auth))
             res1 = json.loads(ws.recv())
-            print(f"App Auth Response: {res1}")
             if res1.get("payloadType") == 50 or res1.get("payloadType") == 2142: # Error
+                print(f"App Auth Error: {res1}")
                 raise ConnectionError(f"Application Authentication Failed: {res1.get('payload')}")
 
             # 2. Send Account Auth (payloadType = 2102) if token & account are available
@@ -61,8 +61,8 @@ class CTraderHandler(BaseBrokerHandler):
                 }
                 ws.send(json.dumps(acc_auth))
                 res2 = json.loads(ws.recv())
-                print(f"Account Auth Response: {res2}")
                 if res2.get("payloadType") == 50 or res2.get("payloadType") == 2142: # Error
+                    print(f"Account Auth Error: {res2}")
                     raise ConnectionError(f"Account Authentication Failed: {res2.get('payload')}")
 
             # 3. Dispatch requested OpenAPI message
@@ -208,10 +208,6 @@ class CTraderHandler(BaseBrokerHandler):
             # Typically returns ProtoOAGetAccountListByAccessTokenRes containing ctidTraderAccount
             if res and "payload" in res:
                 accounts = res["payload"].get("ctidTraderAccount", [])
-                print(f"--- AUTHORIZED C-TRADER ACCOUNTS DETECTED BY TOKEN ---")
-                for a in accounts:
-                    print(f"-> Account ID: {a.get('ctidTraderAccountId')}, Broker: {a.get('traderLogin')}, Live/Demo: {a.get('isLive')}")
-                print(f"-----------------------------------------------------")
                 account_id = os.environ.get("CTRADER_OPENAPI_ACCOUNT_ID")
                 for acc in accounts:
                     if str(acc.get("ctidTraderAccountId")) == str(account_id):
