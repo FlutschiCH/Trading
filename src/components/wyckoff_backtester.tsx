@@ -176,6 +176,16 @@ export default function WyckoffBacktester({
   isReadOnly = false
 }: WyckoffBacktesterProps) {
   const [copied, setCopied] = React.useState(false);
+  const [isMobile, setIsMobile] = React.useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
+
+  React.useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
 
   const [collapsedSections, setCollapsedSections] = React.useState<{ [key: string]: boolean }>(() => {
     try {
@@ -378,13 +388,14 @@ export default function WyckoffBacktester({
           gap: '12px',
           fontSize: '12px',
         }}>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginBottom: '-4px' }}>
+        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'flex-end', gap: '8px', marginBottom: '-4px' }}>
           {onSaveSettings && (
             <button
               onClick={onSaveSettings}
               style={{
                 display: 'flex',
                 alignItems: 'center',
+                justifyContent: 'center',
                 gap: '6px',
                 backgroundColor: '#475569',
                 color: '#ffffff',
@@ -407,6 +418,7 @@ export default function WyckoffBacktester({
             style={{
               display: 'flex',
               alignItems: 'center',
+              justifyContent: 'center',
               gap: '6px',
               backgroundColor: isOptimizeMode ? '#10b981' : '#3b82f6',
               color: '#ffffff',
@@ -430,6 +442,7 @@ export default function WyckoffBacktester({
               style={{
                 display: 'flex',
                 alignItems: 'center',
+                justifyContent: 'center',
                 gap: '6px',
                 backgroundColor: '#ef4444',
                 color: '#ffffff',
@@ -496,7 +509,7 @@ export default function WyckoffBacktester({
         {/* Collapsible Cards */}
         <CollapsibleCard title="Risk Management" sectionKey="riskManagement">
           {/* Starting Balance & Fees */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '12px' }}>
             <div style={styles.formGroup}>
               <label style={{ color: '#9ca3af', fontSize: '11px' }}>Starting Balance ($)</label>
               <input
@@ -522,7 +535,7 @@ export default function WyckoffBacktester({
           </div>
 
           {/* Position Size settings */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '12px', alignItems: 'end' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.2fr 0.8fr', gap: '12px', alignItems: 'end' }}>
             <div style={{ ...styles.formGroup, justifyContent: 'center', height: '100%' }}>
               <label style={{ color: '#9ca3af', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', margin: 0 }}>
                 <input
@@ -576,7 +589,7 @@ export default function WyckoffBacktester({
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '12px' }}>
             <div style={styles.formGroup}>
               <label style={{ color: '#9ca3af', fontSize: '11px' }}>Stop Loss</label>
               <div style={{ display: 'flex', gap: '4px' }}>
@@ -658,7 +671,7 @@ export default function WyckoffBacktester({
           </div>
 
           {/* Break Even controls & Lookback Window */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '12px', alignItems: 'end' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.2fr 0.8fr', gap: '12px', alignItems: 'end' }}>
             <div style={{ ...styles.formGroup, height: '100%', justifyContent: 'center' }}>
               <label style={{ color: '#9ca3af', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', margin: 0 }}>
                 <input
@@ -712,7 +725,7 @@ export default function WyckoffBacktester({
           </div>
 
           {/* Sweep Lookback & Daily Retry */}
-          <div style={{ display: 'grid', gridTemplateColumns: useBreakEven ? '1fr 1fr' : '1fr', gap: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : (useBreakEven ? '1fr 1fr' : '1fr'), gap: '12px' }}>
             {useBreakEven && (
               <div style={styles.formGroup}>
                 <label style={{ color: '#9ca3af', fontSize: '11px' }}>Sweep Lookback (Bars)</label>
@@ -882,7 +895,7 @@ export default function WyckoffBacktester({
             gap: '8px'
           }}>
             <span style={{ color: '#9ca3af', fontSize: '10px', fontWeight: 'bold' }}>{editingSessionId ? 'Edit Trading Session' : 'Add Trading Session'}</span>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '8px' }}>
               <div style={styles.formGroup}>
                 <label style={{ color: '#9ca3af', fontSize: '9px' }}>Start Time</label>
                 <input
@@ -1127,7 +1140,7 @@ export default function WyckoffBacktester({
           </div>
 
           {dateRangeOption === 'custom' && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '12px' }}>
               <div style={styles.formGroup}>
                 <label style={{ color: '#9ca3af', fontSize: '11px' }}>From Date</label>
                 <input
@@ -1155,7 +1168,7 @@ export default function WyckoffBacktester({
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: '1fr 1fr 1.2fr 1fr 1fr',
+                gridTemplateColumns: isMobile ? '1.2fr 1fr 1.2fr' : '1fr 1fr 1.2fr 1fr 1fr',
                 padding: '6px 8px',
                 fontSize: '10px',
                 fontWeight: 'bold',
@@ -1164,9 +1177,9 @@ export default function WyckoffBacktester({
               }}>
                 <span>RR Ratio</span>
                 <span style={{ textAlign: 'center' }}>Win Rate</span>
-                <span style={{ textAlign: 'center' }}>Net Profit</span>
-                <span style={{ textAlign: 'center' }}>Trades</span>
-                <span style={{ textAlign: 'right' }}>Prof. Fact</span>
+                <span style={{ textAlign: isMobile ? 'right' : 'center' }}>Net Profit</span>
+                {!isMobile && <span style={{ textAlign: 'center' }}>Trades</span>}
+                {!isMobile && <span style={{ textAlign: 'right' }}>Prof. Fact</span>}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '350px', overflowY: 'auto' }}>
                 {optimizationResults.map((r, idx) => {
@@ -1175,7 +1188,7 @@ export default function WyckoffBacktester({
                     <div key={idx} style={{
                       ...styles.positionRow,
                       display: 'grid',
-                      gridTemplateColumns: '1fr 1fr 1.2fr 1fr 1fr',
+                      gridTemplateColumns: isMobile ? '1.2fr 1fr 1.2fr' : '1fr 1fr 1.2fr 1fr 1fr',
                       padding: '8px 8px',
                       alignItems: 'center',
                       borderLeft: `3px solid ${isProfit ? '#10b981' : '#ef4444'}`,
@@ -1186,11 +1199,11 @@ export default function WyckoffBacktester({
                       <span style={{ textAlign: 'center', color: r.winRate >= 50 ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>
                         {r.winRate.toFixed(1)}%
                       </span>
-                      <span style={{ textAlign: 'center', color: isProfit ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>
+                      <span style={{ textAlign: isMobile ? 'right' : 'center', color: isProfit ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>
                         ${r.netPnl.toFixed(2)}
                       </span>
-                      <span style={{ textAlign: 'center', color: '#ffffff' }}>{r.totalTrades}</span>
-                      <span style={{ textAlign: 'right', color: '#ffffff', fontWeight: 'bold' }}>{r.profitFactor.toFixed(2)}</span>
+                      {!isMobile && <span style={{ textAlign: 'center', color: '#ffffff' }}>{r.totalTrades}</span>}
+                      {!isMobile && <span style={{ textAlign: 'right', color: '#ffffff', fontWeight: 'bold' }}>{r.profitFactor.toFixed(2)}</span>}
                     </div>
                   );
                 })}
