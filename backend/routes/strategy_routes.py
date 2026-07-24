@@ -223,6 +223,140 @@ def historical_candles():
         print(f"Failed to fetch {binance_symbol} from Binance API: {e}. Returning empty list.", flush=True)
         return jsonify({"status": "success", "data": []})
 
+@strategy_routes.route('/backtest/optimize', methods=['POST'])
+def backtest_optimize():
+    """
+    Exposes parameter optimization backtests to frontend dashboard.
+    """
+    payload = request.get_json(silent=True) or {}
+    symbol = payload.get('symbol', 'BTCUSD')
+    candle_source = payload.get('candleSource', 'metatrader')
+    timeframe = payload.get('timeframe') or payload.get('interval', '15m')
+    limit = int(payload.get('limit', 1000))
+    date_from = payload.get('date_from')
+    date_to = payload.get('date_to')
+
+    # Fetch up-to-date candles on the backend
+    if candle_source == 'yfinance':
+        from yfinance_handler import YFinanceHandler
+        candles = YFinanceHandler.fetch_candles(
+            symbol=symbol,
+            timeframe=timeframe,
+            limit=limit,
+            date_from=date_from,
+            date_to=date_to
+        )
+    else:
+        from metatrader_handler import MetaTraderHandler
+        candles = MetaTraderHandler.fetch_candles(
+            symbol=symbol,
+            timeframe=timeframe,
+            limit=limit,
+            date_from=date_from,
+            date_to=date_to
+        )
+    
+    if not candles:
+        return jsonify({"status": "error", "message": "Failed to fetch up-to-date candles for optimization."}), 400
+
+    sl_val = float(payload.get('slVal', 1.0))
+    sl_type = payload.get('slType', 'pct')
+    size = float(payload.get('size', 1.0))
+    initial_balance = float(payload.get('initialBalance', 10000.0))
+    use_risk_sizing = bool(payload.get('useRiskSizing', False))
+    risk_pct = float(payload.get('riskPct', 1.0))
+    use_break_even = bool(payload.get('useBreakEven', False))
+    be_trigger_r = float(payload.get('beTriggerR', 1.0))
+    lookback_window = int(payload.get('lookbackWindow', 20))
+    fees_percent = float(payload.get('feesPercent', 0.0))
+    daily_retry_limit = int(payload.get('dailyRetryLimit', 0))
+    allow_opposite_close = bool(payload.get('allowOppositeClose', True))
+    backtest_id = payload.get('backtestId')
+    
+    rr_start = float(payload.get('rrStart', 1.0))
+    rr_end = float(payload.get('rrEnd', 5.0))
+    rr_step = float(payload.get('rrStep', 0.5))
+    
+    timezone = payload.get('timezone', 'Local')
+    sessions = payload.get('sessions', [])
+    use_global_close = bool(payload.get('useGlobalClose', False))
+    global_close_time = payload.get('globalCloseTime', '')
+    entry_stability_rule = payload.get('entryStabilityRule', 'default')
+
+    def check_cancelled():
+        if backtest_id and str(backtest_id) in cancelled_backtests:
+            return True
+        return False
+
+    import queue
+    import threading
+    from flask import Response
+    import json
+
+    q = queue.Queue()
+
+    def run_in_thread():
+        try:
+            def cb(pct):
+                q.put({"progress": int(pct)})
+                
+            res = StrategyHandler.run_optimization(
+                candles=candles,
+                symbol=symbol,
+                sl_val=sl_val,
+                sl_type=sl_type,
+                size=size,
+                initial_balance=initial_balance,
+                use_risk_sizing=use_risk_sizing,
+                risk_pct=risk_pct,
+                use_break_even=use_break_even,
+                be_trigger_r=be_trigger_r,
+                lookback_window=lookback_window,
+                rr_start=rr_start,
+                rr_end=rr_end,
+                rr_step=rr_step,
+                fees_percent=fees_percent,
+                daily_retry_limit=daily_retry_limit,
+                allow_opposite_close=allow_opposite_close,
+                check_cancelled=check_cancelled,
+                date_from=date_from,
+                date_to=date_to,
+                timezone=timezone,
+                sessions=sessions,
+                use_global_close=use_global_close,
+                global_close_time=global_close_time,
+                progress_callback=cb,
+                entry_stability_rule=entry_stability_rule
+            )
+            q.put({"status": "success", "data": res})
+        except Exception as e:
+            q.put({"status": "error", "message": str(e)})
+        finally:
+            q.put(None)
+
+    t = threading.Thread(target=run_in_thread, daemon=True)
+    t.start()
+
+    def generate():
+        yield json.dumps({"progress": 5}) + "\n"
+        while True:
+            try:
+                item = q.get()
+                if item is None:
+                    break
+                yield json.dumps(item) + "\n"
+            except Exception as e:
+                yield json.dumps({"status": "error", "message": str(e)}) + "\n"
+                break
+        
+        if backtest_id and str(backtest_id) in cancelled_backtests:
+            try:
+                cancelled_backtests.remove(str(backtest_id))
+            except KeyError:
+                pass
+
+    return Response(generate(), mimetype='application/x-ndjson')
+
 @strategy_routes.route('/backtest/results', methods=['GET'])
 def get_backtest_results():
     """
@@ -240,4 +374,5 @@ def get_backtest_results():
             return jsonify({"status": "error", "message": str(e)}), 500
     else:
         return jsonify({"status": "error", "message": "No backtest results found"}), 404
+
 

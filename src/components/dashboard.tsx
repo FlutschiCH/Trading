@@ -428,6 +428,14 @@ export default function Dashboard() {
 
   // Sessions & Auto-Close Safeguards
   const [sessionsTimezone, setSessionsTimezone] = useState<'UTC' | 'Local'>(() => (localStorage.getItem('wyckoff_sessions_timezone') as 'UTC' | 'Local') || 'Local');
+  
+  // Optimization States
+  const [isOptimizeMode, setIsOptimizeMode] = useState<boolean>(() => localStorage.getItem('wyckoff_optimize_mode') === 'true');
+  const [rrStart, setRRStart] = useState<string>(() => localStorage.getItem('wyckoff_rr_start') || '1.0');
+  const [rrEnd, setRREnd] = useState<string>(() => localStorage.getItem('wyckoff_rr_end') || '5.0');
+  const [rrStep, setRRStep] = useState<string>(() => localStorage.getItem('wyckoff_rr_step') || '0.5');
+  const [optimizationResults, setOptimizationResults] = useState<any[] | null>(null);
+  
   const [tradingSessions, setTradingSessions] = useState<any[]>(() => {
     try {
       const val = localStorage.getItem('wyckoff_trading_sessions');
@@ -751,6 +759,113 @@ export default function Dashboard() {
     }
   };
 
+  const runOptimization = async () => {
+    if (!symbol) return;
+    
+    if (backtestAbortControllerRef.current) {
+      backtestAbortControllerRef.current.abort();
+    }
+    
+    const controller = new AbortController();
+    backtestAbortControllerRef.current = controller;
+    const backtestId = Date.now().toString();
+    activeBacktestIdRef.current = backtestId;
+    
+    setLoadingBacktest(true);
+    try {
+      setBacktestProgress(0);
+      setOptimizationResults(null);
+      const bounds = calculateDateBounds(dateRangeOption, customFrom, customTo);
+      const response = await fetch(`${API_BASE_URL}/api/backtest/optimize`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        signal: controller.signal,
+        body: JSON.stringify({
+          candleSource,
+          timeframe,
+          limit: candleLimit,
+          symbol,
+          slVal: parseFloat(backtestSL) || 1.0,
+          slType: backtestSLType,
+          size: parseFloat(backtestSize) || 1,
+          initialBalance: parseFloat(backtestBalance) || 10000,
+          useRiskSizing,
+          riskPct: parseFloat(backtestRiskPct) || 1.0,
+          useBreakEven,
+          beTriggerR: parseFloat(backtestBE) || 1.0,
+          lookbackWindow: parseInt(lookbackWindow) || 20,
+          feesPercent: parseFloat(backtestFees) || 0.0,
+          dailyRetryLimit: parseInt(dailyRetryLimit) || 0,
+          allowOppositeClose,
+          backtestId,
+          rrStart: parseFloat(rrStart) || 1.0,
+          rrEnd: parseFloat(rrEnd) || 5.0,
+          rrStep: parseFloat(rrStep) || 0.5,
+          enabledIndicators,
+          timezone: sessionsTimezone,
+          sessions: tradingSessions,
+          useGlobalClose,
+          globalCloseTime,
+          entryStabilityRule,
+          ...bounds
+        }),
+      });
+
+      if (!response.body) {
+        throw new Error("No response body available for streaming");
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+      let done = false;
+      let buffer = "";
+
+      while (!done) {
+        const { value, done: doneReading } = await reader.read();
+        done = doneReading;
+        if (value) {
+          buffer += decoder.decode(value, { stream: !done });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+          
+          for (const line of lines) {
+            if (line.trim()) {
+              try {
+                const parsed = JSON.parse(line.trim());
+                if (parsed.progress !== undefined) {
+                  setBacktestProgress(parsed.progress);
+                }
+                if (parsed.status === 'success' && parsed.data) {
+                  const resData = parsed.data;
+                  if (resData.results) {
+                    setOptimizationResults(resData.results);
+                  }
+                } else if (parsed.status === 'error') {
+                  throw new Error(parsed.message || "Unknown optimization error");
+                }
+              } catch (parseErr) {
+                console.error("Failed to parse JSON chunk:", parseErr);
+              }
+            }
+          }
+        }
+      }
+    } catch (e: any) {
+      if (e.name === 'AbortError') {
+        console.log("Optimization aborted by user.");
+      } else {
+        console.error("Failed to run optimization on backend:", e);
+      }
+    } finally {
+      if (backtestAbortControllerRef.current === controller) {
+        backtestAbortControllerRef.current = null;
+        setLoadingBacktest(false);
+      }
+    }
+  };
+
   const deployLiveStrategy = async () => {
     setIsDeploying(true);
     try {
@@ -882,6 +997,22 @@ export default function Dashboard() {
   useEffect(() => {
     localStorage.setItem('wyckoff_sessions_timezone', sessionsTimezone);
   }, [sessionsTimezone]);
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_optimize_mode', isOptimizeMode.toString());
+  }, [isOptimizeMode]);
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_rr_start', rrStart);
+  }, [rrStart]);
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_rr_end', rrEnd);
+  }, [rrEnd]);
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_rr_step', rrStep);
+  }, [rrStep]);
 
   useEffect(() => {
     localStorage.setItem('wyckoff_trading_sessions', JSON.stringify(tradingSessions));
@@ -2439,6 +2570,18 @@ export default function Dashboard() {
                       setGlobalCloseTime={setGlobalCloseTime}
                       hiddenStages={hiddenStages}
                       setHiddenStages={setHiddenStages}
+                      
+                      isOptimizeMode={isOptimizeMode}
+                      setIsOptimizeMode={setIsOptimizeMode}
+                      rrStart={rrStart}
+                      setRRStart={setRRStart}
+                      rrEnd={rrEnd}
+                      setRREnd={setRREnd}
+                      rrStep={rrStep}
+                      setRRStep={setRRStep}
+                      optimizationResults={optimizationResults}
+                      setOptimizationResults={setOptimizationResults}
+                      onRunOptimization={runOptimization}
                     />
                   </div>
                   {renderResizeHandle('backtester')}

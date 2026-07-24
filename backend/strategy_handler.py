@@ -138,3 +138,113 @@ class StrategyHandler:
             "weeklyBreakdown": sim_result["weeklyBreakdown"],
             "fvgs": []
         }
+
+    @staticmethod
+    def run_optimization(
+        candles: list,
+        symbol: str,
+        sl_val: float,
+        sl_type: str,
+        size: float,
+        initial_balance: float,
+        use_risk_sizing: bool,
+        risk_pct: float,
+        use_break_even: bool,
+        be_trigger_r: float,
+        lookback_window: int,
+        rr_start: float,
+        rr_end: float,
+        rr_step: float,
+        fees_percent: float = 0.0,
+        daily_retry_limit: int = 0,
+        allow_opposite_close: bool = True,
+        check_cancelled = None,
+        date_from: float = None,
+        date_to: float = None,
+        timezone: str = 'Local',
+        sessions: list = None,
+        use_global_close: bool = False,
+        global_close_time: str = '',
+        progress_callback = None,
+        entry_stability_rule: str = 'default'
+    ) -> dict:
+        """
+        Runs Wyckoff Structure Analysis once, then runs multiple trade simulations across the parameter range.
+        """
+        print(f"\n[Optimization] Starting parameter range optimization for {symbol} on {len(candles)} candles...", flush=True)
+        
+        # 1. Run Market Data Analysis (once, takes 0% to 40% progress)
+        wrapped_cb = None
+        if progress_callback:
+            wrapped_cb = lambda p: progress_callback(int(p * 0.4))
+            
+        analysis = StrategyHandler.analyze_market_data(candles, lookback=lookback_window, progress_callback=wrapped_cb)
+        annotated_data = list(analysis.get('data', []))
+        
+        # Calculate RR range values
+        rr_values = []
+        current_rr = rr_start
+        while current_rr <= rr_end + 0.0001:
+            rr_values.append(round(current_rr, 2))
+            current_rr += rr_step
+            
+        if not rr_values:
+            rr_values = [2.0]
+            
+        results = []
+        from backtest_helpers import run_trade_simulation
+        
+        for idx, temp_rr in enumerate(rr_values):
+            if check_cancelled and check_cancelled():
+                break
+                
+            if progress_callback:
+                # Map 40% to 100% across the loops
+                loop_pct = 40 + int(((idx) / len(rr_values)) * 60)
+                progress_callback(loop_pct)
+                
+            sim_result = run_trade_simulation(
+                annotated_data=annotated_data,
+                symbol=symbol,
+                sl_val=sl_val,
+                sl_type=sl_type,
+                rr=temp_rr,
+                size=size,
+                initial_balance=initial_balance,
+                use_risk_sizing=use_risk_sizing,
+                risk_pct=risk_pct,
+                use_break_even=use_break_even,
+                be_trigger_r=be_trigger_r,
+                fees_percent=fees_percent,
+                daily_retry_limit=daily_retry_limit,
+                allow_opposite_close=allow_opposite_close,
+                check_cancelled=check_cancelled,
+                date_from=date_from,
+                date_to=date_to,
+                timezone=timezone,
+                sessions=sessions,
+                use_global_close=use_global_close,
+                global_close_time=global_close_time,
+                progress_callback=None, # Run fast without inner progress reporting
+                entry_stability_rule=entry_stability_rule
+            )
+            
+            results.append({
+                "rr": temp_rr,
+                "winRate": sim_result["winRate"],
+                "netPnl": sim_result["netPnl"],
+                "profitFactor": sim_result["profitFactor"],
+                "totalTrades": sim_result["totalTrades"],
+                "maxDrawdown": sim_result["maxDrawdown"],
+                "maxDailyLoss": sim_result["maxDailyLoss"],
+                "dailyLossBreached": sim_result["dailyLossBreached"]
+            })
+            
+        if progress_callback:
+            progress_callback(100)
+            
+        return {
+            "status": "success",
+            "results": results
+        }
+

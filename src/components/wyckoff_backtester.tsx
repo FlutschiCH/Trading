@@ -72,6 +72,19 @@ interface WyckoffBacktesterProps {
   setEntryStabilityRule: (val: string) => void;
   hiddenStages?: string[];
   setHiddenStages?: (stages: string[]) => void;
+  
+  // Optimization props
+  isOptimizeMode: boolean;
+  setIsOptimizeMode: (val: boolean) => void;
+  rrStart: string;
+  setRRStart: (val: string) => void;
+  rrEnd: string;
+  setRREnd: (val: string) => void;
+  rrStep: string;
+  setRRStep: (val: string) => void;
+  optimizationResults: any[] | null;
+  setOptimizationResults: (val: any[] | null) => void;
+  onRunOptimization: () => void;
 }
 
 export default function WyckoffBacktester({
@@ -144,7 +157,19 @@ export default function WyckoffBacktester({
   entryStabilityRule,
   setEntryStabilityRule,
   hiddenStages = [],
-  setHiddenStages
+  setHiddenStages,
+  
+  isOptimizeMode,
+  setIsOptimizeMode,
+  rrStart,
+  setRRStart,
+  rrEnd,
+  setRREnd,
+  rrStep,
+  setRRStep,
+  optimizationResults,
+  setOptimizationResults,
+  onRunOptimization
 }: WyckoffBacktesterProps) {
   const [copied, setCopied] = React.useState(false);
 
@@ -350,12 +375,12 @@ export default function WyckoffBacktester({
       }}>
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '-4px' }}>
           <button 
-            onClick={onRunBacktest}
+            onClick={isOptimizeMode ? onRunOptimization : onRunBacktest}
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              backgroundColor: '#3b82f6',
+              backgroundColor: isOptimizeMode ? '#10b981' : '#3b82f6',
               color: '#ffffff',
               border: 'none',
               padding: '6px 12px',
@@ -365,10 +390,10 @@ export default function WyckoffBacktester({
               fontSize: '11px',
               transition: 'background-color 0.2s',
             }}
-            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
-            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#3b82f6'}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = isOptimizeMode ? '#059669' : '#2563eb'}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = isOptimizeMode ? '#10b981' : '#3b82f6'}
           >
-            🔄 Run Backtest
+            {isOptimizeMode ? '⚡ Run Range Optimization' : '🔄 Run Backtest'}
           </button>
         </div>
 
@@ -486,7 +511,19 @@ export default function WyckoffBacktester({
           </div>
 
           {/* Stop Loss & Profit Target (RR Ratio) */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px', marginBottom: '4px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px', color: '#cbd5e1' }}>
+              <input
+                type="checkbox"
+                checked={isOptimizeMode}
+                onChange={(e) => setIsOptimizeMode(e.target.checked)}
+                style={{ cursor: 'pointer' }}
+              />
+              Optimize Risk-Reward Ratio (Multi-RR Backtest)
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             <div style={styles.formGroup}>
               <label style={{ color: '#9ca3af', fontSize: '11px' }}>Stop Loss</label>
               <div style={{ display: 'flex', gap: '4px' }}>
@@ -522,17 +559,49 @@ export default function WyckoffBacktester({
               </div>
             </div>
 
-            <div style={styles.formGroup}>
-              <label style={{ color: '#9ca3af', fontSize: '11px' }}>RR Ratio</label>
-              <input 
-                type="number" 
-                value={backtestRR} 
-                onChange={(e) => setBacktestRR(e.target.value)}
-                style={styles.input}
-                step="0.1"
-                min="0.5"
-              />
-            </div>
+            {!isOptimizeMode ? (
+              <div style={styles.formGroup}>
+                <label style={{ color: '#9ca3af', fontSize: '11px' }}>RR Ratio</label>
+                <input 
+                  type="number" 
+                  value={backtestRR} 
+                  onChange={(e) => setBacktestRR(e.target.value)}
+                  style={styles.input}
+                  step="0.1"
+                  min="0.5"
+                />
+              </div>
+            ) : (
+              <div style={styles.formGroup}>
+                <label style={{ color: '#9ca3af', fontSize: '11px' }}>RR Range (Start / End / Step)</label>
+                <div style={{ display: 'flex', gap: '3px' }}>
+                  <input
+                    type="number"
+                    value={rrStart}
+                    onChange={(e) => setRRStart(e.target.value)}
+                    style={{ ...styles.input, minWidth: 0, flex: 1, padding: '4px' }}
+                    placeholder="Start"
+                    step="0.1"
+                  />
+                  <input
+                    type="number"
+                    value={rrEnd}
+                    onChange={(e) => setRREnd(e.target.value)}
+                    style={{ ...styles.input, minWidth: 0, flex: 1, padding: '4px' }}
+                    placeholder="End"
+                    step="0.1"
+                  />
+                  <input
+                    type="number"
+                    value={rrStep}
+                    onChange={(e) => setRRStep(e.target.value)}
+                    style={{ ...styles.input, minWidth: 0, flex: 1, padding: '4px' }}
+                    placeholder="Step"
+                    step="0.1"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Break Even controls & Lookback Window */}
@@ -1027,9 +1096,55 @@ export default function WyckoffBacktester({
             </div>
           )}
         </CollapsibleCard>
-      </div>
 
-
+       {optimizationResults && optimizationResults.length > 0 && (
+        <CollapsibleCard title="Optimization Results" sectionKey="optimization">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr 1.2fr 1fr 1fr',
+              padding: '6px 8px',
+              fontSize: '10px',
+              fontWeight: 'bold',
+              color: '#9ca3af',
+              borderBottom: '1px solid #1e293b'
+            }}>
+              <span>RR Ratio</span>
+              <span style={{ textAlign: 'center' }}>Win Rate</span>
+              <span style={{ textAlign: 'center' }}>Net Profit</span>
+              <span style={{ textAlign: 'center' }}>Trades</span>
+              <span style={{ textAlign: 'right' }}>Prof. Fact</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '350px', overflowY: 'auto' }}>
+              {optimizationResults.map((r, idx) => {
+                const isProfit = r.netPnl >= 0;
+                return (
+                  <div key={idx} style={{
+                    ...styles.positionRow,
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr 1.2fr 1fr 1fr',
+                    padding: '8px 8px',
+                    alignItems: 'center',
+                    borderLeft: `3px solid ${isProfit ? '#10b981' : '#ef4444'}`,
+                    backgroundColor: 'rgba(31, 41, 55, 0.25)',
+                    borderRadius: '4px'
+                  }}>
+                    <span style={{ fontWeight: 'bold', color: '#ffffff' }}>1:{r.rr.toFixed(1)}</span>
+                    <span style={{ textAlign: 'center', color: r.winRate >= 50 ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>
+                      {r.winRate.toFixed(1)}%
+                    </span>
+                    <span style={{ textAlign: 'center', color: isProfit ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>
+                      ${r.netPnl.toFixed(2)}
+                    </span>
+                    <span style={{ textAlign: 'center', color: '#ffffff' }}>{r.totalTrades}</span>
+                    <span style={{ textAlign: 'right', color: '#ffffff', fontWeight: 'bold' }}>{r.profitFactor.toFixed(2)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </CollapsibleCard>
+      )}
 
       {(backtestResults || favouriteCandles.length > 0) && (
         <CollapsibleCard title="Trades & Results" sectionKey="trades">
