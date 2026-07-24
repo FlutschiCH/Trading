@@ -72,6 +72,8 @@ class LiveRunner:
         timeframe = strategy["timeframe"]
         lookback = strategy["lookbackWindow"]
 
+        from live_strategy_handler import LiveStrategyHandler
+
         # Fetch candles (300 candles is plenty for lookback and indicators)
         candles = MetaTraderHandler.fetch_candles(
             symbol=symbol,
@@ -79,7 +81,21 @@ class LiveRunner:
             limit=300
         )
         if not candles or len(candles) < lookback + 10:
+            LiveStrategyHandler.update_strategy_state(strategy_id, {
+                "stage": "UNKNOWN",
+                "status_message": "Error: Failed to fetch candles or insufficient candles.",
+                "last_checked": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            })
             return
+
+        # Run Wyckoff Analysis on all fetched candles
+        annotated_candles = WyckoffHandler.analyze_wyckoff_structure(candles, lookback=lookback)
+
+        # Run trade evaluation logic to determine signals on the last completed candle
+        should_buy, should_sell, state_info = cls._evaluate_signals(annotated_candles, strategy)
+
+        # Persist the latest live state to the database
+        LiveStrategyHandler.update_strategy_state(strategy_id, state_info)
 
         # Last completed candle is at index -2
         last_completed_candle = candles[-2]
@@ -90,12 +106,6 @@ class LiveRunner:
             return
 
         print(f"[Live Runner] New candle detected for strategy {strategy_id} ({symbol} {timeframe}) at {datetime.fromtimestamp(candle_time)}", flush=True)
-
-        # Run Wyckoff Analysis on all fetched candles
-        annotated_candles = WyckoffHandler.analyze_wyckoff_structure(candles, lookback=lookback)
-
-        # Run trade evaluation logic to determine signals on the last completed candle
-        should_buy, should_sell = cls._evaluate_signals(annotated_candles, strategy)
 
         if should_buy or should_sell:
             cls._execute_trade(strategy, should_buy, should_sell, last_completed_candle)
@@ -203,8 +213,47 @@ class LiveRunner:
                 should_buy = False
                 should_sell = False
 
-        # The last value of should_buy / should_sell corresponds to the last completed candle (index -2)
-        return should_buy, should_sell
+        # Build detailed status message and state info based on the final completed candle's state
+        last_c = annotated_candles[-2] if len(annotated_candles) >= 2 else {}
+        final_stage = last_c.get('wyckoff_stage', 'TRANSITION')
+        final_consec = accum_consec_bars if final_stage == "ACCUMULATION" else (dist_consec_bars if final_stage == "DISTRIBUTION" else 0)
+
+        status_message = "Waiting for setup..."
+        if pending_buy:
+            status_message = f"Spring detected. Waiting for confirmation/stability. Close must cross above high {spring_high:.5f} (Age: {pending_buy_age}/15)."
+        elif pending_sell:
+            status_message = f"Upthrust detected. Waiting for confirmation/stability. Close must cross below low {upthrust_low:.5f} (Age: {pending_sell_age}/15)."
+        else:
+            status_message = f"Market in {final_stage} stage. Monitoring for Spring/Upthrust."
+
+        # Check session constraint for current time
+        from live_strategy_handler import LiveStrategyHandler
+        allowed, msg = LiveStrategyHandler.is_trading_allowed(strategy["id"])
+        if not allowed:
+            status_message = f"Outside trading hours: {msg}"
+
+        # Check if position already open
+        magic = abs(hash(strategy["id"])) & 0x7FFFFFFF
+        positions = MetaTraderHandler.get_positions()
+        pos_open = any(p.get("magic") == magic or (p.get("symbol") == strategy["symbol"] and p.get("magic") == magic) for p in positions)
+        if pos_open:
+            status_message = "Position already open. Monitoring for close condition."
+
+        state_info = {
+            "stage": final_stage,
+            "consec_bars": final_consec,
+            "pending_buy": pending_buy,
+            "pending_sell": pending_sell,
+            "spring_high": spring_high,
+            "upthrust_low": upthrust_low,
+            "pending_buy_age": pending_buy_age,
+            "pending_sell_age": pending_sell_age,
+            "status_message": status_message,
+            "last_candle_time": datetime.fromtimestamp(last_c.get('time')).strftime("%Y-%m-%d %H:%M:%S") if last_c.get('time') else None,
+            "last_checked": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+
+        return should_buy, should_sell, state_info
 
     @classmethod
     def _execute_trade(cls, strategy: dict, should_buy: bool, should_sell: bool, last_candle: dict):

@@ -4,6 +4,7 @@ import TVChart from './tv_chart';
 import WyckoffBacktester from './wyckoff_backtester';
 import HowToPage from './how_to_page';
 import LiveTradesPanel from './live_trades_panel';
+import LiveOverviewPanel from './live_overview_panel';
 import SymbolMappingsView from './symbol_mappings_view';
 import { API_BASE_URL } from '../api';
 import '../App.css';
@@ -373,17 +374,22 @@ export default function Dashboard() {
       const saved = localStorage.getItem('wyckoff_desk_panel_order');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.includes('trades')) return parsed;
-        return [...parsed, 'trades'];
+        if (parsed.includes('trades')) {
+          if (!parsed.includes('live_overview')) {
+            return [...parsed, 'live_overview'];
+          }
+          return parsed;
+        }
+        return [...parsed, 'trades', 'live_overview'];
       }
     } catch {}
-    return ['chart', 'backtester', 'trades'];
+    return ['chart', 'backtester', 'trades', 'live_overview'];
   });
   const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   // Responsive mobile states
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [mobileTab, setMobileTab] = useState<'chart' | 'backtester' | 'trades'>('chart');
+  const [mobileTab, setMobileTab] = useState<'chart' | 'backtester' | 'trades' | 'live_overview'>('chart');
   const [showMenu, setShowMenu] = useState(false);
 
   useEffect(() => {
@@ -2232,6 +2238,23 @@ export default function Dashboard() {
             >
               📈 Trades
             </button>
+            <button
+              onClick={() => setMobileTab('live_overview')}
+              style={{
+                flex: 1,
+                padding: '8px 12px',
+                borderRadius: '6px',
+                border: 'none',
+                backgroundColor: mobileTab === 'live_overview' ? '#2563eb' : 'transparent',
+                color: '#ffffff',
+                fontWeight: 'bold',
+                fontSize: '12px',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+              }}
+            >
+              ⚡ Live Overview
+            </button>
           </div>
         )}
 
@@ -2365,7 +2388,7 @@ export default function Dashboard() {
                 onRunOptimization={runOptimization}
                 onSaveSettings={saveBacktestSettings}
               />
-            ) : (
+            ) : mobileTab === 'trades' ? (
               <LiveTradesPanel
                 dailyPnl={dailyPnl}
                 weeklyPnl={weeklyPnl}
@@ -2376,6 +2399,8 @@ export default function Dashboard() {
                 handleClosePosition={handleClosePosition}
                 isMobileLayout={true}
               />
+            ) : (
+              <LiveOverviewPanel isMobileLayout={true} />
             )}
           </div>
         ) : (
@@ -2648,6 +2673,30 @@ export default function Dashboard() {
                     />
                   </div>
                   {renderResizeHandle('trades')}
+                </div>
+              );
+            }
+
+            if (panelId === 'live_overview') {
+              return (
+                <div
+                  key="live_overview"
+                  onDragOver={(e) => handleDragOver(e, 'live_overview')}
+                  onDrop={(e) => handleDrop(e, 'live_overview')}
+                  style={dragStyles}
+                >
+                  <div 
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, 'live_overview')}
+                    style={headerStyle}
+                  >
+                    <span>⚡ Live Strategies Overview</span>
+                    <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header to Move</span>
+                  </div>
+                  <div className="no-drag" style={contentStyle}>
+                    <LiveOverviewPanel isMobileLayout={false} />
+                  </div>
+                  {renderResizeHandle('live_overview')}
                 </div>
               );
             }

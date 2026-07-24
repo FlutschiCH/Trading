@@ -45,11 +45,20 @@ class LiveStrategyHandler:
             sessions TEXT,
             useGlobalClose TINYINT(1) DEFAULT 0,
             globalCloseTime VARCHAR(5) DEFAULT '',
-            entryStabilityRule VARCHAR(20) DEFAULT 'default'
+            entryStabilityRule VARCHAR(20) DEFAULT 'default',
+            live_state TEXT
         )
         """
         try:
             SQLHandler.execute_query(create_mysql)
+            # Try to query live_state column, if not exists, alter table to add it
+            try:
+                SQLHandler.execute_query("SELECT live_state FROM live_strategies LIMIT 1")
+            except Exception:
+                try:
+                    SQLHandler.execute_query("ALTER TABLE live_strategies ADD COLUMN live_state TEXT")
+                except Exception:
+                    pass
             LiveStrategyHandler._db_initialized = True
         except Exception as e:
             print(f"Error initializing live_strategies DB table: {e}", flush=True)
@@ -181,6 +190,15 @@ class LiveStrategyHandler:
                 sessions_list = json.loads(sessions_raw)
             except Exception:
                 pass
+        
+        live_state_raw = row.get("live_state")
+        live_state_dict = {}
+        if live_state_raw:
+            try:
+                live_state_dict = json.loads(live_state_raw)
+            except Exception:
+                pass
+
         return {
             "id": row["id"],
             "symbol": row["symbol"],
@@ -200,8 +218,24 @@ class LiveStrategyHandler:
             "sessions": sessions_list,
             "useGlobalClose": bool(row.get("useGlobalClose", False)),
             "globalCloseTime": row.get("globalCloseTime", "") or "",
-            "entryStabilityRule": row.get("entryStabilityRule", "default") or "default"
+            "entryStabilityRule": row.get("entryStabilityRule", "default") or "default",
+            "live_state": live_state_dict
         }
+
+    @staticmethod
+    def update_strategy_state(strategy_id: str, state: dict) -> bool:
+        """
+        Updates only the live_state column of a live strategy.
+        """
+        LiveStrategyHandler.init_db()
+        query = "UPDATE live_strategies SET live_state = %s WHERE id = %s"
+        try:
+            from sql_handler import SQLHandler
+            SQLHandler.execute_query(query, (json.dumps(state), strategy_id))
+            return True
+        except Exception as e:
+            print(f"Failed to update live state for strategy {strategy_id}: {e}", flush=True)
+            return False
 
     @staticmethod
     def is_trading_allowed(strategy_id: str) -> tuple:
