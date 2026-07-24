@@ -1256,10 +1256,11 @@ export default function Dashboard() {
     }
   };
 
-  // MetaTrader 5 API endpoints
+  // MetaTrader 5 / cTrader API endpoints
   const fetchAccountData = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/metatrader/account`, {
+      const endpoint = candleSource === 'ctrader' ? '/api/ctrader/account' : '/api/metatrader/account';
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -1274,7 +1275,8 @@ export default function Dashboard() {
 
   const fetchPositionData = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/metatrader/positions`, {
+      const endpoint = candleSource === 'ctrader' ? '/api/ctrader/positions' : '/api/metatrader/positions';
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -1317,7 +1319,9 @@ export default function Dashboard() {
       return;
     }
     try {
-      const res = await fetch(`${API_BASE_URL}/api/metatrader/close`, {
+      const endpoint = candleSource === 'ctrader' ? '/api/ctrader/close' : '/api/metatrader/close';
+      // In cTrader handler, close expects payload parameter keys: position_id, symbol, side, volume
+      const res = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1478,7 +1482,8 @@ export default function Dashboard() {
       return;
     }
     try {
-      const response = await fetch(`${API_BASE_URL}/api/metatrader/order`, {
+      const endpoint = candleSource === 'ctrader' ? '/api/ctrader/order' : '/api/metatrader/order';
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1486,7 +1491,7 @@ export default function Dashboard() {
           order_type: tradeType,
           volume: parseFloat(amount),
           price: orderType === 'market' ? null : parseFloat(price),
-        }),
+        })
       });
       const result = await response.json();
       if (result.status === 'success') {
@@ -2058,7 +2063,7 @@ export default function Dashboard() {
               textAlign: 'center',
               ...(isMobile ? { width: '100%' } : {})
             }}>
-              {candleSource === 'metatrader' ? 'MetaTrader 5 Connected' : (candleSource === 'yfinance' ? 'Yahoo Finance Active' : 'cTrader (Inactive)')}
+              {candleSource === 'metatrader' ? 'MetaTrader 5 Connected' : (candleSource === 'yfinance' ? 'Yahoo Finance Active' : 'cTrader Active')}
             </div>
             {(window.location.hostname === 'localhost' || 
               window.location.hostname === '127.0.0.1') && (

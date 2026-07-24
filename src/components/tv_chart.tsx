@@ -1533,7 +1533,7 @@ export default function TVChart({
               }}
               disabled={!isLocal}
             >
-              {isLocal && <option value="ctrader">cTrader (Inactive)</option>}
+              {isLocal && <option value="ctrader">cTrader</option>}
               {isLocal && <option value="metatrader">MetaTrader 5</option>}
               <option value="yfinance">Yahoo Finance</option>
             </select>
