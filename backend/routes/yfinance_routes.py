@@ -10,25 +10,7 @@ def get_yfinance_candles():
     timeframe = payload.get('timeframe') or payload.get('interval', '15m')
     date_from = payload.get('date_from')
     date_to = payload.get('date_to')
-    limit = int(payload.get('limit', 1000))
-
-    # Sync regular fetch with backtest parameters if they are not explicitly specified
-    if date_from is None and date_to is None:
-        import os
-        import json
-        try:
-            results_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'backtest_results.json')
-            if os.path.exists(results_path):
-                with open(results_path, 'r') as f:
-                    bt_data = json.load(f)
-                settings = bt_data.get("settings", {})
-                if settings.get("symbol") == symbol:
-                    date_from = settings.get("date_from")
-                    date_to = settings.get("date_to")
-                    if "limit" in settings:
-                        limit = int(settings["limit"])
-        except Exception:
-            pass
+    limit = max(int(payload.get('limit', 1000)), 10000)
 
     candles = YFinanceHandler.fetch_candles(
         symbol=symbol,
