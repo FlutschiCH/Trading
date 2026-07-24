@@ -39,3 +39,28 @@ def order():
 
     result = CTraderHandler.create_order(symbol, side, volume, price)
     return jsonify(result)
+
+@ctrader_routes.route('/ctrader/candles', methods=['GET', 'POST'])
+@ctrader_routes.route('/localctrader/candles', methods=['GET', 'POST'])
+def candles():
+    if request.method == 'POST':
+        try:
+            payload = request.get_json(force=True) or {}
+        except Exception:
+            payload = {}
+    else:
+        payload = request.args
+
+    symbol = payload.get('symbol', 'EURUSD')
+    timeframe = payload.get('timeframe', '15m')
+    limit = int(payload.get('limit', 1000))
+    date_from = payload.get('date_from')
+    date_to = payload.get('date_to')
+    
+    if date_from is not None:
+        date_from = int(date_from)
+    if date_to is not None:
+        date_to = int(date_to)
+
+    candles_data = CTraderHandler.fetch_candles(symbol, timeframe, limit, date_from, date_to)
+    return jsonify(candles_data)

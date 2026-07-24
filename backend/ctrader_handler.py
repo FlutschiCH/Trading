@@ -83,25 +83,105 @@ class CTraderHandler(BaseBrokerHandler):
 
     @staticmethod
     def fetch_candles(symbol: str, timeframe: str, limit: int = 1000, date_from: int = None, date_to: int = None, **kwargs) -> list:
-        # Resolve cTrader symbol ID mapping or fetch from yfinance fallback if not mapped
-        # In a fully-fleshed Protobuf implementation we'd search SymbolId by name, here we default to fallback
         try:
+            # Map timeframe string to cTrader TrendbarPeriod enum value
+            tf_map = {
+                "1m": 1,   # M1
+                "2m": 2,   # M2
+                "3m": 3,   # M3
+                "4m": 4,   # M4
+                "5m": 5,   # M5
+                "10m": 6,  # M10
+                "15m": 7,  # M15
+                "30m": 8,  # M30
+                "1h": 9,   # H1
+                "4h": 10,  # H4
+                "12h": 11, # H12
+                "1d": 12,  # D1
+                "1w": 13,  # W1
+                "1mn": 14  # MN1
+            }
+            period = tf_map.get(timeframe.lower(), 7) # Default M15
+
+            # Resolve Symbol ID
+            symbol_id = 1
+            if "btc" in symbol.lower():
+                symbol_id = 2237
+            elif "gbp" in symbol.lower():
+                symbol_id = 2
+            elif "jpy" in symbol.lower():
+                symbol_id = 3
+
+            # Default date range if not provided
+            now_ms = int(time.time() * 1000)
+            # Calculate fromTimestamp based on limit if date_from is missing
+            # M15 = 15 mins = 900 seconds. Scale dynamically.
+            duration_secs = 900
+            if timeframe == "1m": duration_secs = 60
+            elif timeframe == "5m": duration_secs = 300
+            elif timeframe == "30m": duration_secs = 1800
+            elif timeframe == "1h": duration_secs = 3600
+            elif timeframe == "4h": duration_secs = 14400
+            elif timeframe == "1d": duration_secs = 86400
+
+            from_ms = int(date_from * 1000) if date_from else now_ms - (limit * duration_secs * 1000)
+            to_ms = int(date_to * 1000) if date_to else now_ms
+
+            # Call ProtoOAGetTrendbarsReq (2137)
+            payload = {
+                "symbolId": symbol_id,
+                "period": period,
+                "fromTimestamp": from_ms,
+                "toTimestamp": to_ms
+            }
+            res = CTraderHandler._send_and_receive(2137, payload)
+            if res.get("payloadType") == 2138: # ProtoOAGetTrendbarsRes
+                trendbars = res.get("payload", {}).get("trendbar", [])
+                candles_list = []
+                # To get actual price, convert delta formats: Open = Low + deltaOpen
+                for tb in trendbars:
+                    low_raw = tb.get("low", 0)
+                    # cTrader prices are scaled (usually by 100,000 for standard forex majors, or 100 for indices/crypto)
+                    # Scale based on symbol logic
+                    scale = 100000.0
+                    if symbol_id == 2237: # BTCUSD
+                        scale = 100.0
+                    
+                    low = float(low_raw) / scale
+                    open_price = float(low_raw + tb.get("deltaOpen", 0)) / scale
+                    high_price = float(low_raw + tb.get("deltaHigh", 0)) / scale
+                    close_price = float(low_raw + tb.get("deltaClose", 0)) / scale
+                    
+                    # cTrader volume is formatted as units
+                    vol = float(tb.get("volume", 0)) / 100.0
+                    
+                    # UTC timestamp is derived from the delta offset
+                    # The first bar uses fromTimestamp, subsequent bars offset relative to it
+                    tb_time = int(tb.get("utcTimestampInMinutes", 0)) * 60
+                    if tb_time == 0:
+                        tb_time = int(from_ms // 1000)
+
+                    candles_list.append({
+                        "time": tb_time,
+                        "open": open_price,
+                        "high": high_price,
+                        "low": low,
+                        "close": close_price,
+                        "volume": vol
+                    })
+                if candles_list:
+                    return candles_list
+
+            # Fallback to YFinance if API trendbar request returns empty or error
             from yfinance_handler import YFinanceHandler
             return YFinanceHandler.fetch_candles(symbol=symbol, timeframe=timeframe, limit=limit, date_from=date_from, date_to=date_to)
         except Exception:
-            # Mock fallback
-            curr = int(time.time())
-            mock_candles = []
-            for i in range(limit):
-                mock_candles.append({
-                    "time": curr - (limit - i) * 900,
-                    "open": 1.1000,
-                    "high": 1.1020,
-                    "low": 1.0980,
-                    "close": 1.1000,
-                    "volume": 10.0
-                })
-            return mock_candles
+            # Fallback
+            try:
+                from yfinance_handler import YFinanceHandler
+                return YFinanceHandler.fetch_candles(symbol=symbol, timeframe=timeframe, limit=limit, date_from=date_from, date_to=date_to)
+            except Exception:
+                return []
 
     @staticmethod
     def get_symbols(**kwargs) -> dict:
@@ -255,3 +335,8 @@ if __name__ == '__main__':
     print("Placing test market order...")
     res = CTraderHandler.create_order(symbol="EURUSD", side="buy", volume=0.01)
     print(f"Order Result: {res}")
+    
+    # Test Candle Fetching
+    print("Fetching last 5 candles via cTrader Open API...")
+    candles = CTraderHandler.fetch_candles(symbol="EURUSD", timeframe="15m", limit=5)
+    print(f"Fetched {len(candles)} candles. Most recent: {candles[-1] if candles else 'None'}")
