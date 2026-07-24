@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Activity, X, TrendingUp, TrendingDown, Clock, HelpCircle, RefreshCw, Menu, ChevronDown } from 'lucide-react';
 import TVChart from './tv_chart';
 import WyckoffBacktester from './wyckoff_backtester';
+import HowToPage from './how_to_page';
 import { API_BASE_URL } from '../api';
 import '../App.css';
 
@@ -20,6 +21,10 @@ interface Candle {
   sweep_low?: number;
   backtest_signal?: 'BUY' | 'SELL';
   sma_20?: number;
+  wyckoff_stage?: string;
+  support_level?: number;
+  resistance_level?: number;
+  wyckoff_signal?: string;
 }
 
 interface AccountInfo {
@@ -2347,6 +2352,17 @@ export default function Dashboard() {
                 setGlobalCloseTime={setGlobalCloseTime}
                 hiddenStages={hiddenStages}
                 setHiddenStages={setHiddenStages}
+                isOptimizeMode={isOptimizeMode}
+                setIsOptimizeMode={setIsOptimizeMode}
+                rrStart={rrStart}
+                setRRStart={setRRStart}
+                rrEnd={rrEnd}
+                setRREnd={setRREnd}
+                rrStep={rrStep}
+                setRRStep={setRRStep}
+                optimizationResults={optimizationResults}
+                setOptimizationResults={setOptimizationResults}
+                onRunOptimization={runOptimization}
               />
             )}
           </div>

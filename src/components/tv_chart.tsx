@@ -23,6 +23,10 @@ interface Candle {
   tr_low?: number;
   backtest_signal?: 'BUY' | 'SELL';
   sma_20?: number;
+  wyckoff_stage?: string;
+  support_level?: number;
+  resistance_level?: number;
+  wyckoff_signal?: string;
 }
 
 interface TVChartProps {
