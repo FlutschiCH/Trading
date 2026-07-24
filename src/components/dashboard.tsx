@@ -1142,7 +1142,6 @@ export default function Dashboard() {
 
   // Fetch symbols and timeframes metadata dynamically based on selected candleSource
   useEffect(() => {
-    if (!initialCandlesLoaded) return;
     const loadMetadata = async () => {
       const sourcePath = candleSource === 'yfinance' ? 'yfinance' : (candleSource === 'metatrader' ? 'metatrader' : 'ctrader');
       try {
@@ -1169,10 +1168,9 @@ export default function Dashboard() {
       }
     };
     loadMetadata();
-  }, [candleSource, initialCandlesLoaded]);
+  }, [candleSource]);
 
   useEffect(() => {
-    if (!initialCandlesLoaded) return;
     const loadLiveStrategyAndPerms = async () => {
       try {
         const stratRes = await fetch(`${API_BASE_URL}/api/live/strategy`);
@@ -1190,14 +1188,13 @@ export default function Dashboard() {
       fetchFavourites();
     };
     loadLiveStrategyAndPerms();
-  }, [initialCandlesLoaded]);
+  }, []);
 
   // Fetch candle data and analyze on Flask backend
   const fetchCandles = async () => {
     // Disabled regular fetches to only work with backtest data
     setLoading(false);
     setLoadingStrategy(false);
-    setInitialCandlesLoaded(true);
     return;
     try {
       let rawCandles: Candle[] = [];
