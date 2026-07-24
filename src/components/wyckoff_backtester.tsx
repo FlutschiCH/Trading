@@ -144,6 +144,75 @@ export default function WyckoffBacktester({
 }: WyckoffBacktesterProps) {
   const [copied, setCopied] = React.useState(false);
 
+  const [collapsedSections, setCollapsedSections] = React.useState<{ [key: string]: boolean }>(() => {
+    try {
+      const saved = localStorage.getItem('wyckoff_backtester_collapsed');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error(e);
+    }
+    return {
+      riskManagement: false,
+      session: false,
+      indicators: false,
+      dateRange: false,
+      trades: false
+    };
+  });
+
+  const toggleSection = (section: string) => {
+    setCollapsedSections(prev => {
+      const newVal = { ...prev, [section]: !prev[section] };
+      try {
+        localStorage.setItem('wyckoff_backtester_collapsed', JSON.stringify(newVal));
+      } catch (e) {
+        console.error(e);
+      }
+      return newVal;
+    });
+  };
+
+  const CollapsibleCard = ({ title, sectionKey, children }: { title: string; sectionKey: string; children: React.ReactNode }) => {
+    const isCollapsed = collapsedSections[sectionKey];
+    return (
+      <div style={{
+        backgroundColor: '#111827',
+        border: '1px solid #1f2937',
+        borderRadius: '6px',
+        overflow: 'hidden',
+        transition: 'all 0.2s'
+      }}>
+        <div 
+          onClick={() => toggleSection(sectionKey)}
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '8px 10px',
+            cursor: 'pointer',
+            backgroundColor: '#1f2937',
+            userSelect: 'none',
+            transition: 'background-color 0.2s'
+          }}
+          onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#374151'}
+          onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#1f2937'}
+        >
+          <span style={{ fontWeight: 'bold', color: '#cbd5e1', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            {title}
+          </span>
+          <span style={{ color: '#9ca3af', fontSize: '10px' }}>
+            {isCollapsed ? '▼' : '▲'}
+          </span>
+        </div>
+        {!isCollapsed && (
+          <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {children}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // Session builder states
   const [newStart, setNewStart] = React.useState('09:00');
   const [newEnd, setNewEnd] = React.useState('17:00');
@@ -336,237 +405,228 @@ export default function WyckoffBacktester({
             </div>
           </div>
         )}
-        {/* Row 1: Account setup (Starting Balance & Fees) */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-          <div style={styles.formGroup}>
-            <label style={{ color: '#9ca3af', fontSize: '11px' }}>Starting Balance ($)</label>
-            <input 
-              type="number" 
-              value={backtestBalance} 
-              onChange={(e) => setBacktestBalance(e.target.value)}
-              style={styles.input}
-              min="100"
-            />
+        {/* Collapsible Cards */}
+        <CollapsibleCard title="Risk Management" sectionKey="riskManagement">
+          {/* Starting Balance & Fees */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div style={styles.formGroup}>
+              <label style={{ color: '#9ca3af', fontSize: '11px' }}>Starting Balance ($)</label>
+              <input 
+                type="number" 
+                value={backtestBalance} 
+                onChange={(e) => setBacktestBalance(e.target.value)}
+                style={styles.input}
+                min="100"
+              />
+            </div>
+
+            <div style={styles.formGroup}>
+              <label style={{ color: '#9ca3af', fontSize: '11px' }}>Fees per side (%)</label>
+              <input 
+                type="number" 
+                value={backtestFees} 
+                onChange={(e) => setBacktestFees(e.target.value)}
+                style={styles.input}
+                step="0.01"
+                min="0.0"
+              />
+            </div>
           </div>
 
-          <div style={styles.formGroup}>
-            <label style={{ color: '#9ca3af', fontSize: '11px' }}>Fees per side (%)</label>
-            <input 
-              type="number" 
-              value={backtestFees} 
-              onChange={(e) => setBacktestFees(e.target.value)}
-              style={styles.input}
-              step="0.01"
-              min="0.0"
-            />
-          </div>
-        </div>
+          {/* Position Size settings */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '12px', alignItems: 'end' }}>
+            <div style={{ ...styles.formGroup, justifyContent: 'center', height: '100%' }}>
+              <label style={{ color: '#9ca3af', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', margin: 0 }}>
+                <input 
+                  type="checkbox" 
+                  checked={useRiskSizing}
+                  onChange={(e) => setUseRiskSizing(e.target.checked)}
+                  style={{ cursor: 'pointer' }}
+                />
+                Auto Size by Risk
+              </label>
+            </div>
 
-        {/* Row 2: Position Size settings */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '12px', alignItems: 'end' }}>
-          <div style={{ ...styles.formGroup, justifyContent: 'center', height: '100%' }}>
+            {useRiskSizing ? (
+              <div style={styles.formGroup}>
+                <label style={{ color: '#9ca3af', fontSize: '11px' }}>Risk %</label>
+                <input 
+                  type="number" 
+                  value={backtestRiskPct} 
+                  onChange={(e) => setBacktestRiskPct(e.target.value)}
+                  style={styles.input}
+                  step="0.1"
+                  min="0.1"
+                  max="10.0"
+                />
+              </div>
+            ) : (
+              <div style={styles.formGroup}>
+                <label style={{ color: '#9ca3af', fontSize: '11px' }}>Qty (Size)</label>
+                <input 
+                  type="number" 
+                  value={backtestSize} 
+                  onChange={(e) => setBacktestSize(e.target.value)}
+                  style={styles.input}
+                  step="0.1"
+                  min="0.1"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Stop Loss & Profit Target (RR Ratio) */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '12px' }}>
+            <div style={styles.formGroup}>
+              <label style={{ color: '#9ca3af', fontSize: '11px' }}>Stop Loss</label>
+              <div style={{ display: 'flex', gap: '4px' }}>
+                <input 
+                  type="number" 
+                  value={backtestSL} 
+                  onChange={(e) => setBacktestSL(e.target.value)}
+                  style={{ ...styles.input, flexGrow: 1, minWidth: 0 }}
+                  step={backtestSLType === 'pct' ? '0.1' : '1'}
+                  min="0.01"
+                />
+                <select
+                  value={backtestSLType}
+                  onChange={(e) => {
+                    const newType = e.target.value as 'pct' | 'price' | 'dollar';
+                    setUseRiskSizing(true); // Preserve risk sizing target
+                    setBacktestSLType(newType);
+                    const isForex = ['EUR', 'GBP', 'JPY', 'USD', 'CAD', 'AUD', 'CHF'].some(curr => symbol.toUpperCase().includes(curr)) && !['BTC', 'ETH', 'SOL', 'LTC', 'XRP'].some(crypto => symbol.toUpperCase().includes(crypto));
+                    setBacktestSL(newType === 'pct' ? '1.0' : (newType === 'dollar' ? '100' : (isForex ? '20' : '200')));
+                  }}
+                  style={{
+                    ...styles.input,
+                    width: '65px',
+                    backgroundColor: '#1f2937',
+                    cursor: 'pointer',
+                    padding: '0 4px',
+                  }}
+                >
+                  <option value="pct">%</option>
+                  <option value="price">Pips</option>
+                  <option value="dollar">$</option>
+                </select>
+              </div>
+            </div>
+
+            <div style={styles.formGroup}>
+              <label style={{ color: '#9ca3af', fontSize: '11px' }}>RR Ratio</label>
+              <input 
+                type="number" 
+                value={backtestRR} 
+                onChange={(e) => setBacktestRR(e.target.value)}
+                style={styles.input}
+                step="0.1"
+                min="0.5"
+              />
+            </div>
+          </div>
+
+          {/* Break Even controls & Lookback Window */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '12px', alignItems: 'end' }}>
+            <div style={{ ...styles.formGroup, height: '100%', justifyContent: 'center' }}>
+              <label style={{ color: '#9ca3af', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', margin: 0 }}>
+                <input 
+                  type="checkbox" 
+                  checked={useBreakEven}
+                  onChange={(e) => setUseBreakEven(e.target.checked)}
+                  style={{ cursor: 'pointer' }}
+                />
+                Enable BE
+              </label>
+            </div>
+
+            {useBreakEven ? (
+              <div style={styles.formGroup}>
+                <label style={{ color: '#9ca3af', fontSize: '11px' }}>BE Trigger (R)</label>
+                <input 
+                  type="number" 
+                  value={backtestBE} 
+                  onChange={(e) => setBacktestBE(e.target.value)}
+                  style={styles.input}
+                  step="0.1"
+                  min="0.1"
+                />
+              </div>
+            ) : (
+              <div style={styles.formGroup}>
+                <label style={{ color: '#9ca3af', fontSize: '11px' }}>Sweep Lookback</label>
+                <input 
+                  type="number" 
+                  value={lookbackWindow} 
+                  onChange={(e) => setLookbackWindow(e.target.value)}
+                  style={styles.input}
+                  min="5"
+                  max="200"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Allow Opposite Close setting */}
+          <div style={styles.formGroup}>
             <label style={{ color: '#9ca3af', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', margin: 0 }}>
               <input 
                 type="checkbox" 
-                checked={useRiskSizing}
-                onChange={(e) => setUseRiskSizing(e.target.checked)}
+                checked={allowOppositeClose}
+                onChange={(e) => setAllowOppositeClose(e.target.checked)}
                 style={{ cursor: 'pointer' }}
               />
-              Auto Size by Risk
+              Allow Opposite Signal to Close Trade
             </label>
           </div>
 
-          {useRiskSizing ? (
+          {/* Sweep Lookback & Daily Retry */}
+          <div style={{ display: 'grid', gridTemplateColumns: useBreakEven ? '1fr 1fr' : '1fr', gap: '12px' }}>
+            {useBreakEven && (
+              <div style={styles.formGroup}>
+                <label style={{ color: '#9ca3af', fontSize: '11px' }}>Sweep Lookback (Bars)</label>
+                <input 
+                  type="number" 
+                  value={lookbackWindow} 
+                  onChange={(e) => setLookbackWindow(e.target.value)}
+                  style={styles.input}
+                  min="5"
+                  max="200"
+                />
+              </div>
+            )}
             <div style={styles.formGroup}>
-              <label style={{ color: '#9ca3af', fontSize: '11px' }}>Risk %</label>
+              <label style={{ color: '#9ca3af', fontSize: '11px' }}>Daily Retry Limit</label>
               <input 
                 type="number" 
-                value={backtestRiskPct} 
-                onChange={(e) => setBacktestRiskPct(e.target.value)}
-                style={styles.input}
-                step="0.1"
-                min="0.1"
-                max="10.0"
-              />
-            </div>
-          ) : (
-            <div style={styles.formGroup}>
-              <label style={{ color: '#9ca3af', fontSize: '11px' }}>Qty (Size)</label>
-              <input 
-                type="number" 
-                value={backtestSize} 
-                onChange={(e) => setBacktestSize(e.target.value)}
-                style={styles.input}
-                step="0.1"
-                min="0.1"
-              />
-            </div>
-          )}
-        </div>
-
-        {/* Row 3: Stop Loss & Profit Target (RR Ratio) */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '12px' }}>
-          <div style={styles.formGroup}>
-            <label style={{ color: '#9ca3af', fontSize: '11px' }}>Stop Loss</label>
-            <div style={{ display: 'flex', gap: '4px' }}>
-              <input 
-                type="number" 
-                value={backtestSL} 
-                onChange={(e) => setBacktestSL(e.target.value)}
-                style={{ ...styles.input, flexGrow: 1, minWidth: 0 }}
-                step={backtestSLType === 'pct' ? '0.1' : '1'}
-                min="0.01"
-              />
-              <select
-                value={backtestSLType}
+                value={dailyRetryLimit} 
                 onChange={(e) => {
-                  const newType = e.target.value as 'pct' | 'price' | 'dollar';
-                  setUseRiskSizing(true); // Preserve risk sizing target
-                  setBacktestSLType(newType);
-                  const isForex = ['EUR', 'GBP', 'JPY', 'USD', 'CAD', 'AUD', 'CHF'].some(curr => symbol.toUpperCase().includes(curr)) && !['BTC', 'ETH', 'SOL', 'LTC', 'XRP'].some(crypto => symbol.toUpperCase().includes(crypto));
-                  setBacktestSL(newType === 'pct' ? '1.0' : (newType === 'dollar' ? '100' : (isForex ? '20' : '200')));
+                  const val = Math.max(0, parseInt(e.target.value) || 0);
+                  setDailyRetryLimit(val.toString());
                 }}
-                style={{
-                  ...styles.input,
-                  width: '65px',
-                  backgroundColor: '#1f2937',
-                  cursor: 'pointer',
-                  padding: '0 4px',
-                }}
-              >
-                <option value="pct">%</option>
-                <option value="price">Pips</option>
-                <option value="dollar">$</option>
-              </select>
+                style={styles.input}
+                min="0"
+                step="1"
+              />
             </div>
           </div>
 
+          {/* Entry Stability Rule */}
           <div style={styles.formGroup}>
-            <label style={{ color: '#9ca3af', fontSize: '11px' }}>RR Ratio</label>
-            <input 
-              type="number" 
-              value={backtestRR} 
-              onChange={(e) => setBacktestRR(e.target.value)}
+            <label style={{ color: '#9ca3af', fontSize: '11px' }}>Entry Stability Rule</label>
+            <select
+              value={entryStabilityRule}
+              onChange={(e) => setEntryStabilityRule(e.target.value)}
               style={styles.input}
-              step="0.1"
-              min="0.5"
-            />
+            >
+              <option value="default">Standard (Immediate Entry on Spring/Upthrust)</option>
+              <option value="confirmation">Bullish/Bearish Confirmation (Close above/below Signal High/Low)</option>
+              <option value="duration">Minimum Stage Duration (Accumulation/Distribution &gt;= 3 bars)</option>
+              <option value="both">Both Confirmation & Minimum Stage Duration</option>
+            </select>
           </div>
-        </div>
+        </CollapsibleCard>
 
-        {/* Row 4: Break Even controls & Lookback Window */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '12px', alignItems: 'end' }}>
-          <div style={{ ...styles.formGroup, height: '100%', justifyContent: 'center' }}>
-            <label style={{ color: '#9ca3af', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', margin: 0 }}>
-              <input 
-                type="checkbox" 
-                checked={useBreakEven}
-                onChange={(e) => setUseBreakEven(e.target.checked)}
-                style={{ cursor: 'pointer' }}
-              />
-              Enable BE
-            </label>
-          </div>
-
-          {useBreakEven ? (
-            <div style={styles.formGroup}>
-              <label style={{ color: '#9ca3af', fontSize: '11px' }}>BE Trigger (R)</label>
-              <input 
-                type="number" 
-                value={backtestBE} 
-                onChange={(e) => setBacktestBE(e.target.value)}
-                style={styles.input}
-                step="0.1"
-                min="0.1"
-              />
-            </div>
-          ) : (
-            <div style={styles.formGroup}>
-              <label style={{ color: '#9ca3af', fontSize: '11px' }}>Sweep Lookback</label>
-              <input 
-                type="number" 
-                value={lookbackWindow} 
-                onChange={(e) => setLookbackWindow(e.target.value)}
-                style={styles.input}
-                min="5"
-                max="200"
-              />
-            </div>
-          )}
-        </div>
-
-        {/* Row 4b: Allow Opposite Close setting */}
-        <div style={styles.formGroup}>
-          <label style={{ color: '#9ca3af', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', margin: 0 }}>
-            <input 
-              type="checkbox" 
-              checked={allowOppositeClose}
-              onChange={(e) => setAllowOppositeClose(e.target.checked)}
-              style={{ cursor: 'pointer' }}
-            />
-            Allow Opposite Signal to Close Trade
-          </label>
-        </div>
-
-        {/* Row 5: Sweep Lookback & Daily Retry */}
-        <div style={{ display: 'grid', gridTemplateColumns: useBreakEven ? '1fr 1fr' : '1fr', gap: '12px' }}>
-          {useBreakEven && (
-            <div style={styles.formGroup}>
-              <label style={{ color: '#9ca3af', fontSize: '11px' }}>Sweep Lookback (Bars)</label>
-              <input 
-                type="number" 
-                value={lookbackWindow} 
-                onChange={(e) => setLookbackWindow(e.target.value)}
-                style={styles.input}
-                min="5"
-                max="200"
-              />
-            </div>
-          )}
-          <div style={styles.formGroup}>
-            <label style={{ color: '#9ca3af', fontSize: '11px' }}>Daily Retry Limit</label>
-            <input 
-              type="number" 
-              value={dailyRetryLimit} 
-              onChange={(e) => {
-                const val = Math.max(0, parseInt(e.target.value) || 0);
-                setDailyRetryLimit(val.toString());
-              }}
-              style={styles.input}
-              min="0"
-              step="1"
-            />
-          </div>
-        </div>
-
-        {/* Entry Stability Rule */}
-        <div style={styles.formGroup}>
-          <label style={{ color: '#9ca3af', fontSize: '11px' }}>Entry Stability Rule</label>
-          <select
-            value={entryStabilityRule}
-            onChange={(e) => setEntryStabilityRule(e.target.value)}
-            style={styles.input}
-          >
-            <option value="default">Standard (Immediate Entry on Spring/Upthrust)</option>
-            <option value="confirmation">Bullish/Bearish Confirmation (Close above/below Signal High/Low)</option>
-            <option value="duration">Minimum Stage Duration (Accumulation/Distribution &gt;= 3 bars)</option>
-            <option value="both">Both Confirmation & Minimum Stage Duration</option>
-          </select>
-        </div>
-
-        {/* Trading Sessions & Safeguards */}
-        <div style={{
-          borderTop: '1px solid #1e293b',
-          paddingTop: '12px',
-          marginTop: '8px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '12px'
-        }}>
-          <span style={{ color: '#cbd5e1', fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Trading Sessions & Safeguards
-          </span>
-
+        <CollapsibleCard title="Session" sectionKey="session">
           {/* Timezone Selector */}
           <div style={styles.formGroup}>
             <label style={{ color: '#9ca3af', fontSize: '11px' }}>Global Timezone</label>
@@ -797,20 +857,9 @@ export default function WyckoffBacktester({
               )}
             </div>
           </div>
-        </div>
+        </CollapsibleCard>
 
-        {/* Indicator Features List */}
-        <div style={{
-          borderTop: '1px solid #1e293b',
-          paddingTop: '12px',
-          marginTop: '4px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '8px'
-        }}>
-          <span style={{ color: '#cbd5e1', fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Indicator Features
-          </span>
+        <CollapsibleCard title="Indicators" sectionKey="indicators">
           <div style={{ display: 'flex', gap: '16px' }}>
             <label style={{ color: '#cbd5e1', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
               <input 
@@ -822,19 +871,11 @@ export default function WyckoffBacktester({
               Fair Value Gap (FVG)
             </label>
           </div>
-        </div>
+        </CollapsibleCard>
 
-        {/* Date Range Selection & Filtering */}
-        <div style={{
-          borderTop: '1px solid #1e293b',
-          paddingTop: '12px',
-          marginTop: '4px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '10px'
-        }}>
+        <CollapsibleCard title="Date Range" sectionKey="dateRange">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontWeight: 'bold', color: '#cbd5e1' }}>Date Range Settings</span>
+            <span style={{ fontWeight: 'bold', color: '#cbd5e1', fontSize: '11px' }}>Date Range Settings</span>
             {dateRangeOption !== 'last_candles' && (
               <button 
                 onClick={() => {
@@ -913,17 +954,15 @@ export default function WyckoffBacktester({
               </div>
             </div>
           )}
-        </div>
+        </CollapsibleCard>
       </div>
 
 
 
       {(backtestResults || favouriteCandles.length > 0) && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px', flex: 1, overflowY: 'auto' }}>
+        <CollapsibleCard title="Trades & Results" sectionKey="trades">
           {backtestResults && (
             <>
-
-
               {backtestResults.dailyLossBreached && (
                 <div style={{
                   backgroundColor: 'rgba(239, 68, 68, 0.15)',
@@ -1453,7 +1492,7 @@ export default function WyckoffBacktester({
               );
             })}
           </div>
-        </div>
+        </CollapsibleCard>
       )}
       
       {loadingBacktest && (
