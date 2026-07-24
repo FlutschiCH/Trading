@@ -491,7 +491,7 @@ export default function Dashboard() {
 
   // Responsive mobile states
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [mobileTab, setMobileTab] = useState<'chart' | 'backtester'>('chart');
+  const [mobileTab, setMobileTab] = useState<'chart' | 'backtester' | 'trades'>('chart');
   const [showMenu, setShowMenu] = useState(false);
 
   useEffect(() => {
@@ -2546,6 +2546,23 @@ export default function Dashboard() {
             >
               ⚙️ Backtester
             </button>
+            <button
+              onClick={() => setMobileTab('trades')}
+              style={{
+                flex: 1,
+                padding: '8px 12px',
+                borderRadius: '6px',
+                border: 'none',
+                backgroundColor: mobileTab === 'trades' ? '#2563eb' : 'transparent',
+                color: '#ffffff',
+                fontWeight: 'bold',
+                fontSize: '12px',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+              }}
+            >
+              📈 Trades
+            </button>
           </div>
         )}
 
@@ -2593,7 +2610,7 @@ export default function Dashboard() {
                 selectedCandle={selectedCandle}
                 hiddenStages={hiddenStages}
               />
-            ) : (
+            ) : mobileTab === 'backtester' ? (
               <WyckoffBacktester
                 isReadOnly={isProdHost && !isAuthenticated}
                 symbol={symbol}
@@ -2679,6 +2696,80 @@ export default function Dashboard() {
                 onRunOptimization={runOptimization}
                 onSaveSettings={saveBacktestSettings}
               />
+            ) : (
+              <div style={{ padding: '16px' }}>
+                <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', color: '#f8fafc', fontWeight: 'bold' }}>📈 Live Trades & P&L</h3>
+                
+                {/* Stats Grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
+                  <div style={{ backgroundColor: '#0b0f19', border: '1px solid #1f2937', borderRadius: '8px', padding: '12px' }}>
+                    <span style={{ fontSize: '10px', color: '#94a3b8', display: 'block' }}>DAILY P&L</span>
+                    <span style={{ fontSize: '16px', fontWeight: 'bold', color: dailyPnl >= 0 ? '#10b981' : '#ef4444' }}>
+                      {dailyPnl >= 0 ? '+' : ''}${dailyPnl.toFixed(2)}
+                    </span>
+                  </div>
+                  <div style={{ backgroundColor: '#0b0f19', border: '1px solid #1f2937', borderRadius: '8px', padding: '12px' }}>
+                    <span style={{ fontSize: '10px', color: '#94a3b8', display: 'block' }}>WEEKLY P&L</span>
+                    <span style={{ fontSize: '16px', fontWeight: 'bold', color: weeklyPnl >= 0 ? '#10b981' : '#ef4444' }}>
+                      {weeklyPnl >= 0 ? '+' : ''}${weeklyPnl.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Open Positions */}
+                <h4 style={{ margin: '0 0 10px 0', fontSize: '13px', color: '#f8fafc', fontWeight: 'bold' }}>Active Positions</h4>
+                {openPositions.length === 0 ? (
+                  <div style={{ color: '#64748b', fontSize: '12px', paddingBottom: '20px' }}>No active positions.</div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
+                    {openPositions.map(p => (
+                      <div key={p.position_id} style={{ backgroundColor: '#0b0f19', border: '1px solid #1f2937', borderRadius: '8px', padding: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#f8fafc' }}>{p.symbol} ({p.volume})</span>
+                          <span style={{ fontSize: '10px', color: p.trade_side === 'BUY' ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>{p.trade_side} @ {p.entry_price.toFixed(5)}</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <span style={{ fontSize: '12px', fontWeight: 'bold', color: p.unrealized_profit >= 0 ? '#10b981' : '#ef4444' }}>${p.unrealized_profit.toFixed(2)}</span>
+                          <button 
+                            onClick={() => handleClosePosition(p)}
+                            style={{
+                              backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                              color: '#ef4444',
+                              border: '1px solid rgba(239, 68, 68, 0.2)',
+                              borderRadius: '6px',
+                              padding: '4px 10px',
+                              fontSize: '11px',
+                              cursor: 'pointer',
+                              fontWeight: 'bold'
+                            }}
+                          >
+                            Close
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Closed Deals */}
+                <h4 style={{ margin: '0 0 10px 0', fontSize: '13px', color: '#f8fafc', fontWeight: 'bold' }}>History</h4>
+                {loadingHistory ? (
+                  <div style={{ color: '#64748b', fontSize: '12px' }}>Loading history...</div>
+                ) : historyError ? (
+                  <div style={{ color: '#ef4444', fontSize: '12px' }}>{historyError}</div>
+                ) : historyTrades.length === 0 ? (
+                  <div style={{ color: '#64748b', fontSize: '12px' }}>No history found.</div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '250px', overflowY: 'auto' }}>
+                    {historyTrades.slice(0, 15).map(h => (
+                      <div key={h.ticket} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', borderBottom: '1px solid #1f2937', paddingBottom: '6px' }}>
+                        <span style={{ color: '#94a3b8' }}>{h.symbol} ({h.volume})</span>
+                        <span style={{ fontWeight: 'bold', color: h.profit >= 0 ? '#10b981' : '#ef4444' }}>{h.profit >= 0 ? '+' : ''}${h.profit.toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
           </div>
         ) : (
