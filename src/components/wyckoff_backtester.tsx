@@ -1242,13 +1242,6 @@ export default function WyckoffBacktester({
                 onClick={() => {
                   setSelectedTrade(trade);
                   setShowModal(true);
-                  if (onLocateCandle && trade.entryTimestamp) {
-                    onLocateCandle({
-                      symbol: symbol,
-                      timeframe: timeframe,
-                      candle_time: trade.entryTimestamp
-                    });
-                  }
                 }}
                 style={{
                   ...styles.positionRow,
@@ -1287,9 +1280,38 @@ export default function WyckoffBacktester({
                     Exit: {formatPrice(trade.exitPrice, symbol)} | Fees: ${trade.fees ? trade.fees.toFixed(2) : '0.00'} | {trade.time}
                   </span>
                 </div>
-                <span style={styles.posPnl(trade.pnl >= 0)}>
-                  {trade.pnl >= 0 ? '+' : ''}${trade.pnl.toFixed(2)}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={styles.posPnl(trade.pnl >= 0)}>
+                    {trade.pnl >= 0 ? '+' : ''}${trade.pnl.toFixed(2)}
+                  </span>
+                  {onLocateCandle && trade.entryTimestamp && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onLocateCandle({
+                          symbol: symbol,
+                          timeframe: timeframe,
+                          candle_time: trade.entryTimestamp
+                        });
+                      }}
+                      style={{
+                        background: 'rgba(59, 130, 246, 0.15)',
+                        border: '1px solid rgba(59, 130, 246, 0.3)',
+                        color: '#3b82f6',
+                        borderRadius: '4px',
+                        padding: '2px 6px',
+                        fontSize: '9px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                      title="Go to Trade"
+                    >
+                      📍
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
 
