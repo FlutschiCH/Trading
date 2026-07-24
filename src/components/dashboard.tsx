@@ -2023,6 +2023,7 @@ export default function Dashboard() {
               flexShrink: 0,
             }}
           />
+          <div style={{ position: 'relative', display: 'flex', gap: '8px', alignItems: 'center' }}>
             <button 
               onClick={toggleTheme}
               style={{
