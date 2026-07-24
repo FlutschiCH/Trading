@@ -2060,6 +2060,45 @@ export default function Dashboard() {
             }}>
               {candleSource === 'metatrader' ? 'MetaTrader 5 Connected' : (candleSource === 'yfinance' ? 'Yahoo Finance Active' : 'cTrader (Inactive)')}
             </div>
+            {!isProdHost && (
+              <button
+                onClick={async () => {
+                  try {
+                    const response = await fetch('/api/ctrader/order', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ symbol: 'EURUSD', order_type: 'buy', volume: 0.01 })
+                    });
+                    const data = await response.json();
+                    if (data.status === 'success') {
+                      alert(`Test Order Placed successfully!\nDetails: ${data.message || JSON.stringify(data)}`);
+                    } else {
+                      alert(`Test Order Error:\n${data.message || JSON.stringify(data)}`);
+                    }
+                  } catch (err: any) {
+                    alert(`Failed to trigger order: ${err.message}`);
+                  }
+                }}
+                style={{
+                  color: '#ffffff',
+                  fontWeight: 'bold',
+                  fontSize: '12px',
+                  backgroundColor: '#ef4444',
+                  border: 'none',
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  textAlign: 'center',
+                  marginLeft: '8px',
+                  transition: 'background-color 0.2s',
+                  ...(isMobile ? { width: '100%', marginLeft: 0 } : {})
+                }}
+                onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#dc2626')}
+                onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#ef4444')}
+              >
+                🚀 Test cTrader Order
+              </button>
+            )}
           </div>
         )}
       </header>
