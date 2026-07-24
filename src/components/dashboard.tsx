@@ -1190,10 +1190,8 @@ export default function Dashboard() {
 
   // Fetch candle data and analyze on Flask backend
   const fetchCandles = async () => {
-    // Disabled regular fetches to only work with backtest data
-    setLoading(false);
-    setLoadingStrategy(false);
-    return;
+    setLoading(true);
+    setLoadingStrategy(true);
     try {
       let rawCandles: Candle[] = [];
       try {
