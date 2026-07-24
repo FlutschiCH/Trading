@@ -1284,7 +1284,8 @@ export default function Dashboard() {
     setLoadingHistory(true);
     setHistoryError('');
     try {
-      const res = await fetch(`${API_BASE_URL}/api/metatrader/history`, {
+      const endpoint = candleSource === 'ctrader' ? '/api/ctrader/history' : '/api/metatrader/history';
+      const res = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -1496,9 +1497,12 @@ export default function Dashboard() {
     }
   };
 
-  // Fetch candles immediately and prioritize it.
+  // Automatic candle fetching disabled to prevent overloading the server. Charts only load on manual click/refresh.
   useEffect(() => {
-    fetchCandles();
+    // Only load metadata and set flags on startup without fetching candles
+    setInitialCandlesLoaded(true);
+    setLoading(false);
+    setLoadingStrategy(false);
   }, [symbol, timeframe, candleLimit, candleSource]);
 
   // Fetch other account/positions data once candles have initially loaded, and set up polling.

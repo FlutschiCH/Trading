@@ -22,6 +22,11 @@ def account():
 def positions():
     return jsonify(CTraderHandler.get_positions())
 
+@ctrader_routes.route('/ctrader/history', methods=['GET', 'POST'])
+@ctrader_routes.route('/localctrader/history', methods=['GET', 'POST'])
+def history():
+    return jsonify(CTraderHandler.get_history())
+
 @ctrader_routes.route('/ctrader/order', methods=['POST'])
 @ctrader_routes.route('/localctrader/order', methods=['POST'])
 def order():

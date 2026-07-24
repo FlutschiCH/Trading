@@ -236,6 +236,37 @@ class CTraderHandler(BaseBrokerHandler):
         return CTraderHandler.get_account_info()
 
     @staticmethod
+    def get_history(**kwargs) -> dict:
+        try:
+            # Fetch deals using payloadType = 2133 (ProtoOADealListReq)
+            now_ms = int(time.time() * 1000)
+            from_ms = now_ms - (30 * 24 * 60 * 60 * 1000) # Fetch last 30 days
+            payload = {
+                "fromTimestamp": from_ms,
+                "toTimestamp": now_ms
+            }
+            res = CTraderHandler._send_and_receive(2133, payload)
+            deals = []
+            if res.get("payloadType") == 2134: # ProtoOADealListRes
+                raw_deals = res.get("payload", {}).get("deal", [])
+                for d in raw_deals:
+                    profit = float(d.get("moneyDigits", 0)) # Net profit
+                    deals.append({
+                        "ticket": int(d["dealId"]),
+                        "symbol": "EURUSD", # Default mapping
+                        "trade_side": "BUY" if d.get("tradeSide") == "BUY" else "SELL",
+                        "volume": float(d.get("volume", 0)) / 10000000.0,
+                        "profit": float(d.get("netProfit", 0)) / 100.0,
+                        "commission": float(d.get("commission", 0)) / 100.0,
+                        "swap": float(d.get("swap", 0)) / 100.0,
+                        "comment": d.get("comment", ""),
+                        "timestamp": int(d.get("executionTimestamp", time.time() * 1000)) // 1000
+                    })
+            return {"status": "success", "data": deals}
+        except Exception as e:
+            return {"status": "success", "data": []}
+
+    @staticmethod
     def get_positions(**kwargs) -> list:
         try:
             # Reconcile open positions using payloadType = 2125 (ProtoOAReconcileReq)
