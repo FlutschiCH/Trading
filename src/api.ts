@@ -5,6 +5,10 @@ const isLocal = typeof window !== 'undefined' &&
    window.location.hostname.startsWith('10.') ||
    window.location.hostname.startsWith('172.'));
 
-export const API_BASE_URL = isLocal 
-  ? `http://${window.location.hostname}:8751` 
-  : 'https://trading-production-cb87.up.railway.app';
+const getBaseUrl = () => {
+  if (!isLocal) return 'https://trading-production-cb87.up.railway.app';
+  return localStorage.getItem('wyckoff_api_target') || `http://${window.location.hostname}:8751`;
+};
+
+export const API_BASE_URL = getBaseUrl();
+

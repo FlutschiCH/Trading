@@ -1528,13 +1528,10 @@ export default function TVChart({
               onChange={(e) => onCandleSourceChange(e.target.value as 'ctrader' | 'metatrader' | 'yfinance')}
               style={{
                 ...styles.pairSelect,
-                opacity: isLocal ? 1 : 0.7,
-                cursor: isLocal ? 'pointer' : 'not-allowed'
               }}
-              disabled={!isLocal}
             >
-              {isLocal && <option value="ctrader">cTrader</option>}
-              {isLocal && <option value="metatrader">MetaTrader 5</option>}
+              <option value="ctrader">cTrader</option>
+              <option value="metatrader">MetaTrader 5</option>
               <option value="yfinance">Yahoo Finance</option>
             </select>
           </div>

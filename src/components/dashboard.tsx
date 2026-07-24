@@ -244,14 +244,7 @@ export default function Dashboard() {
     return parseInt(localStorage.getItem('wyckoff_candle_limit') || '5000');
   });
   const [candleSource, setCandleSource] = useState<'ctrader' | 'metatrader' | 'yfinance'>(() => {
-    const isLocal = typeof window !== 'undefined' && 
-      (window.location.hostname === 'localhost' || 
-       window.location.hostname === '127.0.0.1' || 
-       window.location.hostname.startsWith('192.168.') ||
-       window.location.hostname.startsWith('10.') ||
-       window.location.hostname.startsWith('172.'));
-    if (!isLocal) return 'yfinance';
-    return (localStorage.getItem('wyckoff_candle_source') as 'ctrader' | 'metatrader' | 'yfinance') || 'metatrader';
+    return (localStorage.getItem('wyckoff_candle_source') as 'ctrader' | 'metatrader' | 'yfinance') || 'yfinance';
   });
   const [dateRangeOption, setDateRangeOption] = useState<string>(() => {
     return localStorage.getItem('wyckoff_date_range_option') || 'last_candles';
@@ -2065,6 +2058,30 @@ export default function Dashboard() {
             }}>
               {candleSource === 'metatrader' ? 'MetaTrader 5 Connected' : (candleSource === 'yfinance' ? 'Yahoo Finance Active' : 'cTrader Active')}
             </div>
+            {(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: 'var(--app-panel-header-bg)', border: '1px solid var(--app-card-border)', borderRadius: '6px', padding: '4px 8px' }}>
+                <span style={{ fontSize: '10px', color: 'var(--app-text-muted)', fontWeight: 'bold' }}>Target API:</span>
+                <select
+                  value={localStorage.getItem('wyckoff_api_target') || `http://${window.location.hostname}:8751`}
+                  onChange={(e) => {
+                    localStorage.setItem('wyckoff_api_target', e.target.value);
+                    window.location.reload();
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--app-text)',
+                    fontSize: '11px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    outline: 'none'
+                  }}
+                >
+                  <option value={`http://${window.location.hostname}:8751`}>Local Host (8751)</option>
+                  <option value="https://trading-production-cb87.up.railway.app">Railway Live Container</option>
+                </select>
+              </div>
+            )}
             {(window.location.hostname === 'localhost' || 
               window.location.hostname === '127.0.0.1') && (
               <button
