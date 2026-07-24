@@ -1017,7 +1017,7 @@ export default function Dashboard() {
       const result = await response.json();
       if (result.status === 'success') {
         setLiveStrategy(result.strategy);
-        alert(`Successfully deployed strategy to cTrader Live execution!\nSymbol: ${symbol}\nTimeframe: ${timeframe}`);
+        alert(`Successfully deployed strategy to MetaTrader 5 Live execution!\nSymbol: ${symbol}\nTimeframe: ${timeframe}`);
       }
     } catch (e) {
       console.error("Failed to deploy strategy to live execution:", e);
