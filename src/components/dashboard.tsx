@@ -234,7 +234,7 @@ export default function Dashboard() {
   const [backtestProgress, setBacktestProgress] = useState(0);
 
   // Symbol Mapping states
-  const [view, setView] = useState<'dashboard' | 'mappings'>('dashboard');
+  const [view, setView] = useState<'dashboard' | 'mappings' | 'trades'>('dashboard');
   const [symbolMappings, setSymbolMappings] = useState<any[]>([]);
   const [newMainSymbol, setNewMainSymbol] = useState('');
   const [newBrokerKey, setNewBrokerKey] = useState('metatrader:JustMarkets-Demo');
@@ -428,6 +428,10 @@ export default function Dashboard() {
   const [favNotesInput, setFavNotesInput] = useState<string>('');
   const [locateTimestamp, setLocateTimestamp] = useState<number | null>(null);
   const [hiddenStages, setHiddenStages] = useState<string[]>([]);
+  
+  const [historyTrades, setHistoryTrades] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [historyError, setHistoryError] = useState('');
 
   const [entryStabilityRule, setEntryStabilityRule] = useState<string>(() => localStorage.getItem('wyckoff_backtest_entry_stability_rule') || 'default');
 
@@ -1341,6 +1345,82 @@ export default function Dashboard() {
     }
   };
 
+  const fetchHistoryTrades = async () => {
+    setLoadingHistory(true);
+    setHistoryError('');
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/metatrader/history`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        setHistoryTrades(data.data || []);
+      } else {
+        setHistoryError(data.message || 'Failed to fetch trade history.');
+      }
+    } catch (e) {
+      setHistoryError('Failed to fetch trade history.');
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  const handleClosePosition = async (pos: any) => {
+    if (!window.confirm(`Are you sure you want to close position ${pos.position_id} (${pos.symbol})?`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/metatrader/close`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          position_id: pos.position_id,
+          symbol: pos.symbol,
+          side: pos.trade_side,
+          volume: pos.volume
+        })
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        fetchPositionData();
+        fetchHistoryTrades();
+      } else {
+        alert(`Failed to close position: ${data.message}`);
+      }
+    } catch (e) {
+      alert('Failed to close position due to network error.');
+    }
+  };
+
+  const getPnlStats = () => {
+    let daily = 0;
+    let weekly = 0;
+    const now = new Date();
+    
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() / 1000;
+    
+    const tempNow = new Date();
+    const day = tempNow.getDay();
+    const diff = tempNow.getDate() - day + (day === 0 ? -6 : 1);
+    const startOfWeek = new Date(tempNow.setDate(diff));
+    startOfWeek.setHours(0, 0, 0, 0);
+    const startOfWeekTs = startOfWeek.getTime() / 1000;
+
+    historyTrades.forEach((t) => {
+      if (t.timestamp >= startOfToday) {
+        daily += t.profit;
+      }
+      if (t.timestamp >= startOfWeekTs) {
+        weekly += t.profit;
+      }
+    });
+
+    return { daily, weekly };
+  };
+
+  const { daily: dailyPnl, weekly: weeklyPnl } = getPnlStats();
+
   const fetchFavourites = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/favourites/list`);
@@ -1477,6 +1557,21 @@ export default function Dashboard() {
     // }, 5000);
     // return () => clearInterval(interval);
   }, [initialCandlesLoaded, symbol]);
+
+  useEffect(() => {
+    if (view === 'trades') {
+      fetchAccountData();
+      fetchPositionData();
+      fetchHistoryTrades();
+      
+      const interval = setInterval(() => {
+        fetchAccountData();
+        fetchPositionData();
+        fetchHistoryTrades();
+      }, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [view]);
 
   const currentConnected = true;
 
@@ -1901,7 +1996,7 @@ export default function Dashboard() {
                   <a href="https://railway.com/project/aa01f500-c3df-4d47-b60a-821237699d0d/service/05376c29-94f0-44f3-acc2-93d5d104019f/settings?environmentId=7a63d6ae-f3e6-452d-b527-6311f6f9b551" target="_blank" rel="noopener noreferrer" className="menu-item" onClick={() => setShowMenu(false)}>
                     Railway Settings
                   </a>
-                  <a 
+                   <a 
                     href="#symbol-mappings" 
                     className="menu-item" 
                     onClick={(e) => {
@@ -1911,6 +2006,17 @@ export default function Dashboard() {
                     }}
                   >
                     🔗 Symbol Mappings
+                  </a>
+                  <a 
+                    href="#live-trades" 
+                    className="menu-item" 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setView('trades');
+                      setShowMenu(false);
+                    }}
+                  >
+                    📈 Live Trades & History
                   </a>
                   <button 
                     onClick={() => {
@@ -2248,6 +2354,178 @@ export default function Dashboard() {
                 </table>
               )}
             </div>
+          </div>
+        </div>
+      ) : view === 'trades' ? (
+        <div style={{
+          padding: '24px',
+          maxWidth: '1200px',
+          margin: '0 auto',
+          width: '100%',
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '24px'
+        }}>
+          {/* Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ color: '#3b82f6' }}>📈</span> Live Trades, History & Statistics
+            </h2>
+            <button 
+              onClick={() => setView('dashboard')}
+              style={{
+                backgroundColor: '#1e293b',
+                color: '#cbd5e1',
+                border: '1px solid #334155',
+                padding: '8px 16px',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                fontSize: '12px',
+                transition: 'all 0.2s'
+              }}
+            >
+              ← Back to Dashboard
+            </button>
+          </div>
+
+          {/* Statistics Grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+            <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', padding: '16px' }}>
+              <span style={{ fontSize: '11px', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>DAILY P&L</span>
+              <span style={{ fontSize: '20px', fontWeight: 'bold', color: dailyPnl >= 0 ? '#10b981' : '#ef4444' }}>
+                {dailyPnl >= 0 ? '+' : ''}${dailyPnl.toFixed(2)}
+              </span>
+            </div>
+            <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', padding: '16px' }}>
+              <span style={{ fontSize: '11px', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>WEEKLY P&L</span>
+              <span style={{ fontSize: '20px', fontWeight: 'bold', color: weeklyPnl >= 0 ? '#10b981' : '#ef4444' }}>
+                {weeklyPnl >= 0 ? '+' : ''}${weeklyPnl.toFixed(2)}
+              </span>
+            </div>
+            <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', padding: '16px' }}>
+              <span style={{ fontSize: '11px', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>ACCOUNT BALANCE</span>
+              <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#f8fafc' }}>
+                ${accountInfo?.balance ? accountInfo.balance.toFixed(2) : '100000.00'}
+              </span>
+            </div>
+            <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', padding: '16px' }}>
+              <span style={{ fontSize: '11px', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>ACCOUNT EQUITY</span>
+              <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#f8fafc' }}>
+                ${accountInfo?.equity ? accountInfo.equity.toFixed(2) : '100000.00'}
+              </span>
+            </div>
+          </div>
+
+          {/* Open Positions */}
+          <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', padding: '20px' }}>
+            <h3 style={{ margin: '0 0 16px 0', fontSize: '14px', color: '#f8fafc', fontWeight: 'bold' }}>Live Open Positions</h3>
+            {openPositions.length === 0 ? (
+              <div style={{ color: '#64748b', fontSize: '12px', textAlign: 'center', padding: '24px' }}>
+                No active open positions.
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid #1e293b', textAlign: 'left', color: '#94a3b8' }}>
+                      <th style={{ padding: '8px' }}>Position ID</th>
+                      <th style={{ padding: '8px' }}>Symbol</th>
+                      <th style={{ padding: '8px' }}>Side</th>
+                      <th style={{ padding: '8px' }}>Volume</th>
+                      <th style={{ padding: '8px' }}>Entry Price</th>
+                      <th style={{ padding: '8px' }}>SL / TP</th>
+                      <th style={{ padding: '8px' }}>Profit</th>
+                      <th style={{ padding: '8px', textAlign: 'right' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {openPositions.map(p => (
+                      <tr key={p.position_id} style={{ borderBottom: '1px solid #1e293b', color: '#cbd5e1' }}>
+                        <td style={{ padding: '8px' }}>{p.position_id}</td>
+                        <td style={{ padding: '8px', fontWeight: 'bold' }}>{p.symbol}</td>
+                        <td style={{ padding: '8px', color: p.trade_side === 'BUY' ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>{p.trade_side}</td>
+                        <td style={{ padding: '8px' }}>{p.volume.toFixed(2)}</td>
+                        <td style={{ padding: '8px' }}>{p.entry_price.toFixed(5)}</td>
+                        <td style={{ padding: '8px', color: '#94a3b8' }}>
+                          SL: {p.stop_loss ? p.stop_loss.toFixed(5) : 'None'} | TP: {p.take_profit ? p.take_profit.toFixed(5) : 'None'}
+                        </td>
+                        <td style={{ padding: '8px', fontWeight: 'bold', color: p.unrealized_profit >= 0 ? '#10b981' : '#ef4444' }}>
+                          ${p.unrealized_profit.toFixed(2)}
+                        </td>
+                        <td style={{ padding: '8px', textAlign: 'right' }}>
+                          <button 
+                            onClick={() => handleClosePosition(p)}
+                            style={{
+                              backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                              color: '#ef4444',
+                              border: '1px solid rgba(239, 68, 68, 0.2)',
+                              borderRadius: '4px',
+                              padding: '4px 8px',
+                              fontSize: '11px',
+                              cursor: 'pointer',
+                              fontWeight: 'bold'
+                            }}
+                          >
+                            Close Position
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Trade History */}
+          <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', padding: '20px' }}>
+            <h3 style={{ margin: '0 0 16px 0', fontSize: '14px', color: '#f8fafc', fontWeight: 'bold' }}>Closed Trades History (Last 30 Days)</h3>
+            {loadingHistory ? (
+              <div style={{ color: '#64748b', fontSize: '12px', textAlign: 'center', padding: '24px' }}>
+                Loading history...
+              </div>
+            ) : historyError ? (
+              <div style={{ color: '#ef4444', fontSize: '12px', textAlign: 'center', padding: '24px' }}>
+                {historyError}
+              </div>
+            ) : historyTrades.length === 0 ? (
+              <div style={{ color: '#64748b', fontSize: '12px', textAlign: 'center', padding: '24px' }}>
+                No historical trades found in the last 30 days.
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid #1e293b', textAlign: 'left', color: '#94a3b8' }}>
+                      <th style={{ padding: '8px' }}>Time</th>
+                      <th style={{ padding: '8px' }}>Ticket</th>
+                      <th style={{ padding: '8px' }}>Symbol</th>
+                      <th style={{ padding: '8px' }}>Side</th>
+                      <th style={{ padding: '8px' }}>Volume</th>
+                      <th style={{ padding: '8px' }}>Price</th>
+                      <th style={{ padding: '8px' }}>Profit</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {historyTrades.map(h => (
+                      <tr key={h.ticket} style={{ borderBottom: '1px solid #1e293b', color: '#cbd5e1' }}>
+                        <td style={{ padding: '8px', color: '#94a3b8' }}>{formatDateTime(h.timestamp)}</td>
+                        <td style={{ padding: '8px' }}>{h.ticket}</td>
+                        <td style={{ padding: '8px', fontWeight: 'bold' }}>{h.symbol}</td>
+                        <td style={{ padding: '8px', color: h.trade_side === 'BUY' ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>{h.trade_side}</td>
+                        <td style={{ padding: '8px' }}>{h.volume.toFixed(2)}</td>
+                        <td style={{ padding: '8px' }}>{h.price.toFixed(5)}</td>
+                        <td style={{ padding: '8px', fontWeight: 'bold', color: h.profit >= 0 ? '#10b981' : '#ef4444' }}>
+                          {h.profit >= 0 ? '+' : ''}${h.profit.toFixed(2)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       ) : (

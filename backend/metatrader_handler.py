@@ -281,6 +281,50 @@ class MetaTraderHandler:
         return ["BTCUSD", "ETHUSD", "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "XAUUSD", "US30", "GER40"]
 
     @staticmethod
+    def get_history(date_from: int = None, date_to: int = None, login: int = 2002061314, password: str = "Godzilla_12", server: str = "JustMarkets-Demo") -> list:
+        """
+        Fetches historical deals/trades from MetaTrader 5.
+        """
+        if not MT5_AVAILABLE:
+            return []
+
+        if not mt5.initialize(login=int(login), password=password, server=server):
+            return []
+
+        import time
+        if date_from is None:
+            # Default to 30 days ago
+            date_from = int(time.time()) - (30 * 24 * 3600)
+        if date_to is None:
+            date_to = int(time.time()) + 3600
+
+        import datetime
+        dt_from = datetime.datetime.fromtimestamp(date_from)
+        dt_to = datetime.datetime.fromtimestamp(date_to)
+
+        deals = mt5.history_deals_get(dt_from, dt_to)
+        if deals is None:
+            return []
+
+        res = []
+        for d in deals:
+            # We filter out balance operations, etc. and only keep trade deals
+            if d.entry in (mt5.DEAL_ENTRY_OUT, mt5.DEAL_ENTRY_INOUT) and d.profit != 0:
+                res.append({
+                    "ticket": d.ticket,
+                    "order": d.order,
+                    "symbol": d.symbol,
+                    "trade_side": "BUY" if d.type == mt5.DEAL_TYPE_BUY else "SELL",
+                    "volume": d.volume,
+                    "price": d.price,
+                    "profit": d.profit,
+                    "commission": d.commission,
+                    "swap": d.swap,
+                    "timestamp": int(d.time)
+                })
+        return res
+
+    @staticmethod
     def get_timeframes() -> list:
         """
         Standard timeframes.

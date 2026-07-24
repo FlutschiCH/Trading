@@ -56,6 +56,18 @@ def get_metatrader_positions():
     data = MetaTraderHandler.get_positions(login=login, password=password, server=server)
     return jsonify({"status": "success", "data": data})
 
+@metatrader_routes.route('/metatrader/history', methods=['POST'])
+def get_metatrader_history():
+    payload = request.get_json(silent=True) or {}
+    login = payload.get('login', metavar_login)
+    password = payload.get('password', metavar_pass)
+    server = payload.get('server', metavar_server)
+    date_from = payload.get('date_from')
+    date_to = payload.get('date_to')
+
+    data = MetaTraderHandler.get_history(date_from=date_from, date_to=date_to, login=login, password=password, server=server)
+    return jsonify({"status": "success", "data": data})
+
 @metatrader_routes.route('/metatrader/order', methods=['POST'])
 def create_metatrader_order():
     payload = request.get_json(silent=True) or {}
@@ -76,6 +88,31 @@ def create_metatrader_order():
         side=side,
         volume=volume,
         price=price,
+        login=login,
+        password=password,
+        server=server
+    )
+    if res.get('status') == 'error':
+        return jsonify(res), 400
+    return jsonify(res), 200
+
+@metatrader_routes.route('/metatrader/close', methods=['POST'])
+def close_metatrader_position():
+    payload = request.get_json(silent=True) or {}
+    position_id = int(payload.get('position_id', 0))
+    symbol = payload.get('symbol')
+    side = payload.get('side', 'BUY')
+    volume = float(payload.get('volume', 0.0))
+
+    login = payload.get('login', metavar_login)
+    password = payload.get('password', metavar_pass)
+    server = payload.get('server', metavar_server)
+
+    res = MetaTraderHandler.close_position(
+        position_id=position_id,
+        symbol=symbol,
+        side=side,
+        volume=volume,
         login=login,
         password=password,
         server=server
