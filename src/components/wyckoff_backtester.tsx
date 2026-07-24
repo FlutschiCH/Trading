@@ -1242,6 +1242,13 @@ export default function WyckoffBacktester({
                 onClick={() => {
                   setSelectedTrade(trade);
                   setShowModal(true);
+                  if (onLocateCandle && trade.entryTimestamp) {
+                    onLocateCandle({
+                      symbol: symbol,
+                      timeframe: timeframe,
+                      candle_time: trade.entryTimestamp
+                    });
+                  }
                 }}
                 style={{
                   ...styles.positionRow,
