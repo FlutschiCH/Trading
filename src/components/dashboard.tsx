@@ -2060,7 +2060,9 @@ export default function Dashboard() {
             }}>
               {candleSource === 'metatrader' ? 'MetaTrader 5 Connected' : (candleSource === 'yfinance' ? 'Yahoo Finance Active' : 'cTrader (Inactive)')}
             </div>
-            {!isProdHost && (
+            {(window.location.hostname === 'localhost' || 
+              window.location.hostname === '127.0.0.1' || 
+              window.location.hostname === 'trading-production-cb87.up.railway.app') && (
               <button
                 onClick={async () => {
                   try {
