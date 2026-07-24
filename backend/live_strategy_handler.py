@@ -46,11 +46,20 @@ class LiveStrategyHandler:
             useGlobalClose TINYINT(1) DEFAULT 0,
             globalCloseTime VARCHAR(5) DEFAULT '',
             entryStabilityRule VARCHAR(20) DEFAULT 'default',
+            broker VARCHAR(50) DEFAULT 'metatrader',
             live_state TEXT
         )
         """
         try:
             SQLHandler.execute_query(create_mysql)
+            # Add broker column if not exists
+            try:
+                SQLHandler.execute_query("SELECT broker FROM live_strategies LIMIT 1")
+            except Exception:
+                try:
+                    SQLHandler.execute_query("ALTER TABLE live_strategies ADD COLUMN broker VARCHAR(50) DEFAULT 'metatrader'")
+                except Exception:
+                    pass
             # Try to query live_state column, if not exists, alter table to add it
             try:
                 SQLHandler.execute_query("SELECT live_state FROM live_strategies LIMIT 1")
@@ -78,10 +87,10 @@ class LiveStrategyHandler:
         INSERT INTO live_strategies (
             id, symbol, status, timeframe, slVal, slType, rr, size, 
             useRiskSizing, riskPct, useBreakEven, beTriggerR, lookbackWindow, deployedAt,
-            timezone, sessions, useGlobalClose, globalCloseTime, entryStabilityRule
+            timezone, sessions, useGlobalClose, globalCloseTime, entryStabilityRule, broker
         ) VALUES (
             %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-            %s, %s, %s, %s, %s
+            %s, %s, %s, %s, %s, %s
         ) ON DUPLICATE KEY UPDATE 
             symbol=VALUES(symbol),
             status=VALUES(status),
@@ -100,7 +109,8 @@ class LiveStrategyHandler:
             sessions=VALUES(sessions),
             useGlobalClose=VALUES(useGlobalClose),
             globalCloseTime=VALUES(globalCloseTime),
-            entryStabilityRule=VALUES(entryStabilityRule)
+            entryStabilityRule=VALUES(entryStabilityRule),
+            broker=VALUES(broker)
         """
         params = (
             strategy["id"],
@@ -121,7 +131,8 @@ class LiveStrategyHandler:
             json.dumps(strategy.get("sessions", [])),
             1 if strategy.get("useGlobalClose", False) else 0,
             strategy.get("globalCloseTime", ""),
-            strategy.get("entryStabilityRule", "default")
+            strategy.get("entryStabilityRule", "default"),
+            strategy.get("broker", "metatrader")
         )
         try:
             SQLHandler.execute_query(query, params)
@@ -219,6 +230,7 @@ class LiveStrategyHandler:
             "useGlobalClose": bool(row.get("useGlobalClose", False)),
             "globalCloseTime": row.get("globalCloseTime", "") or "",
             "entryStabilityRule": row.get("entryStabilityRule", "default") or "default",
+            "broker": row.get("broker", "metatrader") or "metatrader",
             "live_state": live_state_dict
         }
 

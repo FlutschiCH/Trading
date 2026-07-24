@@ -74,14 +74,18 @@ def run_auto_closer():
 
                 if should_close:
                     # Fetch positions and close matching symbol
-                    positions = MetaTraderHandler.get_positions()
+                    broker_name = strategy.get("broker", "metatrader")
+                    from broker_factory import BrokerFactory
+                    handler = BrokerFactory.get_handler(broker_name)
+                    
+                    positions = handler.get_positions()
                     matching_positions = [p for p in positions if symbol.upper() in p["symbol"].upper()]
                     if matching_positions:
                         print(f"Session Auto-Closer: Triggering close for symbol {symbol} due to: {close_reason}", flush=True)
                         from notification_handler import NotificationHandler
                         NotificationHandler.play_sound("alert")
                         for pos in matching_positions:
-                            res = MetaTraderHandler.close_position(
+                            res = handler.close_position(
                                 position_id=pos["position_id"],
                                 symbol=pos["symbol"],
                                 side=pos["trade_side"],

@@ -93,7 +93,10 @@ class FIXClient:
             except socket.timeout:
                 return ""
 
-class CTraderHandler:
+from base_broker_handler import BaseBrokerHandler
+from ctrader_openapi_handler import CTraderOpenAPIHandler
+
+class CTraderHandler(BaseBrokerHandler):
     _lock = threading.Lock()
     _client = FIXClient()
     
@@ -109,6 +112,10 @@ class CTraderHandler:
     }
     _cached_positions = []
 
+    @staticmethod
+    def fetch_candles(symbol: str, timeframe: str, limit: int = 1000, date_from: int = None, date_to: int = None, **kwargs) -> list:
+        return CTraderOpenAPIHandler.fetch_candles(symbol, timeframe, limit, date_from, date_to)
+
     @classmethod
     def _parse_fix_fields(cls, fix_str: str) -> dict:
         fields = {}
@@ -118,16 +125,16 @@ class CTraderHandler:
                 fields[k] = v
         return fields
 
-    @classmethod
-    def get_symbols(cls) -> dict:
+    @staticmethod
+    def get_symbols(**kwargs) -> dict:
         standard_symbols = [
             "BTCUSD", "ETHUSD", "EURUSD", "GBPUSD", "USDJPY", 
             "AUDUSD", "USDCAD", "XAUUSD", "US30", "GER40"
         ]
         try:
-            cls._client.connect_and_logon()
+            CTraderHandler._client.connect_and_logon()
             req_id = f"SEC-{int(time.time())}"
-            response = cls._client.send_request("x", [f"320={req_id}", "559=4"])
+            response = CTraderHandler._client.send_request("x", [f"320={req_id}", "559=4"])
             if response:
                 symbols = []
                 for item in response.split("\x01"):
@@ -145,60 +152,64 @@ class CTraderHandler:
     def get_timeframes(cls) -> dict:
         return {"status": "success", "data": ["1m", "5m", "15m", "30m", "1h", "4h", "1d"]}
 
-    @classmethod
-    def get_account(cls) -> dict:
+    @staticmethod
+    def get_account_info(**kwargs) -> dict:
         # Connect to FIX and query Collateral
         try:
-            cls._client.connect_and_logon()
+            CTraderHandler._client.connect_and_logon()
             
             # Send Collateral Inquiry (35=x)
             inquiry_id = f"COLL-{int(time.time())}"
             # 262=CollateralInquiryID, 263=1 (SubscriptionRequestType = Snapshot)
-            response = cls._client.send_request("x", [f"262={inquiry_id}", "263=1"])
+            response = CTraderHandler._client.send_request("x", [f"262={inquiry_id}", "263=1"])
             
             # Parse response for balance, equity, currency, etc.
             # Typical tags: 381 (GrossTradeAmt/Balance), 897 (Equity), 15 (Currency)
             if response:
-                fields = cls._parse_fix_fields(response)
+                fields = CTraderHandler._parse_fix_fields(response)
                 # Fallback to defaults if tags aren't present
-                balance = float(fields.get("381", cls._cached_account["balance"]))
+                balance = float(fields.get("381", CTraderHandler._cached_account["balance"]))
                 equity = float(fields.get("897", balance))
                 currency = fields.get("15", "USD")
                 
-                cls._cached_account.update({
+                CTraderHandler._cached_account.update({
                     "balance": balance,
                     "equity": equity,
                     "currency": currency,
-                    "margin_free": equity - cls._cached_account["margin"]
+                    "margin_free": equity - CTraderHandler._cached_account["margin"]
                 })
         except Exception as e:
             # Return cached or default with notification info
-            cls._cached_account["broker"] = f"FTMO (cTrader) - Offline ({str(e)})"
+            CTraderHandler._cached_account["broker"] = f"FTMO (cTrader) - Offline ({str(e)})"
             
-        return {"status": "success", "data": cls._cached_account}
+        return {"status": "success", "data": CTraderHandler._cached_account}
 
-    @classmethod
-    def get_positions(cls) -> dict:
+    @staticmethod
+    def get_account(**kwargs) -> dict:
+        return CTraderHandler.get_account_info()
+
+    @staticmethod
+    def get_positions(**kwargs) -> list:
         try:
-            cls._client.connect_and_logon()
+            CTraderHandler._client.connect_and_logon()
             
             # Send Request for Positions (35=AN)
             # 710=PosReqID, 724=0 (Positions), 263=1 (Snapshot)
             req_id = f"POS-{int(time.time())}"
-            response = cls._client.send_request("AN", [f"710={req_id}", "724=0", "263=1"])
+            response = CTraderHandler._client.send_request("AN", [f"710={req_id}", "724=0", "263=1"])
             
             # Parse responses to extract positions
             # Typical tags: 721 (PosMaintRptID), 55 (Symbol), 704 (LongQty), 705 (ShortQty), 730 (SettlPrice)
             if response:
                 positions_list = []
                 # cServer might send multiple messages, or a single message containing positions
-                fields = cls._parse_fix_fields(response)
+                fields = CTraderHandler._parse_fix_fields(response)
                 
                 # Check if this is a Position Report (35=AP)
                 if fields.get("35") == "AP":
                     broker_symbol = fields.get("55", "EURUSD")
                     from symbol_mapping_handler import SymbolMappingHandler
-                    broker_key = f"ctrader:{cls._client.sender_comp_id}"
+                    broker_key = f"ctrader:{CTraderHandler._client.sender_comp_id}"
                     symbol = SymbolMappingHandler.map_to_main(broker_symbol, broker_key)
                     long_qty = float(fields.get("704", 0))
                     short_qty = float(fields.get("705", 0))
@@ -245,19 +256,19 @@ class CTraderHandler:
                             "take_profit": take_profit,
                             "entry_timestamp": entry_timestamp
                         })
-                cls._cached_positions = positions_list
+                CTraderHandler._cached_positions = positions_list
         except Exception:
             pass
             
-        return {"status": "success", "data": cls._cached_positions}
+        return CTraderHandler._cached_positions
 
-    @classmethod
-    def create_order(cls, symbol: str, side: str, volume: float, price: float = None) -> dict:
+    @staticmethod
+    def create_order(symbol: str, side: str, volume: float, price: float = None, stop_loss: float = None, take_profit: float = None, magic: int = None, **kwargs) -> dict:
         try:
-            cls._client.connect_and_logon()
+            CTraderHandler._client.connect_and_logon()
             
             from symbol_mapping_handler import SymbolMappingHandler
-            broker_key = f"ctrader:{cls._client.sender_comp_id}"
+            broker_key = f"ctrader:{CTraderHandler._client.sender_comp_id}"
             mapped_symbol = SymbolMappingHandler.map_to_broker(symbol, broker_key)
 
             # Send New Order Single (35=D)
@@ -277,9 +288,9 @@ class CTraderHandler:
             if price is not None:
                 body_parts.append(f"44={price}")
                 
-            response = cls._client.send_request("D", body_parts)
+            response = CTraderHandler._client.send_request("D", body_parts)
             if response:
-                fields = cls._parse_fix_fields(response)
+                fields = CTraderHandler._parse_fix_fields(response)
                 # Check for execution report (35=8)
                 if fields.get("35") == "8":
                     exec_type = fields.get("150")
@@ -291,3 +302,10 @@ class CTraderHandler:
             return {"status": "success", "message": "New Order Single dispatched over cTrader FIX socket."}
         except Exception as e:
             return {"status": "error", "message": f"FIX Connection Error: {str(e)}"}
+
+    @staticmethod
+    def close_position(position_id: int, symbol: str, side: str, volume: float, **kwargs) -> dict:
+        # To close in cTrader, we send an opposite market order to net it out or send a close request
+        # Send opposite order as cTrader FIX standard netting
+        opp_side = "sell" if side.lower() == "buy" else "buy"
+        return CTraderHandler.create_order(symbol=symbol, side=opp_side, volume=volume)

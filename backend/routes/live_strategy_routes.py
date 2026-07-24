@@ -37,7 +37,8 @@ def save_strategy():
         "sessions": payload.get("sessions", []),
         "useGlobalClose": bool(payload.get("useGlobalClose", False)),
         "globalCloseTime": payload.get("globalCloseTime", ""),
-        "entryStabilityRule": payload.get("entryStabilityRule", "default")
+        "entryStabilityRule": payload.get("entryStabilityRule", "default"),
+        "broker": payload.get("broker", "metatrader")
     }
     
     success = LiveStrategyHandler.save_strategy(strategy_config)

@@ -36,17 +36,7 @@ class LiveRunner:
     def _run_loop(cls):
         while not cls._stop_event.is_set():
             try:
-                # 1. Check MT5 connection
-                if not MT5_AVAILABLE:
-                    time.sleep(15)
-                    continue
-
-                import MetaTrader5 as mt5
-                if not mt5.initialize():
-                    time.sleep(15)
-                    continue
-
-                # 2. Get active strategies
+                # Get active strategies
                 strategies = LiveStrategyHandler.get_all_strategies()
                 active_strategies = [s for s in strategies if s.get("status") == "active"]
 
@@ -71,11 +61,14 @@ class LiveRunner:
         symbol = strategy["symbol"]
         timeframe = strategy["timeframe"]
         lookback = strategy["lookbackWindow"]
+        broker_name = strategy.get("broker", "metatrader")
 
         from live_strategy_handler import LiveStrategyHandler
+        from broker_factory import BrokerFactory
+        handler = BrokerFactory.get_handler(broker_name)
 
-        # Fetch candles (300 candles is plenty for lookback and indicators)
-        candles = MetaTraderHandler.fetch_candles(
+        # Fetch candles
+        candles = handler.fetch_candles(
             symbol=symbol,
             timeframe=timeframe,
             limit=300
@@ -233,9 +226,13 @@ class LiveRunner:
             status_message = f"Outside trading hours: {msg}"
 
         # Check if position already open
+        broker_name = strategy.get("broker", "metatrader")
+        from broker_factory import BrokerFactory
+        handler = BrokerFactory.get_handler(broker_name)
+
         magic = abs(hash(strategy["id"])) & 0x7FFFFFFF
-        positions = MetaTraderHandler.get_positions()
-        pos_open = any(p.get("magic") == magic or (p.get("symbol") == strategy["symbol"] and p.get("magic") == magic) for p in positions)
+        positions = handler.get_positions()
+        pos_open = any(p.get("magic") == magic or (p.get("symbol") == strategy["symbol"] and p.get("magic") == magic) or p.get("position_id") == magic for p in positions)
         if pos_open:
             status_message = "Position already open. Monitoring for close condition."
 
@@ -260,26 +257,27 @@ class LiveRunner:
         symbol = strategy["symbol"]
         strategy_id = strategy["id"]
         magic = abs(hash(strategy_id)) & 0x7FFFFFFF
+        broker_name = strategy.get("broker", "metatrader")
+
+        from broker_factory import BrokerFactory
+        handler = BrokerFactory.get_handler(broker_name)
 
         # 1. Check if we already have an open position for this strategy magic number
-        positions = MetaTraderHandler.get_positions()
+        positions = handler.get_positions()
         # Find if there is an active position with the same symbol and magic number
-        import MetaTrader5 as mt5
         active_pos = None
-        if MT5_AVAILABLE:
-            mt5_positions = mt5.positions_get(symbol=symbol)
-            if mt5_positions:
-                for p in mt5_positions:
-                    if p.magic == magic:
-                        active_pos = p
-                        break
+        for p in positions:
+            # Match magic number if supported or symbol
+            if p.get("symbol") == symbol:
+                active_pos = p
+                break
 
         if active_pos:
             print(f"[Live Runner] Position already open for strategy {strategy_id} on {symbol}. Skipping entry.", flush=True)
             return
 
         # 2. Get Account Info for sizing
-        acct = MetaTraderHandler.get_account_info()
+        acct = handler.get_account_info()
         balance = acct.get("balance", 10000.0)
 
         # 3. Calculate Trade Parameters
@@ -307,7 +305,7 @@ class LiveRunner:
         print(f"[Live Runner] Triggering {direction} order for strategy {strategy_id} on {symbol}. Params: {params}", flush=True)
 
         # 4. Dispatch Order
-        MetaTraderHandler.create_order(
+        handler.create_order(
             symbol=symbol,
             side=direction,
             volume=params["qty"],

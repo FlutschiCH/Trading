@@ -981,12 +981,12 @@ export default function Dashboard() {
       }
     }
   };
-
   const deployLiveStrategy = async () => {
     if (isProdHost && !isAuthenticated) {
       alert("Action disabled in read-only mode.");
       return;
     }
+    const targetBroker = candleSource === 'ctrader' ? 'ctrader' : 'metatrader';
     setIsDeploying(true);
     try {
       const response = await fetch(`${API_BASE_URL}/api/live/strategy`, {
@@ -1011,17 +1011,16 @@ export default function Dashboard() {
           sessions: tradingSessions,
           useGlobalClose,
           globalCloseTime,
-          entryStabilityRule
+          entryStabilityRule,
+          broker: targetBroker
         }),
       });
       const result = await response.json();
       if (result.status === 'success') {
         setLiveStrategy(result.strategy);
-        alert(`Successfully deployed strategy to MetaTrader 5 Live execution!\nSymbol: ${symbol}\nTimeframe: ${timeframe}`);
+        const brokerTitle = targetBroker === 'ctrader' ? 'cTrader' : 'MetaTrader 5';
+        alert(`Successfully deployed strategy to ${brokerTitle} Live execution!\nSymbol: ${symbol}\nTimeframe: ${timeframe}`);
       }
-    } catch (e) {
-      console.error("Failed to deploy strategy to live execution:", e);
-      alert("Failed to deploy strategy. Is backend running?");
     } finally {
       setIsDeploying(false);
     }

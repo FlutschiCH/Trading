@@ -1,12 +1,8 @@
-try:
-    import MetaTrader5 as mt5
-    MT5_AVAILABLE = True
-except ImportError:
-    MT5_AVAILABLE = False
+from base_broker_handler import BaseBrokerHandler
 
-class MetaTraderHandler:
+class MetaTraderHandler(BaseBrokerHandler):
     @staticmethod
-    def fetch_candles(symbol: str, timeframe: str, limit: int = 1000, date_from: int = None, date_to: int = None, login: int = 2002061314, password: str = "Godzilla_12", server: str = "JustMarkets-Demo") -> list:
+    def fetch_candles(symbol: str, timeframe: str, limit: int = 1000, date_from: int = None, date_to: int = None, login: int = 2002061314, password: str = "Godzilla_12", server: str = "JustMarkets-Demo", **kwargs) -> list:
         """
         Initializes connection to MT5, fetches historical candles for the given symbol/timeframe, and shuts down.
         """
@@ -95,7 +91,7 @@ class MetaTraderHandler:
         return sanitize_and_fill_candles(candles, timeframe=timeframe)
 
     @staticmethod
-    def get_account_info(login: int = 2002061314, password: str = "Godzilla_12", server: str = "JustMarkets-Demo") -> dict:
+    def get_account_info(login: int = 2002061314, password: str = "Godzilla_12", server: str = "JustMarkets-Demo", **kwargs) -> dict:
         """
         Fetches account data from MetaTrader 5.
         """
@@ -126,7 +122,7 @@ class MetaTraderHandler:
         }
 
     @staticmethod
-    def get_positions(login: int = 2002061314, password: str = "Godzilla_12", server: str = "JustMarkets-Demo") -> list:
+    def get_positions(login: int = 2002061314, password: str = "Godzilla_12", server: str = "JustMarkets-Demo", **kwargs) -> list:
         """
         Fetches open positions from MetaTrader 5.
         """
@@ -159,7 +155,7 @@ class MetaTraderHandler:
         return res
 
     @staticmethod
-    def create_order(symbol: str, side: str, volume: float, price: float = None, stop_loss: float = None, take_profit: float = None, magic: int = 234000, login: int = 2002061314, password: str = "Godzilla_12", server: str = "JustMarkets-Demo") -> dict:
+    def create_order(symbol: str, side: str, volume: float, price: float = None, stop_loss: float = None, take_profit: float = None, magic: int = 234000, login: int = 2002061314, password: str = "Godzilla_12", server: str = "JustMarkets-Demo", **kwargs) -> dict:
         """
         Dispatches buy/sell order to MT5.
         """
@@ -227,7 +223,7 @@ class MetaTraderHandler:
         return {"status": "success", "message": f"Order successfully executed on MT5. Ticket: {result.order}"}
 
     @staticmethod
-    def close_position(position_id: int, symbol: str, side: str, volume: float, login: int = 2002061314, password: str = "Godzilla_12", server: str = "JustMarkets-Demo") -> dict:
+    def close_position(position_id: int, symbol: str, side: str, volume: float, login: int = 2002061314, password: str = "Godzilla_12", server: str = "JustMarkets-Demo", **kwargs) -> dict:
         if not MT5_AVAILABLE:
             return {"status": "error", "message": "MT5 unavailable"}
             
