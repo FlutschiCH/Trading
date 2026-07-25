@@ -70,22 +70,11 @@ class MetaTraderHandler(BaseBrokerHandler):
         # Select symbol in Market Watch
         mt5.symbol_select(matched_symbol, True)
 
-        # Calculate server to UTC offset
-        offset = 0
-        try:
-            tick = mt5.symbol_info_tick(matched_symbol)
-            if tick:
-                import time as pytime
-                diff = tick.time - int(pytime.time())
-                offset = int(round(diff / 1800.0) * 1800)
-        except Exception:
-            offset = 7200
-
         # Copy rates
         if date_from is not None and date_to is not None:
             import datetime
-            dt_from = datetime.datetime.fromtimestamp(int(date_from) + offset, tz=datetime.timezone.utc).replace(tzinfo=None)
-            dt_to = datetime.datetime.fromtimestamp(int(date_to) + offset, tz=datetime.timezone.utc).replace(tzinfo=None)
+            dt_from = datetime.datetime.fromtimestamp(int(date_from))
+            dt_to = datetime.datetime.fromtimestamp(int(date_to))
             rates = mt5.copy_rates_range(matched_symbol, mt5_tf, dt_from, dt_to)
         else:
             rates = mt5.copy_rates_from_pos(matched_symbol, mt5_tf, 0, limit)
@@ -98,7 +87,7 @@ class MetaTraderHandler(BaseBrokerHandler):
         candles = []
         for r in rates:
             candles.append({
-                "time": int(r['time']) - offset,
+                "time": int(r['time']),
                 "open": float(r['open']),
                 "high": float(r['high']),
                 "low": float(r['low']),

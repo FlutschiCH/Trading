@@ -27,8 +27,17 @@ class CTraderHandler(BaseBrokerHandler):
         account_id = int(account_id_str) if account_id_str else None
         token = os.environ.get("CTRADER_ACCESS_TOKEN")
 
-        # Use live.ctraderapi.com for all real broker accounts (including FTMO challenges)
-        is_demo = False
+        # If it is a demo account (like IC Markets Demo 48029720 or Spotware 48025530), use demo.ctraderapi.com
+        # You can fetch list of accounts from API, but for simplicity, we inspect the token or check the demo status via ID.
+        # However, a robust way is checking the list of demo accounts or using an env variable. Let's make it look at CTRADER_IS_DEMO env var or default to live but fall back.
+        # Or even simpler: we can inspect the account ID list or let the user define CTRADER_IS_DEMO, or dynamically detect (Spotware/icmarketseu demo are demo, ftmo are live).
+        # Let's inspect the account_id_str / check if there is an env var, or dynamically detect "demo" or broker names if known.
+        # Since Spotware/IC Markets demo accounts are demo, let's check a new env var CTRADER_IS_DEMO or dynamically detect based on known lists, or default.
+        is_demo = os.environ.get("CTRADER_IS_DEMO", "false").lower() == "true"
+        # Let's also check if account is the known demo accounts to auto-detect
+        if account_id_str in ["48025530", "48029720"]:
+            is_demo = True
+            
         host = "demo.ctraderapi.com" if is_demo else "live.ctraderapi.com"
         url = f"wss://{host}:5036"
 
@@ -161,9 +170,6 @@ class CTraderHandler(BaseBrokerHandler):
                     if tb_time == 0:
                         tb_time = int(from_ms // 1000)
 
-                    # Hardcode +2 hours (7200 seconds) offset shift to match MetaTrader server time
-                    tb_time += 7200
-
                     candles_list.append({
                         "time": tb_time,
                         "open": open_price,
@@ -219,14 +225,17 @@ class CTraderHandler(BaseBrokerHandler):
                         trader = trader_res.get("payload", {}).get("trader", {})
                         balance = float(trader.get("balance", 10000000)) / 100.0 # cTrader balance in cents
                         
+                        brokerName = acc.get("brokerName", "cTrader")
                         CTraderHandler._cached_account.update({
                             "balance": balance,
                             "equity": balance,
-                            "margin_free": balance
+                            "margin_free": balance,
+                            "broker": brokerName,
+                            "account_type": f"cTrader {brokerName} OpenAPI"
                         })
                         break
         except Exception as e:
-            CTraderHandler._cached_account["broker"] = f"FTMO (cTrader) - Offline ({str(e)})"
+            CTraderHandler._cached_account["broker"] = f"cTrader - Offline ({str(e)})"
             
         return {"status": "success", "data": CTraderHandler._cached_account}
 
