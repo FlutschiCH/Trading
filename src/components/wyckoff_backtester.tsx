@@ -87,6 +87,7 @@ interface WyckoffBacktesterProps {
   onRunOptimization: () => void;
   onSaveSettings?: () => void;
   isReadOnly?: boolean;
+  broker?: string;
 }
 
 interface CollapsibleCardProps {
@@ -142,6 +143,7 @@ const minutesList = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2
 export default function WyckoffBacktester({
   symbol,
   timeframe,
+  broker = 'metatrader',
   liveStrategy,
   isDeploying,
   deployLiveStrategy,
@@ -497,7 +499,7 @@ export default function WyckoffBacktester({
               color: '#9ca3af'
             }}>
               <span>Backtest Overview</span>
-              <span style={{ color: '#38bdf8', fontWeight: 'bold' }}>{symbol} • {timeframe}</span>
+              <span style={{ color: '#38bdf8', fontWeight: 'bold' }}>{broker.toUpperCase()} • {symbol} • {timeframe}</span>
             </div>
             <div style={{
               display: 'grid',

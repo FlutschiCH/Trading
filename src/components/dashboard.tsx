@@ -2352,6 +2352,7 @@ export default function Dashboard() {
                 isReadOnly={isProdHost && !isAuthenticated}
                 symbol={symbol}
                 timeframe={timeframe}
+                broker={candleSource}
                 liveStrategy={liveStrategy}
                 isDeploying={isDeploying}
                 deployLiveStrategy={deployLiveStrategy}
@@ -2601,6 +2602,7 @@ export default function Dashboard() {
                       isReadOnly={isProdHost && !isAuthenticated}
                       symbol={symbol}
                       timeframe={timeframe}
+                      broker={candleSource}
                       liveStrategy={liveStrategy}
                       isDeploying={isDeploying}
                       deployLiveStrategy={deployLiveStrategy}
