@@ -76,8 +76,26 @@ class MetaTraderHandler(BaseBrokerHandler):
             tick = mt5.symbol_info_tick(matched_symbol)
             if tick:
                 import time as pytime
-                diff = tick.time - int(pytime.time())
-                offset = int(round(diff / 1800.0) * 1800)
+                import datetime
+                current_time = int(pytime.time())
+                
+                # If the last tick is fresh (less than 1 hour old), calculate dynamically
+                if current_time - tick.time < 3600:
+                    diff = tick.time - current_time
+                    offset = int(round(diff / 1800.0) * 1800)
+                else:
+                    # Market is closed (weekend/stale tick). Fall back to EET/EEST calculation (+3h summer, +2h winter)
+                    # which is the standard for 99% of MT5 brokers.
+                    tick_dt = datetime.datetime.fromtimestamp(tick.time, datetime.timezone.utc)
+                    year = tick_dt.year
+                    # EEST begins on last Sunday of March and ends on last Sunday of October
+                    dst_start = datetime.datetime(year, 3, 31) - datetime.timedelta(days=(datetime.datetime(year, 3, 31).weekday() + 1) % 7)
+                    dst_end = datetime.datetime(year, 10, 31) - datetime.timedelta(days=(datetime.datetime(year, 10, 31).weekday() + 1) % 7)
+                    
+                    if dst_start.date() <= tick_dt.date() < dst_end.date():
+                        offset = 10800  # UTC+3
+                    else:
+                        offset = 7200   # UTC+2
         except Exception:
             offset = 7200
 
