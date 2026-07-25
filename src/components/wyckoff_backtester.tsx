@@ -1383,7 +1383,7 @@ export default function WyckoffBacktester({
                   type="datetime-local"
                   value={customFrom}
                   onChange={(e) => setCustomFrom(e.target.value)}
-                  style={styles.input}
+                  style={{ ...styles.input, colorScheme: 'dark', cursor: 'pointer', minHeight: '32px' }}
                 />
               </div>
               <div style={styles.formGroup}>
@@ -1392,7 +1392,7 @@ export default function WyckoffBacktester({
                   type="datetime-local"
                   value={customTo}
                   onChange={(e) => setCustomTo(e.target.value)}
-                  style={styles.input}
+                  style={{ ...styles.input, colorScheme: 'dark', cursor: 'pointer', minHeight: '32px' }}
                 />
               </div>
             </div>
@@ -1406,7 +1406,7 @@ export default function WyckoffBacktester({
                   type="datetime-local"
                   value={customFrom}
                   onChange={(e) => setCustomFrom(e.target.value)}
-                  style={styles.input}
+                  style={{ ...styles.input, colorScheme: 'dark', cursor: 'pointer', minHeight: '32px' }}
                 />
               </div>
             </div>
