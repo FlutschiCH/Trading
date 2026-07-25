@@ -1,6 +1,5 @@
 from flask import Blueprint, request, jsonify
 from broker_handler import BrokerHandler
-from yfinance_handler import YFinanceHandler
 
 trading_routes = Blueprint('trading_routes', __name__)
 
@@ -73,11 +72,8 @@ def candles():
     if date_to is not None:
         date_to = int(date_to)
 
-    if broker_name.lower() == 'yfinance':
-        candles_data = YFinanceHandler.fetch_candles(symbol, timeframe, limit, date_from, date_to)
-    else:
-        handler = BrokerFactory.get_handler(broker_name)
-        candles_data = handler.fetch_candles(symbol, timeframe, limit, date_from, date_to)
+    handler = BrokerHandler.get_handler(broker_name)
+    candles_data = handler.fetch_candles(symbol, timeframe, limit, date_from, date_to)
 
     return jsonify(candles_data)
 
