@@ -94,9 +94,7 @@ if __name__ == '__main__':
                 entry_stability_rule=entry_stability_rule,
                 broker="metatrader"
             )
-            results = mt_result.get("results", [])
-            for r in results:
-                print(f"  RR: {r['rr']} | Win Rate: {r['winRate']:.2f}% | Net PnL: {r['netPnl']:.2f} | Total Trades: {r['totalTrades']} | Max DD: {r['maxDrawdown']:.2f}")
+            print(f"  Win Rate: {mt_result.get('winRate', 0.0):.2f}% | Net PnL: {mt_result.get('netPnl', 0.0):.2f} | Total Trades: {mt_result.get('totalTrades', 0)} | Max DD: {mt_result.get('maxDrawdown', 0.0):.2f}")
         else:
             print("[MetaTrader] No candles fetched.")
     except Exception as e:
@@ -133,9 +131,7 @@ if __name__ == '__main__':
                 entry_stability_rule=entry_stability_rule,
                 broker="ctrader"
             )
-            results = ct_result.get("results", [])
-            for r in results:
-                print(f"  RR: {r['rr']} | Win Rate: {r['winRate']:.2f}% | Net PnL: {r['netPnl']:.2f} | Total Trades: {r['totalTrades']} | Max DD: {r['maxDrawdown']:.2f}")
+            print(f"  Win Rate: {ct_result.get('winRate', 0.0):.2f}% | Net PnL: {ct_result.get('netPnl', 0.0):.2f} | Total Trades: {ct_result.get('totalTrades', 0)} | Max DD: {ct_result.get('maxDrawdown', 0.0):.2f}")
         else:
             print("[cTrader] No candles fetched.")
     except Exception as e:
