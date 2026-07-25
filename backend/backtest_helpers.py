@@ -177,7 +177,7 @@ def run_trade_simulation(
                 last_percent = percent
                 bar_length = 20
                 filled_length = int(bar_length * percent // 100)
-                bar = '█' * filled_length + '-' * (bar_length - filled_length)
+                bar = '#' * filled_length + '-' * (bar_length - filled_length)
                 print(f"\r[Trade Simulation Progress] |{bar}| {percent}% ({i+1}/{total_candles})", end="", flush=True)
                 if percent == 100:
                     print(flush=True)
