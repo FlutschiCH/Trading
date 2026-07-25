@@ -31,6 +31,7 @@ def backtest():
     """
     Exposes Python-based backtesting engine to frontend dashboard.
     """
+    print("[Backend] /api/backtest endpoint hit!", flush=True)
     payload = request.get_json(silent=True) or {}
     symbol = payload.get('symbol', 'BTCUSD')
     candle_source = payload.get('candleSource', 'metatrader')
