@@ -18,8 +18,8 @@ if __name__ == '__main__':
     import os
     from datetime import datetime
     
-    # Target: 13 July 2026 00:00:00 Local/UTC (using timezone-naive for now)
-    dt_from = datetime(2026, 7, 13, 0, 0, 0)
+    # Target: 14 July 2026 08:00:00 Local/UTC (using timezone-naive for now)
+    dt_from = datetime(2026, 7, 14, 8, 0, 0)
     date_from = int(dt_from.timestamp())
     print(f"Fetching candles starting from {dt_from} (timestamp: {date_from})...")
 
