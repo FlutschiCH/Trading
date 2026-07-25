@@ -39,6 +39,7 @@ class SQLHandler:
             return False
         if cls._pool is not None:
             return True
+        start_time = time.time()
         try:
             from mysql.connector.pooling import MySQLConnectionPool
             cls._pool = MySQLConnectionPool(
@@ -53,12 +54,14 @@ class SQLHandler:
                 connect_timeout=3
             )
             cls._remote_db_offline = False
-            print("Successfully initialized remote MySQL connection pool.", flush=True)
+            duration = time.time() - start_time
+            print(f"Successfully initialized remote MySQL connection pool in {duration:.4f} seconds.", flush=True)
             return True
         except Exception as e:
             cls._remote_db_offline = True
             cls._last_db_check = time.time()
-            print(f"Failed to initialize remote MySQL connection pool: {e}. Falling back to SQLite.", flush=True)
+            duration = time.time() - start_time
+            print(f"Failed to initialize remote MySQL connection pool after {duration:.4f} seconds: {e}. Falling back to SQLite.", flush=True)
             return False
 
     @classmethod
