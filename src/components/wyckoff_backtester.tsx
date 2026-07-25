@@ -89,6 +89,56 @@ interface WyckoffBacktesterProps {
   isReadOnly?: boolean;
 }
 
+interface CollapsibleCardProps {
+  title: string;
+  isCollapsed: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}
+
+const CollapsibleCard = ({ title, isCollapsed, onToggle, children }: CollapsibleCardProps) => {
+  return (
+    <div style={{
+      backgroundColor: '#111827',
+      border: '1px solid #1f2937',
+      borderRadius: '6px',
+      overflow: 'hidden',
+      transition: 'all 0.2s'
+    }}>
+      <div
+        onClick={onToggle}
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '8px 10px',
+          cursor: 'pointer',
+          backgroundColor: '#1f2937',
+          userSelect: 'none',
+          transition: 'background-color 0.2s'
+        }}
+        onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#374151'}
+        onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#1f2937'}
+      >
+        <span style={{ fontWeight: 'bold', color: '#cbd5e1', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          {title}
+        </span>
+        <span style={{ color: '#9ca3af', fontSize: '10px' }}>
+          {isCollapsed ? '▼' : '▲'}
+        </span>
+      </div>
+      {!isCollapsed && (
+        <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const hoursList = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
+const minutesList = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0'));
+
 export default function WyckoffBacktester({
   symbol,
   timeframe,
@@ -216,46 +266,7 @@ export default function WyckoffBacktester({
     });
   };
 
-  const CollapsibleCard = ({ title, sectionKey, children }: { title: string; sectionKey: string; children: React.ReactNode }) => {
-    const isCollapsed = collapsedSections[sectionKey];
-    return (
-      <div style={{
-        backgroundColor: '#111827',
-        border: '1px solid #1f2937',
-        borderRadius: '6px',
-        overflow: 'hidden',
-        transition: 'all 0.2s'
-      }}>
-        <div
-          onClick={() => toggleSection(sectionKey)}
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            padding: '8px 10px',
-            cursor: 'pointer',
-            backgroundColor: '#1f2937',
-            userSelect: 'none',
-            transition: 'background-color 0.2s'
-          }}
-          onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#374151'}
-          onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#1f2937'}
-        >
-          <span style={{ fontWeight: 'bold', color: '#cbd5e1', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            {title}
-          </span>
-          <span style={{ color: '#9ca3af', fontSize: '10px' }}>
-            {isCollapsed ? '▼' : '▲'}
-          </span>
-        </div>
-        {!isCollapsed && (
-          <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {children}
-          </div>
-        )}
-      </div>
-    );
-  };
+
 
   // Session builder states
   const [newStart, setNewStart] = React.useState('09:00');
@@ -531,7 +542,7 @@ export default function WyckoffBacktester({
           </div>
         )}
         {/* Collapsible Cards */}
-        <CollapsibleCard title="Risk Management" sectionKey="riskManagement">
+        <CollapsibleCard title="Risk Management" isCollapsed={collapsedSections.riskManagement} onToggle={() => toggleSection('riskManagement')}>
           {/* Starting Balance & Fees */}
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '12px' }}>
             <div style={styles.formGroup}>
@@ -795,7 +806,7 @@ export default function WyckoffBacktester({
           </div>
         </CollapsibleCard>
 
-        <CollapsibleCard title="Session" sectionKey="session">
+        <CollapsibleCard title="Session" isCollapsed={collapsedSections.session} onToggle={() => toggleSection('session')}>
           {/* Timezone Selector */}
           <div style={styles.formGroup}>
             <label style={{ color: '#9ca3af', fontSize: '11px' }}>Global Timezone</label>
@@ -922,21 +933,55 @@ export default function WyckoffBacktester({
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '8px' }}>
               <div style={styles.formGroup}>
                 <label style={{ color: '#9ca3af', fontSize: '9px' }}>Start Time</label>
-                <input
-                  type="time"
-                  value={newStart}
-                  onChange={(e) => setNewStart(e.target.value)}
-                  style={{ ...styles.input, padding: '4px 6px', fontSize: '11px', colorScheme: 'dark' }}
-                />
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  <select
+                    value={newStart.split(':')[0] || '09'}
+                    onChange={(e) => {
+                      const mins = newStart.split(':')[1] || '00';
+                      setNewStart(`${e.target.value}:${mins}`);
+                    }}
+                    style={{ ...styles.input, padding: '4px 6px', fontSize: '11px', flex: 1, color: '#ffffff', backgroundColor: '#1f2937', border: '1px solid #374151' }}
+                  >
+                    {hoursList.map(h => <option key={h} value={h}>{h}</option>)}
+                  </select>
+                  <span style={{ color: '#9ca3af', alignSelf: 'center' }}>:</span>
+                  <select
+                    value={newStart.split(':')[1] || '00'}
+                    onChange={(e) => {
+                      const hrs = newStart.split(':')[0] || '09';
+                      setNewStart(`${hrs}:${e.target.value}`);
+                    }}
+                    style={{ ...styles.input, padding: '4px 6px', fontSize: '11px', flex: 1, color: '#ffffff', backgroundColor: '#1f2937', border: '1px solid #374151' }}
+                  >
+                    {minutesList.map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </div>
               </div>
               <div style={styles.formGroup}>
                 <label style={{ color: '#9ca3af', fontSize: '9px' }}>End Time</label>
-                <input
-                  type="time"
-                  value={newEnd}
-                  onChange={(e) => setNewEnd(e.target.value)}
-                  style={{ ...styles.input, padding: '4px 6px', fontSize: '11px', colorScheme: 'dark' }}
-                />
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  <select
+                    value={newEnd.split(':')[0] || '17'}
+                    onChange={(e) => {
+                      const mins = newEnd.split(':')[1] || '00';
+                      setNewEnd(`${e.target.value}:${mins}`);
+                    }}
+                    style={{ ...styles.input, padding: '4px 6px', fontSize: '11px', flex: 1, color: '#ffffff', backgroundColor: '#1f2937', border: '1px solid #374151' }}
+                  >
+                    {hoursList.map(h => <option key={h} value={h}>{h}</option>)}
+                  </select>
+                  <span style={{ color: '#9ca3af', alignSelf: 'center' }}>:</span>
+                  <select
+                    value={newEnd.split(':')[1] || '00'}
+                    onChange={(e) => {
+                      const hrs = newEnd.split(':')[0] || '17';
+                      setNewEnd(`${hrs}:${e.target.value}`);
+                    }}
+                    style={{ ...styles.input, padding: '4px 6px', fontSize: '11px', flex: 1, color: '#ffffff', backgroundColor: '#1f2937', border: '1px solid #374151' }}
+                  >
+                    {minutesList.map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -1039,7 +1084,7 @@ export default function WyckoffBacktester({
           </div>
         </CollapsibleCard>
 
-        <CollapsibleCard title="Indicators" sectionKey="indicators">
+        <CollapsibleCard title="Indicators" isCollapsed={collapsedSections.indicators} onToggle={() => toggleSection('indicators')}>
           <div style={{ display: 'flex', gap: '16px' }}>
             <label style={{ color: '#cbd5e1', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
               <input
@@ -1053,7 +1098,7 @@ export default function WyckoffBacktester({
           </div>
         </CollapsibleCard>
 
-        <CollapsibleCard title="Wyckoff Structure" sectionKey="wyckoffStructure">
+        <CollapsibleCard title="Wyckoff Structure" isCollapsed={collapsedSections.wyckoffStructure} onToggle={() => toggleSection('wyckoffStructure')}>
           <div style={{ fontSize: '9px', fontWeight: 'bold', color: '#94a3b8', letterSpacing: '0.05em', borderBottom: '1px solid rgba(148, 163, 184, 0.1)', paddingBottom: '4px', marginBottom: '2px' }}>
             WYCKOFF CYCLE FILTER (CLICK TO TOGGLE HIDING TREND LINE)
           </div>
@@ -1104,7 +1149,7 @@ export default function WyckoffBacktester({
           </div>
         </CollapsibleCard>
 
-        <CollapsibleCard title="Date Range" sectionKey="dateRange">
+        <CollapsibleCard title="Date Range" isCollapsed={collapsedSections.dateRange} onToggle={() => toggleSection('dateRange')}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontWeight: 'bold', color: '#cbd5e1', fontSize: '11px' }}>Date Range Settings</span>
             {dateRangeOption !== 'last_candles' && (
@@ -1188,7 +1233,7 @@ export default function WyckoffBacktester({
         </CollapsibleCard>
 
         {optimizationResults && optimizationResults.length > 0 && (
-          <CollapsibleCard title="Optimization Results" sectionKey="optimization">
+          <CollapsibleCard title="Optimization Results" isCollapsed={collapsedSections.optimization} onToggle={() => toggleSection('optimization')}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <div style={{
                 display: 'grid',
@@ -1239,7 +1284,7 @@ export default function WyckoffBacktester({
       </fieldset>
 
         {(backtestResults || favouriteCandles.length > 0) && (
-          <CollapsibleCard title="Trades & Results" sectionKey="trades">
+          <CollapsibleCard title="Trades & Results" isCollapsed={collapsedSections.trades} onToggle={() => toggleSection('trades')}>
             {backtestResults && (
               <>
                 {backtestResults.dailyLossBreached && (
