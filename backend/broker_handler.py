@@ -19,9 +19,6 @@ if __name__ == '__main__':
     from sql_handler import SQLHandler
     from strategy_handler import StrategyHandler
 
-    # Initialize SQL Database
-    SQLHandler.init_db()
-
     # Load backtest settings from DB
     print("Loading settings from Database...")
     symbol = "EURUSD"
