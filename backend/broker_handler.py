@@ -94,8 +94,9 @@ if __name__ == '__main__':
                 entry_stability_rule=entry_stability_rule,
                 broker="metatrader"
             )
-            summary = mt_result.get("data", {}).get("summary", {})
-            print(f"[MetaTrader Backtest Result] Final Balance: {summary.get('final_balance')}, Total Trades: {summary.get('total_trades')}")
+            results = mt_result.get("results", [])
+            for r in results:
+                print(f"  RR: {r['rr']} | Win Rate: {r['winRate']:.2f}% | Net PnL: {r['netPnl']:.2f} | Total Trades: {r['totalTrades']} | Max DD: {r['maxDrawdown']:.2f}")
         else:
             print("[MetaTrader] No candles fetched.")
     except Exception as e:
@@ -132,8 +133,9 @@ if __name__ == '__main__':
                 entry_stability_rule=entry_stability_rule,
                 broker="ctrader"
             )
-            summary = ct_result.get("data", {}).get("summary", {})
-            print(f"[cTrader Backtest Result] Final Balance: {summary.get('final_balance')}, Total Trades: {summary.get('total_trades')}")
+            results = ct_result.get("results", [])
+            for r in results:
+                print(f"  RR: {r['rr']} | Win Rate: {r['winRate']:.2f}% | Net PnL: {r['netPnl']:.2f} | Total Trades: {r['totalTrades']} | Max DD: {r['maxDrawdown']:.2f}")
         else:
             print("[cTrader] No candles fetched.")
     except Exception as e:
