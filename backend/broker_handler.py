@@ -16,10 +16,17 @@ class BrokerHandler:
 if __name__ == '__main__':
     # Fetch candles from both sides and save to separate JSON files
     import os
+    from datetime import datetime
+    
+    # Target: 13 July 2026 00:00:00 Local/UTC (using timezone-naive for now)
+    dt_from = datetime(2026, 7, 13, 0, 0, 0)
+    date_from = int(dt_from.timestamp())
+    print(f"Fetching candles starting from {dt_from} (timestamp: {date_from})...")
+
     print("Fetching candles from MetaTrader...")
     try:
         mt_handler = BrokerHandler.get_handler("metatrader")
-        mt_candles = mt_handler.fetch_candles("EURUSD", "15m", limit=10)
+        mt_candles = mt_handler.fetch_candles("EURUSD", "15m", limit=10, date_from=date_from)
         with open("mt_candles.json", "w") as f:
             json.dump(mt_candles, f, indent=4)
         print("MetaTrader candles saved to mt_candles.json")
@@ -29,7 +36,7 @@ if __name__ == '__main__':
     print("Fetching candles from cTrader...")
     try:
         ct_handler = BrokerHandler.get_handler("ctrader")
-        ct_candles = ct_handler.fetch_candles("EURUSD", "15m", limit=10)
+        ct_candles = ct_handler.fetch_candles("EURUSD", "15m", limit=10, date_from=date_from)
         with open("ct_candles.json", "w") as f:
             json.dump(ct_candles, f, indent=4)
         print("cTrader candles saved to ct_candles.json")
