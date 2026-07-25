@@ -44,14 +44,14 @@ class SQLHandler:
             from mysql.connector.pooling import MySQLConnectionPool
             cls._pool = MySQLConnectionPool(
                 pool_name="trading_pool",
-                pool_size=5,
+                pool_size=1,
                 pool_reset_session=True,
                 host=DB_HOST,
                 port=DB_PORT,
                 user=DB_USER,
                 password=DB_PASSWORD,
                 database=DB_NAME,
-                connect_timeout=3
+                connect_timeout=1
             )
             cls._remote_db_offline = False
             duration = time.time() - start_time
