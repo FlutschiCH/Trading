@@ -94,6 +94,8 @@ if __name__ == '__main__':
                 entry_stability_rule=entry_stability_rule,
                 broker="metatrader"
             )
+            print(f"  First Candle: {datetime.fromtimestamp(mt_candles[0]['time'], timezone.utc)} (timestamp: {mt_candles[0]['time']})")
+            print(f"  Last Candle:  {datetime.fromtimestamp(mt_candles[-1]['time'], timezone.utc)} (timestamp: {mt_candles[-1]['time']})")
             print(f"  Win Rate: {mt_result.get('winRate', 0.0):.2f}% | Net PnL: {mt_result.get('netPnl', 0.0):.2f} | Total Trades: {mt_result.get('totalTrades', 0)} | Max DD: {mt_result.get('maxDrawdown', 0.0):.2f}")
         else:
             print("[MetaTrader] No candles fetched.")
@@ -131,6 +133,8 @@ if __name__ == '__main__':
                 entry_stability_rule=entry_stability_rule,
                 broker="ctrader"
             )
+            print(f"  First Candle: {datetime.fromtimestamp(ct_candles[0]['time'], timezone.utc)} (timestamp: {ct_candles[0]['time']})")
+            print(f"  Last Candle:  {datetime.fromtimestamp(ct_candles[-1]['time'], timezone.utc)} (timestamp: {ct_candles[-1]['time']})")
             print(f"  Win Rate: {ct_result.get('winRate', 0.0):.2f}% | Net PnL: {ct_result.get('netPnl', 0.0):.2f} | Total Trades: {ct_result.get('totalTrades', 0)} | Max DD: {ct_result.get('maxDrawdown', 0.0):.2f}")
         else:
             print("[cTrader] No candles fetched.")
