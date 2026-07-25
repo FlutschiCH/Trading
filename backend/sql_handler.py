@@ -1,6 +1,7 @@
 import os
 import sqlite3
 import threading
+import time
 from dotenv import load_dotenv
 
 # Try importing mysql.connector, fallback to SQLite-only mode if not installed
@@ -25,6 +26,8 @@ LOCAL_DB_PATH = os.path.join(os.path.dirname(__file__), 'trades.db')
 
 class SQLHandler:
     _lock = threading.Semaphore(1)
+    _remote_db_offline = False
+    _last_db_check = 0.0
 
     @classmethod
     def get_mysql_connection(cls):
@@ -76,10 +79,18 @@ class SQLHandler:
 
         cls._lock.acquire()
         try:
+            now = time.time()
+            # If the remote database recently failed to connect, skip and use SQLite fallback directly
+            if cls._remote_db_offline and (now - cls._last_db_check < 60):
+                return cls._execute_sqlite(query, params)
+
             # 1. Try MySQL remote database connection
             try:
                 conn = cls.get_mysql_connection()
+                cls._remote_db_offline = False
             except Exception as conn_err:
+                cls._remote_db_offline = True
+                cls._last_db_check = now
                 print(f"Remote database connection failed, falling back to local SQLite: {conn_err}", flush=True)
                 return cls._execute_sqlite(query, params)
 
