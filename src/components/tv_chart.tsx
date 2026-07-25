@@ -689,29 +689,27 @@ export default function TVChart({
         let sessionHigh = -Infinity;
         let sessionLow = Infinity;
 
-        const getSessionMinutes = (date: Date) => {
-          if (sessionsTimezone === 'UTC') {
-            return date.getUTCHours() * 60 + date.getUTCMinutes();
-          } else {
-            return date.getHours() * 60 + date.getMinutes();
-          }
+        const getSessionMinutes = (time: number) => {
+          const formatter = getChartTimeFormatter(sessionsTimezone);
+          const formatted = formatter(time);
+          const timePart = formatted.split(' ')[1];
+          const [h, m] = timePart.split(':').map(Number);
+          return h * 60 + m;
         };
 
-        const getSessionWeekday = (date: Date) => {
-          // JS day: 0=Sunday, 1=Monday... 6=Saturday
-          // Session weekdays: 1=Monday... 7=Sunday
-          let day = date.getDay();
+        const getSessionWeekday = (time: number) => {
+          const d = new Date(time * 1000);
+          let day = d.getDay();
           if (sessionsTimezone === 'UTC') {
-            day = date.getUTCDay();
+            day = d.getUTCDay();
           }
           return day === 0 ? 7 : day;
         };
 
         for (let i = 0; i < candlesRef.current.length; i++) {
           const candle = candlesRef.current[i];
-          const date = new Date(Number(candle.time) * 1000);
-          const minutes = getSessionMinutes(date);
-          const weekday = getSessionWeekday(date);
+          const minutes = getSessionMinutes(candle.time);
+          const weekday = getSessionWeekday(candle.time);
 
           const isWeekdayMatching = session.weekdays ? session.weekdays.includes(weekday) : true;
           let isInSession = false;
