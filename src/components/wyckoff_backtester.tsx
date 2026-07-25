@@ -1354,6 +1354,7 @@ export default function WyckoffBacktester({
                 <option value="this_month">This Month</option>
                 <option value="last_month">Last Month</option>
                 <option value="custom">Custom Range</option>
+                <option value="from_start_date">From Start Date (No end)</option>
               </select>
             </div>
 
@@ -1391,6 +1392,20 @@ export default function WyckoffBacktester({
                   type="datetime-local"
                   value={customTo}
                   onChange={(e) => setCustomTo(e.target.value)}
+                  style={styles.input}
+                />
+              </div>
+            </div>
+          )}
+
+          {dateRangeOption === 'from_start_date' && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px' }}>
+              <div style={styles.formGroup}>
+                <label style={{ color: '#9ca3af', fontSize: '11px' }}>From Date (Start of test)</label>
+                <input
+                  type="datetime-local"
+                  value={customFrom}
+                  onChange={(e) => setCustomFrom(e.target.value)}
                   style={styles.input}
                 />
               </div>

@@ -153,6 +153,13 @@ export const calculateDateBounds = (option: string, customFrom?: string, customT
     };
   }
   
+  if (option === 'from_start_date' && customFrom) {
+    const start = new Date(customFrom);
+    return {
+      date_from: Math.floor(start.getTime() / 1000)
+    };
+  }
+  
   return {};
 };
 
