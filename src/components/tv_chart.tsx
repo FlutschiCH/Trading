@@ -92,7 +92,7 @@ export default function TVChart({
   tradeFilter = 'all',
   onTradeFilterChange,
   sessions = [],
-  sessionsTimezone = 'Local',
+  sessionsTimezone = 'UTC',
   locateTimestamp = null,
   hiddenStages = []
 }: TVChartProps) {

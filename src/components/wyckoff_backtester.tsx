@@ -810,14 +810,9 @@ export default function WyckoffBacktester({
           {/* Timezone Selector */}
           <div style={styles.formGroup}>
             <label style={{ color: '#9ca3af', fontSize: '11px' }}>Global Timezone</label>
-            <select
-              value={sessionsTimezone}
-              onChange={(e) => setSessionsTimezone(e.target.value as 'UTC' | 'Local')}
-              style={styles.input}
-            >
-              <option value="Local">Local Time</option>
-              <option value="UTC">UTC (GMT)</option>
-            </select>
+            <div style={{ color: '#ffffff', fontSize: '12px', fontWeight: 'bold', padding: '6px 8px', backgroundColor: '#1e293b', borderRadius: '4px', border: '1px solid #334155' }}>
+              UTC (GMT) [Locked]
+            </div>
           </div>
 
           {/* Global close time */}

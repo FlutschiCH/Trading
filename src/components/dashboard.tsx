@@ -330,7 +330,7 @@ export default function Dashboard() {
   const [entryStabilityRule, setEntryStabilityRule] = useState<string>(() => localStorage.getItem('wyckoff_backtest_entry_stability_rule') || 'default');
 
   // Sessions & Auto-Close Safeguards
-  const [sessionsTimezone, setSessionsTimezone] = useState<'UTC' | 'Local'>(() => (localStorage.getItem('wyckoff_sessions_timezone') as 'UTC' | 'Local') || 'Local');
+  const [sessionsTimezone, setSessionsTimezone] = useState<'UTC' | 'Local'>(() => (localStorage.getItem('wyckoff_sessions_timezone') as 'UTC' | 'Local') || 'UTC');
   
   // Optimization States
   const [isOptimizeMode, setIsOptimizeMode] = useState<boolean>(() => localStorage.getItem('wyckoff_optimize_mode') === 'true');
