@@ -3,12 +3,12 @@ import { createChart, ColorType, CandlestickSeries, HistogramSeries, LineSeries,
 import { Square, PenTool, Trash2, XCircle, RefreshCw, Maximize2, Minimize2, Settings, Play, Pause, SkipBack, SkipForward, X } from 'lucide-react';
 import { calculateDateBounds } from '../App';
 
-const isLocal = typeof window !== 'undefined' && 
-  (window.location.hostname === 'localhost' || 
-   window.location.hostname === '127.0.0.1' || 
-   window.location.hostname.startsWith('192.168.') ||
-   window.location.hostname.startsWith('10.') ||
-   window.location.hostname.startsWith('172.'));
+const isLocal = typeof window !== 'undefined' &&
+  (window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1' ||
+    window.location.hostname.startsWith('192.168.') ||
+    window.location.hostname.startsWith('10.') ||
+    window.location.hostname.startsWith('172.'));
 
 interface Candle {
   time: number;
@@ -63,8 +63,8 @@ interface TVChartProps {
   hiddenStages?: string[];
 }
 
-export default function TVChart({ 
-  symbol, 
+export default function TVChart({
+  symbol,
   onSymbolChange,
   timeframe,
   onTimeframeChange,
@@ -72,12 +72,12 @@ export default function TVChart({
   onCandleSourceChange,
   availableSymbols,
   availableTimeframes,
-  candles, 
-  loading, 
+  candles,
+  loading,
   loadingStrategy,
-  onRefresh, 
-  entryPrice, 
-  slPrice, 
+  onRefresh,
+  entryPrice,
+  slPrice,
   tpPrice,
   trades = [],
   selectedTrade = null,
@@ -98,7 +98,7 @@ export default function TVChart({
 }: TVChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const weisContainerRef = useRef<HTMLDivElement>(null);
-  
+
   const [replayTime, setReplayTime] = useState<number | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1000);
@@ -109,11 +109,11 @@ export default function TVChart({
     replayToolActiveRef.current = replayToolActive;
   }, [replayToolActive]);
 
-  const activeCandles = replayTime !== null 
-    ? candles.filter(c => Number(c.time) <= replayTime) 
+  const activeCandles = replayTime !== null
+    ? candles.filter(c => Number(c.time) <= replayTime)
     : candles;
 
-  const visibleTrades = replayTime !== null 
+  const visibleTrades = replayTime !== null
     ? (trades || []).filter(t => Number(t.entryTimestamp) <= replayTime)
     : trades;
 
@@ -229,14 +229,14 @@ export default function TVChart({
 
   const toggleFavoriteSymbol = (sym: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    setFavoriteSymbols(prev => 
+    setFavoriteSymbols(prev =>
       prev.includes(sym) ? prev.filter(s => s !== sym) : [...prev, sym]
     );
   };
 
   const toggleFavoriteTimeframe = (tf: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    setFavoriteTimeframes(prev => 
+    setFavoriteTimeframes(prev =>
       prev.includes(tf) ? prev.filter(t => t !== tf) : [...prev, tf]
     );
   };
@@ -277,7 +277,7 @@ export default function TVChart({
 
   const chartRef = useRef<any>(null);
   const weisChartRef = useRef<any>(null);
-  
+
   const candlestickSeriesRef = useRef<any>(null);
   const markersPluginRef = useRef<any>(null);
   const weisSeriesRef = useRef<any>(null);
@@ -332,14 +332,13 @@ export default function TVChart({
   // Log Wyckoff stage swaps on data load/change
   useEffect(() => {
     if (!candles || candles.length === 0) return;
-    
+
     let lastLoggedStage = "";
     candles.forEach((c) => {
       const stage = c.wyckoff_stage || 'TRANSITION';
       if (stage !== lastLoggedStage) {
         const dateStr = new Date(Number(c.time) * 1000).toLocaleString('de-CH', { timeZone: 'UTC' });
         const bias = stage === 'ACCUMULATION' || stage === 'MARKUP' ? 'Bullish' : (stage === 'DISTRIBUTION' || stage === 'MARKDOWN' ? 'Bearish' : 'Neutral');
-        console.log(`[Frontend Wyckoff Stage Swap] ${lastLoggedStage || 'NONE'} -> ${stage} (${bias}) | Time: ${dateStr}`);
         lastLoggedStage = stage;
       }
     });
@@ -556,10 +555,10 @@ export default function TVChart({
     if (selectedTradeRef.current && selectedTradeRef.current.entryTimestamp) {
       const xEntry = timeScale.timeToCoordinate(selectedTradeRef.current.entryTimestamp);
       const lastCandleTime = candlesRef.current && candlesRef.current.length > 0 ? candlesRef.current[candlesRef.current.length - 1].time : 0;
-      const xExit = selectedTradeRef.current.exitTimestamp 
+      const xExit = selectedTradeRef.current.exitTimestamp
         ? timeScale.timeToCoordinate(selectedTradeRef.current.exitTimestamp)
         : (lastCandleTime ? timeScale.timeToCoordinate(lastCandleTime) : null);
-        
+
       if (xEntry !== null && xExit !== null) {
         setSelectedTradeCoords({
           x1: xEntry,
@@ -775,17 +774,17 @@ export default function TVChart({
           const x = timeScale.timeToCoordinate(c.time);
           const ySupport = series.priceToCoordinate(c.support_level);
           const yLow = series.priceToCoordinate(c.low);
-          
+
           if (x !== null && ySupport !== null && yLow !== null) {
             oversold.push({ x, y1: ySupport, y2: yLow });
           }
         }
-        
+
         if (c.resistance_level !== undefined && c.high > c.resistance_level) {
           const x = timeScale.timeToCoordinate(c.time);
           const yResistance = series.priceToCoordinate(c.resistance_level);
           const yHigh = series.priceToCoordinate(c.high);
-          
+
           if (x !== null && yResistance !== null && yHigh !== null) {
             overbought.push({ x, y1: yResistance, y2: yHigh });
           }
@@ -798,10 +797,10 @@ export default function TVChart({
       for (let i = 1; i < currentCandles.length; i++) {
         const cPrev = currentCandles[i - 1];
         const cCurr = currentCandles[i];
-        
+
         const smaPrev = cPrev.sma_20;
         const smaCurr = cCurr.sma_20;
-        
+
         if (smaPrev === undefined || smaPrev === null || smaCurr === undefined || smaCurr === null) {
           continue;
         }
@@ -938,7 +937,7 @@ export default function TVChart({
       isSyncing = true;
       try {
         weisChart.timeScale().setVisibleLogicalRange(range);
-      } catch (e) {}
+      } catch (e) { }
       updateDrawingCoordinates();
       isSyncing = false;
     });
@@ -948,7 +947,7 @@ export default function TVChart({
       isSyncing = true;
       try {
         mainChart.timeScale().setVisibleLogicalRange(range);
-      } catch (e) {}
+      } catch (e) { }
       isSyncing = false;
     });
 
@@ -973,11 +972,11 @@ export default function TVChart({
     mainChart.subscribeClick((param) => {
       if (!param.time) return;
       const clickTime = param.time as number;
-      
+
       if (onSelectTradeRef.current && tradesRef.current && tradesRef.current.length > 0) {
-        const foundTrade = tradesRef.current.find(t => 
-          t.entryTimestamp === clickTime || 
-          t.exitTimestamp === clickTime || 
+        const foundTrade = tradesRef.current.find(t =>
+          t.entryTimestamp === clickTime ||
+          t.exitTimestamp === clickTime ||
           t.timestamp === clickTime
         );
         if (foundTrade) {
@@ -1041,13 +1040,13 @@ export default function TVChart({
       dynamicLineSeriesRef.current.forEach((series) => {
         try {
           mainChart.removeSeries(series);
-        } catch (e) {}
+        } catch (e) { }
       });
       dynamicLineSeriesRef.current = [];
       if (selectedTradePathSeriesRef.current) {
         try {
           mainChart.removeSeries(selectedTradePathSeriesRef.current);
-        } catch (e) {}
+        } catch (e) { }
         selectedTradePathSeriesRef.current = null;
       }
       mainChart.remove();
@@ -1192,7 +1191,7 @@ export default function TVChart({
       dynamicLineSeriesRef.current.forEach((series) => {
         try {
           chartRef.current.removeSeries(series);
-        } catch (e) {}
+        } catch (e) { }
       });
       dynamicLineSeriesRef.current = [];
 
@@ -1235,7 +1234,7 @@ export default function TVChart({
           };
 
           addTradeLine(entryData, '#3b82f6');
-          
+
           const hasOriginalSl = trade.originalSlPrice !== undefined && trade.originalSlPrice !== null && trade.originalSlPrice !== trade.slPrice;
           if (hasOriginalSl) {
             // Draw BE stop loss line in yellow/orange
@@ -1247,7 +1246,7 @@ export default function TVChart({
             // Draw regular stop loss line in red
             addTradeLine(slData, '#ef4444');
           }
-          
+
           addTradeLine(tpData, '#10b981');
         });
       }
@@ -1259,7 +1258,7 @@ export default function TVChart({
   // Update price format and precision dynamically based on candle data
   useEffect(() => {
     if (!candlestickSeriesRef.current || !activeCandles || activeCandles.length === 0) return;
-    
+
     let maxDecimals = 2;
     const sampleSize = Math.min(activeCandles.length, 20);
     for (let i = 0; i < sampleSize; i++) {
@@ -1523,8 +1522,8 @@ export default function TVChart({
           {/* Data Source */}
           <div style={styles.pairGroup}>
             <span style={{ color: '#9ca3af', fontSize: '10px' }}>Data Source</span>
-            <select 
-              value={candleSource} 
+            <select
+              value={candleSource}
               onChange={(e) => onCandleSourceChange(e.target.value as 'ctrader' | 'metatrader' | 'yfinance')}
               style={{
                 ...styles.pairSelect,
@@ -1541,7 +1540,7 @@ export default function TVChart({
             <span style={{ color: '#9ca3af', fontSize: '10px' }}>Symbol</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
               <div style={{ position: 'relative' }}>
-                <input 
+                <input
                   type="text"
                   placeholder="Search symbol..."
                   value={showSymbolDropdown ? symbolSearch : symbol}
@@ -1563,7 +1562,7 @@ export default function TVChart({
                 />
                 {showSymbolDropdown && (
                   <>
-                    <div 
+                    <div
                       onClick={() => setShowSymbolDropdown(false)}
                       style={{
                         position: 'fixed',
@@ -1591,7 +1590,7 @@ export default function TVChart({
                       {filteredSymbols.length > 0 ? (
                         filteredSymbols
                           .map((sym, idx) => (
-                            <div 
+                            <div
                               key={sym}
                               onClick={() => {
                                 onSymbolChange(sym);
@@ -1613,9 +1612,9 @@ export default function TVChart({
                               }}
                             >
                               <span>{sym}</span>
-                              <span 
+                              <span
                                 onClick={(e) => toggleFavoriteSymbol(sym, e)}
-                                style={{ 
+                                style={{
                                   color: favoriteSymbols.includes(sym) ? '#f59e0b' : '#4b5563',
                                   fontSize: '14px',
                                   padding: '2px 4px',
@@ -1685,8 +1684,8 @@ export default function TVChart({
           <div style={styles.pairGroup}>
             <span style={{ color: '#9ca3af', fontSize: '10px' }}>Timeframe</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <select 
-                value={timeframe} 
+              <select
+                value={timeframe}
                 onChange={(e) => onTimeframeChange(e.target.value)}
                 style={styles.pairSelect}
               >
@@ -1742,8 +1741,8 @@ export default function TVChart({
           {/* Trades Filter */}
           <div style={styles.pairGroup}>
             <span style={{ color: '#9ca3af', fontSize: '10px' }}>Trades</span>
-            <select 
-              value={actualFilter} 
+            <select
+              value={actualFilter}
               onChange={(e) => setActualFilter(e.target.value as 'all' | 'wins' | 'losses')}
               style={styles.pairSelect}
             >
@@ -1755,6 +1754,23 @@ export default function TVChart({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {candles && candles.length > 0 && (
+            <div style={{
+              fontSize: '10px',
+              color: '#9ca3af',
+              backgroundColor: '#111827',
+              border: '1px solid #1f2937',
+              borderRadius: '6px',
+              padding: '3px 6px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'flex-start',
+              lineHeight: '1.2'
+            }}>
+              <div>Last Candle (Local): <span style={{ color: '#fff', fontWeight: 'bold' }}>{new Date(candles[candles.length - 1].time * 1000).toLocaleString()}</span></div>
+              <div>Last Candle (UTC): <span style={{ color: '#eab308', fontWeight: 'bold' }}>{new Date(candles[candles.length - 1].time * 1000).toISOString().replace('T', ' ').substring(0, 19)}</span></div>
+            </div>
+          )}
           {loadingStrategy && (
             <div style={{
               display: 'flex',
@@ -1771,14 +1787,14 @@ export default function TVChart({
               Analyzing Wyckoff & Weis Wave...
             </div>
           )}
-          <button 
+          <button
             onClick={onRefresh}
             style={styles.refreshBtn}
             title="Refresh chart data"
           >
             <RefreshCw size={16} className={loadingStrategy ? 'animate-spin' : ''} />
           </button>
-          <button 
+          <button
             onClick={() => {
               if (replayToolActive) {
                 setReplayTime(null);
@@ -1806,7 +1822,7 @@ export default function TVChart({
             Replay
           </button>
           <div style={{ position: 'relative' }}>
-            <button 
+            <button
               onClick={() => setShowSettingsDropdown(!showSettingsDropdown)}
               style={styles.refreshBtn}
               title="Chart Visibility Settings"
@@ -1815,7 +1831,7 @@ export default function TVChart({
             </button>
             {showSettingsDropdown && (
               <>
-                <div 
+                <div
                   onClick={() => setShowSettingsDropdown(false)}
                   style={{
                     position: 'fixed',
@@ -1846,36 +1862,36 @@ export default function TVChart({
                     Chart Visibility
                   </div>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}>
-                    <input 
-                      type="checkbox" 
-                      checked={chartSettings.showFvg} 
+                    <input
+                      type="checkbox"
+                      checked={chartSettings.showFvg}
                       onChange={(e) => setChartSettings({ ...chartSettings, showFvg: e.target.checked })}
                       style={{ cursor: 'pointer' }}
                     />
                     Fair Value Gaps (FVG)
                   </label>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}>
-                    <input 
-                      type="checkbox" 
-                      checked={chartSettings.showSessions} 
+                    <input
+                      type="checkbox"
+                      checked={chartSettings.showSessions}
                       onChange={(e) => setChartSettings({ ...chartSettings, showSessions: e.target.checked })}
                       style={{ cursor: 'pointer' }}
                     />
                     Trading Sessions
                   </label>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}>
-                    <input 
-                      type="checkbox" 
-                      checked={chartSettings.showTrades} 
+                    <input
+                      type="checkbox"
+                      checked={chartSettings.showTrades}
                       onChange={(e) => setChartSettings({ ...chartSettings, showTrades: e.target.checked })}
                       style={{ cursor: 'pointer' }}
                     />
                     Trades & Order Levels
                   </label>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}>
-                    <input 
-                      type="checkbox" 
-                      checked={chartSettings.showTrLines} 
+                    <input
+                      type="checkbox"
+                      checked={chartSettings.showTrLines}
                       onChange={(e) => setChartSettings({ ...chartSettings, showTrLines: e.target.checked })}
                       style={{ cursor: 'pointer' }}
                     />
@@ -1885,7 +1901,7 @@ export default function TVChart({
               </>
             )}
           </div>
-          <button 
+          <button
             onClick={toggleFullscreen}
             style={styles.refreshBtn}
             title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
@@ -1928,8 +1944,8 @@ export default function TVChart({
               <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#38bdf8', marginRight: '4px' }}>
                 REPLAY MODE
               </span>
-              
-              <button 
+
+              <button
                 onClick={stepBackward}
                 style={{
                   background: 'none',
@@ -1948,7 +1964,7 @@ export default function TVChart({
                 <SkipBack size={16} />
               </button>
 
-              <button 
+              <button
                 onClick={() => setIsPlaying(!isPlaying)}
                 style={{
                   background: '#2563eb',
@@ -1967,7 +1983,7 @@ export default function TVChart({
                 {isPlaying ? <Pause size={14} fill="#ffffff" /> : <Play size={14} fill="#ffffff" />}
               </button>
 
-              <button 
+              <button
                 onClick={stepForward}
                 style={{
                   background: 'none',
@@ -1986,7 +2002,7 @@ export default function TVChart({
                 <SkipForward size={16} />
               </button>
 
-              <select 
+              <select
                 value={playbackSpeed}
                 onChange={(e) => setPlaybackSpeed(Number(e.target.value))}
                 style={{
@@ -2008,7 +2024,7 @@ export default function TVChart({
 
               <div style={{ height: '16px', width: '1px', backgroundColor: '#374151' }}></div>
 
-              <button 
+              <button
                 onClick={() => {
                   setReplayTime(null);
                   setIsPlaying(false);
@@ -2065,14 +2081,14 @@ export default function TVChart({
                   <span style={{
                     fontWeight: 'extrabold',
                     color: activeCandle.wyckoff_stage === 'ACCUMULATION' ? '#3b82f6' :
-                           activeCandle.wyckoff_stage === 'MARKUP' ? '#10b981' :
-                           activeCandle.wyckoff_stage === 'DISTRIBUTION' ? '#f59e0b' :
-                           activeCandle.wyckoff_stage === 'MARKDOWN' ? '#ef4444' : '#cbd5e1',
+                      activeCandle.wyckoff_stage === 'MARKUP' ? '#10b981' :
+                        activeCandle.wyckoff_stage === 'DISTRIBUTION' ? '#f59e0b' :
+                          activeCandle.wyckoff_stage === 'MARKDOWN' ? '#ef4444' : '#cbd5e1',
                   }}>
                     {activeCandle.wyckoff_stage || 'TRANSITION'}
                   </span>
                   {(replayTime !== null || selectedCandle) ? (
-                    <button 
+                    <button
                       onClick={() => {
                         setReplayTime(null);
                         setIsPlaying(false);
@@ -2098,7 +2114,7 @@ export default function TVChart({
                     </span>
                   )}
                 </div>
-                
+
                 <div style={{ display: 'flex', gap: '8px', color: '#9ca3af', fontSize: '10px', borderTop: '1px solid rgba(51, 65, 85, 0.4)', paddingTop: '4px' }}>
                   <span>S: <strong style={{ color: '#ffffff' }}>{activeCandle.support_level ? `$${activeCandle.support_level.toFixed(2)}` : 'N/A'}</strong></span>
                   <span>R: <strong style={{ color: '#ffffff' }}>{activeCandle.resistance_level ? `$${activeCandle.resistance_level.toFixed(2)}` : 'N/A'}</strong></span>
@@ -2142,7 +2158,7 @@ export default function TVChart({
               else if (seg.stage === 'MARKUP') color = '#10b981';
               else if (seg.stage === 'DISTRIBUTION') color = '#f59e0b';
               else if (seg.stage === 'MARKDOWN') color = '#ef4444';
-              
+
               return (
                 <line
                   key={`sup-seg-${idx}`}
@@ -2164,7 +2180,7 @@ export default function TVChart({
               else if (seg.stage === 'MARKUP') color = '#10b981';
               else if (seg.stage === 'DISTRIBUTION') color = '#f59e0b';
               else if (seg.stage === 'MARKDOWN') color = '#ef4444';
-              
+
               return (
                 <line
                   key={`res-seg-${idx}`}
@@ -2195,7 +2211,7 @@ export default function TVChart({
             {dateRangeCoords && (
               <>
                 {dateRangeCoords.x1 !== null && (
-                  <line 
+                  <line
                     x1={dateRangeCoords.x1}
                     y1={0}
                     x2={dateRangeCoords.x1}
@@ -2206,7 +2222,7 @@ export default function TVChart({
                   />
                 )}
                 {dateRangeCoords.x2 !== null && (
-                  <line 
+                  <line
                     x1={dateRangeCoords.x2}
                     y1={0}
                     x2={dateRangeCoords.x2}
@@ -2228,7 +2244,7 @@ export default function TVChart({
                 )}
               </>
             )}
-            
+
             {chartSettings.showFvg && (enabledIndicators?.fvg !== false) && fvgCoords.map((fvg, index) => {
               const rightScaleWidth = chartRef.current ? chartRef.current.priceScale('right').width() : 55;
               const plotWidth = chartContainerRef.current ? chartContainerRef.current.clientWidth - rightScaleWidth : 0;
