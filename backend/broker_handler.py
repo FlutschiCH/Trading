@@ -133,6 +133,21 @@ if __name__ == '__main__':
                 entry_stability_rule=entry_stability_rule,
                 broker="ctrader"
             )
+            # Compare timestamps to find missing candles
+            mt_times = {c["time"] for c in mt_candles}
+            ct_times = {c["time"] for c in ct_candles}
+            
+            only_in_mt = sorted(list(mt_times - ct_times))
+            only_in_ct = sorted(list(ct_times - mt_times))
+            
+            print(f"\n[Comparison] Candles in MT but missing in CT: {len(only_in_mt)}")
+            for t in only_in_mt[:10]:
+                print(f"  MT only: {datetime.fromtimestamp(t, timezone.utc)} (timestamp: {t})")
+                
+            print(f"\n[Comparison] Candles in CT but missing in MT: {len(only_in_ct)}")
+            for t in only_in_ct[:10]:
+                print(f"  CT only: {datetime.fromtimestamp(t, timezone.utc)} (timestamp: {t})")
+            
             print(f"  First Candle: {datetime.fromtimestamp(ct_candles[0]['time'], timezone.utc)} (timestamp: {ct_candles[0]['time']})")
             print(f"  Last Candle:  {datetime.fromtimestamp(ct_candles[-1]['time'], timezone.utc)} (timestamp: {ct_candles[-1]['time']})")
             print(f"  Win Rate: {ct_result.get('winRate', 0.0):.2f}% | Net PnL: {ct_result.get('netPnl', 0.0):.2f} | Total Trades: {ct_result.get('totalTrades', 0)} | Max DD: {ct_result.get('maxDrawdown', 0.0):.2f}")
