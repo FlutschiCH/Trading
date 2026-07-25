@@ -26,21 +26,50 @@ LOCAL_DB_PATH = os.path.join(os.path.dirname(__file__), 'trades.db')
 
 class SQLHandler:
     _lock = threading.Semaphore(1)
+    _pool = None
     _remote_db_offline = False
     _last_db_check = 0.0
+
+    @classmethod
+    def init_pool(cls):
+        """
+        Initializes the MySQL connection pool.
+        """
+        if not MYSQL_AVAILABLE:
+            return False
+        if cls._pool is not None:
+            return True
+        try:
+            from mysql.connector.pooling import MySQLConnectionPool
+            cls._pool = MySQLConnectionPool(
+                pool_name="trading_pool",
+                pool_size=5,
+                pool_reset_session=True,
+                host=DB_HOST,
+                port=DB_PORT,
+                user=DB_USER,
+                password=DB_PASSWORD,
+                database=DB_NAME,
+                connect_timeout=3
+            )
+            cls._remote_db_offline = False
+            print("Successfully initialized remote MySQL connection pool.", flush=True)
+            return True
+        except Exception as e:
+            cls._remote_db_offline = True
+            cls._last_db_check = time.time()
+            print(f"Failed to initialize remote MySQL connection pool: {e}. Falling back to SQLite.", flush=True)
+            return False
 
     @classmethod
     def get_mysql_connection(cls):
         if not MYSQL_AVAILABLE:
             raise RuntimeError("mysql-connector-python is not installed and remote MySQL is unavailable.")
-        return mysql.connector.connect(
-            host=DB_HOST,
-            port=DB_PORT,
-            user=DB_USER,
-            password=DB_PASSWORD,
-            database=DB_NAME,
-            connect_timeout=3  # 3 seconds timeout for connection failover
-        )
+        if cls._pool is None:
+            cls.init_pool()
+        if cls._pool is None:
+            raise RuntimeError("MySQL connection pool is not initialized.")
+        return cls._pool.get_connection()
 
     @classmethod
     def get_sqlite_connection(cls):

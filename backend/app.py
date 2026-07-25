@@ -11,6 +11,9 @@ load_dotenv()
 # Ensure the backend directory is in python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
+from sql_handler import SQLHandler
+SQLHandler.init_pool()
+
 from flask import Flask
 from flask_cors import CORS
 from gevent.pywsgi import WSGIServer
