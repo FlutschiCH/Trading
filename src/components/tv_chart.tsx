@@ -34,8 +34,8 @@ interface TVChartProps {
   onSymbolChange: (symbol: string) => void;
   timeframe: string;
   onTimeframeChange: (timeframe: string) => void;
-  candleSource: 'ctrader' | 'metatrader' | 'yfinance';
-  onCandleSourceChange: (source: 'ctrader' | 'metatrader' | 'yfinance') => void;
+  candleSource: 'ctrader' | 'metatrader';
+  onCandleSourceChange: (source: 'ctrader' | 'metatrader') => void;
   availableSymbols: string[];
   availableTimeframes: string[];
   candles: Candle[];
@@ -1519,22 +1519,6 @@ export default function TVChart({
     <div id={isFullscreen ? "tv-chart-fullscreen-container" : undefined} style={{ ...styles.container, ...(isFullscreen ? { position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 99999, backgroundColor: '#0b0f19', display: 'flex', flexDirection: 'column', padding: '16px', boxSizing: 'border-box', overflowY: 'auto' } : {}) }}>
       <div style={styles.toolbar}>
         <div style={{ ...styles.toolsGroup, flexWrap: 'wrap', gap: '12px' }}>
-          {/* Data Source */}
-          <div style={styles.pairGroup}>
-            <span style={{ color: '#9ca3af', fontSize: '10px' }}>Data Source</span>
-            <select
-              value={candleSource}
-              onChange={(e) => onCandleSourceChange(e.target.value as 'ctrader' | 'metatrader' | 'yfinance')}
-              style={{
-                ...styles.pairSelect,
-              }}
-            >
-              <option value="ctrader">cTrader</option>
-              <option value="metatrader">MetaTrader 5</option>
-              <option value="yfinance">Yahoo Finance</option>
-            </select>
-          </div>
-
           {/* Symbol Search Input */}
           <div style={{ ...styles.pairGroup, position: 'relative' }}>
             <span style={{ color: '#9ca3af', fontSize: '10px' }}>Symbol</span>

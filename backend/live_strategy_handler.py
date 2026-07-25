@@ -47,6 +47,7 @@ class LiveStrategyHandler:
             globalCloseTime VARCHAR(5) DEFAULT '',
             entryStabilityRule VARCHAR(20) DEFAULT 'default',
             broker VARCHAR(50) DEFAULT 'metatrader',
+            account_id VARCHAR(100),
             live_state TEXT
         )
         """
@@ -58,6 +59,14 @@ class LiveStrategyHandler:
             except Exception:
                 try:
                     SQLHandler.execute_query("ALTER TABLE live_strategies ADD COLUMN broker VARCHAR(50) DEFAULT 'metatrader'")
+                except Exception:
+                    pass
+            # Add account_id column if not exists
+            try:
+                SQLHandler.execute_query("SELECT account_id FROM live_strategies LIMIT 1")
+            except Exception:
+                try:
+                    SQLHandler.execute_query("ALTER TABLE live_strategies ADD COLUMN account_id VARCHAR(100)")
                 except Exception:
                     pass
             # Try to query live_state column, if not exists, alter table to add it
@@ -87,10 +96,10 @@ class LiveStrategyHandler:
         INSERT INTO live_strategies (
             id, symbol, status, timeframe, slVal, slType, rr, size, 
             useRiskSizing, riskPct, useBreakEven, beTriggerR, lookbackWindow, deployedAt,
-            timezone, sessions, useGlobalClose, globalCloseTime, entryStabilityRule, broker
+            timezone, sessions, useGlobalClose, globalCloseTime, entryStabilityRule, broker, account_id
         ) VALUES (
             %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-            %s, %s, %s, %s, %s, %s
+            %s, %s, %s, %s, %s, %s, %s
         ) ON DUPLICATE KEY UPDATE 
             symbol=VALUES(symbol),
             status=VALUES(status),
@@ -110,8 +119,17 @@ class LiveStrategyHandler:
             useGlobalClose=VALUES(useGlobalClose),
             globalCloseTime=VALUES(globalCloseTime),
             entryStabilityRule=VALUES(entryStabilityRule),
-            broker=VALUES(broker)
+            broker=VALUES(broker),
+            account_id=VALUES(account_id)
         """
+        # Resolve currently active account if not provided
+        acc_id = strategy.get("account_id")
+        if not acc_id:
+            from account_handler import AccountHandler
+            active_acc = AccountHandler.get_active_account()
+            if active_acc:
+                acc_id = active_acc.get("account_id")
+
         params = (
             strategy["id"],
             strategy["symbol"],
@@ -132,7 +150,8 @@ class LiveStrategyHandler:
             1 if strategy.get("useGlobalClose", False) else 0,
             strategy.get("globalCloseTime", ""),
             strategy.get("entryStabilityRule", "default"),
-            strategy.get("broker", "metatrader")
+            strategy.get("broker", "metatrader"),
+            acc_id
         )
         try:
             SQLHandler.execute_query(query, params)
@@ -231,6 +250,7 @@ class LiveStrategyHandler:
             "globalCloseTime": row.get("globalCloseTime", "") or "",
             "entryStabilityRule": row.get("entryStabilityRule", "default") or "default",
             "broker": row.get("broker", "metatrader") or "metatrader",
+            "account_id": row.get("account_id") or "",
             "live_state": live_state_dict
         }
 

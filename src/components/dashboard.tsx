@@ -250,9 +250,19 @@ export default function Dashboard() {
   const [candleLimit, setCandleLimit] = useState<number>(() => {
     return parseInt(localStorage.getItem('wyckoff_candle_limit') || '5000');
   });
-  const [candleSource, setCandleSource] = useState<'ctrader' | 'metatrader' | 'yfinance'>(() => {
-    return (localStorage.getItem('wyckoff_candle_source') as 'ctrader' | 'metatrader' | 'yfinance') || 'yfinance';
-  });
+  const [accounts, setAccounts] = useState<any[]>([]);
+  const [activeAccount, setActiveAccount] = useState<any>(null);
+  const [showAccountModal, setShowAccountModal] = useState(false);
+  const [newAccName, setNewAccName] = useState('');
+  const [newAccBroker, setNewAccBroker] = useState<'ctrader' | 'metatrader'>('ctrader');
+  const [newAccId, setNewAccId] = useState('');
+  const [newAccPassword, setNewAccPassword] = useState('');
+  const [newAccServer, setNewAccServer] = useState('');
+
+  const candleSource = activeAccount ? activeAccount.broker_type : 'metatrader';
+  const setCandleSource = (source: 'ctrader' | 'metatrader') => {
+    // legacy mock for components relying on setCandleSource
+  };
   const [dateRangeOption, setDateRangeOption] = useState<string>(() => {
     return localStorage.getItem('wyckoff_date_range_option') || 'last_candles';
   });
@@ -1292,6 +1302,123 @@ export default function Dashboard() {
     }
   };
 
+  const fetchAccounts = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/accounts`);
+      const data = await res.json();
+      if (data.status === 'success') {
+        setAccounts(data.data || []);
+      }
+    } catch (e) {
+      console.error("Failed to load accounts:", e);
+    }
+  };
+
+  const fetchActiveAccount = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/accounts/active`);
+      const data = await res.json();
+      if (data.status === 'success' && data.data) {
+        setActiveAccount(data.data);
+      } else {
+        setActiveAccount(null);
+      }
+    } catch (e) {
+      console.error("Failed to load active account:", e);
+    }
+  };
+
+  const handleSwitchAccount = async (accountId: string) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/accounts/active`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ account_id: accountId })
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        await fetchActiveAccount();
+        // Refresh dashboard data
+        fetchCandles();
+        fetchAccountData();
+        fetchPositionData();
+        fetchHistoryTrades();
+      } else {
+        alert("Failed to switch account: " + data.message);
+      }
+    } catch (e: any) {
+      alert("Error switching account: " + e.message);
+    }
+  };
+
+  const handleAddAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAccName || !newAccId) {
+      alert("Please fill name and account ID.");
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/accounts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newAccName,
+          broker_type: newAccBroker,
+          account_id: newAccId,
+          password: newAccPassword,
+          server: newAccServer
+        })
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        setNewAccName('');
+        setNewAccId('');
+        setNewAccPassword('');
+        setNewAccServer('');
+        setShowAccountModal(false);
+        await fetchAccounts();
+        await fetchActiveAccount();
+        fetchCandles();
+        fetchAccountData();
+        fetchPositionData();
+        fetchHistoryTrades();
+      } else {
+        alert("Failed to save account: " + data.message);
+      }
+    } catch (e: any) {
+      alert("Error saving account: " + e.message);
+    }
+  };
+
+  const handleDeleteAccount = async (accountId: string) => {
+    if (!window.confirm("Are you sure you want to delete this account?")) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/accounts/delete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ account_id: accountId })
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        await fetchAccounts();
+        await fetchActiveAccount();
+        fetchCandles();
+        fetchAccountData();
+        fetchPositionData();
+        fetchHistoryTrades();
+      } else {
+        alert("Failed to delete account: " + data.message);
+      }
+    } catch (e: any) {
+      alert("Error deleting account: " + e.message);
+    }
+  };
+
+  useEffect(() => {
+    fetchAccounts();
+    fetchActiveAccount();
+  }, []);
+
   const handleClosePosition = async (pos: any) => {
     if (isProdHost && !isAuthenticated) {
       alert("Action disabled in read-only mode.");
@@ -2025,6 +2152,80 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* Centered Account Selector */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          justifyContent: 'center',
+          flex: 1,
+          margin: '0 20px',
+          backgroundColor: 'rgba(15, 23, 42, 0.4)',
+          border: '1px solid var(--app-card-border)',
+          borderRadius: '8px',
+          padding: '4px 12px',
+          maxWidth: '520px'
+        }}>
+          {activeAccount ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
+              <span style={{
+                fontWeight: 'bold',
+                color: activeAccount.broker_type === 'ctrader' ? '#f59e0b' : '#3b82f6',
+                textTransform: 'uppercase',
+                fontSize: '10px',
+                backgroundColor: activeAccount.broker_type === 'ctrader' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(59, 130, 246, 0.15)',
+                padding: '2px 6px',
+                borderRadius: '4px'
+              }}>
+                {activeAccount.broker_type === 'ctrader' ? 'cTrader' : 'MT5'}
+              </span>
+              <span style={{ color: 'var(--app-text)', fontWeight: 'bold' }}>{activeAccount.name}</span>
+              <span style={{ color: 'var(--app-text-muted)', fontSize: '11px' }}>({activeAccount.account_id})</span>
+            </div>
+          ) : (
+            <span style={{ color: 'var(--app-text-muted)', fontSize: '12px' }}>No Active Account</span>
+          )}
+
+          <select
+            value={activeAccount?.account_id || ''}
+            onChange={(e) => handleSwitchAccount(e.target.value)}
+            style={{
+              backgroundColor: 'var(--app-panel-header-bg)',
+              border: '1px solid var(--app-card-border)',
+              color: 'var(--app-text)',
+              fontSize: '12px',
+              padding: '4px 8px',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              outline: 'none',
+            }}
+          >
+            <option value="" disabled>Switch account...</option>
+            {accounts.map((acc) => (
+              <option key={acc.account_id} value={acc.account_id}>
+                {acc.name} ({acc.broker_type === 'ctrader' ? 'cTrader' : 'MT5'})
+              </option>
+            ))}
+          </select>
+
+          <button
+            onClick={() => setShowAccountModal(true)}
+            style={{
+              backgroundColor: '#1e293b',
+              border: '1px solid #334155',
+              color: '#f8fafc',
+              padding: '4px 10px',
+              borderRadius: '6px',
+              fontSize: '11px',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+            }}
+          >
+            ⚙️ Manage
+          </button>
+        </div>
+
         {view !== 'mappings' && (
           <div style={{
             ...styles.controlsSection,
@@ -2037,17 +2238,17 @@ export default function Dashboard() {
             } : {})
           }}>
             <div style={{
-              color: candleSource === 'metatrader' ? '#3b82f6' : (candleSource === 'yfinance' ? '#10b981' : '#f59e0b'),
+              color: candleSource === 'metatrader' ? '#3b82f6' : '#f59e0b',
               fontWeight: 'bold',
               fontSize: '12px',
-              backgroundColor: candleSource === 'metatrader' ? 'rgba(59, 130, 246, 0.1)' : (candleSource === 'yfinance' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)'),
-              border: `1px solid ${candleSource === 'metatrader' ? 'rgba(59, 130, 246, 0.2)' : (candleSource === 'yfinance' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)')}`,
+              backgroundColor: candleSource === 'metatrader' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+              border: `1px solid ${candleSource === 'metatrader' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(245, 158, 11, 0.2)'}`,
               padding: '6px 12px',
               borderRadius: '6px',
               textAlign: 'center',
               ...(isMobile ? { width: '100%' } : {})
             }}>
-              {candleSource === 'metatrader' ? 'MetaTrader 5 Connected' : (candleSource === 'yfinance' ? 'Yahoo Finance Active' : 'cTrader Active')}
+              {activeAccount ? `${activeAccount.name} Active` : 'No Active Account'}
             </div>
             {(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: 'var(--app-panel-header-bg)', border: '1px solid var(--app-card-border)', borderRadius: '6px', padding: '4px 8px' }}>
@@ -2985,6 +3186,276 @@ export default function Dashboard() {
                 </button>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {showAccountModal && (
+        <div
+          onClick={() => setShowAccountModal(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 9999,
+            backgroundColor: 'rgba(15, 23, 42, 0.75)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: '#0f172a',
+              border: '1px solid #334155',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
+              borderRadius: '16px',
+              width: '90%',
+              maxWidth: '520px',
+              padding: '24px',
+              position: 'relative',
+              color: '#f8fafc',
+            }}
+          >
+            <button
+              onClick={() => setShowAccountModal(false)}
+              style={{
+                position: 'absolute',
+                top: '16px',
+                right: '16px',
+                background: 'none',
+                border: 'none',
+                color: '#94a3b8',
+                cursor: 'pointer',
+                padding: '4px',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: 'rgba(148, 163, 184, 0.05)'
+              }}
+            >
+              <X size={18} />
+            </button>
+
+            <h2 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '16px', color: '#f1f5f9' }}>
+              📁 Account Management
+            </h2>
+
+            {/* List existing accounts */}
+            <div style={{ marginBottom: '24px', maxHeight: '200px', overflowY: 'auto' }}>
+              <h3 style={{ fontSize: '12px', fontWeight: 'bold', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '8px' }}>
+                Connected Accounts
+              </h3>
+              {accounts.length === 0 ? (
+                <div style={{ color: '#64748b', fontSize: '12px', padding: '8px 0' }}>No accounts connected yet.</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {accounts.map((acc) => (
+                    <div
+                      key={acc.account_id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        backgroundColor: '#1e293b',
+                        borderRadius: '8px',
+                        padding: '8px 12px',
+                        border: acc.is_active ? '1px solid #3b82f6' : '1px solid transparent'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{
+                          fontWeight: 'bold',
+                          color: acc.broker_type === 'ctrader' ? '#f59e0b' : '#3b82f6',
+                          fontSize: '10px',
+                          textTransform: 'uppercase',
+                          backgroundColor: acc.broker_type === 'ctrader' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(59, 130, 246, 0.15)',
+                          padding: '2px 6px',
+                          borderRadius: '4px'
+                        }}>
+                          {acc.broker_type === 'ctrader' ? 'cTrader' : 'MT5'}
+                        </span>
+                        <span style={{ fontSize: '13px', fontWeight: 'bold' }}>{acc.name}</span>
+                        <span style={{ fontSize: '11px', color: '#64748b' }}>({acc.account_id})</span>
+                        {acc.is_active === 1 && <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 'bold' }}> ● Active</span>}
+                      </div>
+                      <div style={{ display: 'flex', gap: '12px' }}>
+                        {acc.is_active !== 1 && (
+                          <button
+                            onClick={() => handleSwitchAccount(acc.account_id)}
+                            style={{
+                              backgroundColor: 'transparent',
+                              border: 'none',
+                              color: '#3b82f6',
+                              cursor: 'pointer',
+                              fontSize: '12px',
+                              fontWeight: 'bold'
+                            }}
+                          >
+                            Activate
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDeleteAccount(acc.account_id)}
+                          style={{
+                            backgroundColor: 'transparent',
+                            border: 'none',
+                            color: '#ef4444',
+                            cursor: 'pointer',
+                            fontSize: '12px',
+                            fontWeight: 'bold'
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Add new account form */}
+            <form onSubmit={handleAddAccount} style={{ borderTop: '1px solid #1e293b', paddingTop: '16px' }}>
+              <h3 style={{ fontSize: '12px', fontWeight: 'bold', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '12px' }}>
+                Add New Trading Account
+              </h3>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Account Name Label</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. My FTMO Live"
+                    value={newAccName}
+                    onChange={(e) => setNewAccName(e.target.value)}
+                    style={{
+                      width: '100%',
+                      backgroundColor: '#1e293b',
+                      border: '1px solid #334155',
+                      borderRadius: '6px',
+                      padding: '8px 12px',
+                      color: '#f8fafc',
+                      fontSize: '13px',
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Broker Platform</label>
+                    <select
+                      value={newAccBroker}
+                      onChange={(e) => setNewAccBroker(e.target.value as 'ctrader' | 'metatrader')}
+                      style={{
+                        width: '100%',
+                        backgroundColor: '#1e293b',
+                        border: '1px solid #334155',
+                        borderRadius: '6px',
+                        padding: '8px 12px',
+                        color: '#f8fafc',
+                        fontSize: '13px',
+                        outline: 'none',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <option value="ctrader">cTrader</option>
+                      <option value="metatrader">MetaTrader 5</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Account Login / ID</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. 17151091"
+                      value={newAccId}
+                      onChange={(e) => setNewAccId(e.target.value)}
+                      style={{
+                        width: '100%',
+                        backgroundColor: '#1e293b',
+                        border: '1px solid #334155',
+                        borderRadius: '6px',
+                        padding: '8px 12px',
+                        color: '#f8fafc',
+                        fontSize: '13px',
+                        outline: 'none'
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>
+                    {newAccBroker === 'ctrader' ? 'Access Token / OAuth Token' : 'Password'}
+                  </label>
+                  <input
+                    type="password"
+                    placeholder={newAccBroker === 'ctrader' ? 'Paste oauth token' : 'Account password'}
+                    value={newAccPassword}
+                    onChange={(e) => setNewAccPassword(e.target.value)}
+                    style={{
+                      width: '100%',
+                      backgroundColor: '#1e293b',
+                      border: '1px solid #334155',
+                      borderRadius: '6px',
+                      padding: '8px 12px',
+                      color: '#f8fafc',
+                      fontSize: '13px',
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+
+                {newAccBroker === 'metatrader' && (
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Server Name (MT5 Only)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. JustMarkets-Demo"
+                      value={newAccServer}
+                      onChange={(e) => setNewAccServer(e.target.value)}
+                      style={{
+                        width: '100%',
+                        backgroundColor: '#1e293b',
+                        border: '1px solid #334155',
+                        borderRadius: '6px',
+                        padding: '8px 12px',
+                        color: '#f8fafc',
+                        fontSize: '13px',
+                        outline: 'none'
+                      }}
+                    />
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  style={{
+                    backgroundColor: '#2563eb',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    padding: '10px',
+                    fontSize: '13px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    marginTop: '8px',
+                    boxShadow: '0 4px 10px rgba(37, 99, 235, 0.25)'
+                  }}
+                >
+                  Connect Account
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

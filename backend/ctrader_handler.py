@@ -21,23 +21,24 @@ class CTraderHandler(BaseBrokerHandler):
 
     @staticmethod
     def _send_and_receive(payload_type: int, payload: dict) -> dict:
+        from account_handler import AccountHandler
+        active_acc = AccountHandler.get_active_account()
+        if active_acc and active_acc.get("broker_type") == "ctrader":
+            account_id_str = active_acc.get("account_id")
+            account_id = int(account_id_str) if account_id_str else None
+            token = active_acc.get("password")
+        else:
+            account_id_str = os.environ.get("CTRADER_OPENAPI_ACCOUNT_ID")
+            account_id = int(account_id_str) if account_id_str else None
+            token = os.environ.get("CTRADER_ACCESS_TOKEN")
+
+        if not account_id or not token:
+            raise RuntimeError("No active cTrader account configured in Account Management. Please connect an account first.")
+
         client_id = os.environ.get("CTRADER_CLIENT_ID")
         client_secret = os.environ.get("CTRADER_CLIENT_SECRET")
-        account_id_str = os.environ.get("CTRADER_OPENAPI_ACCOUNT_ID")
-        account_id = int(account_id_str) if account_id_str else None
-        token = os.environ.get("CTRADER_ACCESS_TOKEN")
 
-        # If it is a demo account (like IC Markets Demo 48029720 or Spotware 48025530), use demo.ctraderapi.com
-        # You can fetch list of accounts from API, but for simplicity, we inspect the token or check the demo status via ID.
-        # However, a robust way is checking the list of demo accounts or using an env variable. Let's make it look at CTRADER_IS_DEMO env var or default to live but fall back.
-        # Or even simpler: we can inspect the account ID list or let the user define CTRADER_IS_DEMO, or dynamically detect (Spotware/icmarketseu demo are demo, ftmo are live).
-        # Let's inspect the account_id_str / check if there is an env var, or dynamically detect "demo" or broker names if known.
-        # Since Spotware/IC Markets demo accounts are demo, let's check a new env var CTRADER_IS_DEMO or dynamically detect based on known lists, or default.
-        is_demo = os.environ.get("CTRADER_IS_DEMO", "false").lower() == "true"
-        # Let's also check if account is the known demo accounts to auto-detect
-        if account_id_str in ["48025530", "48029720"]:
-            is_demo = True
-            
+        is_demo = "demo" in str(account_id_str).lower() or account_id_str in ["48025530", "48029720"] or os.environ.get("CTRADER_IS_DEMO", "false").lower() == "true"
         host = "demo.ctraderapi.com" if is_demo else "live.ctraderapi.com"
         url = f"wss://{host}:5036"
 
@@ -210,7 +211,15 @@ class CTraderHandler(BaseBrokerHandler):
         try:
             # Fetch using Account list request to retrieve actual balance
             # payloadType = 2149 (ProtoOAGetAccountListByAccessTokenReq)
-            token = os.environ.get("CTRADER_ACCESS_TOKEN")
+            from account_handler import AccountHandler
+            active_acc = AccountHandler.get_active_account()
+            if active_acc and active_acc.get("broker_type") == "ctrader":
+                token = active_acc.get("password")
+                account_id = active_acc.get("account_id")
+            else:
+                token = os.environ.get("CTRADER_ACCESS_TOKEN")
+                account_id = os.environ.get("CTRADER_OPENAPI_ACCOUNT_ID")
+
             if not token:
                 return {"status": "success", "data": CTraderHandler._cached_account}
                 
@@ -218,7 +227,6 @@ class CTraderHandler(BaseBrokerHandler):
             # Typically returns ProtoOAGetAccountListByAccessTokenRes containing ctidTraderAccount
             if res and "payload" in res:
                 accounts = res["payload"].get("ctidTraderAccount", [])
-                account_id = os.environ.get("CTRADER_OPENAPI_ACCOUNT_ID")
                 for acc in accounts:
                     if str(acc.get("ctidTraderAccountId")) == str(account_id):
                         # Fetch trader info payloadType = 2121 (ProtoOATraderReq)

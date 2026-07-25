@@ -10,10 +10,36 @@ from base_broker_handler import BaseBrokerHandler
 
 class MetaTraderHandler(BaseBrokerHandler):
     @staticmethod
+    def _resolve_credentials(login=None, password=None, server=None, **kwargs):
+        # Check if login looks like the default mock/placeholder value
+        is_default_mock = str(login) == "2002061314" or login is None
+
+        # Load the active account from DB if default mock or not provided
+        if is_default_mock:
+            from account_handler import AccountHandler
+            active_acc = AccountHandler.get_active_account()
+            if active_acc and active_acc.get("broker_type") == "metatrader":
+                return int(active_acc["account_id"]), active_acc.get("password"), active_acc.get("server")
+        
+        # Otherwise use the explicitly passed login/server/password
+        if login is not None and str(login) != "2002061314":
+            return int(login), password, server
+
+        raise RuntimeError("No active MetaTrader account configured in Account Management. Please connect an account first.")
+
+    @staticmethod
     def fetch_candles(symbol: str, timeframe: str, limit: int = 1000, date_from: int = None, date_to: int = None, login: int = 2002061314, password: str = "Godzilla_12", server: str = "JustMarkets-Demo", **kwargs) -> list:
         """
         Initializes connection to MT5, fetches historical candles for the given symbol/timeframe, and shuts down.
         """
+        try:
+            login, password, server = MetaTraderHandler._resolve_credentials(login, password, server, **kwargs)
+        except Exception as e:
+            if not MT5_AVAILABLE:
+                # If MT5 package is not available (Linux / Railway / development testing environment), fallback to local mock
+                pass
+            else:
+                raise e
         if not MT5_AVAILABLE:
             import time
             print("MetaTrader 5 skipped (non-Windows platform). Using local mock candles fallback.", flush=True)
@@ -131,6 +157,7 @@ class MetaTraderHandler(BaseBrokerHandler):
         """
         Fetches account data from MetaTrader 5.
         """
+        login, password, server = MetaTraderHandler._resolve_credentials(login, password, server, **kwargs)
         if not MT5_AVAILABLE:
             return {
                 "balance": 100000.0,
@@ -169,6 +196,7 @@ class MetaTraderHandler(BaseBrokerHandler):
         """
         Fetches open positions from MetaTrader 5.
         """
+        login, password, server = MetaTraderHandler._resolve_credentials(login, password, server, **kwargs)
         if not MT5_AVAILABLE:
             return []
 
@@ -202,6 +230,7 @@ class MetaTraderHandler(BaseBrokerHandler):
         """
         Dispatches buy/sell order to MT5.
         """
+        login, password, server = MetaTraderHandler._resolve_credentials(login, password, server, **kwargs)
         if not MT5_AVAILABLE:
             return {"status": "error", "message": "MetaTrader 5 execution is disabled on this platform (Linux/Railway)."}
 
@@ -267,6 +296,7 @@ class MetaTraderHandler(BaseBrokerHandler):
 
     @staticmethod
     def close_position(position_id: int, symbol: str, side: str, volume: float, login: int = 2002061314, password: str = "Godzilla_12", server: str = "JustMarkets-Demo", **kwargs) -> dict:
+        login, password, server = MetaTraderHandler._resolve_credentials(login, password, server, **kwargs)
         if not MT5_AVAILABLE:
             return {"status": "error", "message": "MT5 unavailable"}
             
@@ -305,10 +335,16 @@ class MetaTraderHandler(BaseBrokerHandler):
         return {"status": "success", "message": f"Position {position_id} closed."}
 
     @staticmethod
-    def get_symbols(login: int = 2002061314, password: str = "Godzilla_12", server: str = "JustMarkets-Demo") -> list:
+    def get_symbols(login: int = 2002061314, password: str = "Godzilla_12", server: str = "JustMarkets-Demo", **kwargs) -> list:
         """
         Gets list of symbols from MT5 terminal.
         """
+        try:
+            login, password, server = MetaTraderHandler._resolve_credentials(login, password, server, **kwargs)
+        except Exception:
+            if not MT5_AVAILABLE:
+                return ["BTCUSD", "ETHUSD", "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "XAUUSD", "US30", "GER40"]
+            raise
         if not MT5_AVAILABLE:
             return ["BTCUSD", "ETHUSD", "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "XAUUSD", "US30", "GER40"]
 
@@ -320,10 +356,11 @@ class MetaTraderHandler(BaseBrokerHandler):
         return ["BTCUSD", "ETHUSD", "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "XAUUSD", "US30", "GER40"]
 
     @staticmethod
-    def get_history(date_from: int = None, date_to: int = None, login: int = 2002061314, password: str = "Godzilla_12", server: str = "JustMarkets-Demo") -> list:
+    def get_history(date_from: int = None, date_to: int = None, login: int = 2002061314, password: str = "Godzilla_12", server: str = "JustMarkets-Demo", **kwargs) -> list:
         """
         Fetches historical deals/trades from MetaTrader 5.
         """
+        login, password, server = MetaTraderHandler._resolve_credentials(login, password, server, **kwargs)
         if not MT5_AVAILABLE:
             return []
 
