@@ -179,7 +179,8 @@ class CTraderHandler(BaseBrokerHandler):
                         "volume": vol
                     })
                 if candles_list:
-                    return candles_list
+                    from candle_sanitizer import sanitize_and_fill_candles
+                    return sanitize_and_fill_candles(candles_list, timeframe=timeframe)
 
             # Fallback to YFinance if API trendbar request returns empty or error
             from yfinance_handler import YFinanceHandler
