@@ -1208,7 +1208,7 @@ export default function Dashboard() {
   }, []);
 
   // Fetch candle data and analyze on Flask backend
-  const fetchCandles = async () => {
+  const fetchCandles = async (overrideBroker?: string) => {
     setLoading(true);
     setLoadingStrategy(true);
     try {
@@ -1218,7 +1218,7 @@ export default function Dashboard() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            broker: candleSource,
+            broker: overrideBroker || candleSource,
             symbol: symbol,
             interval: timeframe,
             limit: candleLimit,
@@ -1248,12 +1248,12 @@ export default function Dashboard() {
   };
 
   // Unified API endpoints
-  const fetchAccountData = async () => {
+  const fetchAccountData = async (overrideBroker?: string) => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/trade/account`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ broker: candleSource })
+        body: JSON.stringify({ broker: overrideBroker || candleSource })
       });
       const result = await response.json();
       if (result.status === 'success') {
@@ -1264,12 +1264,12 @@ export default function Dashboard() {
     }
   };
 
-  const fetchPositionData = async () => {
+  const fetchPositionData = async (overrideBroker?: string) => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/trade/positions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ broker: candleSource })
+        body: JSON.stringify({ broker: overrideBroker || candleSource })
       });
       const result = await response.json();
       if (result.status === 'success') {
@@ -1280,14 +1280,14 @@ export default function Dashboard() {
     }
   };
 
-  const fetchHistoryTrades = async () => {
+  const fetchHistoryTrades = async (overrideBroker?: string) => {
     setLoadingHistory(true);
     setHistoryError('');
     try {
       const res = await fetch(`${API_BASE_URL}/api/trade/history`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ broker: candleSource })
+        body: JSON.stringify({ broker: overrideBroker || candleSource })
       });
       const data = await res.json();
       if (data.status === 'success') {
@@ -1320,15 +1320,19 @@ export default function Dashboard() {
       const data = await res.json();
       if (data.status === 'success' && data.data) {
         setActiveAccount(data.data);
+        return data.data;
       } else {
         setActiveAccount(null);
+        return null;
       }
     } catch (e) {
       console.error("Failed to load active account:", e);
+      return null;
     }
   };
 
   const handleSwitchAccount = async (accountId: string) => {
+    setAccountInfo(null);
     try {
       const res = await fetch(`${API_BASE_URL}/api/accounts/active`, {
         method: 'POST',
@@ -1337,12 +1341,12 @@ export default function Dashboard() {
       });
       const data = await res.json();
       if (data.status === 'success') {
-        await fetchActiveAccount();
-        // Refresh dashboard data
-        fetchCandles();
-        fetchAccountData();
-        fetchPositionData();
-        fetchHistoryTrades();
+        const newActive = await fetchActiveAccount();
+        const broker = newActive ? newActive.broker_type : 'metatrader';
+        fetchCandles(broker);
+        fetchAccountData(broker);
+        fetchPositionData(broker);
+        fetchHistoryTrades(broker);
       } else {
         alert("Failed to switch account: " + data.message);
       }
@@ -1376,12 +1380,14 @@ export default function Dashboard() {
         setNewAccPassword('');
         setNewAccServer('');
         setShowAccountModal(false);
+        setAccountInfo(null);
         await fetchAccounts();
-        await fetchActiveAccount();
-        fetchCandles();
-        fetchAccountData();
-        fetchPositionData();
-        fetchHistoryTrades();
+        const newActive = await fetchActiveAccount();
+        const broker = newActive ? newActive.broker_type : 'metatrader';
+        fetchCandles(broker);
+        fetchAccountData(broker);
+        fetchPositionData(broker);
+        fetchHistoryTrades(broker);
       } else {
         alert("Failed to save account: " + data.message);
       }
@@ -1400,12 +1406,14 @@ export default function Dashboard() {
       });
       const data = await res.json();
       if (data.status === 'success') {
+        setAccountInfo(null);
         await fetchAccounts();
-        await fetchActiveAccount();
-        fetchCandles();
-        fetchAccountData();
-        fetchPositionData();
-        fetchHistoryTrades();
+        const newActive = await fetchActiveAccount();
+        const broker = newActive ? newActive.broker_type : 'metatrader';
+        fetchCandles(broker);
+        fetchAccountData(broker);
+        fetchPositionData(broker);
+        fetchHistoryTrades(broker);
       } else {
         alert("Failed to delete account: " + data.message);
       }
@@ -1636,7 +1644,7 @@ export default function Dashboard() {
       fetchHistoryTrades();
     }, 10000);
     return () => clearInterval(interval);
-  }, [initialCandlesLoaded, symbol]);
+  }, [initialCandlesLoaded, symbol, candleSource]);
 
   const currentConnected = true;
 
@@ -2164,7 +2172,7 @@ export default function Dashboard() {
           border: '1px solid var(--app-card-border)',
           borderRadius: '8px',
           padding: '4px 12px',
-          maxWidth: '520px'
+          maxWidth: '650px'
         }}>
           {activeAccount ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
@@ -2181,6 +2189,27 @@ export default function Dashboard() {
               </span>
               <span style={{ color: 'var(--app-text)', fontWeight: 'bold' }}>{activeAccount.name}</span>
               <span style={{ color: 'var(--app-text-muted)', fontSize: '11px' }}>({activeAccount.account_id})</span>
+              {accountInfo ? (
+                <span style={{ 
+                  color: '#10b981', 
+                  fontWeight: 'bold', 
+                  fontSize: '11px',
+                  backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                  padding: '2px 6px',
+                  borderRadius: '4px',
+                  border: '1px solid rgba(16, 185, 129, 0.2)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}>
+                  <span style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: '#10b981', display: 'inline-block' }}></span>
+                  {accountInfo.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {accountInfo.currency || 'USD'}
+                </span>
+              ) : (
+                <span style={{ color: 'var(--app-text-muted)', fontSize: '11px', fontStyle: 'italic' }}>
+                  (Loading balance...)
+                </span>
+              )}
             </div>
           ) : (
             <span style={{ color: 'var(--app-text-muted)', fontSize: '12px' }}>No Active Account</span>
