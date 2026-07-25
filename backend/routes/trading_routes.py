@@ -1,12 +1,12 @@
 from flask import Blueprint, request, jsonify
-from broker_factory import BrokerFactory
+from broker_handler import BrokerHandler
 from yfinance_handler import YFinanceHandler
 
 trading_routes = Blueprint('trading_routes', __name__)
 
 def _get_handler(payload):
     broker_name = payload.get('broker', 'ctrader')
-    return BrokerFactory.get_handler(broker_name)
+    return BrokerHandler.get_handler(broker_name)
 
 @trading_routes.route('/trade/account', methods=['POST'])
 def account():

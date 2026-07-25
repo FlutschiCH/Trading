@@ -51,8 +51,8 @@ def backtest():
             date_to=date_to
         )
     else:
-        from broker_factory import BrokerFactory
-        handler = BrokerFactory.get_handler(candle_source)
+        from broker_handler import BrokerHandler
+        handler = BrokerHandler.get_handler(candle_source)
         candles = handler.fetch_candles(
             symbol=symbol,
             timeframe=timeframe,

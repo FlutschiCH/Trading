@@ -82,8 +82,8 @@ def run_auto_closer():
                 if should_close:
                     # Fetch positions and close matching symbol
                     broker_name = strategy.get("broker", "metatrader")
-                    from broker_factory import BrokerFactory
-                    handler = BrokerFactory.get_handler(broker_name)
+                    from broker_handler import BrokerHandler
+                    handler = BrokerHandler.get_handler(broker_name)
                     
                     positions = handler.get_positions()
                     matching_positions = [p for p in positions if symbol.upper() in p["symbol"].upper()]

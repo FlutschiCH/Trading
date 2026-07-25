@@ -38,16 +38,11 @@ class LiveRunner:
                 # Get active strategies
                 strategies = LiveStrategyHandler.get_all_strategies()
                 active_strategies = [s for s in strategies if s.get("status") == "active"]
-                print(f"[Live Runner DEBUG] Total strategies in DB: {len(strategies)}", flush=True)
-                for s in strategies:
-                    print(f"  - Strategy ID: {s.get('id')}, Status: {s.get('status')}, Broker: {s.get('broker')}, Symbol: {s.get('symbol')}", flush=True)
-                print(f"[Live Runner DEBUG] Active strategies to run: {[(s.get('id'), s.get('broker'), s.get('symbol')) for s in active_strategies]}", flush=True)
 
                 for strategy in active_strategies:
                     if cls._stop_event.is_set():
                         break
                     try:
-                        print(f"[Live Runner DEBUG] Evaluating strategy {strategy.get('id')} ({strategy.get('symbol')}) with broker '{strategy.get('broker')}'", flush=True)
                         cls._evaluate_strategy(strategy)
                     except Exception as e:
                         print(f"[Live Runner] Error evaluating strategy {strategy.get('id')}: {e}", flush=True)
@@ -68,8 +63,8 @@ class LiveRunner:
         broker_name = strategy.get("broker", "metatrader")
 
         from live_strategy_handler import LiveStrategyHandler
-        from broker_factory import BrokerFactory
-        handler = BrokerFactory.get_handler(broker_name)
+        from broker_handler import BrokerHandler
+        handler = BrokerHandler.get_handler(broker_name)
         print(f"[Live Runner DEBUG] Resolved handler for broker '{broker_name}': {handler.__name__ if handler else 'None'}", flush=True)
 
         # Fetch candles
@@ -232,8 +227,8 @@ class LiveRunner:
 
         # Check if position already open
         broker_name = strategy.get("broker", "metatrader")
-        from broker_factory import BrokerFactory
-        handler = BrokerFactory.get_handler(broker_name)
+        from broker_handler import BrokerHandler
+        handler = BrokerHandler.get_handler(broker_name)
 
         magic = abs(hash(strategy["id"])) & 0x7FFFFFFF
         positions = handler.get_positions()
@@ -264,8 +259,8 @@ class LiveRunner:
         magic = abs(hash(strategy_id)) & 0x7FFFFFFF
         broker_name = strategy.get("broker", "metatrader")
 
-        from broker_factory import BrokerFactory
-        handler = BrokerFactory.get_handler(broker_name)
+        from broker_handler import BrokerHandler
+        handler = BrokerHandler.get_handler(broker_name)
 
         # 1. Check if we already have an open position for this strategy magic number
         positions = handler.get_positions()

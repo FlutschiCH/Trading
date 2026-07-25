@@ -13,13 +13,13 @@ def get_broker_candles():
     date_to = payload.get('date_to')
     broker = payload.get('broker')
 
-    candles = BrokerHandler.fetch_candles(
+    handler = BrokerHandler.get_handler(broker)
+    candles = handler.fetch_candles(
         symbol=symbol,
         timeframe=timeframe,
         limit=limit,
         date_from=date_from,
         date_to=date_to,
-        broker=broker,
         **payload
     )
     if not candles:
