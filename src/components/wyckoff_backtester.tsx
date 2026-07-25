@@ -414,7 +414,15 @@ export default function WyckoffBacktester({
             </button>
           )}
           <button
-            onClick={isOptimizeMode ? onRunOptimization : onRunBacktest}
+            onClick={() => {
+              console.log(`[Wyckoff Backtester] ${isOptimizeMode ? 'Run Range Optimization' : 'Run Backtest'} clicked at:`, new Date().toLocaleTimeString());
+              console.time("Backtest execution duration");
+              if (isOptimizeMode) {
+                onRunOptimization();
+              } else {
+                onRunBacktest();
+              }
+            }}
             style={{
               display: 'flex',
               alignItems: 'center',

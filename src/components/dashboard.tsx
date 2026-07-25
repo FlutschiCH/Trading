@@ -857,6 +857,7 @@ export default function Dashboard() {
         console.error("Failed to run backtest on backend:", e);
       }
     } finally {
+      console.timeEnd("Backtest execution duration");
       if (backtestAbortControllerRef.current === controller) {
         backtestAbortControllerRef.current = null;
         setLoadingBacktest(false);
@@ -968,6 +969,7 @@ export default function Dashboard() {
         console.error("Failed to run optimization on backend:", e);
       }
     } finally {
+      console.timeEnd("Backtest execution duration");
       if (backtestAbortControllerRef.current === controller) {
         backtestAbortControllerRef.current = null;
         setLoadingBacktest(false);
