@@ -424,6 +424,77 @@ export default function TVChart({
 
   const [isFullscreen, setIsFullscreen] = useState(false);
 
+  const getChartTimeFormatter = (tz: 'UTC' | 'Local') => {
+    return (timestamp: number) => {
+      const date = new Date(timestamp * 1000);
+      if (tz === 'UTC') {
+        const year = date.getUTCFullYear();
+        const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(date.getUTCDate()).padStart(2, '0');
+        const hours = String(date.getUTCHours()).padStart(2, '0');
+        const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+        return `${year}-${month}-${day} ${hours}:${minutes}`;
+      } else {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        return `${year}-${month}-${day} ${hours}:${minutes}`;
+      }
+    };
+  };
+
+  const getChartTickMarkFormatter = (tz: 'UTC' | 'Local') => {
+    return (time: number, tickMarkType: any, locale: string) => {
+      const date = new Date(time * 1000);
+      if (tz === 'UTC') {
+        const hours = String(date.getUTCHours()).padStart(2, '0');
+        const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+        if (tickMarkType === 0 || tickMarkType === 1) { // Year or Month
+          const year = date.getUTCFullYear();
+          const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+          const day = String(date.getUTCDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        }
+        return `${hours}:${minutes}`;
+      } else {
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        if (tickMarkType === 0 || tickMarkType === 1) { // Year or Month
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        }
+        return `${hours}:${minutes}`;
+      }
+    };
+  };
+
+  useEffect(() => {
+    if (chartRef.current) {
+      chartRef.current.applyOptions({
+        localization: {
+          timeFormatter: getChartTimeFormatter(sessionsTimezone),
+        },
+        timeScale: {
+          tickMarkFormatter: getChartTickMarkFormatter(sessionsTimezone),
+        }
+      });
+    }
+    if (weisChartRef.current) {
+      weisChartRef.current.applyOptions({
+        localization: {
+          timeFormatter: getChartTimeFormatter(sessionsTimezone),
+        },
+        timeScale: {
+          tickMarkFormatter: getChartTickMarkFormatter(sessionsTimezone),
+        }
+      });
+    }
+  }, [sessionsTimezone]);
+
   const toggleFullscreen = () => {
     if (!isFullscreen) {
       const totalH = window.innerHeight;
@@ -863,6 +934,10 @@ export default function TVChart({
         fixRightEdge: false,
         timeVisible: true,
         secondsVisible: false,
+        tickMarkFormatter: getChartTickMarkFormatter(sessionsTimezone),
+      },
+      localization: {
+        timeFormatter: getChartTimeFormatter(sessionsTimezone),
       },
       width: chartContainerRef.current.clientWidth || (window.innerWidth - 32),
       height: window.innerWidth < 768 ? 380 : 680,
@@ -919,6 +994,10 @@ export default function TVChart({
         fixRightEdge: false,
         timeVisible: true,
         secondsVisible: false,
+        tickMarkFormatter: getChartTickMarkFormatter(sessionsTimezone),
+      },
+      localization: {
+        timeFormatter: getChartTimeFormatter(sessionsTimezone),
       },
       width: weisContainerRef.current.clientWidth || (window.innerWidth - 32),
       height: window.innerWidth < 768 ? 100 : 140,
