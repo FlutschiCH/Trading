@@ -12,7 +12,8 @@ load_dotenv()
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from sql_handler import SQLHandler
-SQLHandler.init_pool()
+import threading
+threading.Thread(target=SQLHandler.init_pool, daemon=True).start()
 
 from flask import Flask
 from flask_cors import CORS
