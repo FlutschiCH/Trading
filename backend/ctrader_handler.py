@@ -134,7 +134,7 @@ class CTraderHandler(BaseBrokerHandler):
             elif timeframe == "1d": duration_secs = 86400
 
             from_ms = int(date_from * 1000) if date_from else now_ms - (limit * duration_secs * 1000)
-            to_ms = int(date_to * 1000) if date_to else now_ms
+            to_ms = int(date_to * 1000) if date_to else now_ms + (86400 * 1000)
 
             # Call ProtoOAGetTrendbarsReq (2137)
             payload = {
