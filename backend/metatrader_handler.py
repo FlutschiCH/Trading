@@ -103,10 +103,7 @@ class MetaTraderHandler(BaseBrokerHandler):
         if date_from is not None:
             import time
             actual_date_to = date_to if date_to is not None else int(time.time() + 86400)
-            import datetime
-            dt_from = datetime.datetime.fromtimestamp(int(date_from) + offset, tz=datetime.timezone.utc).replace(tzinfo=None)
-            dt_to = datetime.datetime.fromtimestamp(int(actual_date_to) + offset, tz=datetime.timezone.utc).replace(tzinfo=None)
-            rates = mt5.copy_rates_range(matched_symbol, mt5_tf, dt_from, dt_to)
+            rates = mt5.copy_rates_range(matched_symbol, mt5_tf, int(date_from) + offset, int(actual_date_to) + offset)
         else:
             rates = mt5.copy_rates_from_pos(matched_symbol, mt5_tf, 0, limit)
 
