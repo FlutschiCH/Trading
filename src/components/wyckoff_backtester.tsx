@@ -1,5 +1,6 @@
 import React from 'react';
 import { formatPrice } from '../App';
+import { API_BASE_URL } from '../api';
 
 interface WyckoffBacktesterProps {
   symbol: string;
@@ -270,6 +271,171 @@ export default function WyckoffBacktester({
 
 
 
+  // Profile management states
+  const [showProfileModal, setShowProfileModal] = React.useState(false);
+  const [profiles, setProfiles] = React.useState<any[]>([]);
+  const [newProfileName, setNewProfileName] = React.useState('');
+  const [loadingProfiles, setLoadingProfiles] = React.useState(false);
+
+  const fetchProfiles = async () => {
+    setLoadingProfiles(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/backtest-settings/profiles`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol, timeframe })
+      });
+      const data = await response.json();
+      if (data.status === 'success') {
+        setProfiles(data.profiles || []);
+      }
+    } catch (e) {
+      console.error("Error fetching profiles:", e);
+    } finally {
+      setLoadingProfiles(false);
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    if (isReadOnly) {
+      alert("Action disabled in read-only mode.");
+      return;
+    }
+    if (!newProfileName.trim()) {
+      alert("Please enter a profile name.");
+      return;
+    }
+    try {
+      const settingsObj = {
+        backtestSL,
+        backtestSLType,
+        backtestRR,
+        backtestSize,
+        lookbackWindow,
+        backtestBalance,
+        backtestRiskPct,
+        useRiskSizing,
+        backtestBE,
+        useBreakEven,
+        backtestFees,
+        dailyRetryLimit,
+        allowOppositeClose,
+        enabledIndicators,
+        hiddenStages,
+        entryStabilityRule,
+        sessionsTimezone,
+        tradingSessions,
+        useGlobalClose,
+        globalCloseTime,
+        isOptimizeMode,
+        rrStart,
+        rrEnd,
+        rrStep,
+      };
+
+      const response = await fetch(`${API_BASE_URL}/api/backtest-settings/profiles/save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newProfileName.trim(),
+          symbol,
+          timeframe,
+          settings: settingsObj
+        })
+      });
+      const data = await response.json();
+      if (data.status === 'success') {
+        alert(data.message);
+        setNewProfileName('');
+        fetchProfiles();
+      } else {
+        alert(`Error saving profile: ${data.message}`);
+      }
+    } catch (err: any) {
+      alert(`Network error: ${err.message || err}`);
+    }
+  };
+
+  const handleSaveDefault = async () => {
+    if (isReadOnly) {
+      alert("Action disabled in read-only mode.");
+      return;
+    }
+    if (onSaveSettings) {
+      onSaveSettings();
+    }
+  };
+
+  const handleLoadProfile = async (id: number) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/backtest-settings/profiles/load`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+      const data = await response.json();
+      if (data.status === 'success' && data.settings) {
+        const s = data.settings;
+        if (s.backtestSL !== undefined) setBacktestSL(s.backtestSL);
+        if (s.backtestSLType !== undefined) setBacktestSLType(s.backtestSLType);
+        if (s.backtestRR !== undefined) setBacktestRR(s.backtestRR);
+        if (s.backtestSize !== undefined) setBacktestSize(s.backtestSize);
+        if (s.lookbackWindow !== undefined) setLookbackWindow(s.lookbackWindow);
+        if (s.backtestBalance !== undefined) setBacktestBalance(s.backtestBalance);
+        if (s.backtestRiskPct !== undefined) setBacktestRiskPct(s.backtestRiskPct);
+        if (s.useRiskSizing !== undefined) setUseRiskSizing(s.useRiskSizing);
+        if (s.backtestBE !== undefined) setBacktestBE(s.backtestBE);
+        if (s.useBreakEven !== undefined) setUseBreakEven(s.useBreakEven);
+        if (s.backtestFees !== undefined) setBacktestFees(s.backtestFees);
+        if (s.dailyRetryLimit !== undefined) setDailyRetryLimit(s.dailyRetryLimit);
+        if (s.allowOppositeClose !== undefined) setAllowOppositeClose(s.allowOppositeClose);
+        if (s.enabledIndicators !== undefined) setEnabledIndicators(s.enabledIndicators);
+        if (s.hiddenStages !== undefined && setHiddenStages) setHiddenStages(s.hiddenStages);
+        if (s.entryStabilityRule !== undefined) setEntryStabilityRule(s.entryStabilityRule);
+        if (s.tradingSessions !== undefined) setTradingSessions(s.tradingSessions);
+        if (s.useGlobalClose !== undefined) setUseGlobalClose(s.useGlobalClose);
+        if (s.globalCloseTime !== undefined) setGlobalCloseTime(s.globalCloseTime);
+        if (s.isOptimizeMode !== undefined) setIsOptimizeMode(s.isOptimizeMode);
+        if (s.rrStart !== undefined) setRRStart(s.rrStart);
+        if (s.rrEnd !== undefined) setRREnd(s.rrEnd);
+        if (s.rrStep !== undefined) setRRStep(s.rrStep);
+
+        alert(`Successfully loaded profile: ${data.name}`);
+        setShowProfileModal(false);
+      } else {
+        alert(`Error loading profile: ${data.message}`);
+      }
+    } catch (err: any) {
+      alert(`Network error: ${err.message || err}`);
+    }
+  };
+
+  const handleDeleteProfile = async (id: number, name: string) => {
+    if (isReadOnly) {
+      alert("Action disabled in read-only mode.");
+      return;
+    }
+    if (!window.confirm(`Are you sure you want to delete profile '${name}'?`)) {
+      return;
+    }
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/backtest-settings/profiles/delete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+      const data = await response.json();
+      if (data.status === 'success') {
+        alert(data.message);
+        fetchProfiles();
+      } else {
+        alert(`Error deleting profile: ${data.message}`);
+      }
+    } catch (err: any) {
+      alert(`Network error: ${err.message || err}`);
+    }
+  };
+
   // Session builder states
   const [newStart, setNewStart] = React.useState('09:00');
   const [newEnd, setNewEnd] = React.useState('17:00');
@@ -404,7 +570,10 @@ export default function WyckoffBacktester({
         <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'flex-end', gap: '8px', marginBottom: '-4px' }}>
           {onSaveSettings && (
             <button
-              onClick={onSaveSettings}
+              onClick={() => {
+                setShowProfileModal(true);
+                fetchProfiles();
+              }}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -1914,6 +2083,171 @@ export default function WyckoffBacktester({
             >
               🛑 Stop Backtest
             </button>
+          </div>
+        )}
+        {/* Settings Profiles Modal */}
+        {showProfileModal && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.65)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            pointerEvents: 'all'
+          }}>
+            <div style={{
+              backgroundColor: '#0f172a',
+              border: '1px solid #1e293b',
+              borderRadius: '12px',
+              width: '100%',
+              maxWidth: '480px',
+              padding: '20px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.7)',
+              position: 'relative'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 style={{ margin: 0, color: '#ffffff', fontSize: '14px', fontWeight: 'bold' }}>
+                  Manage Backtest Profiles ({broker.toUpperCase()})
+                </h3>
+                <button
+                  onClick={() => setShowProfileModal(false)}
+                  style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: '18px', fontWeight: 'bold' }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '-8px' }}>
+                Symbol: <span style={{ color: '#38bdf8', fontWeight: 'bold' }}>{symbol}</span> | Timeframe: <span style={{ color: '#38bdf8', fontWeight: 'bold' }}>{timeframe}</span>
+              </div>
+
+              {/* Save New Profile Section */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', backgroundColor: 'rgba(30, 41, 59, 0.4)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#cbd5e1' }}>Save Current Settings</span>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    type="text"
+                    placeholder="Profile name (e.g. Scalping, Conservative)..."
+                    value={newProfileName}
+                    onChange={(e) => setNewProfileName(e.target.value)}
+                    style={{
+                      flex: 1,
+                      backgroundColor: '#1e293b',
+                      border: '1px solid #334155',
+                      borderRadius: '4px',
+                      color: '#ffffff',
+                      padding: '6px 10px',
+                      fontSize: '12px'
+                    }}
+                  />
+                  <button
+                    onClick={handleSaveProfile}
+                    style={{
+                      backgroundColor: '#2563eb',
+                      color: '#ffffff',
+                      border: 'none',
+                      padding: '6px 12px',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '11px',
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    Save Profile
+                  </button>
+                </div>
+                <button
+                  onClick={handleSaveDefault}
+                  style={{
+                    backgroundColor: 'rgba(71, 85, 105, 0.4)',
+                    color: '#cbd5e1',
+                    border: '1px solid #475569',
+                    padding: '5px',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '10px',
+                    fontWeight: 500,
+                    marginTop: '4px'
+                  }}
+                >
+                  💾 Save as Default (loads automatically on Symbol select)
+                </button>
+              </div>
+
+              {/* List Profiles Section */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#cbd5e1' }}>Saved Profiles for {symbol} • {timeframe}</span>
+                {loadingProfiles ? (
+                  <span style={{ fontSize: '11px', color: '#9ca3af' }}>Loading profiles...</span>
+                ) : profiles.length === 0 ? (
+                  <span style={{ fontSize: '11px', color: '#64748b', fontStyle: 'italic' }}>No profiles saved yet for this symbol & timeframe.</span>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '180px', overflowY: 'auto', paddingRight: '4px' }}>
+                    {profiles.map(p => (
+                      <div
+                        key={p.id}
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          backgroundColor: '#1e293b',
+                          padding: '8px 12px',
+                          borderRadius: '6px',
+                          border: '1px solid #334155',
+                          fontSize: '12px'
+                        }}
+                      >
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          <span style={{ fontWeight: 'bold', color: '#ffffff' }}>{p.name}</span>
+                          <span style={{ color: '#64748b', fontSize: '9px' }}>{p.updated_at}</span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button
+                            onClick={() => handleLoadProfile(p.id)}
+                            style={{
+                              backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                              color: '#10b981',
+                              border: '1px solid #10b981',
+                              padding: '3px 8px',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              fontSize: '10px',
+                              fontWeight: 'bold'
+                            }}
+                          >
+                            Load
+                          </button>
+                          <button
+                            onClick={() => handleDeleteProfile(p.id, p.name)}
+                            style={{
+                              backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                              color: '#ef4444',
+                              border: '1px solid #ef4444',
+                              padding: '3px 8px',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              fontSize: '10px',
+                              fontWeight: 'bold'
+                            }}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
     </div>

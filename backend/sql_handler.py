@@ -188,6 +188,10 @@ class SQLHandler:
                 conflict_target = "main_symbol, broker_key"
             elif "live_strategies" in table_name.lower():
                 conflict_target = "id"
+            elif "backtest_settings_profiles" in table_name.lower():
+                conflict_target = "name, symbol, timeframe"
+            elif "backtest_settings" in table_name.lower():
+                conflict_target = "symbol, timeframe"
             
             parts = query.split("ON DUPLICATE KEY UPDATE")
             if len(parts) == 2:
