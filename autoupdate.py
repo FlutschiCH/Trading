@@ -11,6 +11,22 @@ def get_git_commit():
         print(f"Failed to get git commit hash: {e}", flush=True)
         return ""
 
+def restart_updater():
+    print("Restarting autoupdater process...", flush=True)
+    executable = sys.executable
+    args = [sys.executable] + sys.argv
+    # Quote arguments with spaces for Windows safety
+    if os.name == 'nt':
+        quoted_args = []
+        for arg in args:
+            if ' ' in arg and not (arg.startswith('"') and arg.endswith('"')):
+                quoted_args.append(f'"{arg}"')
+            else:
+                quoted_args.append(arg)
+        os.execv(executable, quoted_args)
+    else:
+        os.execv(executable, args)
+
 def run_force_git_update():
     print("Checking for updates from Git (Force Update)...", flush=True)
     try:
@@ -79,8 +95,7 @@ def main():
     
     # If the updater script itself was modified by the force pull, restart it to apply changes
     if commit_before and commit_after and commit_before != commit_after:
-        print("Changes detected on startup. Restarting autoupdater process...", flush=True)
-        os.execv(sys.executable, [sys.executable] + sys.argv)
+        restart_updater()
 
     while True:
         print("Starting backend server (backend/app.py)...", flush=True)
@@ -104,7 +119,7 @@ def main():
                 check_and_install_dependencies(python_exe)
                 
                 # Restart the updater script itself to load any new updater changes
-                os.execv(sys.executable, [sys.executable] + sys.argv)
+                restart_updater()
                 
             # Otherwise wait and restart on crash/normal exit
             print("Restarting backend in 3 seconds...", flush=True)
