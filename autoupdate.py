@@ -3,6 +3,11 @@ import sys
 import subprocess
 import time
 
+# Change working directory to the directory of this script to ensure relative paths work
+script_dir = os.path.dirname(os.path.abspath(__file__))
+if script_dir:
+    os.chdir(script_dir)
+
 def get_git_commit():
     try:
         res = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True)
