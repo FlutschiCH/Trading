@@ -69,6 +69,17 @@ export default function ComputerManager({ setView }: ComputerManagerProps) {
           latency,
           error: undefined
         } : h));
+      } else if (response.status === 404) {
+        // Server is online but running older version of the codebase
+        setHosts(prev => prev.map((h, i) => i === hostIndex ? {
+          ...h,
+          online: true,
+          loading: false,
+          computerName: 'Outdated Version',
+          os: 'Needs Update',
+          latency,
+          error: 'Older version detected (status endpoint 404). Please run Update.'
+        } : h));
       } else {
         throw new Error(`HTTP ${response.status}`);
       }
