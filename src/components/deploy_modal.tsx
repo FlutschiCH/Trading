@@ -69,6 +69,12 @@ export default function DeployModal({
   });
 
   useEffect(() => {
+    if (initialTargets && initialTargets.length > 0) {
+      setSelectedAccounts(initialTargets.map(t => t.account_id));
+    }
+  }, [initialTargets]);
+
+  useEffect(() => {
     const fetchAccounts = async () => {
       try {
         const res = await fetch(`${API_BASE_URL}/api/accounts`);
@@ -78,7 +84,7 @@ export default function DeployModal({
           const list = data.data || data.accounts || (Array.isArray(data) ? data : []);
           setAccounts(list);
           // Auto select active account or first account if we don't have initialTargets
-          if (initialTargets.length === 0) {
+          if (!initialTargets || initialTargets.length === 0) {
             const active = list.find((a: any) => a.is_active || a.active);
             if (active) {
               setSelectedAccounts([active.account_id]);
