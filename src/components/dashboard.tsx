@@ -285,6 +285,9 @@ export default function Dashboard() {
   const [connectionMode, setConnectionMode] = useState<'openapi' | 'fix'>('fix');
   const [isConnectedOpenAPI] = useState(true);
   const [isConnectedFIX] = useState(true);
+  const [isLiveFeed, setIsLiveFeed] = useState<boolean>(() => {
+    return localStorage.getItem('wyckoff_is_live_feed') === 'true';
+  });
 
   // Account & Positions
   const [accountInfo, setAccountInfo] = useState<AccountInfo | null>(null);
@@ -1215,28 +1218,44 @@ export default function Dashboard() {
     setLoadingStrategy(true);
     try {
       let rawCandles: Candle[] = [];
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/trade/candles`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            broker: overrideBroker || candleSource,
-            symbol: symbol,
-            interval: timeframe,
-            limit: candleLimit,
-            lookback: parseInt(lookbackWindow) || 20,
-          }),
-        });
-        const result = await response.json();
-        if (result && result.status === 'success' && Array.isArray(result.candles)) {
-          rawCandles = result.candles.sort((a: Candle, b: Candle) => a.time - b.time);
-          setLiveSimulatedTrades(result.trades || []);
-        } else if (Array.isArray(result)) {
-          rawCandles = result.sort((a: Candle, b: Candle) => a.time - b.time);
-          setLiveSimulatedTrades([]);
+      
+      if (isLiveFeed && liveStrategy) {
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/live/strategy/cache/${liveStrategy.id}`);
+          const result = await response.json();
+          if (result && result.status === 'success' && Array.isArray(result.candles)) {
+            rawCandles = result.candles.sort((a: Candle, b: Candle) => a.time - b.time);
+            setLiveSimulatedTrades([]);
+          }
+        } catch (err) {
+          console.error("Failed to fetch live feed cache:", err);
         }
-      } catch (err) {
-        console.warn("Using local historical mock generation fallback.");
+      }
+
+      if (rawCandles.length === 0) {
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/trade/candles`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              broker: overrideBroker || candleSource,
+              symbol: symbol,
+              interval: timeframe,
+              limit: candleLimit,
+              lookback: parseInt(lookbackWindow) || 20,
+            }),
+          });
+          const result = await response.json();
+          if (result && result.status === 'success' && Array.isArray(result.candles)) {
+            rawCandles = result.candles.sort((a: Candle, b: Candle) => a.time - b.time);
+            setLiveSimulatedTrades(result.trades || []);
+          } else if (Array.isArray(result)) {
+            rawCandles = result.sort((a: Candle, b: Candle) => a.time - b.time);
+            setLiveSimulatedTrades([]);
+          }
+        } catch (err) {
+          console.warn("Using local historical mock generation fallback.");
+        }
       }
 
       if (rawCandles.length > 0) {
@@ -1652,6 +1671,16 @@ export default function Dashboard() {
     }, 10000);
     return () => clearInterval(interval);
   }, [initialCandlesLoaded, symbol, candleSource]);
+
+  // Live Feed auto-update polling
+  useEffect(() => {
+    if (!isLiveFeed) return;
+    fetchCandles(undefined, true);
+    const interval = setInterval(() => {
+      fetchCandles(undefined, true);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [isLiveFeed, symbol, timeframe, liveStrategy]);
 
   const currentConnected = true;
 
@@ -2607,6 +2636,8 @@ export default function Dashboard() {
                 sessionsTimezone={sessionsTimezone}
                 selectedCandle={selectedCandle}
                 hiddenStages={hiddenStages}
+                isLiveFeed={isLiveFeed}
+                onLiveFeedChange={setIsLiveFeed}
               />
             ) : mobileTab === 'backtester' ? (
               <WyckoffBacktester
@@ -2804,6 +2835,8 @@ export default function Dashboard() {
                       sessionsTimezone={sessionsTimezone}
                       selectedCandle={selectedCandle}
                       hiddenStages={hiddenStages}
+                      isLiveFeed={isLiveFeed}
+                      onLiveFeedChange={setIsLiveFeed}
                     />
                   </div>
                   {renderResizeHandle('chart')}

@@ -61,6 +61,8 @@ interface TVChartProps {
   sessionsTimezone?: 'UTC' | 'Local';
   locateTimestamp?: number | null;
   hiddenStages?: string[];
+  isLiveFeed?: boolean;
+  onLiveFeedChange?: (active: boolean) => void;
 }
 
 export default function TVChart({
@@ -94,7 +96,9 @@ export default function TVChart({
   sessions = [],
   sessionsTimezone = 'UTC',
   locateTimestamp = null,
-  hiddenStages = []
+  hiddenStages = [],
+  isLiveFeed = false,
+  onLiveFeedChange
 }: TVChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const weisContainerRef = useRef<HTMLDivElement>(null);
@@ -1888,6 +1892,38 @@ export default function TVChart({
               <span className="animate-pulse" style={{ display: 'inline-block', width: '6px', height: '6px', backgroundColor: '#38bdf8', borderRadius: '50%' }}></span>
               Analyzing Wyckoff & Weis Wave...
             </div>
+          )}
+          {onLiveFeedChange && (
+            <button
+              onClick={() => {
+                const nextVal = !isLiveFeed;
+                localStorage.setItem('wyckoff_is_live_feed', String(nextVal));
+                onLiveFeedChange(nextVal);
+              }}
+              style={{
+                ...styles.refreshBtn,
+                backgroundColor: isLiveFeed ? '#10b981' : '#1f2937',
+                color: '#ffffff',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 12px',
+                fontSize: '12px',
+                fontWeight: 'bold',
+                boxShadow: isLiveFeed ? '0 0 10px rgba(16, 185, 129, 0.4)' : 'none'
+              }}
+              title="Toggle Live Feed (forces cache-updates from backend live runner)"
+            >
+              <span style={{
+                width: '6px',
+                height: '6px',
+                borderRadius: '50%',
+                backgroundColor: isLiveFeed ? '#ffffff' : '#9ca3af',
+                display: 'inline-block',
+                animation: isLiveFeed ? 'pulse 1.5s infinite' : 'none'
+              }}></span>
+              Live Feed
+            </button>
           )}
           <button
             onClick={onRefresh}
