@@ -441,12 +441,18 @@ export default function TVChart({
       } catch (err) {
         console.error("Failed to fetch live strategies:", err);
       }
+
+      try {
+        onRefresh();
+      } catch (err) {
+        console.error("Failed to refresh candles in live overlay polling:", err);
+      }
     };
 
     fetchLiveState();
-    const interval = setInterval(fetchLiveState, 10000);
+    const interval = setInterval(fetchLiveState, 2000);
     return () => clearInterval(interval);
-  }, [chartSettings.showLiveRunnerOverlay, symbol, timeframe]);
+  }, [chartSettings.showLiveRunnerOverlay, symbol, timeframe, onRefresh]);
   const [chartHeight, setChartHeight] = useState(window.innerWidth < 768 ? 380 : 680);
   const [weisHeight, setWeisHeight] = useState(window.innerWidth < 768 ? 100 : 140);
   const chartHeightRef = useRef(chartHeight);
