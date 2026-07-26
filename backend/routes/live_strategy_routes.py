@@ -72,3 +72,12 @@ def delete_strategy(strategy_id):
 def live_strategy_compat():
     strategy = LiveStrategyHandler.get_strategy()
     return jsonify({"status": "success", "strategy": strategy})
+
+@live_strategy_routes.route('/live/strategy/cache/<strategy_id>', methods=['GET'])
+def get_strategy_cache(strategy_id):
+    """
+    Retrieve cached annotated candles for a specific live strategy.
+    """
+    from live_runner_handler import LiveRunner
+    cache = LiveRunner._candles_cache.get(strategy_id, [])
+    return jsonify({"status": "success", "strategy_id": strategy_id, "candles": cache})
