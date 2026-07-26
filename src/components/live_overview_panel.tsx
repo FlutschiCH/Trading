@@ -213,17 +213,62 @@ export default function LiveOverviewPanel({ isMobileLayout = false }: LiveOvervi
                 {/* State Details */}
                 {!isPaused ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '11px' }}>
+                    {/* Strategy Parameters Details */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 8px', borderBottom: '1px solid #111827', paddingBottom: '6px', fontSize: '10px', color: '#94a3b8' }}>
+                      <div>
+                        <span>Lookback: </span>
+                        <strong style={{ color: '#f3f4f6' }}>{strategy.lookbackWindow}</strong>
+                      </div>
+                      <div>
+                        <span>SL: </span>
+                        <strong style={{ color: '#f3f4f6' }}>{strategy.slVal} ({strategy.slType})</strong>
+                      </div>
+                      <div>
+                        <span>RR: </span>
+                        <strong style={{ color: '#f3f4f6' }}>{strategy.rr}</strong>
+                      </div>
+                      <div>
+                        <span>Risk Size: </span>
+                        <strong style={{ color: '#f3f4f6' }}>{strategy.useRiskSizing ? `${strategy.riskPct}%` : strategy.size}</strong>
+                      </div>
+                      <div style={{ gridColumn: 'span 2', color: '#64748b' }}>
+                        <span>Target: </span>
+                        <strong style={{ color: '#94a3b8' }}>{strategy.broker.toUpperCase()} ({strategy.account_id}) | Host: {strategy.target_computer || 'All'}</strong>
+                      </div>
+                    </div>
+
                     {/* Stage & Consec Bars */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #111827', paddingBottom: '4px' }}>
                       <span style={{ color: '#94a3b8' }}>Wyckoff Stage</span>
                       <span style={{ 
                         fontWeight: 'bold', 
-                        color: state.stage === 'ACCUMULATION' ? '#10b981' : (state.stage === 'DISTRIBUTION' ? '#ef4444' : '#f59e0b') 
+                        color: state.stage === 'ACCUMULATION' ? '#3b82f6' : 
+                               state.stage === 'MARKUP' ? '#10b981' : 
+                               state.stage === 'DISTRIBUTION' ? '#f59e0b' : 
+                               state.stage === 'MARKDOWN' ? '#ef4444' : '#cbd5e1' 
                       }}>
                         {state.stage || 'TRANSITION'} 
                         {state.consec_bars ? ` (${state.consec_bars} bars)` : ''}
                       </span>
                     </div>
+
+                    {/* Pending Spring/Upthrust Thresholds */}
+                    {(state.pending_buy || state.pending_sell) && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', borderBottom: '1px solid #111827', paddingBottom: '4px' }}>
+                        {state.pending_buy && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: '#10b981', fontWeight: 'bold' }}>Spring Pending (Age: {state.pending_buy_age}/15)</span>
+                            <span style={{ color: '#94a3b8', fontFamily: 'monospace' }}>High: {state.spring_high ? state.spring_high.toFixed(5) : 'N/A'}</span>
+                          </div>
+                        )}
+                        {state.pending_sell && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: '#ef4444', fontWeight: 'bold' }}>Upthrust Pending (Age: {state.pending_sell_age}/15)</span>
+                            <span style={{ color: '#94a3b8', fontFamily: 'monospace' }}>Low: {state.upthrust_low ? state.upthrust_low.toFixed(5) : 'N/A'}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* Waiting/Pending status */}
                     <div style={{ backgroundColor: '#111827', padding: '6px 8px', borderRadius: '4px', borderLeft: '3px solid #3b82f6', marginTop: '2px' }}>
