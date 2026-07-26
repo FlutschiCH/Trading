@@ -78,11 +78,11 @@ class LiveRunner:
         handler = BrokerHandler.get_handler(broker_name)
         print(f"[Live Runner DEBUG] Resolved handler for broker '{broker_name}': {handler.__name__ if handler else 'None'}", flush=True)
 
-        # Fetch candles
+        # Fetch candles - Fetch the same limit as the backtest (5000 candles) for identical warm-up calculations
         candles = handler.fetch_candles(
             symbol=symbol,
             timeframe=timeframe,
-            limit=300
+            limit=5000
         )
         if not candles or len(candles) < lookback + 10:
             LiveStrategyHandler.update_strategy_state(strategy_id, {
