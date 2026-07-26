@@ -91,7 +91,11 @@ class LiveRunner:
                 limit=5000
             )
             if candles:
-                cls._candles_cache[strategy_id] = candles
+                # Run Wyckoff Analysis on all fetched candles to warm up the cache
+                annotated_candles = WyckoffHandler.analyze_wyckoff_structure(candles, lookback=lookback)
+                cls._candles_cache[strategy_id] = annotated_candles
+            else:
+                annotated_candles = []
         else:
             # Incremental fetch: fetch only the last 10 candles
             print(f"[Live Runner] Incremental: Fetching 10 candles for strategy {strategy_id} ({symbol} {timeframe})", flush=True)
@@ -101,32 +105,45 @@ class LiveRunner:
                 limit=10
             )
             if new_candles:
-                # Merge new candles with cached candles
-                merged_map = {c["time"]: c for c in cached_candles}
+                # Convert cached annotated candles to raw candles for the lookback window to calculate accurate Wyckoff indicators on the transition boundary
+                # We need at least lookback * 2 historical candles for stable indicator calculations on the new candles
+                warmup_needed = lookback * 2
+                base_history = cached_candles[-warmup_needed:] if len(cached_candles) > warmup_needed else cached_candles
+                
+                # Merge new raw candles with the base history segment to analyze
+                merge_map = {c["time"]: c for c in base_history}
                 for c in new_candles:
-                    merged_map[c["time"]] = c
+                    merge_map[c["time"]] = c
                 
-                # Sort candles chronologically by timestamp
-                sorted_times = sorted(merged_map.keys())
-                # Limit history to the latest 5000 candles
-                if len(sorted_times) > 5000:
-                    sorted_times = sorted_times[-5000:]
+                sorted_times = sorted(merge_map.keys())
+                temp_segment = [merge_map[t] for t in sorted_times]
                 
-                candles = [merged_map[t] for t in sorted_times]
-                cls._candles_cache[strategy_id] = candles
+                # Analyze the segment containing the new candles
+                analyzed_segment = WyckoffHandler.analyze_wyckoff_structure(temp_segment, lookback=lookback)
+                analyzed_map = {c["time"]: c for c in analyzed_segment}
+                
+                # Update the main cache with the freshly analyzed values
+                cache_map = {c["time"]: c for c in cached_candles}
+                for t, c in analyzed_map.items():
+                    cache_map[t] = c
+                
+                # Sort and prune cache
+                sorted_cache_times = sorted(cache_map.keys())
+                if len(sorted_cache_times) > 5000:
+                    sorted_cache_times = sorted_cache_times[-5000:]
+                
+                annotated_candles = [cache_map[t] for t in sorted_cache_times]
+                cls._candles_cache[strategy_id] = annotated_candles
             else:
-                candles = cached_candles
+                annotated_candles = cached_candles
 
-        if not candles or len(candles) < lookback + 10:
+        if not annotated_candles or len(annotated_candles) < lookback + 10:
             LiveStrategyHandler.update_strategy_state(strategy_id, {
                 "stage": "UNKNOWN",
                 "status_message": "Error: Failed to fetch candles or insufficient candles.",
                 "last_checked": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             })
             return
-
-        # Run Wyckoff Analysis on all cached/merged candles
-        annotated_candles = WyckoffHandler.analyze_wyckoff_structure(candles, lookback=lookback)
 
         # Run trade evaluation logic to determine signals on the last completed candle
         should_buy, should_sell, state_info = cls._evaluate_signals(annotated_candles, strategy)
@@ -139,7 +156,7 @@ class LiveRunner:
         LiveStrategyHandler.update_strategy_state(strategy_id, state_info)
 
         # Last completed candle is at index -2
-        last_completed_candle = candles[-2]
+        last_completed_candle = annotated_candles[-2]
         candle_time = int(last_completed_candle["time"])
 
         # Check if we have already processed this candle for this strategy
