@@ -13,6 +13,8 @@ class LiveRunner:
     _stop_event = threading.Event()
     # Cache to store last processed candle timestamp per strategy
     _last_processed = {} 
+    # In-memory cache to store full candle history per strategy
+    _candles_cache = {}
 
     @classmethod
     def start(cls):
@@ -78,12 +80,43 @@ class LiveRunner:
         handler = BrokerHandler.get_handler(broker_name)
         print(f"[Live Runner DEBUG] Resolved handler for broker '{broker_name}': {handler.__name__ if handler else 'None'}", flush=True)
 
-        # Fetch candles - Fetch the same limit as the backtest (5000 candles) for identical warm-up calculations
-        candles = handler.fetch_candles(
-            symbol=symbol,
-            timeframe=timeframe,
-            limit=5000
-        )
+        cached_candles = cls._candles_cache.get(strategy_id, [])
+
+        if not cached_candles:
+            # First fetch: warm up with 5000 candles
+            print(f"[Live Runner] Warm-up: Fetching 5000 candles for strategy {strategy_id} ({symbol} {timeframe})", flush=True)
+            candles = handler.fetch_candles(
+                symbol=symbol,
+                timeframe=timeframe,
+                limit=5000
+            )
+            if candles:
+                cls._candles_cache[strategy_id] = candles
+        else:
+            # Incremental fetch: fetch only the last 10 candles
+            print(f"[Live Runner] Incremental: Fetching 10 candles for strategy {strategy_id} ({symbol} {timeframe})", flush=True)
+            new_candles = handler.fetch_candles(
+                symbol=symbol,
+                timeframe=timeframe,
+                limit=10
+            )
+            if new_candles:
+                # Merge new candles with cached candles
+                merged_map = {c["time"]: c for c in cached_candles}
+                for c in new_candles:
+                    merged_map[c["time"]] = c
+                
+                # Sort candles chronologically by timestamp
+                sorted_times = sorted(merged_map.keys())
+                # Limit history to the latest 5000 candles
+                if len(sorted_times) > 5000:
+                    sorted_times = sorted_times[-5000:]
+                
+                candles = [merged_map[t] for t in sorted_times]
+                cls._candles_cache[strategy_id] = candles
+            else:
+                candles = cached_candles
+
         if not candles or len(candles) < lookback + 10:
             LiveStrategyHandler.update_strategy_state(strategy_id, {
                 "stage": "UNKNOWN",
@@ -92,7 +125,7 @@ class LiveRunner:
             })
             return
 
-        # Run Wyckoff Analysis on all fetched candles
+        # Run Wyckoff Analysis on all cached/merged candles
         annotated_candles = WyckoffHandler.analyze_wyckoff_structure(candles, lookback=lookback)
 
         # Run trade evaluation logic to determine signals on the last completed candle
