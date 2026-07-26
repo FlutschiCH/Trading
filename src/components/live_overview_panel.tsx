@@ -338,6 +338,7 @@ export default function LiveOverviewPanel({ isMobileLayout = false }: LiveOvervi
           initialName={editingStrategy.name || ''}
           onClose={() => setEditingStrategy(null)}
           onConfirm={async (targetComputer, targets, name) => {
+            console.log('onConfirm handler inside LiveOverviewPanel called', { targetComputer, targets, name });
             try {
               const updatedConfig = {
                 ...editingStrategy,
@@ -348,12 +349,14 @@ export default function LiveOverviewPanel({ isMobileLayout = false }: LiveOvervi
                 account_id: targets.length > 0 ? targets[0].account_id : editingStrategy.account_id,
                 broker: targets.length > 0 ? targets[0].broker : editingStrategy.broker
               };
+              console.log('Sending POST to /api/live/strategy with config:', updatedConfig);
               const res = await fetch(`${API_BASE_URL}/api/live/strategy`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updatedConfig)
               });
               const data = await res.json();
+              console.log('POST /api/live/strategy response:', data);
               if (data.status === 'success') {
                 setEditingStrategy(null);
                 fetchStrategies();
@@ -361,6 +364,7 @@ export default function LiveOverviewPanel({ isMobileLayout = false }: LiveOvervi
                 alert(data.message || 'Failed to save strategy changes');
               }
             } catch (err: any) {
+              console.error('Error saving strategy changes:', err);
               alert(err.message || 'Error saving changes');
             }
           }}

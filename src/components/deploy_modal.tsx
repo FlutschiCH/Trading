@@ -153,26 +153,33 @@ export default function DeployModal({
   }, []);
 
   const handleConfirmDeploy = () => {
-    const finalTarget = selectedTarget === 'Custom' ? customTarget.trim() : selectedTarget;
-    if (!finalTarget) {
-      alert('Please specify a target computer.');
-      return;
-    }
-    if (selectedAccounts.length === 0) {
-      alert('Please select at least one execution account.');
-      return;
-    }
+    try {
+      console.log('handleConfirmDeploy triggered', { selectedTarget, customTarget, selectedAccounts, strategyName });
+      const finalTarget = selectedTarget === 'Custom' ? customTarget.trim() : selectedTarget;
+      if (!finalTarget) {
+        alert('Please specify a target computer.');
+        return;
+      }
+      if (selectedAccounts.length === 0) {
+        alert('Please select at least one execution account.');
+        return;
+      }
 
-    // Map selected accounts to target objects { broker, account_id }
-    const targets = selectedAccounts.map(id => {
-      const acc = accounts.find(a => a.account_id === id);
-      return {
-        broker: acc?.broker_type || 'metatrader',
-        account_id: id
-      };
-    });
+      // Map selected accounts to target objects { broker, account_id }
+      const targets = selectedAccounts.map(id => {
+        const acc = accounts.find(a => a.account_id === id);
+        return {
+          broker: acc?.broker_type || 'metatrader',
+          account_id: id
+        };
+      });
 
-    onConfirm(finalTarget, targets, strategyName.trim());
+      console.log('Calling onConfirm with:', { finalTarget, targets, name: strategyName.trim() });
+      onConfirm(finalTarget, targets, strategyName.trim());
+    } catch (err) {
+      console.error('Error inside handleConfirmDeploy:', err);
+      alert('Error confirming deployment: ' + err);
+    }
   };
 
   return (
