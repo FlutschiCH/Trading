@@ -225,14 +225,47 @@ class LiveRunner:
         if not allowed:
             status_message = f"Outside trading hours: {msg}"
 
-        # Check if position already open
-        broker_name = strategy.get("broker", "metatrader")
-        from broker_handler import BrokerHandler
-        handler = BrokerHandler.get_handler(broker_name)
-
+        # Check if position already open on any execution targets
+        targets = strategy.get("targets", [])
+        if not targets:
+            broker_name = strategy.get("broker", "metatrader")
+            targets = [{"broker": broker_name, "account_id": strategy.get("account_id")}]
+            
+        pos_open = False
         magic = abs(hash(strategy["id"])) & 0x7FFFFFFF
-        positions = handler.get_positions()
-        pos_open = any(p.get("magic") == magic or (p.get("symbol") == strategy["symbol"] and p.get("magic") == magic) or p.get("position_id") == magic for p in positions)
+        from sql_handler import SQLHandler
+        
+        for target in targets:
+            target_broker = target.get("broker") or "metatrader"
+            target_acc_id = target.get("account_id")
+            
+            # Fetch target account details for credentials
+            rows = SQLHandler.execute_query("SELECT * FROM accounts WHERE account_id = %s", (target_acc_id,))
+            target_kwargs = {}
+            if rows:
+                acc_row = rows[0]
+                if target_broker == "metatrader":
+                    target_kwargs = {
+                        "login": int(target_acc_id) if target_acc_id.isdigit() else target_acc_id,
+                        "password": acc_row.get("password"),
+                        "server": acc_row.get("server")
+                    }
+                elif target_broker == "ctrader":
+                    target_kwargs = {
+                        "account_id": target_acc_id,
+                        "password": acc_row.get("password")
+                    }
+            
+            from broker_handler import BrokerHandler
+            handler = BrokerHandler.get_handler(target_broker)
+            try:
+                positions = handler.get_positions(**target_kwargs)
+                if any(p.get("magic") == magic or (p.get("symbol") == strategy["symbol"] and p.get("magic") == magic) or p.get("position_id") == magic for p in positions):
+                    pos_open = True
+                    break
+            except Exception as e:
+                print(f"[Live Runner] Error checking positions for target {target_acc_id}: {e}", flush=True)
+
         if pos_open:
             status_message = "Position already open. Monitoring for close condition."
 
@@ -257,60 +290,96 @@ class LiveRunner:
         symbol = strategy["symbol"]
         strategy_id = strategy["id"]
         magic = abs(hash(strategy_id)) & 0x7FFFFFFF
-        broker_name = strategy.get("broker", "metatrader")
+        
+        targets = strategy.get("targets", [])
+        if not targets:
+            broker_name = strategy.get("broker", "metatrader")
+            targets = [{"broker": broker_name, "account_id": strategy.get("account_id")}]
+            
+        print(f"[Live Runner] Executing trade on strategy {strategy_id} across {len(targets)} targets.", flush=True)
+        from sql_handler import SQLHandler
 
-        from broker_handler import BrokerHandler
-        handler = BrokerHandler.get_handler(broker_name)
+        for target in targets:
+            try:
+                target_broker = target.get("broker") or "metatrader"
+                target_acc_id = target.get("account_id")
+                
+                # Fetch credentials
+                rows = SQLHandler.execute_query("SELECT * FROM accounts WHERE account_id = %s", (target_acc_id,))
+                target_kwargs = {}
+                if rows:
+                    acc_row = rows[0]
+                    if target_broker == "metatrader":
+                        target_kwargs = {
+                            "login": int(target_acc_id) if target_acc_id.isdigit() else target_acc_id,
+                            "password": acc_row.get("password"),
+                            "server": acc_row.get("server")
+                        }
+                    elif target_broker == "ctrader":
+                        target_kwargs = {
+                            "account_id": target_acc_id,
+                            "password": acc_row.get("password")
+                        }
+                
+                from broker_handler import BrokerHandler
+                handler = BrokerHandler.get_handler(target_broker)
 
-        # 1. Check if we already have an open position for this strategy magic number
-        positions = handler.get_positions()
-        # Find if there is an active position with the same symbol and magic number
-        active_pos = None
-        for p in positions:
-            # Match magic number if supported or symbol
-            if p.get("symbol") == symbol:
-                active_pos = p
-                break
+                # 1. Check if we already have an open position for this strategy magic number on this target
+                positions = handler.get_positions(**target_kwargs)
+                active_pos = None
+                for p in positions:
+                    if p.get("symbol") == symbol:
+                        active_pos = p
+                        break
 
-        if active_pos:
-            print(f"[Live Runner] Position already open for strategy {strategy_id} on {symbol}. Skipping entry.", flush=True)
-            return
+                if active_pos:
+                    print(f"[Live Runner] Position already open for target {target_acc_id} on {symbol}. Skipping entry.", flush=True)
+                    continue
 
-        # 2. Get Account Info for sizing
-        acct = handler.get_account_info()
-        balance = acct.get("balance", 10000.0)
+                # 2. Get Account Info for sizing
+                acct = handler.get_account_info(**target_kwargs)
+                # Parse standard dict result or direct balance field
+                balance = 10000.0
+                if acct:
+                    if "data" in acct:
+                        balance = acct["data"].get("balance", 10000.0)
+                    else:
+                        balance = acct.get("balance", 10000.0)
 
-        # 3. Calculate Trade Parameters
-        entry_price = float(last_candle["close"])
-        direction = "BUY" if should_buy else "SELL"
-        pip_size = get_pip_size(symbol, entry_price)
-        lot_size = get_lot_size(symbol)
+                # 3. Calculate Trade Parameters
+                entry_price = float(last_candle["close"])
+                direction = "BUY" if should_buy else "SELL"
+                pip_size = get_pip_size(symbol, entry_price)
+                lot_size = get_lot_size(symbol)
 
-        params = TradingHandler.calculate_trade_parameters(
-            symbol=symbol,
-            entry_price=entry_price,
-            direction=direction,
-            sl_type=strategy["slType"],
-            sl_val=strategy["slVal"],
-            rr=strategy["rr"],
-            size=strategy["size"],
-            use_risk_sizing=strategy["useRiskSizing"],
-            risk_pct=strategy["riskPct"],
-            balance=balance,
-            lot_size=lot_size,
-            pip_size=pip_size,
-            precision=5
-        )
+                params = TradingHandler.calculate_trade_parameters(
+                    symbol=symbol,
+                    entry_price=entry_price,
+                    direction=direction,
+                    sl_type=strategy["slType"],
+                    sl_val=strategy["slVal"],
+                    rr=strategy["rr"],
+                    size=strategy["size"],
+                    use_risk_sizing=strategy["useRiskSizing"],
+                    risk_pct=strategy["riskPct"],
+                    balance=balance,
+                    lot_size=lot_size,
+                    pip_size=pip_size,
+                    precision=5
+                )
 
-        print(f"[Live Runner] Triggering {direction} order for strategy {strategy_id} on {symbol}. Params: {params}", flush=True)
+                print(f"[Live Runner] Triggering {direction} order for target {target_acc_id} on {symbol}. Params: {params}", flush=True)
 
-        # 4. Dispatch Order
-        handler.create_order(
-            symbol=symbol,
-            side=direction,
-            volume=params["qty"],
-            price=params["entry_price"],
-            stop_loss=params["sl_price"],
-            take_profit=params["tp_price"],
-            magic=magic
-        )
+                # 4. Dispatch Order
+                handler.create_order(
+                    symbol=symbol,
+                    side=direction,
+                    volume=params["qty"],
+                    price=params["entry_price"],
+                    stop_loss=params["sl_price"],
+                    take_profit=params["tp_price"],
+                    magic=magic,
+                    **target_kwargs
+                )
+            except Exception as target_err:
+                print(f"[Live Runner] Error executing trade for target {target.get('account_id')}: {target_err}", flush=True)

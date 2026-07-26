@@ -20,19 +20,23 @@ class CTraderHandler(BaseBrokerHandler):
     _cached_positions = []
 
     @staticmethod
-    def _send_and_receive(payload_type: int, payload: dict) -> dict:
+    def _send_and_receive(payload_type: int, payload: dict, account_id: str = None, token: str = None) -> dict:
         from account_handler import AccountHandler
-        active_acc = AccountHandler.get_active_account()
-        if active_acc and active_acc.get("broker_type") == "ctrader":
-            account_id_str = active_acc.get("account_id")
-            account_id = int(account_id_str) if account_id_str else None
-            token = active_acc.get("password")
+        if account_id and token:
+            account_id_str = str(account_id)
+            account_id_val = int(account_id)
         else:
-            account_id_str = os.environ.get("CTRADER_OPENAPI_ACCOUNT_ID")
-            account_id = int(account_id_str) if account_id_str else None
-            token = os.environ.get("CTRADER_ACCESS_TOKEN")
+            active_acc = AccountHandler.get_active_account()
+            if active_acc and active_acc.get("broker_type") == "ctrader":
+                account_id_str = active_acc.get("account_id")
+                account_id_val = int(account_id_str) if account_id_str else None
+                token = active_acc.get("password")
+            else:
+                account_id_str = os.environ.get("CTRADER_OPENAPI_ACCOUNT_ID")
+                account_id_val = int(account_id_str) if account_id_str else None
+                token = os.environ.get("CTRADER_ACCESS_TOKEN")
 
-        if not account_id or not token:
+        if not account_id_val or not token:
             raise RuntimeError("No active cTrader account configured in Account Management. Please connect an account first.")
 
         client_id = os.environ.get("CTRADER_CLIENT_ID")
@@ -60,12 +64,12 @@ class CTraderHandler(BaseBrokerHandler):
                 raise ConnectionError(f"Application Authentication Failed: {res1.get('payload')}")
 
             # 2. Send Account Auth (payloadType = 2102) if token & account are available
-            if account_id and token:
+            if account_id_val and token:
                 acc_auth = {
                     "clientMsgId": f"AccAuth-{int(time.time())}",
                     "payloadType": 2102,
                     "payload": {
-                        "ctidTraderAccountId": account_id,
+                        "ctidTraderAccountId": account_id_val,
                         "accessToken": token
                     }
                 }
@@ -77,8 +81,8 @@ class CTraderHandler(BaseBrokerHandler):
 
             # 3. Dispatch requested OpenAPI message
             # If payload needs account ID, inject it
-            if payload_type not in (2100, 2102) and "ctidTraderAccountId" not in payload and account_id:
-                payload["ctidTraderAccountId"] = account_id
+            if payload_type not in (2100, 2102) and "ctidTraderAccountId" not in payload and account_id_val:
+                payload["ctidTraderAccountId"] = account_id_val
                 
             req = {
                 "clientMsgId": f"Req-{int(time.time())}",
@@ -209,28 +213,29 @@ class CTraderHandler(BaseBrokerHandler):
     @staticmethod
     def get_account_info(**kwargs) -> dict:
         try:
-            # Fetch using Account list request to retrieve actual balance
-            # payloadType = 2149 (ProtoOAGetAccountListByAccessTokenReq)
-            from account_handler import AccountHandler
-            active_acc = AccountHandler.get_active_account()
-            if active_acc and active_acc.get("broker_type") == "ctrader":
-                token = active_acc.get("password")
-                account_id = active_acc.get("account_id")
-            else:
-                token = os.environ.get("CTRADER_ACCESS_TOKEN")
-                account_id = os.environ.get("CTRADER_OPENAPI_ACCOUNT_ID")
+            token = kwargs.get("token") or kwargs.get("password")
+            account_id = kwargs.get("account_id")
+            if not token or not account_id:
+                from account_handler import AccountHandler
+                active_acc = AccountHandler.get_active_account()
+                if active_acc and active_acc.get("broker_type") == "ctrader":
+                    token = active_acc.get("password")
+                    account_id = active_acc.get("account_id")
+                else:
+                    token = os.environ.get("CTRADER_ACCESS_TOKEN")
+                    account_id = os.environ.get("CTRADER_OPENAPI_ACCOUNT_ID")
 
             if not token:
                 return {"status": "success", "data": CTraderHandler._cached_account}
                 
-            res = CTraderHandler._send_and_receive(2149, {"accessToken": token})
+            res = CTraderHandler._send_and_receive(2149, {"accessToken": token}, account_id=account_id, token=token)
             # Typically returns ProtoOAGetAccountListByAccessTokenRes containing ctidTraderAccount
             if res and "payload" in res:
                 accounts = res["payload"].get("ctidTraderAccount", [])
                 for acc in accounts:
                     if str(acc.get("ctidTraderAccountId")) == str(account_id):
                         # Fetch trader info payloadType = 2121 (ProtoOATraderReq)
-                        trader_res = CTraderHandler._send_and_receive(2121, {})
+                        trader_res = CTraderHandler._send_and_receive(2121, {}, account_id=account_id, token=token)
                         trader = trader_res.get("payload", {}).get("trader", {})
                         balance = float(trader.get("balance", 10000000)) / 100.0 # cTrader balance in cents
                         
@@ -286,8 +291,10 @@ class CTraderHandler(BaseBrokerHandler):
     @staticmethod
     def get_positions(**kwargs) -> list:
         try:
+            account_id = kwargs.get("account_id")
+            token = kwargs.get("token") or kwargs.get("password")
             # Reconcile open positions using payloadType = 2125 (ProtoOAReconcileReq)
-            res = CTraderHandler._send_and_receive(2125, {"returnProtectionOrders": True})
+            res = CTraderHandler._send_and_receive(2125, {"returnProtectionOrders": True}, account_id=account_id, token=token)
             if res and "payload" in res:
                 positions_list = []
                 for p in res["payload"].get("position", []):
@@ -311,6 +318,8 @@ class CTraderHandler(BaseBrokerHandler):
     @staticmethod
     def create_order(symbol: str, side: str, volume: float, price: float = None, stop_loss: float = None, take_profit: float = None, magic: int = None, **kwargs) -> dict:
         try:
+            account_id = kwargs.get("account_id")
+            token = kwargs.get("token") or kwargs.get("password")
             # We map symbol to cTrader integer IDs. For EURUSD standard ID is 1 (EURUSD)
             # A cleaner solution matches IDs dynamically; here we default common mapping.
             symbol_id = 1
@@ -333,7 +342,7 @@ class CTraderHandler(BaseBrokerHandler):
             if take_profit is not None:
                 payload["takeProfit"] = take_profit
                 
-            res = CTraderHandler._send_and_receive(2106, payload)
+            res = CTraderHandler._send_and_receive(2106, payload, account_id=account_id, token=token)
             p_type = res.get("payloadType")
             if p_type == 2130: # ProtoOAExecutionEvent
                 order_id = res.get("payload", {}).get("order", {}).get("orderId")

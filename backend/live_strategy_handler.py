@@ -51,8 +51,17 @@ class LiveStrategyHandler:
             live_state TEXT
         )
         """
+        create_targets_table = """
+        CREATE TABLE IF NOT EXISTS live_strategy_targets (
+            id VARCHAR(50) PRIMARY KEY,
+            strategy_id VARCHAR(50) NOT NULL,
+            account_id VARCHAR(100) NOT NULL,
+            broker VARCHAR(50) NOT NULL
+        )
+        """
         try:
             SQLHandler.execute_query(create_mysql)
+            SQLHandler.execute_query(create_targets_table)
             # Add broker column if not exists
             try:
                 SQLHandler.execute_query("SELECT broker FROM live_strategies LIMIT 1")
@@ -165,6 +174,23 @@ class LiveStrategyHandler:
         )
         try:
             SQLHandler.execute_query(query, params)
+            
+            # Save strategy targets
+            # Clear old targets
+            SQLHandler.execute_query("DELETE FROM live_strategy_targets WHERE strategy_id = %s", (strategy["id"],))
+            
+            targets = strategy.get("targets", [])
+            # If no targets provided, fallback to the main broker/account_id as the single target
+            if not targets and strategy.get("broker") and acc_id:
+                targets = [{"broker": strategy.get("broker"), "account_id": acc_id}]
+                
+            for t in targets:
+                import uuid
+                target_id = str(uuid.uuid4())
+                SQLHandler.execute_query(
+                    "INSERT INTO live_strategy_targets (id, strategy_id, broker, account_id) VALUES (%s, %s, %s, %s)",
+                    (target_id, strategy["id"], t.get("broker"), t.get("account_id"))
+                )
             return True
         except Exception as e:
             print(f"Failed to save live strategy: {e}", flush=True)
@@ -192,7 +218,14 @@ class LiveStrategyHandler:
             results = SQLHandler.execute_query(query, params)
             if results:
                 row = results[0]
-                return LiveStrategyHandler._row_to_dict(row)
+                strat = LiveStrategyHandler._row_to_dict(row)
+                # Fetch targets
+                targets_rows = SQLHandler.execute_query(
+                    "SELECT broker, account_id FROM live_strategy_targets WHERE strategy_id = %s",
+                    (strat["id"],)
+                )
+                strat["targets"] = [{"broker": r["broker"], "account_id": r["account_id"]} for r in targets_rows]
+                return strat
         except Exception as e:
             print(f"Error fetching strategy from DB: {e}", flush=True)
         
@@ -207,7 +240,16 @@ class LiveStrategyHandler:
         query = "SELECT * FROM live_strategies ORDER BY deployedAt DESC"
         try:
             results = SQLHandler.execute_query(query)
-            return [LiveStrategyHandler._row_to_dict(row) for row in results]
+            strats = []
+            for row in results:
+                strat = LiveStrategyHandler._row_to_dict(row)
+                targets_rows = SQLHandler.execute_query(
+                    "SELECT broker, account_id FROM live_strategy_targets WHERE strategy_id = %s",
+                    (strat["id"],)
+                )
+                strat["targets"] = [{"broker": r["broker"], "account_id": r["account_id"]} for r in targets_rows]
+                strats.append(strat)
+            return strats
         except Exception as e:
             print(f"Error fetching all strategies from DB: {e}", flush=True)
             return []
@@ -218,9 +260,9 @@ class LiveStrategyHandler:
         Deletes a live strategy by ID.
         """
         LiveStrategyHandler.init_db()
-        query = "DELETE FROM live_strategies WHERE id = %s"
         try:
-            SQLHandler.execute_query(query, (strategy_id,))
+            SQLHandler.execute_query("DELETE FROM live_strategy_targets WHERE strategy_id = %s", (strategy_id,))
+            SQLHandler.execute_query("DELETE FROM live_strategies WHERE id = %s", (strategy_id,))
             return True
         except Exception as e:
             print(f"Error deleting strategy {strategy_id}: {e}", flush=True)

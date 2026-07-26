@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { X, Server, ShieldAlert, Check, RefreshCw } from 'lucide-react';
+import { API_BASE_URL } from '../api';
 
 interface HostStatus {
   name: string;
@@ -21,7 +22,7 @@ interface DeployModalProps {
   useRiskSizing: boolean;
   riskPct: string;
   onClose: () => void;
-  onConfirm: (targetComputer: string) => void;
+  onConfirm: (targetComputer: string, targets: Array<{ broker: string; account_id: string }>) => void;
 }
 
 export default function DeployModal({
@@ -44,6 +45,33 @@ export default function DeployModal({
 
   const [selectedTarget, setSelectedTarget] = useState<string>('All');
   const [customTarget, setCustomTarget] = useState<string>('');
+
+  const [accounts, setAccounts] = useState<any[]>([]);
+  const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]);
+
+  useEffect(() => {
+    const fetchAccounts = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/accounts`);
+        if (res.ok) {
+          const data = await res.json();
+          // The API returns either { accounts: [...] } or direct array
+          const list = data.accounts || data || [];
+          setAccounts(list);
+          // Auto select active account or first account
+          const active = list.find((a: any) => a.is_active || a.active);
+          if (active) {
+            setSelectedAccounts([active.account_id]);
+          } else if (list.length > 0) {
+            setSelectedAccounts([list[0].account_id]);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching accounts', err);
+      }
+    };
+    fetchAccounts();
+  }, []);
 
   const checkHostStatus = async (hostIndex: number) => {
     const host = hosts[hostIndex];
@@ -99,7 +127,21 @@ export default function DeployModal({
       alert('Please specify a target computer.');
       return;
     }
-    onConfirm(finalTarget);
+    if (selectedAccounts.length === 0) {
+      alert('Please select at least one execution account.');
+      return;
+    }
+
+    // Map selected accounts to target objects { broker, account_id }
+    const targets = selectedAccounts.map(id => {
+      const acc = accounts.find(a => a.account_id === id);
+      return {
+        broker: acc?.broker_type || 'metatrader',
+        account_id: id
+      };
+    });
+
+    onConfirm(finalTarget, targets);
   };
 
   return (
@@ -189,6 +231,60 @@ export default function DeployModal({
             <span style={{ color: '#f1f5f9', fontWeight: 'bold' }}>
               {useRiskSizing ? `${riskPct}% Risk` : `${size} Lot`}
             </span>
+          </div>
+        </div>
+
+        {/* Accounts Multi-Select */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            Select Execution Accounts / Brokers
+          </label>
+          <div style={{
+            backgroundColor: 'rgba(15, 23, 42, 0.4)',
+            border: '1px solid #334155',
+            borderRadius: '8px',
+            padding: '12px',
+            maxHeight: '120px',
+            overflowY: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px'
+          }}>
+            {accounts.map(acc => {
+              const isChecked = selectedAccounts.includes(acc.account_id);
+              return (
+                <label key={acc.account_id} style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  userSelect: 'none'
+                }}>
+                  <input
+                    type="checkbox"
+                    checked={isChecked}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedAccounts(prev => [...prev, acc.account_id]);
+                      } else {
+                        setSelectedAccounts(prev => prev.filter(id => id !== acc.account_id));
+                      }
+                    }}
+                    style={{ cursor: 'pointer' }}
+                  />
+                  <span>
+                    <strong style={{ color: acc.broker_type === 'ctrader' ? '#10b981' : '#3b82f6' }}>
+                      {acc.broker_type === 'ctrader' ? 'cTrader' : 'MT5'}
+                    </strong>{' '}
+                    - {acc.name} ({acc.account_id})
+                  </span>
+                </label>
+              );
+            })}
+            {accounts.length === 0 && (
+              <span style={{ fontSize: '12px', color: '#64748b' }}>No accounts registered.</span>
+            )}
           </div>
         </div>
 

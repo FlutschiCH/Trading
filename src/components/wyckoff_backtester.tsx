@@ -8,7 +8,7 @@ interface WyckoffBacktesterProps {
   timeframe: string;
   liveStrategy: any;
   isDeploying: boolean;
-  deployLiveStrategy: (targetComputer: string) => void;
+  deployLiveStrategy: (targetComputer: string, targets: Array<{ broker: string; account_id: string }>) => void;
   backtestBalance: string;
   setBacktestBalance: (val: string) => void;
   useRiskSizing: boolean;
@@ -2276,9 +2276,9 @@ export default function WyckoffBacktester({
             useRiskSizing={useRiskSizing}
             riskPct={backtestRiskPct}
             onClose={() => setShowDeployModal(false)}
-            onConfirm={(target) => {
+            onConfirm={(target, targets) => {
               setShowDeployModal(false);
-              deployLiveStrategy(target);
+              deployLiveStrategy(target, targets);
             }}
           />
         )}
