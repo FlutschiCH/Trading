@@ -1,5 +1,6 @@
 @echo off
 title Trading Autoupdater
+cd /d "%~dp0"
 echo ==========================================
 echo       Starting Trading Autoupdater        
 echo ==========================================

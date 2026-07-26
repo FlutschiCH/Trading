@@ -3,6 +3,25 @@ import sys
 import subprocess
 import time
 
+def run_force_git_update():
+    print("Checking for updates from Git (Force Update)...", flush=True)
+    try:
+        # Fetch all changes
+        subprocess.run(["git", "fetch", "--all"], check=True)
+        
+        # Get the name of the current active branch
+        branch_res = subprocess.run(["git", "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True, check=True)
+        branch = branch_res.stdout.strip()
+        print(f"Current branch detected: {branch}", flush=True)
+        
+        # Force reset to origin's branch to discard local modifications
+        res = subprocess.run(["git", "reset", "--hard", f"origin/{branch}"], capture_output=True, text=True, check=True)
+        print("Git reset output:", res.stdout, flush=True)
+        return True
+    except Exception as e:
+        print(f"Git force update failed: {e}", flush=True)
+        return False
+
 def run_git_pull():
     print("Checking for updates from Git...", flush=True)
     try:
@@ -46,12 +65,6 @@ def main():
     check_and_install_dependencies(python_exe)
 
     while True:
-        # Pull from git
-        reqs_updated = run_git_pull()
-        if reqs_updated:
-            print("requirements.txt was updated. Re-running pip install...", flush=True)
-            check_and_install_dependencies(python_exe)
-
         print("Starting backend server (backend/app.py)...", flush=True)
         try:
             # Run backend/app.py with cwd=backend so relative imports work correctly
@@ -65,8 +78,17 @@ def main():
             if exit_code == 99:
                 print("Exit code 99 received. Stopping autoupdater.", flush=True)
                 break
+            
+            # Code 12 means update and restart request from frontend
+            if exit_code == 12:
+                print("Exit code 12 received. Performing force update and restarting autoupdater...", flush=True)
+                run_force_git_update()
+                check_and_install_dependencies(python_exe)
                 
-            # Otherwise wait and restart (auto-updater updates on next loop iteration via run_git_pull)
+                # Restart the updater script itself to load any new updater changes
+                os.execv(sys.executable, [sys.executable] + sys.argv)
+                
+            # Otherwise wait and restart on crash/normal exit
             print("Restarting backend in 3 seconds...", flush=True)
             time.sleep(3)
         except KeyboardInterrupt:
