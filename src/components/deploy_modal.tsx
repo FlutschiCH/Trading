@@ -21,6 +21,8 @@ interface DeployModalProps {
   size: string;
   useRiskSizing: boolean;
   riskPct: string;
+  initialTargetComputer?: string;
+  initialTargets?: Array<{ broker: string; account_id: string }>;
   onClose: () => void;
   onConfirm: (targetComputer: string, targets: Array<{ broker: string; account_id: string }>) => void;
 }
@@ -34,6 +36,8 @@ export default function DeployModal({
   size,
   useRiskSizing,
   riskPct,
+  initialTargetComputer = 'All',
+  initialTargets = [],
   onClose,
   onConfirm,
 }: DeployModalProps) {
@@ -43,11 +47,26 @@ export default function DeployModal({
     { name: 'Railway Cloud Container', url: 'https://trading-production-cb87.up.railway.app', type: 'railway', online: false, loading: true },
   ]);
 
-  const [selectedTarget, setSelectedTarget] = useState<string>('All');
-  const [customTarget, setCustomTarget] = useState<string>('');
+  const [selectedTarget, setSelectedTarget] = useState<string>(() => {
+    if (initialTargetComputer !== 'All' && !['local', 'laptop', 'railway'].includes(initialTargetComputer.toLowerCase())) {
+      return 'custom';
+    }
+    return initialTargetComputer;
+  });
+  const [customTarget, setCustomTarget] = useState<string>(() => {
+    if (initialTargetComputer !== 'All' && !['local', 'laptop', 'railway'].includes(initialTargetComputer.toLowerCase())) {
+      return initialTargetComputer;
+    }
+    return '';
+  });
 
   const [accounts, setAccounts] = useState<any[]>([]);
-  const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]);
+  const [selectedAccounts, setSelectedAccounts] = useState<string[]>(() => {
+    if (initialTargets && initialTargets.length > 0) {
+      return initialTargets.map(t => t.account_id);
+    }
+    return [];
+  });
 
   useEffect(() => {
     const fetchAccounts = async () => {
@@ -58,12 +77,14 @@ export default function DeployModal({
           // The API returns either { data: [...] } or { accounts: [...] } or direct array
           const list = data.data || data.accounts || (Array.isArray(data) ? data : []);
           setAccounts(list);
-          // Auto select active account or first account
-          const active = list.find((a: any) => a.is_active || a.active);
-          if (active) {
-            setSelectedAccounts([active.account_id]);
-          } else if (list.length > 0) {
-            setSelectedAccounts([list[0].account_id]);
+          // Auto select active account or first account if we don't have initialTargets
+          if (initialTargets.length === 0) {
+            const active = list.find((a: any) => a.is_active || a.active);
+            if (active) {
+              setSelectedAccounts([active.account_id]);
+            } else if (list.length > 0) {
+              setSelectedAccounts([list[0].account_id]);
+            }
           }
         }
       } catch (err) {
@@ -71,7 +92,7 @@ export default function DeployModal({
       }
     };
     fetchAccounts();
-  }, []);
+  }, [initialTargets]);
 
   const checkHostStatus = async (hostIndex: number) => {
     const host = hosts[hostIndex];

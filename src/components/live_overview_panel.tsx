@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Play, Pause, Trash2, Clock, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { API_BASE_URL } from '../api';
+import DeployModal from './deploy_modal';
 
 interface LiveStrategy {
   id: string;
@@ -22,6 +23,10 @@ interface LiveStrategy {
   useGlobalClose: boolean;
   globalCloseTime: string;
   entryStabilityRule: string;
+  broker: string;
+  account_id?: string;
+  target_computer?: string;
+  targets?: Array<{ broker: string; account_id: string }>;
   live_state?: {
     stage?: string;
     consec_bars?: number;
@@ -312,164 +317,47 @@ export default function LiveOverviewPanel({ isMobileLayout = false }: LiveOvervi
         )}
       </div>
 
-      {/* Edit Strategy Modal */}
+      {/* Edit Strategy Modal using DeployModal */}
       {editingStrategy && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.75)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 9999,
-          padding: '16px'
-        }}>
-          <div style={{
-            backgroundColor: '#111827',
-            border: '1px solid #1f2937',
-            borderRadius: '12px',
-            padding: '20px',
-            width: '100%',
-            maxWidth: '440px',
-            color: '#f3f4f6'
-          }}>
-            <h3 style={{ margin: '0 0 16px 0', fontSize: '15px', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>✏️ Edit Live Strategy Parameters</span>
-              <button 
-                onClick={() => setEditingStrategy(null)}
-                style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: '16px' }}
-              >
-                ✕
-              </button>
-            </h3>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '12px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <label>Stop Loss Value</label>
-                  <input
-                    type="number"
-                    value={editingStrategy.slVal}
-                    onChange={(e) => setEditingStrategy({ ...editingStrategy, slVal: parseFloat(e.target.value) || 0 })}
-                    style={{ backgroundColor: '#0b0f19', border: '1px solid #1f2937', padding: '6px 10px', color: '#fff', borderRadius: '6px' }}
-                  />
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <label>SL Type</label>
-                  <select
-                    value={editingStrategy.slType}
-                    onChange={(e) => setEditingStrategy({ ...editingStrategy, slType: e.target.value })}
-                    style={{ backgroundColor: '#0b0f19', border: '1px solid #1f2937', padding: '6px 10px', color: '#fff', borderRadius: '6px' }}
-                  >
-                    <option value="price">Price</option>
-                    <option value="pct">Percentage</option>
-                    <option value="dollar">Dollar Distance</option>
-                  </select>
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <label>Risk Reward (RR)</label>
-                  <input
-                    type="number"
-                    value={editingStrategy.rr}
-                    onChange={(e) => setEditingStrategy({ ...editingStrategy, rr: parseFloat(e.target.value) || 0 })}
-                    style={{ backgroundColor: '#0b0f19', border: '1px solid #1f2937', padding: '6px 10px', color: '#fff', borderRadius: '6px' }}
-                  />
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <label>Lookback Window</label>
-                  <input
-                    type="number"
-                    value={editingStrategy.lookbackWindow}
-                    onChange={(e) => setEditingStrategy({ ...editingStrategy, lookbackWindow: parseInt(e.target.value) || 0 })}
-                    style={{ backgroundColor: '#0b0f19', border: '1px solid #1f2937', padding: '6px 10px', color: '#fff', borderRadius: '6px' }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={editingStrategy.useRiskSizing}
-                    onChange={(e) => setEditingStrategy({ ...editingStrategy, useRiskSizing: e.target.checked })}
-                  />
-                  Use Risk Sizing (%)
-                </label>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <label>Risk Percentage (%)</label>
-                  <input
-                    type="number"
-                    disabled={!editingStrategy.useRiskSizing}
-                    value={editingStrategy.riskPct}
-                    onChange={(e) => setEditingStrategy({ ...editingStrategy, riskPct: parseFloat(e.target.value) || 0 })}
-                    style={{ backgroundColor: '#0b0f19', border: '1px solid #1f2937', padding: '6px 10px', color: '#fff', borderRadius: '6px', opacity: editingStrategy.useRiskSizing ? 1 : 0.5 }}
-                  />
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <label>Fixed Lot Size</label>
-                  <input
-                    type="number"
-                    disabled={editingStrategy.useRiskSizing}
-                    value={editingStrategy.size}
-                    onChange={(e) => setEditingStrategy({ ...editingStrategy, size: parseFloat(e.target.value) || 0 })}
-                    style={{ backgroundColor: '#0b0f19', border: '1px solid #1f2937', padding: '6px 10px', color: '#fff', borderRadius: '6px', opacity: !editingStrategy.useRiskSizing ? 1 : 0.5 }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <label>Target Computer (Host)</label>
-                <input
-                  type="text"
-                  value={editingStrategy.target_computer}
-                  onChange={(e) => setEditingStrategy({ ...editingStrategy, target_computer: e.target.value })}
-                  style={{ backgroundColor: '#0b0f19', border: '1px solid #1f2937', padding: '6px 10px', color: '#fff', borderRadius: '6px' }}
-                />
-              </div>
-
-              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                <button
-                  onClick={async () => {
-                    try {
-                      const res = await fetch(`${API_BASE_URL}/api/live/strategy`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(editingStrategy)
-                      });
-                      const data = await res.json();
-                      if (data.status === 'success') {
-                        setEditingStrategy(null);
-                        fetchStrategies();
-                      } else {
-                        alert(data.message || 'Failed to save strategy changes');
-                      }
-                    } catch (err: any) {
-                      alert(err.message || 'Error saving changes');
-                    }
-                  }}
-                  style={{ flex: 1, backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '8px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}
-                >
-                  Save Changes
-                </button>
-                <button
-                  onClick={() => setEditingStrategy(null)}
-                  style={{ flex: 1, backgroundColor: '#374151', color: '#fff', border: 'none', padding: '8px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <DeployModal
+          symbol={editingStrategy.symbol}
+          timeframe={editingStrategy.timeframe}
+          slVal={editingStrategy.slVal.toString()}
+          slType={editingStrategy.slType}
+          rr={editingStrategy.rr.toString()}
+          size={editingStrategy.size.toString()}
+          useRiskSizing={editingStrategy.useRiskSizing}
+          riskPct={editingStrategy.riskPct.toString()}
+          initialTargetComputer={editingStrategy.target_computer || 'All'}
+          initialTargets={editingStrategy.targets || [{ broker: editingStrategy.broker, account_id: editingStrategy.account_id }]}
+          onClose={() => setEditingStrategy(null)}
+          onConfirm={async (targetComputer, targets) => {
+            try {
+              const updatedConfig = {
+                ...editingStrategy,
+                target_computer: targetComputer,
+                targets: targets,
+                // also fallback main account_id & broker for backwards-compatibility compatibility
+                account_id: targets.length > 0 ? targets[0].account_id : editingStrategy.account_id,
+                broker: targets.length > 0 ? targets[0].broker : editingStrategy.broker
+              };
+              const res = await fetch(`${API_BASE_URL}/api/live/strategy`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedConfig)
+              });
+              const data = await res.json();
+              if (data.status === 'success') {
+                setEditingStrategy(null);
+                fetchStrategies();
+              } else {
+                alert(data.message || 'Failed to save strategy changes');
+              }
+            } catch (err: any) {
+              alert(err.message || 'Error saving changes');
+            }
+          }}
+        />
       )}
     </div>
   );
