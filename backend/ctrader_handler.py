@@ -18,6 +18,7 @@ class CTraderHandler(BaseBrokerHandler):
         "broker": "FTMO (cTrader)"
     }
     _cached_positions = []
+    _connection_states = {}
 
     @staticmethod
     def _send_and_receive(payload_type: int, payload: dict, account_id: str = None, token: str = None) -> dict:
@@ -46,6 +47,7 @@ class CTraderHandler(BaseBrokerHandler):
         host = "demo.ctraderapi.com" if is_demo else "live.ctraderapi.com"
         url = f"wss://{host}:5036"
 
+        is_first_attempt = account_id_str not in CTraderHandler._connection_states
         ws = create_connection(url, sslopt={"cert_reqs": ssl.CERT_NONE}, timeout=10)
         try:
             # 1. Send Application Auth (payloadType = 2100)
@@ -60,7 +62,9 @@ class CTraderHandler(BaseBrokerHandler):
             ws.send(json.dumps(app_auth))
             res1 = json.loads(ws.recv())
             if res1.get("payloadType") == 50 or res1.get("payloadType") == 2142: # Error
-                print(f"App Auth Error: {res1}")
+                if is_first_attempt or CTraderHandler._connection_states.get(account_id_str) != "failed_app_auth":
+                    print(f"[cTrader Connection Failure] Account: {account_id_str} | Host: {host} | Reason: App auth failed | Details: {res1}", flush=True)
+                    CTraderHandler._connection_states[account_id_str] = "failed_app_auth"
                 raise ConnectionError(f"Application Authentication Failed: {res1.get('payload')}")
 
             # 2. Send Account Auth (payloadType = 2102) if token & account are available
@@ -76,8 +80,15 @@ class CTraderHandler(BaseBrokerHandler):
                 ws.send(json.dumps(acc_auth))
                 res2 = json.loads(ws.recv())
                 if res2.get("payloadType") == 50 or res2.get("payloadType") == 2142: # Error
-                    print(f"Account Auth Error: {res2}")
+                    if is_first_attempt or CTraderHandler._connection_states.get(account_id_str) != "failed_acc_auth":
+                        print(f"[cTrader Connection Failure] Account: {account_id_str} | Host: {host} | Reason: Account auth failed | Details: {res2}", flush=True)
+                        CTraderHandler._connection_states[account_id_str] = "failed_acc_auth"
                     raise ConnectionError(f"Account Authentication Failed: {res2.get('payload')}")
+
+            # Connection success
+            if is_first_attempt or CTraderHandler._connection_states.get(account_id_str) != "connected":
+                print(f"[cTrader Connection Success] Account: {account_id_str} | Host: {host} | Status: Connected and authenticated successfully", flush=True)
+                CTraderHandler._connection_states[account_id_str] = "connected"
 
             # 3. Dispatch requested OpenAPI message
             # If payload needs account ID, inject it

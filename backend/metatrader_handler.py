@@ -9,6 +9,29 @@ except ImportError:
 from base_broker_handler import BaseBrokerHandler
 
 class MetaTraderHandler(BaseBrokerHandler):
+    _connection_states = {}
+
+    @staticmethod
+    def _initialize_mt5(login: int, password: str, server: str) -> bool:
+        if not MT5_AVAILABLE:
+            return False
+        
+        login_str = str(login)
+        is_first_attempt = login_str not in MetaTraderHandler._connection_states
+        
+        success = mt5.initialize(login=int(login), password=password, server=server)
+        if not success:
+            error_code, error_desc = mt5.last_error()
+            if is_first_attempt or MetaTraderHandler._connection_states.get(login_str) != "failed":
+                print(f"[MetaTrader Connection Failure] Account: {login_str} | Server: {server} | Reason: Initialization failed | Error Code: {error_code} | Details: {error_desc}", flush=True)
+                MetaTraderHandler._connection_states[login_str] = "failed"
+            return False
+            
+        if is_first_attempt or MetaTraderHandler._connection_states.get(login_str) != "connected":
+            print(f"[MetaTrader Connection Success] Account: {login_str} | Server: {server} | Status: Initialized successfully", flush=True)
+            MetaTraderHandler._connection_states[login_str] = "connected"
+        return True
+
     @staticmethod
     def _resolve_credentials(login=None, password=None, server=None, **kwargs):
         # Check if login looks like the default mock/placeholder value
@@ -56,9 +79,7 @@ class MetaTraderHandler(BaseBrokerHandler):
                 })
             return mock_candles
 
-        if not mt5.initialize(login=int(login), password=password, server=server):
-            error_code, error_desc = mt5.last_error()
-            print(f"MT5 Initialization failed: error code {error_code}, desc: {error_desc}", flush=True)
+        if not MetaTraderHandler._initialize_mt5(login, password, server):
             return []
 
         # Map timeframe string to MT5 timeframe constants
@@ -169,7 +190,7 @@ class MetaTraderHandler(BaseBrokerHandler):
                 "broker": "Local Mock Broker"
             }
 
-        if not mt5.initialize(login=int(login), password=password, server=server):
+        if not MetaTraderHandler._initialize_mt5(login, password, server):
             return {}
         info = mt5.account_info()
         if info is None:
@@ -200,7 +221,7 @@ class MetaTraderHandler(BaseBrokerHandler):
         if not MT5_AVAILABLE:
             return []
 
-        if not mt5.initialize(login=int(login), password=password, server=server):
+        if not MetaTraderHandler._initialize_mt5(login, password, server):
             return []
         positions = mt5.positions_get()
         if positions is None:
@@ -234,7 +255,7 @@ class MetaTraderHandler(BaseBrokerHandler):
         if not MT5_AVAILABLE:
             return {"status": "error", "message": "MetaTrader 5 execution is disabled on this platform (Linux/Railway)."}
 
-        if not mt5.initialize(login=int(login), password=password, server=server):
+        if not MetaTraderHandler._initialize_mt5(login, password, server):
             return {"status": "error", "message": "Failed to initialize MT5"}
         
         from symbol_mapping_handler import SymbolMappingHandler
@@ -300,7 +321,7 @@ class MetaTraderHandler(BaseBrokerHandler):
         if not MT5_AVAILABLE:
             return {"status": "error", "message": "MT5 unavailable"}
             
-        if not mt5.initialize(login=int(login), password=password, server=server):
+        if not MetaTraderHandler._initialize_mt5(login, password, server):
             return {"status": "error", "message": "Failed to initialize MT5"}
             
         is_buy = side.upper() == 'BUY'
@@ -348,7 +369,7 @@ class MetaTraderHandler(BaseBrokerHandler):
         if not MT5_AVAILABLE:
             return ["BTCUSD", "ETHUSD", "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "XAUUSD", "US30", "GER40"]
 
-        if not mt5.initialize(login=int(login), password=password, server=server):
+        if not MetaTraderHandler._initialize_mt5(login, password, server):
             return ["BTCUSD", "ETHUSD", "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "XAUUSD", "US30", "GER40"]
         symbols = mt5.symbols_get()
         if symbols:
@@ -364,7 +385,7 @@ class MetaTraderHandler(BaseBrokerHandler):
         if not MT5_AVAILABLE:
             return []
 
-        if not mt5.initialize(login=int(login), password=password, server=server):
+        if not MetaTraderHandler._initialize_mt5(login, password, server):
             return []
 
         import time
