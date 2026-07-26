@@ -101,6 +101,18 @@ class LiveRunner:
         print(f"[Live Runner] New candle detected for strategy {strategy_id} ({symbol} {timeframe}) at {datetime.fromtimestamp(candle_time)}", flush=True)
 
         if should_buy or should_sell:
+            direction = "BUY" if should_buy else "SELL"
+            close_price = last_completed_candle.get("close", 0)
+            from discord_handler import send_discord_message
+            discord_msg = (
+                f"🚨 **New Trade Signal Detected!**\n"
+                f"🎛️ **Strategy ID:** `{strategy_id}`\n"
+                f"📊 **Symbol:** `{symbol}`\n"
+                f"⏱️ **Timeframe:** `{timeframe}`\n"
+                f"➡️ **Direction:** `{direction}`\n"
+                f"💵 **Price:** `{close_price:.5f}`"
+            )
+            send_discord_message(discord_msg)
             cls._execute_trade(strategy, should_buy, should_sell, last_completed_candle)
 
         # Mark as processed

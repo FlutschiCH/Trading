@@ -151,37 +151,8 @@ if __name__ == '__main__':
         from notification_handler import NotificationHandler
         NotificationHandler.play_sound("startup")
         
-        def notify_discord_startup():
-            import urllib.request
-            import socket
-            public_ip = "Unknown"
-            try:
-                req = urllib.request.Request("https://api.ipify.org", headers={'User-Agent': 'Mozilla/5.0'})
-                with urllib.request.urlopen(req, timeout=5) as response:
-                    public_ip = response.read().decode('utf-8').strip()
-            except Exception as e:
-                print(f"Failed to fetch public IP: {e}", flush=True)
-                
-            local_ip = "Unknown"
-            try:
-                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                s.connect(('8.8.8.8', 1))
-                local_ip = s.getsockname()[0]
-                s.close()
-            except Exception as e:
-                print(f"Failed to fetch local IP: {e}", flush=True)
-                
-            computer_name = "Unknown"
-            try:
-                computer_name = socket.gethostname()
-            except Exception as e:
-                print(f"Failed to fetch computer name: {e}", flush=True)
-                
-            msg = f"🚀 **Trading App Started!**\n💻 **Computer Name:** `{computer_name}`\n🌐 **Public IP:** `{public_ip}`\n🏠 **Local IP:** `{local_ip}`\n🔌 **Port:** `{port}`"
-            NotificationHandler.send_discord_message(msg)
-            
-        import threading
-        threading.Thread(target=notify_discord_startup, daemon=True).start()
+        from discord_handler import notify_discord_startup
+        notify_discord_startup(port)
     except Exception as e:
         print(f"Failed to play startup sound or notify discord: {e}", flush=True)
         
