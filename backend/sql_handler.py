@@ -196,5 +196,9 @@ class SQLHandler:
             parts = query.split("ON DUPLICATE KEY UPDATE")
             if len(parts) == 2:
                 sqlite_query = f"{parts[0]} ON CONFLICT({conflict_target}) DO UPDATE SET {parts[1]}"
+                
+                # Replace VALUES(col) with excluded.col for SQLite compatibility
+                import re
+                sqlite_query = re.sub(r'VALUES\((.*?)\)', r'excluded.\1', sqlite_query, flags=re.IGNORECASE)
                 return sqlite_query
         return query
