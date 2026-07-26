@@ -596,6 +596,8 @@ export default function Dashboard() {
 
   // Live strategy states
   const [liveStrategy, setLiveStrategy] = useState<any>(null);
+  const [liveStrategies, setLiveStrategies] = useState<any[]>([]);
+  const [selectedStrategyId, setSelectedStrategyId] = useState<string>(() => localStorage.getItem('wyckoff_selected_live_strategy_id') || '');
   const [isDeploying, setIsDeploying] = useState(false);
 
   const lastNotifiedSignalRef = useRef<number>(0);
@@ -1194,6 +1196,21 @@ export default function Dashboard() {
   useEffect(() => {
     const loadLiveStrategyAndPerms = async () => {
       try {
+        const stratRes = await fetch(`${API_BASE_URL}/api/live/strategies`);
+        const stratData = await stratRes.json();
+        if (stratData.status === 'success' && Array.isArray(stratData.strategies)) {
+          setLiveStrategies(stratData.strategies);
+          // If no selectedStrategyId is saved yet, fallback to the first active strategy
+          if (!selectedStrategyId && stratData.strategies.length > 0) {
+            setSelectedStrategyId(stratData.strategies[0].id);
+            localStorage.setItem('wyckoff_selected_live_strategy_id', stratData.strategies[0].id);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to load live strategies:', e);
+      }
+
+      try {
         const stratRes = await fetch(`${API_BASE_URL}/api/live/strategy`);
         const stratData = await stratRes.json();
         if (stratData.status === 'success' && stratData.strategy) {
@@ -1220,9 +1237,9 @@ export default function Dashboard() {
     try {
       let rawCandles: Candle[] = [];
       
-      if (isLiveFeed && liveStrategy) {
+      if (isLiveFeed && selectedStrategyId) {
         try {
-          const response = await fetch(`${API_BASE_URL}/api/live/strategy/cache/${liveStrategy.id}`);
+          const response = await fetch(`${API_BASE_URL}/api/live/strategy/cache/${selectedStrategyId}`);
           const result = await response.json();
           if (result && result.status === 'success' && Array.isArray(result.candles)) {
             rawCandles = result.candles.sort((a: Candle, b: Candle) => a.time - b.time);
@@ -2838,6 +2855,12 @@ export default function Dashboard() {
                       hiddenStages={hiddenStages}
                       isLiveFeed={isLiveFeed}
                       onLiveFeedChange={setIsLiveFeed}
+                      liveStrategies={liveStrategies}
+                      selectedStrategyId={selectedStrategyId}
+                      onSelectedStrategyIdChange={(id) => {
+                        setSelectedStrategyId(id);
+                        localStorage.setItem('wyckoff_selected_live_strategy_id', id);
+                      }}
                     />
                   </div>
                   {renderResizeHandle('chart')}

@@ -63,6 +63,9 @@ interface TVChartProps {
   hiddenStages?: string[];
   isLiveFeed?: boolean;
   onLiveFeedChange?: (active: boolean) => void;
+  liveStrategies?: any[];
+  selectedStrategyId?: string;
+  onSelectedStrategyIdChange?: (id: string) => void;
 }
 
 export default function TVChart({
@@ -98,7 +101,10 @@ export default function TVChart({
   locateTimestamp = null,
   hiddenStages = [],
   isLiveFeed = false,
-  onLiveFeedChange
+  onLiveFeedChange,
+  liveStrategies = [],
+  selectedStrategyId = '',
+  onSelectedStrategyIdChange
 }: TVChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const weisContainerRef = useRef<HTMLDivElement>(null);
@@ -1894,36 +1900,65 @@ export default function TVChart({
             </div>
           )}
           {onLiveFeedChange && (
-            <button
-              onClick={() => {
-                const nextVal = !isLiveFeed;
-                localStorage.setItem('wyckoff_is_live_feed', String(nextVal));
-                onLiveFeedChange(nextVal);
-              }}
-              style={{
-                ...styles.refreshBtn,
-                backgroundColor: isLiveFeed ? '#10b981' : '#1f2937',
-                color: '#ffffff',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '6px 12px',
-                fontSize: '12px',
-                fontWeight: 'bold',
-                boxShadow: isLiveFeed ? '0 0 10px rgba(16, 185, 129, 0.4)' : 'none'
-              }}
-              title="Toggle Live Feed (forces cache-updates from backend live runner)"
-            >
-              <span style={{
-                width: '6px',
-                height: '6px',
-                borderRadius: '50%',
-                backgroundColor: isLiveFeed ? '#ffffff' : '#9ca3af',
-                display: 'inline-block',
-                animation: isLiveFeed ? 'pulse 1.5s infinite' : 'none'
-              }}></span>
-              Live Feed
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {isLiveFeed && liveStrategies.length > 0 && onSelectedStrategyIdChange && (
+                <select
+                  value={selectedStrategyId}
+                  onChange={(e) => {
+                    onSelectedStrategyIdChange(e.target.value);
+                    // trigger refresh of candles with the newly selected strategy's cache
+                    setTimeout(() => onRefresh(), 50);
+                  }}
+                  style={{
+                    backgroundColor: '#1f2937',
+                    border: '1px solid #334155',
+                    borderRadius: '6px',
+                    color: '#ffffff',
+                    fontSize: '12px',
+                    padding: '6px 10px',
+                    cursor: 'pointer',
+                    outline: 'none'
+                  }}
+                >
+                  {liveStrategies.map(strat => (
+                    <option key={strat.id} value={strat.id}>
+                      {strat.name ? `${strat.name} (${strat.symbol} ${strat.timeframe})` : `${strat.symbol} ${strat.timeframe}`}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <button
+                onClick={() => {
+                  const nextVal = !isLiveFeed;
+                  localStorage.setItem('wyckoff_is_live_feed', String(nextVal));
+                  onLiveFeedChange(nextVal);
+                  setTimeout(() => onRefresh(), 50);
+                }}
+                style={{
+                  ...styles.refreshBtn,
+                  backgroundColor: isLiveFeed ? '#10b981' : '#1f2937',
+                  color: '#ffffff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 12px',
+                  fontSize: '12px',
+                  fontWeight: 'bold',
+                  boxShadow: isLiveFeed ? '0 0 10px rgba(16, 185, 129, 0.4)' : 'none'
+                }}
+                title="Toggle Live Feed (forces cache-updates from backend live runner)"
+              >
+                <span style={{
+                  width: '6px',
+                  height: '6px',
+                  borderRadius: '50%',
+                  backgroundColor: isLiveFeed ? '#ffffff' : '#9ca3af',
+                  display: 'inline-block',
+                  animation: isLiveFeed ? 'pulse 1.5s infinite' : 'none'
+                }}></span>
+                Live Feed
+              </button>
+            </div>
           )}
           <button
             onClick={onRefresh}
