@@ -1901,32 +1901,6 @@ export default function TVChart({
           )}
           {onLiveFeedChange && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              {isLiveFeed && liveStrategies.length > 0 && onSelectedStrategyIdChange && (
-                <select
-                  value={selectedStrategyId}
-                  onChange={(e) => {
-                    onSelectedStrategyIdChange(e.target.value);
-                    // trigger refresh of candles with the newly selected strategy's cache
-                    setTimeout(() => onRefresh(), 50);
-                  }}
-                  style={{
-                    backgroundColor: '#1f2937',
-                    border: '1px solid #334155',
-                    borderRadius: '6px',
-                    color: '#ffffff',
-                    fontSize: '12px',
-                    padding: '6px 10px',
-                    cursor: 'pointer',
-                    outline: 'none'
-                  }}
-                >
-                  {liveStrategies.map(strat => (
-                    <option key={strat.id} value={strat.id}>
-                      {strat.name ? `${strat.name} (${strat.symbol} ${strat.timeframe})` : `${strat.symbol} ${strat.timeframe}`}
-                    </option>
-                  ))}
-                </select>
-              )}
               <button
                 onClick={() => {
                   const nextVal = !isLiveFeed;

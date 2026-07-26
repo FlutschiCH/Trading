@@ -3059,7 +3059,19 @@ export default function Dashboard() {
                     <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header to Move</span>
                   </div>
                   <div className="no-drag" style={contentStyle}>
-                    <LiveOverviewPanel isMobileLayout={false} />
+                    <LiveOverviewPanel 
+                      isMobileLayout={false} 
+                      selectedStrategyId={selectedStrategyId}
+                      isLiveFeed={isLiveFeed}
+                      onSelectStrategy={(id) => {
+                        setSelectedStrategyId(id);
+                        localStorage.setItem('wyckoff_selected_live_strategy_id', id);
+                        setIsLiveFeed(true);
+                        localStorage.setItem('wyckoff_is_live_feed', 'true');
+                        // Trigger candle fetch on active display update
+                        setTimeout(() => fetchCandles(), 50);
+                      }}
+                    />
                   </div>
                   {renderResizeHandle('live_overview')}
                 </div>

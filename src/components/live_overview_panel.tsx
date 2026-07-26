@@ -44,9 +44,17 @@ interface LiveStrategy {
 
 interface LiveOverviewPanelProps {
   isMobileLayout?: boolean;
+  selectedStrategyId?: string;
+  onSelectStrategy?: (strategyId: string) => void;
+  isLiveFeed?: boolean;
 }
 
-export default function LiveOverviewPanel({ isMobileLayout = false }: LiveOverviewPanelProps) {
+export default function LiveOverviewPanel({ 
+  isMobileLayout = false,
+  selectedStrategyId = '',
+  onSelectStrategy,
+  isLiveFeed = false
+}: LiveOverviewPanelProps) {
   const [strategies, setStrategies] = useState<LiveStrategy[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -185,6 +193,24 @@ export default function LiveOverviewPanel({ isMobileLayout = false }: LiveOvervi
                     </span>
                   </div>
                   <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    {onSelectStrategy && (
+                      <button
+                        onClick={() => onSelectStrategy(strategy.id)}
+                        style={{
+                          backgroundColor: selectedStrategyId === strategy.id && isLiveFeed ? 'rgba(16, 185, 129, 0.15)' : '#1e293b',
+                          color: selectedStrategyId === strategy.id && isLiveFeed ? '#10b981' : '#d1d5db',
+                          border: `1px solid ${selectedStrategyId === strategy.id && isLiveFeed ? '#10b981' : '#334155'}`,
+                          borderRadius: '4px',
+                          padding: '4px 8px',
+                          cursor: 'pointer',
+                          fontSize: '10px',
+                          fontWeight: 'bold',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        {selectedStrategyId === strategy.id && isLiveFeed ? '📺 Displaying' : '📊 Display on Chart'}
+                      </button>
+                    )}
                     <button
                       onClick={() => setEditingStrategy(strategy)}
                       style={{
