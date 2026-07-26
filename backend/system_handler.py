@@ -16,3 +16,16 @@ class SystemHandler:
         # Run in a separate thread so the response can be returned to the client first
         threading.Thread(target=exit_func, daemon=True).start()
         return {"status": "success", "message": "Server is restarting"}
+
+    @staticmethod
+    def get_status():
+        import socket
+        try:
+            comp_name = socket.gethostname()
+        except:
+            comp_name = "Unknown"
+        return {
+            "status": "online",
+            "computer_name": comp_name,
+            "os": sys.platform
+        }

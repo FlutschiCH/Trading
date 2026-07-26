@@ -8,3 +8,8 @@ system_routes = Blueprint('system_routes', __name__)
 def restart_server():
     res = SystemHandler.restart_server()
     return jsonify(res)
+
+@system_routes.route('/system/status', methods=['GET'])
+def get_status():
+    res = SystemHandler.get_status()
+    return jsonify(res)
