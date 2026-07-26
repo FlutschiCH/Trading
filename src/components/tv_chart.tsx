@@ -99,6 +99,8 @@ export default function TVChart({
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const weisContainerRef = useRef<HTMLDivElement>(null);
 
+  const [liveStrategyState, setLiveStrategyState] = useState<any>(null);
+
   const [replayTime, setReplayTime] = useState<number | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1000);
@@ -108,6 +110,35 @@ export default function TVChart({
   useEffect(() => {
     replayToolActiveRef.current = replayToolActive;
   }, [replayToolActive]);
+
+  useEffect(() => {
+    if (!chartSettings.showLiveRunnerOverlay) {
+      setLiveStrategyState(null);
+      return;
+    }
+
+    const fetchLiveState = async () => {
+      try {
+        const { API_BASE_URL } = await import('../api');
+        const res = await fetch(`${API_BASE_URL}/api/live/strategies`);
+        const data = await res.json();
+        if (data.status === 'success' && data.strategies) {
+          const matched = data.strategies.find((s: any) => 
+            s.symbol === symbol && 
+            s.timeframe === timeframe && 
+            s.status === 'active'
+          );
+          setLiveStrategyState(matched ? matched.live_state : null);
+        }
+      } catch (err) {
+        console.error("Failed to fetch live strategies:", err);
+      }
+    };
+
+    fetchLiveState();
+    const interval = setInterval(fetchLiveState, 10000);
+    return () => clearInterval(interval);
+  }, [chartSettings.showLiveRunnerOverlay, symbol, timeframe]);
 
   const activeCandles = replayTime !== null
     ? candles.filter(c => Number(c.time) <= replayTime)
@@ -398,6 +429,7 @@ export default function TVChart({
         showSessions: true,
         showTrades: true,
         showTrLines: true,
+        showLiveRunnerOverlay: false,
       };
     } catch {
       return {
@@ -405,6 +437,7 @@ export default function TVChart({
         showSessions: true,
         showTrades: true,
         showTrLines: true,
+        showLiveRunnerOverlay: false,
       };
     }
   });
@@ -1958,6 +1991,15 @@ export default function TVChart({
                     />
                     Trading Range (TR)
                   </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}>
+                    <input
+                      type="checkbox"
+                      checked={chartSettings.showLiveRunnerOverlay || false}
+                      onChange={(e) => setChartSettings({ ...chartSettings, showLiveRunnerOverlay: e.target.checked })}
+                      style={{ cursor: 'pointer' }}
+                    />
+                    Live Analysis Overlay
+                  </label>
                 </div>
               </>
             )}
@@ -1981,6 +2023,77 @@ export default function TVChart({
 
         <div style={{ position: 'relative', height: chartHeight }}>
           <div ref={chartContainerRef} style={{ width: '100%', height: '100%', touchAction: 'none' }} />
+
+          {chartSettings.showLiveRunnerOverlay && liveStrategyState && (
+            <div style={{
+              position: 'absolute',
+              top: '12px',
+              left: '12px',
+              zIndex: 100,
+              backgroundColor: 'rgba(15, 23, 42, 0.85)',
+              backdropFilter: 'blur(8px)',
+              border: '1.5px solid #10b981',
+              boxShadow: '0 0 15px rgba(16, 185, 129, 0.15)',
+              borderRadius: '10px',
+              padding: '12px',
+              width: '260px',
+              color: '#f8fafc',
+              fontSize: '11px',
+              pointerEvents: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '6px'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(148, 163, 184, 0.15)', paddingBottom: '6px' }}>
+                <span style={{ fontWeight: 'bold', color: '#10b981', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10b981', display: 'inline-block', boxShadow: '0 0 6px #10b981' }}></span>
+                  LIVE STRATEGY OVERVIEW
+                </span>
+                <span style={{ fontSize: '9px', color: '#94a3b8', textTransform: 'uppercase' }}>
+                  {symbol} {timeframe}
+                </span>
+              </div>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 12px' }}>
+                <div>
+                  <span style={{ color: '#64748b', display: 'block', fontSize: '9px' }}>Current Stage</span>
+                  <span style={{
+                    fontWeight: 'bold',
+                    color: liveStrategyState.stage === 'ACCUMULATION' ? '#3b82f6' : 
+                           liveStrategyState.stage === 'MARKUP' ? '#10b981' : 
+                           liveStrategyState.stage === 'DISTRIBUTION' ? '#f59e0b' : 
+                           liveStrategyState.stage === 'MARKDOWN' ? '#ef4444' : '#cbd5e1'
+                  }}>{liveStrategyState.stage || 'TRANSITION'}</span>
+                </div>
+                <div>
+                  <span style={{ color: '#64748b', display: 'block', fontSize: '9px' }}>Consecutive Bars</span>
+                  <span style={{ fontWeight: 'bold', color: '#cbd5e1' }}>{liveStrategyState.consec_bars || 0}</span>
+                </div>
+                {liveStrategyState.pending_buy && (
+                  <div style={{ gridColumn: 'span 2', backgroundColor: 'rgba(16, 185, 129, 0.1)', padding: '4px 8px', borderRadius: '4px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                    <span style={{ color: '#10b981', fontWeight: 'bold' }}>Spring Pending (Age: {liveStrategyState.pending_buy_age}/15)</span>
+                    <span style={{ display: 'block', fontSize: '9px', color: '#94a3b8' }}>Target High: {liveStrategyState.spring_high ? liveStrategyState.spring_high.toFixed(5) : 'N/A'}</span>
+                  </div>
+                )}
+                {liveStrategyState.pending_sell && (
+                  <div style={{ gridColumn: 'span 2', backgroundColor: 'rgba(239, 68, 68, 0.1)', padding: '4px 8px', borderRadius: '4px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                    <span style={{ color: '#ef4444', fontWeight: 'bold' }}>Upthrust Pending (Age: {liveStrategyState.pending_sell_age}/15)</span>
+                    <span style={{ display: 'block', fontSize: '9px', color: '#94a3b8' }}>Target Low: {liveStrategyState.upthrust_low ? liveStrategyState.upthrust_low.toFixed(5) : 'N/A'}</span>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ borderTop: '1px solid rgba(148, 163, 184, 0.1)', paddingTop: '6px', marginTop: '2px' }}>
+                <span style={{ color: '#64748b', display: 'block', fontSize: '9px' }}>Status Message</span>
+                <span style={{ color: '#e2e8f0', display: 'block', lineHeight: '14px' }}>{liveStrategyState.status_message || 'Waiting for setup...'}</span>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: '#64748b', borderTop: '1px solid rgba(148, 163, 184, 0.1)', paddingTop: '6px', marginTop: '2px' }}>
+                <span>Candle: {liveStrategyState.last_candle_time ? liveStrategyState.last_candle_time.substring(11, 16) : 'N/A'}</span>
+                <span>Updated: {liveStrategyState.last_checked ? liveStrategyState.last_checked.substring(11, 19) : 'N/A'}</span>
+              </div>
+            </div>
+          )}
 
 
 
