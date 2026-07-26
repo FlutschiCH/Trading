@@ -97,16 +97,18 @@ interface CollapsibleCardProps {
   isCollapsed: boolean;
   onToggle: () => void;
   children: React.ReactNode;
+  style?: React.CSSProperties;
 }
 
-const CollapsibleCard = ({ title, isCollapsed, onToggle, children }: CollapsibleCardProps) => {
+const CollapsibleCard = ({ title, isCollapsed, onToggle, children, style }: CollapsibleCardProps) => {
   return (
     <div style={{
       backgroundColor: '#111827',
       border: '1px solid #1f2937',
       borderRadius: '6px',
       overflow: 'hidden',
-      transition: 'all 0.2s'
+      transition: 'all 0.2s',
+      ...style
     }}>
       <div
         onClick={onToggle}
@@ -1467,7 +1469,7 @@ export default function WyckoffBacktester({
       </fieldset>
 
         {(backtestResults || favouriteCandles.length > 0) && (
-          <CollapsibleCard title="Trades & Results" isCollapsed={collapsedSections.trades} onToggle={() => toggleSection('trades')}>
+          <CollapsibleCard title="Trades & Results" style={{ marginTop: '16px' }} isCollapsed={collapsedSections.trades} onToggle={() => toggleSection('trades')}>
             {backtestResults && (
               <>
                 {backtestResults.dailyLossBreached && (
