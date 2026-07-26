@@ -157,7 +157,13 @@ if __name__ == '__main__':
             except Exception as e:
                 print(f"Failed to fetch local IP: {e}", flush=True)
                 
-            msg = f"🚀 **Trading App Started!**\n🌐 **Public IP:** `{public_ip}`\n🏠 **Local IP:** `{local_ip}`\n🔌 **Port:** `{port}`"
+            computer_name = "Unknown"
+            try:
+                computer_name = socket.gethostname()
+            except Exception as e:
+                print(f"Failed to fetch computer name: {e}", flush=True)
+                
+            msg = f"🚀 **Trading App Started!**\n💻 **Computer Name:** `{computer_name}`\n🌐 **Public IP:** `{public_ip}`\n🏠 **Local IP:** `{local_ip}`\n🔌 **Port:** `{port}`"
             NotificationHandler.send_discord_message(msg)
             
         import threading
