@@ -386,7 +386,7 @@ export default function DeployModal({
           </label>
           <div style={{ display: 'flex', gap: '8px' }}>
             <select
-              value={hosts.some(h => h.computerName === selectedTarget) ? selectedTarget : (selectedTarget === 'All' ? 'All' : 'Custom')}
+              value={['All', 'Custom'].includes(selectedTarget) ? selectedTarget : (hosts.some(h => h.computerName === selectedTarget) ? selectedTarget : 'Custom')}
               onChange={(e) => {
                 const val = e.target.value;
                 if (val === 'Custom') {
@@ -408,7 +408,7 @@ export default function DeployModal({
               }}
             >
               <option value="All">All Computers (Load Balanced / All Active)</option>
-              {hosts.filter(h => h.online && h.computerName).map(h => (
+              {hosts.filter(h => h.computerName).map(h => (
                 <option key={h.computerName} value={h.computerName}>
                   Only on: {h.computerName} ({h.name})
                 </option>
