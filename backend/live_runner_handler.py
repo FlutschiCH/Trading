@@ -81,6 +81,27 @@ class LiveRunner:
         print(f"[Live Runner DEBUG] Resolved handler for broker '{broker_name}': {handler.__name__ if handler else 'None'}", flush=True)
 
         cached_candles = cls._candles_cache.get(strategy_id, [])
+        
+        # If cache exists, verify configuration hasn't changed.
+        if cached_candles:
+            # Check if any config parameter changed compared to what is currently cached
+            first_candle = cached_candles[0]
+            # If the lookback window or other parameters changed, clear cache to force warm-up
+            # We can check a class level metadata dict or simply verify lookback
+            # Let's save a config metadata dict for validation
+            if not hasattr(cls, '_cache_configs'):
+                cls._cache_configs = {}
+            prev_config = cls._cache_configs.get(strategy_id)
+            curr_config = (symbol, timeframe, lookback, broker_name)
+            if prev_config != curr_config:
+                print(f"[Live Runner] Strategy {strategy_id} configuration changed from {prev_config} to {curr_config}. Clearing cache.", flush=True)
+                cached_candles = []
+                cls._candles_cache[strategy_id] = []
+                cls._cache_configs[strategy_id] = curr_config
+        else:
+            if not hasattr(cls, '_cache_configs'):
+                cls._cache_configs = {}
+            cls._cache_configs[strategy_id] = (symbol, timeframe, lookback, broker_name)
 
         if not cached_candles:
             # First fetch: warm up with 5000 candles
