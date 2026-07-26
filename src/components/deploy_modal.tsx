@@ -92,7 +92,7 @@ export default function DeployModal({
       }
     };
     fetchAccounts();
-  }, [initialTargets]);
+  }, []);
 
   const checkHostStatus = async (hostIndex: number) => {
     const host = hosts[hostIndex];
