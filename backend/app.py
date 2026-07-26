@@ -27,6 +27,20 @@ CORS(app)
 # Register consolidated routes
 app.register_blueprint(api_blueprint, url_prefix='/api')
 
+@app.route('/')
+@app.route('/health')
+def root_health():
+    import socket
+    try:
+        computer_name = socket.gethostname()
+    except:
+        computer_name = "Unknown"
+    return {
+        "status": "online",
+        "computer_name": computer_name,
+        "message": "Trading Backend is running"
+    }, 200
+
 def run_auto_closer():
     import time
     from datetime import datetime, timezone as pytimezone
