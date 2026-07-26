@@ -172,6 +172,11 @@ export default function LiveOverviewPanel({ isMobileLayout = false }: LiveOvervi
                 {/* Symbol, Timeframe, Actions */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                   <div>
+                    {strategy.name && (
+                      <div style={{ fontSize: '10px', color: '#3b82f6', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '2px' }}>
+                        {strategy.name}
+                      </div>
+                    )}
                     <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#f8fafc', marginRight: '6px' }}>
                       {strategy.symbol}
                     </span>
@@ -330,11 +335,13 @@ export default function LiveOverviewPanel({ isMobileLayout = false }: LiveOvervi
           riskPct={editingStrategy.riskPct.toString()}
           initialTargetComputer={editingStrategy.target_computer || 'All'}
           initialTargets={editingStrategy.targets || [{ broker: editingStrategy.broker, account_id: editingStrategy.account_id }]}
+          initialName={editingStrategy.name || ''}
           onClose={() => setEditingStrategy(null)}
-          onConfirm={async (targetComputer, targets) => {
+          onConfirm={async (targetComputer, targets, name) => {
             try {
               const updatedConfig = {
                 ...editingStrategy,
+                name: name,
                 target_computer: targetComputer,
                 targets: targets,
                 // also fallback main account_id & broker for backwards-compatibility compatibility

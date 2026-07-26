@@ -23,8 +23,9 @@ interface DeployModalProps {
   riskPct: string;
   initialTargetComputer?: string;
   initialTargets?: Array<{ broker: string; account_id: string }>;
+  initialName?: string;
   onClose: () => void;
-  onConfirm: (targetComputer: string, targets: Array<{ broker: string; account_id: string }>) => void;
+  onConfirm: (targetComputer: string, targets: Array<{ broker: string; account_id: string }>, name: string) => void;
 }
 
 export default function DeployModal({
@@ -38,6 +39,7 @@ export default function DeployModal({
   riskPct,
   initialTargetComputer = 'All',
   initialTargets = [],
+  initialName = '',
   onClose,
   onConfirm,
 }: DeployModalProps) {
@@ -46,6 +48,8 @@ export default function DeployModal({
     { name: 'Laptop Server (Remote)', url: 'http://89.217.138.51:8751', type: 'laptop', online: false, loading: true },
     { name: 'Railway Cloud Container', url: 'https://trading-production-cb87.up.railway.app', type: 'railway', online: false, loading: true },
   ]);
+
+  const [strategyName, setStrategyName] = useState<string>(initialName);
 
   const [selectedTarget, setSelectedTarget] = useState<string>(() => {
     if (initialTargetComputer !== 'All' && !['local', 'laptop', 'railway'].includes(initialTargetComputer.toLowerCase())) {
@@ -168,7 +172,7 @@ export default function DeployModal({
       };
     });
 
-    onConfirm(finalTarget, targets);
+    onConfirm(finalTarget, targets, strategyName.trim());
   };
 
   return (
@@ -224,6 +228,30 @@ export default function DeployModal({
           <span style={{ fontSize: '11px', color: '#94a3b8' }}>
             Verify settings and select the targeting server host.
           </span>
+        </div>
+
+        {/* Strategy Name Input */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            Strategy Name
+          </label>
+          <input
+            type="text"
+            placeholder="E.g., Wyckoff EURUSD 15m Trend Follower..."
+            value={strategyName}
+            onChange={(e) => setStrategyName(e.target.value)}
+            style={{
+              backgroundColor: 'rgba(15, 23, 42, 0.4)',
+              border: '1px solid #334155',
+              borderRadius: '8px',
+              color: '#ffffff',
+              padding: '8px 12px',
+              fontSize: '13px',
+              outline: 'none',
+              width: '100%',
+              boxSizing: 'border-box'
+            }}
+          />
         </div>
 
         {/* Strategy Summary Card */}

@@ -28,6 +28,7 @@ class LiveStrategyHandler:
         create_mysql = """
         CREATE TABLE IF NOT EXISTS live_strategies (
             id VARCHAR(50) PRIMARY KEY,
+            name VARCHAR(100) DEFAULT '',
             symbol VARCHAR(50) NOT NULL,
             status VARCHAR(20) NOT NULL,
             timeframe VARCHAR(10) NOT NULL,
@@ -62,6 +63,14 @@ class LiveStrategyHandler:
         try:
             SQLHandler.execute_query(create_mysql)
             SQLHandler.execute_query(create_targets_table)
+            # Add name column if not exists
+            try:
+                SQLHandler.execute_query("SELECT name FROM live_strategies LIMIT 1")
+            except Exception:
+                try:
+                    SQLHandler.execute_query("ALTER TABLE live_strategies ADD COLUMN name VARCHAR(100) DEFAULT ''")
+                except Exception:
+                    pass
             # Add broker column if not exists
             try:
                 SQLHandler.execute_query("SELECT broker FROM live_strategies LIMIT 1")
@@ -111,13 +120,14 @@ class LiveStrategyHandler:
 
         query = """
         INSERT INTO live_strategies (
-            id, symbol, status, timeframe, slVal, slType, rr, size, 
+            id, name, symbol, status, timeframe, slVal, slType, rr, size, 
             useRiskSizing, riskPct, useBreakEven, beTriggerR, lookbackWindow, deployedAt,
             timezone, sessions, useGlobalClose, globalCloseTime, entryStabilityRule, broker, account_id, target_computer
         ) VALUES (
-            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
             %s, %s, %s, %s, %s, %s, %s, %s
         ) ON DUPLICATE KEY UPDATE 
+            name=VALUES(name),
             symbol=VALUES(symbol),
             status=VALUES(status),
             timeframe=VALUES(timeframe),
@@ -150,6 +160,7 @@ class LiveStrategyHandler:
 
         params = (
             strategy["id"],
+            strategy.get("name", ""),
             strategy["symbol"],
             strategy["status"],
             strategy["timeframe"],
@@ -288,6 +299,7 @@ class LiveStrategyHandler:
 
         return {
             "id": row["id"],
+            "name": row.get("name", "") or "",
             "symbol": row["symbol"],
             "status": row["status"],
             "timeframe": row["timeframe"],

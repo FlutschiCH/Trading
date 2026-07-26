@@ -20,6 +20,7 @@ def save_strategy():
     payload = request.get_json(silent=True) or {}
     strategy_config = {
         "id": payload.get("id"),
+        "name": payload.get("name", ""),
         "status": payload.get("status", "active"),  # 'active' or 'paused'
         "symbol": payload.get("symbol", "BTCUSD"),
         "timeframe": payload.get("timeframe", "15m"),

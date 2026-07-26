@@ -2280,9 +2280,9 @@ export default function WyckoffBacktester({
             useRiskSizing={useRiskSizing}
             riskPct={backtestRiskPct}
             onClose={() => setShowDeployModal(false)}
-            onConfirm={(target, targets) => {
+            onConfirm={(target, targets, name) => {
               setShowDeployModal(false);
-              deployLiveStrategy(target, targets);
+              deployLiveStrategy(target, targets, name);
             }}
           />
         )}

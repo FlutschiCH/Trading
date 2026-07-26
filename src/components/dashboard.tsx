@@ -994,7 +994,7 @@ export default function Dashboard() {
       }
     }
   };
-  const deployLiveStrategy = async (targetComputer: string = 'All', targets: Array<{ broker: string; account_id: string }> = []) => {
+  const deployLiveStrategy = async (targetComputer: string = 'All', targets: Array<{ broker: string; account_id: string }> = [], name: string = '') => {
     if (isProdHost && !isAuthenticated) {
       alert("Action disabled in read-only mode.");
       return;
@@ -1008,6 +1008,7 @@ export default function Dashboard() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          name,
           symbol,
           timeframe,
           slVal: parseFloat(backtestSL) || 1.0,
