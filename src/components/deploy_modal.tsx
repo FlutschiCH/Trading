@@ -55,8 +55,8 @@ export default function DeployModal({
         const res = await fetch(`${API_BASE_URL}/api/accounts`);
         if (res.ok) {
           const data = await res.json();
-          // The API returns either { accounts: [...] } or direct array
-          const list = data.accounts || data || [];
+          // The API returns either { data: [...] } or { accounts: [...] } or direct array
+          const list = data.data || data.accounts || (Array.isArray(data) ? data : []);
           setAccounts(list);
           // Auto select active account or first account
           const active = list.find((a: any) => a.is_active || a.active);

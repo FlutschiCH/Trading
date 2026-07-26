@@ -4,7 +4,7 @@
         "symbol": "EURUSD.ecn",
         "lookback_window": 20,
         "date_from": 1782856800,
-        "date_to": 1785056810,
+        "date_to": 1785089557,
         "limit": 5171
     },
     "metrics": {
