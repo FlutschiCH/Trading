@@ -111,34 +111,7 @@ export default function TVChart({
     replayToolActiveRef.current = replayToolActive;
   }, [replayToolActive]);
 
-  useEffect(() => {
-    if (!chartSettings.showLiveRunnerOverlay) {
-      setLiveStrategyState(null);
-      return;
-    }
 
-    const fetchLiveState = async () => {
-      try {
-        const { API_BASE_URL } = await import('../api');
-        const res = await fetch(`${API_BASE_URL}/api/live/strategies`);
-        const data = await res.json();
-        if (data.status === 'success' && data.strategies) {
-          const matched = data.strategies.find((s: any) => 
-            s.symbol === symbol && 
-            s.timeframe === timeframe && 
-            s.status === 'active'
-          );
-          setLiveStrategyState(matched ? matched.live_state : null);
-        }
-      } catch (err) {
-        console.error("Failed to fetch live strategies:", err);
-      }
-    };
-
-    fetchLiveState();
-    const interval = setInterval(fetchLiveState, 10000);
-    return () => clearInterval(interval);
-  }, [chartSettings.showLiveRunnerOverlay, symbol, timeframe]);
 
   const activeCandles = replayTime !== null
     ? candles.filter(c => Number(c.time) <= replayTime)
@@ -445,6 +418,35 @@ export default function TVChart({
   useEffect(() => {
     localStorage.setItem('tv_chart_settings', JSON.stringify(chartSettings));
   }, [chartSettings]);
+
+  useEffect(() => {
+    if (!chartSettings.showLiveRunnerOverlay) {
+      setLiveStrategyState(null);
+      return;
+    }
+
+    const fetchLiveState = async () => {
+      try {
+        const { API_BASE_URL } = await import('../api');
+        const res = await fetch(`${API_BASE_URL}/api/live/strategies`);
+        const data = await res.json();
+        if (data.status === 'success' && data.strategies) {
+          const matched = data.strategies.find((s: any) => 
+            s.symbol === symbol && 
+            s.timeframe === timeframe && 
+            s.status === 'active'
+          );
+          setLiveStrategyState(matched ? matched.live_state : null);
+        }
+      } catch (err) {
+        console.error("Failed to fetch live strategies:", err);
+      }
+    };
+
+    fetchLiveState();
+    const interval = setInterval(fetchLiveState, 10000);
+    return () => clearInterval(interval);
+  }, [chartSettings.showLiveRunnerOverlay, symbol, timeframe]);
   const [chartHeight, setChartHeight] = useState(window.innerWidth < 768 ? 380 : 680);
   const [weisHeight, setWeisHeight] = useState(window.innerWidth < 768 ? 100 : 140);
   const chartHeightRef = useRef(chartHeight);
