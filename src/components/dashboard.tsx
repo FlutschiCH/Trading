@@ -274,6 +274,7 @@ export default function Dashboard() {
   const [price, setPrice] = useState('57450.00');
   const [amount, setAmount] = useState('0.1');
   const [candles, setCandles] = useState<Candle[]>([]);
+  const [liveSimulatedTrades, setLiveSimulatedTrades] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingStrategy, setLoadingStrategy] = useState(false);
   const [initialCandlesLoaded, setInitialCandlesLoaded] = useState(false);
@@ -1227,8 +1228,12 @@ export default function Dashboard() {
           }),
         });
         const result = await response.json();
-        if (Array.isArray(result)) {
+        if (result && result.status === 'success' && Array.isArray(result.candles)) {
+          rawCandles = result.candles.sort((a: Candle, b: Candle) => a.time - b.time);
+          setLiveSimulatedTrades(result.trades || []);
+        } else if (Array.isArray(result)) {
           rawCandles = result.sort((a: Candle, b: Candle) => a.time - b.time);
+          setLiveSimulatedTrades([]);
         }
       } catch (err) {
         console.warn("Using local historical mock generation fallback.");
@@ -2585,7 +2590,7 @@ export default function Dashboard() {
                 entryPrice={selectedTrade?.entryPrice}
                 slPrice={selectedTrade?.slPrice}
                 tpPrice={selectedTrade?.tpPrice}
-                trades={backtestResults ? backtestResults.trades : liveTrades}
+                trades={backtestResults ? backtestResults.trades : (liveSimulatedTrades.length > 0 ? liveSimulatedTrades : liveTrades)}
                 selectedTrade={selectedTrade}
                 onSelectTrade={(trade) => {
                   setSelectedTrade(trade);
@@ -2780,7 +2785,7 @@ export default function Dashboard() {
                       entryPrice={selectedTrade?.entryPrice}
                       slPrice={selectedTrade?.slPrice}
                       tpPrice={selectedTrade?.tpPrice}
-                      trades={backtestResults ? backtestResults.trades : liveTrades}
+                      trades={backtestResults ? backtestResults.trades : (liveSimulatedTrades.length > 0 ? liveSimulatedTrades : liveTrades)}
                       selectedTrade={selectedTrade}
                       onSelectTrade={(trade) => {
                         setSelectedTrade(trade);
