@@ -53,7 +53,7 @@ export default function DeployModal({
 
   const [selectedTarget, setSelectedTarget] = useState<string>(() => {
     if (initialTargetComputer !== 'All' && !['local', 'laptop', 'railway'].includes(initialTargetComputer.toLowerCase())) {
-      return 'custom';
+      return 'Custom';
     }
     return initialTargetComputer;
   });
