@@ -51,3 +51,24 @@ class NotificationHandler:
         print(f"[NOTIFICATION] {message}", flush=True)
         if sound_type:
             NotificationHandler.play_sound(sound_type)
+
+    @staticmethod
+    def send_discord_message(message: str):
+        def _send():
+            webhook_url = "https://discord.com/api/webhooks/1530828685806932060/es7ROX2lzOcUM2_CjFGZiHbT448ubzxub0zsSJ8dvlfTHr61n2zuuncDvZ8Se3uTwcfu"
+            payload = {"content": message}
+            try:
+                import json
+                import urllib.request
+                req = urllib.request.Request(
+                    webhook_url,
+                    data=json.dumps(payload).encode('utf-8'),
+                    headers={'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0'},
+                    method='POST'
+                )
+                with urllib.request.urlopen(req, timeout=5) as response:
+                    pass
+            except Exception as e:
+                print(f"Failed to send discord message: {e}", flush=True)
+        
+        threading.Thread(target=_send, daemon=True).start()
