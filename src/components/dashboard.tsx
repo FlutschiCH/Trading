@@ -1223,6 +1223,7 @@ export default function Dashboard() {
             symbol: symbol,
             interval: timeframe,
             limit: candleLimit,
+            lookback: parseInt(lookbackWindow) || 20,
           }),
         });
         const result = await response.json();
