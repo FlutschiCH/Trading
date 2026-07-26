@@ -6,6 +6,7 @@ import HowToPage from './how_to_page';
 import LiveTradesPanel from './live_trades_panel';
 import LiveOverviewPanel from './live_overview_panel';
 import SymbolMappingsView from './symbol_mappings_view';
+import ComputerManager from './computer_manager';
 import { API_BASE_URL } from '../api';
 import '../App.css';
 
@@ -2110,6 +2111,17 @@ export default function Dashboard() {
                   >
                     📈 Live Trades & History
                   </a>
+                  <a 
+                    href="#computers" 
+                    className="menu-item" 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setView('computers');
+                      setShowMenu(false);
+                    }}
+                  >
+                    💻 Computer Manager
+                  </a>
                   <button 
                     onClick={() => {
                       setShowMenu(false);
@@ -2353,6 +2365,10 @@ export default function Dashboard() {
           setView={setView}
           isProdHost={isProdHost}
           isAuthenticated={isAuthenticated}
+        />
+      ) : view === 'computers' ? (
+        <ComputerManager
+          setView={setView}
         />
       ) : (
         <>

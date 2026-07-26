@@ -3,6 +3,14 @@ import sys
 import subprocess
 import time
 
+def get_git_commit():
+    try:
+        res = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True)
+        return res.stdout.strip()
+    except Exception as e:
+        print(f"Failed to get git commit hash: {e}", flush=True)
+        return ""
+
 def run_force_git_update():
     print("Checking for updates from Git (Force Update)...", flush=True)
     try:
@@ -61,8 +69,18 @@ def main():
 
     print(f"Using Python interpreter: {python_exe}", flush=True)
 
-    # Initial check on startup
+    # Initial check and force update on startup
+    commit_before = get_git_commit()
+    run_force_git_update()
+    commit_after = get_git_commit()
+    
+    # Reinstall dependencies
     check_and_install_dependencies(python_exe)
+    
+    # If the updater script itself was modified by the force pull, restart it to apply changes
+    if commit_before and commit_after and commit_before != commit_after:
+        print("Changes detected on startup. Restarting autoupdater process...", flush=True)
+        os.execv(sys.executable, [sys.executable] + sys.argv)
 
     while True:
         print("Starting backend server (backend/app.py)...", flush=True)
