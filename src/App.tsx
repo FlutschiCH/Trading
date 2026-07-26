@@ -5,10 +5,6 @@ import Dashboard, { formatPrice, calculateDateBounds, getWeekStart, getPrecision
 export { formatPrice, calculateDateBounds, getWeekStart, getPrecisionForSymbol };
 
 export default function App() {
-  if (window.location.pathname === '/how-to') {
-    return <HowToPage />;
-  }
-
   if (window.location.pathname === '/auth' || window.location.pathname === '/') {
     window.history.pushState({}, '', '/dashboard');
   }

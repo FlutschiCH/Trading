@@ -165,10 +165,6 @@ export const calculateDateBounds = (option: string, customFrom?: string, customT
 };
 
 export default function Dashboard() {
-  // Simple check for how-to page routing (always bypasses password check)
-  if (window.location.pathname === '/how-to') {
-    return <HowToPage />;
-  }
 
   // Redirect /auth or root path to /dashboard
   if (window.location.pathname === '/auth' || window.location.pathname === '/') {
@@ -2361,7 +2357,9 @@ export default function Dashboard() {
         )}
       </header>
 
-      {view === 'mappings' ? (
+      {window.location.pathname === '/how-to' ? (
+        <HowToPage />
+      ) : view === 'mappings' ? (
         <SymbolMappingsView
           isMobile={isMobile}
           setView={setView}
