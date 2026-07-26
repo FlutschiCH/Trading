@@ -77,6 +77,14 @@ class LiveStrategyHandler:
                     SQLHandler.execute_query("ALTER TABLE live_strategies ADD COLUMN live_state TEXT")
                 except Exception:
                     pass
+            # Add target_computer column if not exists
+            try:
+                SQLHandler.execute_query("SELECT target_computer FROM live_strategies LIMIT 1")
+            except Exception:
+                try:
+                    SQLHandler.execute_query("ALTER TABLE live_strategies ADD COLUMN target_computer VARCHAR(100) DEFAULT 'All'")
+                except Exception:
+                    pass
             LiveStrategyHandler._db_initialized = True
         except Exception as e:
             print(f"Error initializing live_strategies DB table: {e}", flush=True)
@@ -96,10 +104,10 @@ class LiveStrategyHandler:
         INSERT INTO live_strategies (
             id, symbol, status, timeframe, slVal, slType, rr, size, 
             useRiskSizing, riskPct, useBreakEven, beTriggerR, lookbackWindow, deployedAt,
-            timezone, sessions, useGlobalClose, globalCloseTime, entryStabilityRule, broker, account_id
+            timezone, sessions, useGlobalClose, globalCloseTime, entryStabilityRule, broker, account_id, target_computer
         ) VALUES (
             %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-            %s, %s, %s, %s, %s, %s, %s
+            %s, %s, %s, %s, %s, %s, %s, %s
         ) ON DUPLICATE KEY UPDATE 
             symbol=VALUES(symbol),
             status=VALUES(status),
@@ -120,7 +128,8 @@ class LiveStrategyHandler:
             globalCloseTime=VALUES(globalCloseTime),
             entryStabilityRule=VALUES(entryStabilityRule),
             broker=VALUES(broker),
-            account_id=VALUES(account_id)
+            account_id=VALUES(account_id),
+            target_computer=VALUES(target_computer)
         """
         # Resolve currently active account if not provided
         acc_id = strategy.get("account_id")
@@ -151,7 +160,8 @@ class LiveStrategyHandler:
             strategy.get("globalCloseTime", ""),
             strategy.get("entryStabilityRule", "default"),
             strategy.get("broker", "metatrader"),
-            acc_id
+            acc_id,
+            strategy.get("target_computer", "All")
         )
         try:
             SQLHandler.execute_query(query, params)
@@ -170,8 +180,13 @@ class LiveStrategyHandler:
             query = "SELECT * FROM live_strategies WHERE id = %s"
             params = (strategy_id,)
         else:
-            query = "SELECT * FROM live_strategies ORDER BY deployedAt DESC LIMIT 1"
-            params = ()
+            import socket
+            try:
+                comp_name = socket.gethostname()
+            except:
+                comp_name = "Unknown"
+            query = "SELECT * FROM live_strategies WHERE (target_computer = 'All' OR target_computer = %s) ORDER BY deployedAt DESC LIMIT 1"
+            params = (comp_name,)
 
         try:
             results = SQLHandler.execute_query(query, params)
@@ -251,6 +266,7 @@ class LiveStrategyHandler:
             "entryStabilityRule": row.get("entryStabilityRule", "default") or "default",
             "broker": row.get("broker", "metatrader") or "metatrader",
             "account_id": row.get("account_id") or "",
+            "target_computer": row.get("target_computer", "All") or "All",
             "live_state": live_state_dict
         }
 

@@ -994,7 +994,7 @@ export default function Dashboard() {
       }
     }
   };
-  const deployLiveStrategy = async () => {
+  const deployLiveStrategy = async (targetComputer: string = 'All') => {
     if (isProdHost && !isAuthenticated) {
       alert("Action disabled in read-only mode.");
       return;
@@ -1025,14 +1025,15 @@ export default function Dashboard() {
           useGlobalClose,
           globalCloseTime,
           entryStabilityRule,
-          broker: targetBroker
+          broker: targetBroker,
+          target_computer: targetComputer
         }),
       });
       const result = await response.json();
       if (result.status === 'success') {
         setLiveStrategy(result.strategy);
         const brokerTitle = targetBroker === 'ctrader' ? 'cTrader' : 'MetaTrader 5';
-        alert(`Successfully deployed strategy to ${brokerTitle} Live execution!\nSymbol: ${symbol}\nTimeframe: ${timeframe}`);
+        alert(`Successfully deployed strategy to ${brokerTitle} Live execution!\nSymbol: ${symbol}\nTimeframe: ${timeframe}\nTarget Host: ${targetComputer}`);
       }
     } finally {
       setIsDeploying(false);

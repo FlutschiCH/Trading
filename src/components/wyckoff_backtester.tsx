@@ -7,7 +7,7 @@ interface WyckoffBacktesterProps {
   timeframe: string;
   liveStrategy: any;
   isDeploying: boolean;
-  deployLiveStrategy: () => void;
+  deployLiveStrategy: (targetComputer: string) => void;
   backtestBalance: string;
   setBacktestBalance: (val: string) => void;
   useRiskSizing: boolean;
@@ -230,6 +230,16 @@ export default function WyckoffBacktester({
 }: WyckoffBacktesterProps) {
   const [copied, setCopied] = React.useState(false);
   const [isMobile, setIsMobile] = React.useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
+  const [targetComputer, setTargetComputer] = React.useState(() => localStorage.getItem('wyckoff_target_computer') || 'All');
+  const [customTarget, setCustomTarget] = React.useState(() => localStorage.getItem('wyckoff_custom_target_computer') || '');
+
+  React.useEffect(() => {
+    localStorage.setItem('wyckoff_target_computer', targetComputer);
+  }, [targetComputer]);
+
+  React.useEffect(() => {
+    localStorage.setItem('wyckoff_custom_target_computer', customTarget);
+  }, [customTarget]);
 
   React.useEffect(() => {
     const handleResize = () => {
@@ -626,30 +636,71 @@ export default function WyckoffBacktester({
             {isOptimizeMode ? '⚡ Run Range Optimization' : '🔄 Run Backtest'}
           </button>
           {!isReadOnly && !isOptimizeMode && (
-            <button
-              onClick={deployLiveStrategy}
-              disabled={isDeploying}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-                backgroundColor: '#ef4444',
-                color: '#ffffff',
-                border: 'none',
-                padding: '6px 12px',
-                borderRadius: '4px',
-                cursor: isDeploying ? 'not-allowed' : 'pointer',
-                fontWeight: 500,
-                fontSize: '11px',
-                transition: 'background-color 0.2s',
-                opacity: isDeploying ? 0.7 : 1,
-              }}
-              onMouseOver={(e) => !isDeploying && (e.currentTarget.style.backgroundColor = '#dc2626')}
-              onMouseOut={(e) => !isDeploying && (e.currentTarget.style.backgroundColor = '#ef4444')}
-            >
-              {isDeploying ? '⏳ Deploying...' : '🚀 Deploy Live'}
-            </button>
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <select
+                  value={targetComputer}
+                  onChange={(e) => setTargetComputer(e.target.value)}
+                  style={{
+                    backgroundColor: '#1e293b',
+                    border: '1px solid #334155',
+                    borderRadius: '4px',
+                    color: '#f8fafc',
+                    fontSize: '11px',
+                    padding: '6px 8px',
+                    cursor: 'pointer',
+                    outline: 'none',
+                  }}
+                >
+                  <option value="All">All Computers</option>
+                  <option value="Marc-Laptop">Laptop Server (Marc-Laptop)</option>
+                  <option value="railway-app">Railway Container</option>
+                  <option value="Custom">Custom Name...</option>
+                </select>
+                {targetComputer === 'Custom' && (
+                  <input
+                    type="text"
+                    placeholder="Computer Name..."
+                    value={customTarget}
+                    onChange={(e) => setCustomTarget(e.target.value)}
+                    style={{
+                      backgroundColor: '#1e293b',
+                      border: '1px solid #334155',
+                      borderRadius: '4px',
+                      color: '#f8fafc',
+                      fontSize: '11px',
+                      padding: '6px 8px',
+                      width: '120px',
+                      outline: 'none'
+                    }}
+                  />
+                )}
+              </div>
+              <button
+                onClick={() => deployLiveStrategy(targetComputer === 'Custom' ? customTarget : targetComputer)}
+                disabled={isDeploying}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  backgroundColor: '#ef4444',
+                  color: '#ffffff',
+                  border: 'none',
+                  padding: '6px 12px',
+                  borderRadius: '4px',
+                  cursor: isDeploying ? 'not-allowed' : 'pointer',
+                  fontWeight: 500,
+                  fontSize: '11px',
+                  transition: 'background-color 0.2s',
+                  opacity: isDeploying ? 0.7 : 1,
+                }}
+                onMouseOver={(e) => !isDeploying && (e.currentTarget.style.backgroundColor = '#dc2626')}
+                onMouseOut={(e) => !isDeploying && (e.currentTarget.style.backgroundColor = '#ef4444')}
+              >
+                {isDeploying ? '⏳ Deploying...' : '🚀 Deploy Live'}
+              </button>
+            </>
           )}
         </div>
 
