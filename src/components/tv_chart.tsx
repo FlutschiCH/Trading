@@ -41,7 +41,7 @@ interface TVChartProps {
   candles: Candle[];
   loading: boolean;
   loadingStrategy?: boolean;
-  onRefresh: () => void;
+  onRefresh: (overrideBroker?: string, isBackground?: boolean) => void;
   entryPrice?: number;
   slPrice?: number;
   tpPrice?: number;
@@ -443,7 +443,7 @@ export default function TVChart({
       }
 
       try {
-        onRefresh();
+        onRefresh(undefined, true);
       } catch (err) {
         console.error("Failed to refresh candles in live overlay polling:", err);
       }

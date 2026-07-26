@@ -1207,8 +1207,10 @@ export default function Dashboard() {
   }, []);
 
   // Fetch candle data and analyze on Flask backend
-  const fetchCandles = async (overrideBroker?: string) => {
-    setLoading(true);
+  const fetchCandles = async (overrideBroker?: string, isBackground: boolean = false) => {
+    if (!isBackground) {
+      setLoading(true);
+    }
     setLoadingStrategy(true);
     try {
       let rawCandles: Candle[] = [];
