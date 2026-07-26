@@ -2265,6 +2265,7 @@ export default function WyckoffBacktester({
                 )}
               </div>
             </div>
+          )}
         {showDeployModal && (
           <DeployModal
             symbol={symbol}
