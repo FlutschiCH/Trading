@@ -41,6 +41,10 @@ def run_force_git_update():
         # Force reset to origin's branch to discard local modifications
         res = subprocess.run(["git", "reset", "--hard", f"origin/{branch}"], capture_output=True, text=True, check=True)
         print("Git reset output:", res.stdout, flush=True)
+        
+        # Get and print the new active commit details
+        commit_info = subprocess.run(["git", "log", "-1", "--oneline"], capture_output=True, text=True, check=True)
+        print(f"Git Update Complete! Active Commit: {commit_info.stdout.strip()}", flush=True)
         return True
     except Exception as e:
         print(f"Git force update failed: {e}", flush=True)
