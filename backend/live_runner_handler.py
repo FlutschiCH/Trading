@@ -36,8 +36,19 @@ class LiveRunner:
         while not cls._stop_event.is_set():
             try:
                 # Get active strategies
+                import socket
+                try:
+                    comp_name = socket.gethostname().strip().lower()
+                except:
+                    comp_name = "unknown"
+
                 strategies = LiveStrategyHandler.get_all_strategies()
-                active_strategies = [s for s in strategies if s.get("status") == "active"]
+                active_strategies = []
+                for s in strategies:
+                    if s.get("status") == "active":
+                        target = s.get("target_computer", "All")
+                        if target == "All" or target.strip().lower() == comp_name:
+                            active_strategies.append(s)
 
                 for strategy in active_strategies:
                     if cls._stop_event.is_set():
@@ -86,6 +97,10 @@ class LiveRunner:
 
         # Run trade evaluation logic to determine signals on the last completed candle
         should_buy, should_sell, state_info = cls._evaluate_signals(annotated_candles, strategy)
+
+        # Keep a history of the last 50 annotated candles to store in live_state in DB
+        recent_candles = annotated_candles[-50:] if len(annotated_candles) > 50 else annotated_candles
+        state_info["candles"] = recent_candles
 
         # Persist the latest live state to the database
         LiveStrategyHandler.update_strategy_state(strategy_id, state_info)
