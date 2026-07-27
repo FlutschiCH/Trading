@@ -1108,13 +1108,19 @@ export default function TVChart({
     });
 
     let isSyncing = false;
+    let animationFrameId: number | null = null;
     mainChart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
       if (isSyncing || !range) return;
       isSyncing = true;
       try {
         weisChart.timeScale().setVisibleLogicalRange(range);
       } catch (e) { }
-      updateDrawingCoordinates();
+      if (animationFrameId !== null) {
+        cancelAnimationFrame(animationFrameId);
+      }
+      animationFrameId = requestAnimationFrame(() => {
+        updateDrawingCoordinates();
+      });
       isSyncing = false;
     });
 
@@ -1247,6 +1253,9 @@ export default function TVChart({
           mainChart.removeSeries(selectedTradePathSeriesRef.current);
         } catch (e) { }
         selectedTradePathSeriesRef.current = null;
+      }
+      if (animationFrameId !== null) {
+        cancelAnimationFrame(animationFrameId);
       }
       mainChart.remove();
       weisChart.remove();
