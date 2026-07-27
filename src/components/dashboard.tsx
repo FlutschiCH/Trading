@@ -737,7 +737,7 @@ export default function Dashboard() {
         });
       } else {
         const dy = e.clientY - activeResize.startPos;
-        const newHeight = Math.max(200, activeResize.startSize + dy);
+        const newHeight = Math.min(800, Math.max(200, activeResize.startSize + dy));
         setCardHeights(prev => {
           const next = {
             ...prev,
@@ -2839,6 +2839,7 @@ export default function Dashboard() {
               const dragStyles = {
                 width: cardWidths[panelId] ? `${cardWidths[panelId]}px` : defaultWidth,
                 height: cardHeights[panelId] ? `${cardHeights[panelId]}px` : undefined,
+                maxHeight: '800px',
                 display: 'flex',
                 flexDirection: 'column' as const,
                 flexGrow: cardWidths[panelId] ? 0 : 1,
