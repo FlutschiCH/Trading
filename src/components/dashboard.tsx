@@ -8,6 +8,7 @@ import LiveOverviewPanel from './live_overview_panel';
 import SymbolMappingsView from './symbol_mappings_view';
 import ComputerManager from './computer_manager';
 import { API_BASE_URL } from '../api';
+import * as apiService from '../services/apiService';
 import '../App.css';
 
 interface Candle {
@@ -624,11 +625,8 @@ export default function Dashboard() {
 
   const cancelBacktest = () => {
     if (activeBacktestIdRef.current) {
-      fetch(`${API_BASE_URL}/api/backtest/cancel`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ backtestId: activeBacktestIdRef.current })
-      }).catch(err => console.error("Failed to send cancel request to backend:", err));
+      apiService.cancelBacktest(activeBacktestIdRef.current)
+        .catch(err => console.error("Failed to send cancel request to backend:", err));
     }
     if (backtestAbortControllerRef.current) {
       backtestAbortControllerRef.current.abort();
@@ -1071,40 +1069,33 @@ export default function Dashboard() {
     const targetBroker = candleSource === 'ctrader' ? 'ctrader' : 'metatrader';
     setIsDeploying(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/live/strategy`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name,
-          symbol,
-          timeframe,
-          slVal: parseFloat(backtestSL) || 1.0,
-          slType: backtestSLType,
-          rr: parseFloat(backtestRR) || 2.0,
-          size: parseFloat(backtestSize) || 1.0,
-          useRiskSizing,
-          riskPct: parseFloat(backtestRiskPct) || 1.0,
-          useBreakEven,
-          beTriggerR: parseFloat(backtestBE) || 1.0,
-          lookbackWindow: parseInt(lookbackWindow) || 20,
-          status: 'active',
-          timezone: sessionsTimezone,
-          sessions: tradingSessions,
-          useGlobalClose,
-          globalCloseTime,
-          entryStabilityRule,
-          broker: targetBroker,
-          target_computer: targetComputer,
-          targets: targets,
-          dateRangeOption,
-          customFrom,
-          customTo,
-          candleLimit: parseInt(candleLimit) || 1000,
-        }),
+      const result = await apiService.deployLiveStrategy({
+        name,
+        symbol,
+        timeframe,
+        slVal: parseFloat(backtestSL) || 1.0,
+        slType: backtestSLType,
+        rr: parseFloat(backtestRR) || 2.0,
+        size: parseFloat(backtestSize) || 1.0,
+        useRiskSizing,
+        riskPct: parseFloat(backtestRiskPct) || 1.0,
+        useBreakEven,
+        beTriggerR: parseFloat(backtestBE) || 1.0,
+        lookbackWindow: parseInt(lookbackWindow) || 20,
+        status: 'active',
+        timezone: sessionsTimezone,
+        sessions: tradingSessions,
+        useGlobalClose,
+        globalCloseTime,
+        entryStabilityRule,
+        broker: targetBroker,
+        target_computer: targetComputer,
+        targets: targets,
+        dateRangeOption,
+        customFrom,
+        customTo,
+        candleLimit: parseInt(candleLimit) || 1000,
       });
-      const result = await response.json();
       if (result.status === 'success') {
         setLiveStrategy(result.strategy);
         const brokerTitle = targetBroker === 'ctrader' ? 'cTrader' : 'MetaTrader 5';
@@ -1239,8 +1230,7 @@ export default function Dashboard() {
     const loadMetadata = async () => {
       const sourcePath = candleSource === 'yfinance' ? 'yfinance' : (candleSource === 'metatrader' ? 'metatrader' : 'ctrader');
       try {
-        const symRes = await fetch(`${API_BASE_URL}/api/${sourcePath}/symbols`);
-        const symData = await symRes.json();
+        const symData = await apiService.fetchMetadataSymbols(sourcePath);
         if (symData.status === 'success' && symData.data) {
           setAvailableSymbols(symData.data);
           if (symData.data.length > 0 && !symData.data.includes(symbol)) {
@@ -1252,8 +1242,7 @@ export default function Dashboard() {
       }
 
       try {
-        const tfRes = await fetch(`${API_BASE_URL}/api/${sourcePath}/timeframes`);
-        const tfData = await tfRes.json();
+        const tfData = await apiService.fetchMetadataTimeframes(sourcePath);
         if (tfData.status === 'success' && tfData.data) {
           setAvailableTimeframes(tfData.data);
         }
@@ -1271,8 +1260,7 @@ export default function Dashboard() {
       }
       fetchFavourites();
       try {
-        const response = await fetch(`${API_BASE_URL}/api/live/strategies`);
-        const data = await response.json();
+        const data = await apiService.fetchLiveStrategies();
         if (data.status === 'success' && Array.isArray(data.strategies)) {
           setLiveStrategies(data.strategies);
         }
@@ -1303,11 +1291,7 @@ export default function Dashboard() {
       
       if (isLiveFeed && selectedStrategyId) {
         try {
-          const url = isIncremental 
-            ? `${API_BASE_URL}/api/live/strategy/cache/${selectedStrategyId}?limit=2`
-            : `${API_BASE_URL}/api/live/strategy/cache/${selectedStrategyId}`;
-          const response = await fetch(url);
-          const result = await response.json();
+          const result = await apiService.fetchLiveStrategyCache(selectedStrategyId, isIncremental ? 2 : undefined);
           if (result && result.status === 'success' && Array.isArray(result.candles)) {
             rawCandles = result.candles.sort((a: Candle, b: Candle) => a.time - b.time);
             setLiveSimulatedTrades([]);
@@ -1319,18 +1303,13 @@ export default function Dashboard() {
 
       if (rawCandles.length === 0 && !isLiveFeed) {
         try {
-          const response = await fetch(`${API_BASE_URL}/api/trade/candles`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              broker: overrideBroker || candleSource,
-              symbol: symbol,
-              interval: timeframe,
-              limit: reqLimit,
-              lookback: parseInt(lookbackWindow) || 20,
-            }),
+          const result = await apiService.fetchTradeCandles({
+            broker: overrideBroker || candleSource,
+            symbol: symbol,
+            interval: timeframe,
+            limit: reqLimit,
+            lookback: parseInt(lookbackWindow) || 20,
           });
-          const result = await response.json();
           if (result && result.status === 'success' && Array.isArray(result.candles)) {
             rawCandles = result.candles.sort((a: Candle, b: Candle) => a.time - b.time);
             setLiveSimulatedTrades(result.trades || []);
@@ -1618,8 +1597,7 @@ export default function Dashboard() {
 
   const fetchFavourites = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/favourites/list`);
-      const result = await response.json();
+      const result = await apiService.fetchFavouritesList();
       if (result.status === 'success' && result.data) {
         setFavouriteCandles(result.data);
       }
@@ -1634,24 +1612,19 @@ export default function Dashboard() {
       return;
     }
     try {
-      const response = await fetch(`${API_BASE_URL}/api/favourites/save`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          symbol: symbol,
-          timeframe: timeframe,
-          time: candle.time,
-          open: candle.open,
-          high: candle.high,
-          low: candle.low,
-          close: candle.close,
-          volume: candle.volume,
-          vsa_patterns: candle.vsa_patterns,
-          weis_wave_volume: candle.weis_wave_volume,
-          notes: notes
-        }),
+      const result = await apiService.saveFavourite({
+        symbol: symbol,
+        timeframe: timeframe,
+        time: candle.time,
+        open: candle.open,
+        high: candle.high,
+        low: candle.low,
+        close: candle.close,
+        volume: candle.volume,
+        vsa_patterns: candle.vsa_patterns,
+        weis_wave_volume: candle.weis_wave_volume,
+        notes: notes
       });
-      const result = await response.json();
       if (result.status === 'success') {
         alert('Candle successfully added to favourites!');
         setSelectedCandle(null);
@@ -1671,12 +1644,7 @@ export default function Dashboard() {
       return;
     }
     try {
-      const response = await fetch(`${API_BASE_URL}/api/favourites/delete`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: favId }),
-      });
-      const result = await response.json();
+      const result = await apiService.deleteFavourite({ id: favId });
       if (result.status === 'success') {
         fetchFavourites();
       } else {
@@ -1693,12 +1661,7 @@ export default function Dashboard() {
       return;
     }
     try {
-      const response = await fetch(`${API_BASE_URL}/api/favourites/update-notes`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: favId, notes }),
-      });
-      const result = await response.json();
+      const result = await apiService.updateFavouriteNotes({ id: favId, notes });
       if (result.status === 'success') {
         alert('Notes updated!');
         fetchFavourites();
