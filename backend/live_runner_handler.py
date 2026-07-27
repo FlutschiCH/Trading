@@ -184,6 +184,7 @@ class LiveRunner:
                 date_from=date_from,
                 date_to=date_to
             )
+            print(f"[Live Runner DEBUG] Warm-up: Fetch returned {len(candles) if candles else 0} candles for strategy {strategy_id}", flush=True)
             if candles:
                 # Run Wyckoff Analysis on all fetched candles to warm up the cache
                 annotated_candles = WyckoffHandler.analyze_wyckoff_structure(candles, lookback=lookback)
@@ -198,6 +199,7 @@ class LiveRunner:
                 timeframe=timeframe,
                 limit=10
             )
+            print(f"[Live Runner DEBUG] Incremental: Fetch returned {len(new_candles) if new_candles else 0} candles for strategy {strategy_id}", flush=True)
             if new_candles:
                 # Convert cached annotated candles to raw candles for the lookback window to calculate accurate Wyckoff indicators on the transition boundary
                 # We need at least lookback * 2 historical candles for stable indicator calculations on the new candles
