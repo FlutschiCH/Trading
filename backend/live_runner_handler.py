@@ -262,35 +262,6 @@ class LiveRunner:
             else:
                 annotated_candles = cached_candles
 
-        # Update simulated trades in cache to match backtest engine output
-        if annotated_candles:
-            try:
-                from backtest_helpers import run_trade_simulation
-                sim_res = run_trade_simulation(
-                    annotated_data=annotated_candles,
-                    symbol=symbol,
-                    sl_val=strategy["slVal"],
-                    sl_type=strategy["slType"],
-                    rr=strategy["rr"],
-                    size=strategy["size"],
-                    initial_balance=10000.0,
-                    use_risk_sizing=strategy["useRiskSizing"],
-                    risk_pct=strategy["riskPct"],
-                    use_break_even=strategy.get("useBreakEven", False),
-                    be_trigger_r=strategy.get("beTriggerR", 1.0),
-                    fees_percent=0.0,
-                    daily_retry_limit=0,
-                    allow_opposite_close=True,
-                    timezone=strategy.get("timezone", "Local"),
-                    sessions=strategy.get("sessions", []),
-                    use_global_close=strategy.get("useGlobalClose", False),
-                    global_close_time=strategy.get("globalCloseTime", ""),
-                    entry_stability_rule=strategy.get("entryStabilityRule", "default")
-                )
-                cls._trades_cache[strategy_id] = sim_res.get("trades", [])
-            except Exception as e:
-                print(f"Error updating simulated trades cache: {e}", flush=True)
-
         if not annotated_candles or len(annotated_candles) < lookback + 10:
             LiveStrategyHandler.update_strategy_state(strategy_id, {
                 "stage": "UNKNOWN",
@@ -333,6 +304,19 @@ class LiveRunner:
             )
             send_discord_message(discord_msg)
             cls._execute_trade(strategy, should_buy, should_sell, last_completed_candle)
+            
+            # Append new simulated trade to cache
+            new_trade = {
+                "id": len(cls._trades_cache.get(strategy_id, [])) + 1,
+                "type": direction,
+                "entry_time": last_completed_candle["time"],
+                "entry_price": last_completed_candle.get("close", 0.0),
+                "status": "OPEN",
+                "profit": 0.0
+            }
+            if strategy_id not in cls._trades_cache:
+                cls._trades_cache[strategy_id] = []
+            cls._trades_cache[strategy_id].append(new_trade)
 
         # Mark as processed
         cls._last_processed[strategy_id] = candle_time
