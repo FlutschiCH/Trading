@@ -1116,6 +1116,18 @@ export default function TVChart({
     const resizeObserver = new ResizeObserver((entries) => {
       if (!chartContainerRef.current || !mainChart) return;
       const width = chartContainerRef.current.clientWidth;
+      
+      // Dynamically calculate chart and weis heights based on parent card height if defined
+      const parentCard = chartContainerRef.current.closest('.no-drag')?.parentElement;
+      if (parentCard) {
+        const parentHeight = parentCard.clientHeight;
+        if (parentHeight > 200) {
+          // Reserve ~40px for panel header, ~140px for weis wave, ~30px padding
+          const newChartH = Math.max(150, parentHeight - 210);
+          setChartHeight(newChartH);
+        }
+      }
+      
       if (width > 0) {
         mainChart.resize(width, chartHeightRef.current);
         if (weisContainerRef.current && weisChart) {

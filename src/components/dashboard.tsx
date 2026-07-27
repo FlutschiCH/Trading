@@ -698,19 +698,25 @@ export default function Dashboard() {
     const saved = localStorage.getItem('wyckoff_desk_card_widths');
     return saved ? JSON.parse(saved) : {};
   });
+  const [cardHeights, setCardHeights] = useState<{ [key: string]: number }>(() => {
+    const saved = localStorage.getItem('wyckoff_desk_card_heights');
+    return saved ? JSON.parse(saved) : {};
+  });
   const [activeResize, setActiveResize] = useState<{
     id: string;
-    startX: number;
-    startWidth: number;
+    direction: 'horizontal' | 'vertical';
+    startPos: number;
+    startSize: number;
   } | null>(null);
 
-  const handleResizeMouseDown = (e: React.MouseEvent, id: string, currentWidth: number) => {
+  const handleResizeMouseDown = (e: React.MouseEvent, id: string, direction: 'horizontal' | 'vertical', currentSize: number) => {
     e.preventDefault();
     e.stopPropagation();
     setActiveResize({
       id,
-      startX: e.clientX,
-      startWidth: currentWidth,
+      direction,
+      startPos: direction === 'horizontal' ? e.clientX : e.clientY,
+      startSize: currentSize,
     });
   };
 
@@ -718,16 +724,29 @@ export default function Dashboard() {
     if (!activeResize) return;
 
     const handleMouseMove = (e: MouseEvent) => {
-      const dx = e.clientX - activeResize.startX;
-      const newWidth = Math.max(280, activeResize.startWidth + dx);
-      setCardWidths(prev => {
-        const next = {
-          ...prev,
-          [activeResize.id]: newWidth,
-        };
-        localStorage.setItem('wyckoff_desk_card_widths', JSON.stringify(next));
-        return next;
-      });
+      if (activeResize.direction === 'horizontal') {
+        const dx = e.clientX - activeResize.startPos;
+        const newWidth = Math.max(280, activeResize.startSize + dx);
+        setCardWidths(prev => {
+          const next = {
+            ...prev,
+            [activeResize.id]: newWidth,
+          };
+          localStorage.setItem('wyckoff_desk_card_widths', JSON.stringify(next));
+          return next;
+        });
+      } else {
+        const dy = e.clientY - activeResize.startPos;
+        const newHeight = Math.max(200, activeResize.startSize + dy);
+        setCardHeights(prev => {
+          const next = {
+            ...prev,
+            [activeResize.id]: newHeight,
+          };
+          localStorage.setItem('wyckoff_desk_card_heights', JSON.stringify(next));
+          return next;
+        });
+      }
     };
 
     const handleMouseUp = () => {
@@ -743,32 +762,62 @@ export default function Dashboard() {
   }, [activeResize]);
 
   const renderResizeHandle = (id: string) => (
-    <div
-      onMouseDown={(e) => {
-        const rect = e.currentTarget.parentElement?.getBoundingClientRect();
-        const currentWidth = rect ? rect.width : 400;
-        handleResizeMouseDown(e, id, currentWidth);
-      }}
-      style={{
-        position: 'absolute',
-        top: 0,
-        right: 0,
-        width: '6px',
-        height: '100%',
-        cursor: 'col-resize',
-        backgroundColor: activeResize?.id === id ? '#3b82f6' : 'transparent',
-        transition: 'background-color 0.2s',
-        zIndex: 100,
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.4)';
-      }}
-      onMouseLeave={(e) => {
-        if (activeResize?.id !== id) {
-          e.currentTarget.style.backgroundColor = 'transparent';
-        }
-      }}
-    />
+    <>
+      {/* Right border width resize handle */}
+      <div
+        onMouseDown={(e) => {
+          const rect = e.currentTarget.parentElement?.getBoundingClientRect();
+          const currentWidth = rect ? rect.width : 400;
+          handleResizeMouseDown(e, id, 'horizontal', currentWidth);
+        }}
+        style={{
+          position: 'absolute',
+          top: 0,
+          right: 0,
+          width: '6px',
+          height: '100%',
+          cursor: 'col-resize',
+          backgroundColor: activeResize?.id === id && activeResize?.direction === 'horizontal' ? '#3b82f6' : 'transparent',
+          transition: 'background-color 0.2s',
+          zIndex: 100,
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.4)';
+        }}
+        onMouseLeave={(e) => {
+          if (!(activeResize?.id === id && activeResize?.direction === 'horizontal')) {
+            e.currentTarget.style.backgroundColor = 'transparent';
+          }
+        }}
+      />
+      {/* Bottom border height resize handle */}
+      <div
+        onMouseDown={(e) => {
+          const rect = e.currentTarget.parentElement?.getBoundingClientRect();
+          const currentHeight = rect ? rect.height : 400;
+          handleResizeMouseDown(e, id, 'vertical', currentHeight);
+        }}
+        style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          width: '100%',
+          height: '6px',
+          cursor: 'row-resize',
+          backgroundColor: activeResize?.id === id && activeResize?.direction === 'vertical' ? '#3b82f6' : 'transparent',
+          transition: 'background-color 0.2s',
+          zIndex: 100,
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.4)';
+        }}
+        onMouseLeave={(e) => {
+          if (!(activeResize?.id === id && activeResize?.direction === 'vertical')) {
+            e.currentTarget.style.backgroundColor = 'transparent';
+          }
+        }}
+      />
+    </>
   );
 
   const runBacktest = async () => {
@@ -2789,17 +2838,20 @@ export default function Dashboard() {
               const defaultWidth = panelId === 'chart' ? 'calc(50% - 16px)' : 'calc(25% - 16px)';
               const dragStyles = {
                 width: cardWidths[panelId] ? `${cardWidths[panelId]}px` : defaultWidth,
-              flexGrow: cardWidths[panelId] ? 0 : 1,
-              flexShrink: 1,
-              minWidth: '280px',
-              border: isDragOver ? '2px dashed #3b82f6' : '1px solid var(--app-card-border)',
-              borderRadius: '12px',
-              backgroundColor: 'var(--app-card-bg)',
-              transition: activeResize ? 'none' : 'border 0.2s, opacity 0.2s',
-              opacity: isDragOver ? 0.75 : 1,
-              position: 'relative' as const,
-              overflow: 'hidden',
-            };
+                height: cardHeights[panelId] ? `${cardHeights[panelId]}px` : undefined,
+                display: 'flex',
+                flexDirection: 'column' as const,
+                flexGrow: cardWidths[panelId] ? 0 : 1,
+                flexShrink: 1,
+                minWidth: '280px',
+                border: isDragOver ? '2px dashed #3b82f6' : '1px solid var(--app-card-border)',
+                borderRadius: '12px',
+                backgroundColor: 'var(--app-card-bg)',
+                transition: activeResize ? 'none' : 'border 0.2s, opacity 0.2s',
+                opacity: isDragOver ? 0.75 : 1,
+                position: 'relative' as const,
+                overflow: 'hidden',
+              };
  
             const headerStyle = {
               display: 'flex',
@@ -2817,6 +2869,8 @@ export default function Dashboard() {
 
             const contentStyle = {
               padding: '16px',
+              flex: 1,
+              overflowY: 'auto' as const,
             };
 
             if (panelId === 'chart') {
@@ -2835,7 +2889,7 @@ export default function Dashboard() {
                     <span>📊 Candlestick & Weis Wave Analysis Chart</span>
                     <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header to Move</span>
                   </div>
-                  <div className="no-drag" style={{ padding: '0px' }}>
+                  <div className="no-drag" style={{ padding: '0px', flex: 1, display: 'flex', flexDirection: 'column' }}>
                     <TVChart 
                       symbol={symbol} 
                       onSymbolChange={setSymbol}
