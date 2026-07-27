@@ -104,63 +104,51 @@ class SQLHandler:
     @classmethod
     def execute_query(cls, query: str, params: tuple = None) -> list:
         """
-        Executes a query with thread-safety and connection failover.
+        Executes a query with thread-safety and connection retries.
         """
         if params is None:
             params = ()
 
         cls._lock.acquire()
         try:
-            now = time.time()
-            # If the remote database recently failed to connect, skip and use SQLite fallback directly
-            if cls._remote_db_offline and (now - cls._last_db_check < 60):
-                return cls._execute_sqlite(query, params)
+            max_retries = 3
+            retry_delay = 0.5
+            last_err = None
 
-            # 1. Try MySQL remote database connection
-            try:
-                conn = cls.get_mysql_connection()
-                cls._remote_db_offline = False
-            except Exception as conn_err:
-                cls._remote_db_offline = True
-                cls._last_db_check = now
-                print(f"Remote database connection failed, falling back to local SQLite: {conn_err}", flush=True)
-                return cls._execute_sqlite(query, params)
-
-            # 2. Connection succeeded, execute query on MySQL
-            try:
-                cursor = conn.cursor(dictionary=True)
-                cursor.execute(query, params)
-                if query.strip().upper().startswith("SELECT"):
-                    result = cursor.fetchall()
-                else:
-                    conn.commit()
-                    result = [{"rowcount": cursor.rowcount, "lastrowid": cursor.lastrowid}]
-                cursor.close()
-                conn.close()
-                return result
-            except Exception as query_err:
-                # Check if connection was lost during execution
-                is_conn_lost = False
+            for attempt in range(max_retries):
                 try:
-                    if not conn.is_connected():
-                        is_conn_lost = True
-                except Exception:
-                    is_conn_lost = True
+                    # Try to reset the pool if we are retrying to ensure a fresh connection is made
+                    if attempt > 0:
+                        cls._pool = None
 
-                if is_conn_lost:
-                    print(f"Remote database connection lost during query execution, falling back to local SQLite: {query_err}", flush=True)
-                    try:
-                        conn.close()
-                    except Exception:
-                        pass
-                    return cls._execute_sqlite(query, params)
-                else:
-                    # Genuine SQL error (e.g. duplicate column, syntax error), raise it
-                    try:
-                        conn.close()
-                    except Exception:
-                        pass
-                    raise query_err
+                    conn = cls.get_mysql_connection()
+                    cursor = conn.cursor(dictionary=True)
+                    cursor.execute(query, params)
+                    if query.strip().upper().startswith("SELECT"):
+                        result = cursor.fetchall()
+                    else:
+                        conn.commit()
+                        result = [{"rowcount": cursor.rowcount, "lastrowid": cursor.lastrowid}]
+                    cursor.close()
+                    conn.close()
+                    return result
+                except Exception as err:
+                    # Check if the error is a lost connection or connection error
+                    # System error 10054, 2055, or mysql connection/operational/interface errors
+                    err_msg = str(err)
+                    is_conn_err = any(x in err_msg for x in ["2055", "Lost connection", "10054", "Connection refused", "is closed", "not connected"])
+                    
+                    if is_conn_err:
+                        last_err = err
+                        print(f"Remote database connection lost/failed (attempt {attempt + 1}/{max_retries}): {err}. Retrying in {retry_delay:.2f}s...", flush=True)
+                        time.sleep(retry_delay)
+                    else:
+                        # Genuine SQL/Programming error (e.g. no such column, syntax error), raise it immediately
+                        raise err
+
+            if last_err:
+                raise last_err
+            raise RuntimeError("Failed to execute query after retries.")
         finally:
             cls._lock.release()
 
