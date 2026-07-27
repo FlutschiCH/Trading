@@ -391,9 +391,13 @@ export default function LiveOverviewPanel({
           initialTargetComputer={editingStrategy.target_computer || 'All'}
           initialTargets={editingStrategy.targets || [{ broker: editingStrategy.broker, account_id: editingStrategy.account_id }]}
           initialName={editingStrategy.name || ''}
+          initialDateRangeOption={editingStrategy.dateRangeOption || 'last_candles'}
+          initialCustomFrom={editingStrategy.customFrom || ''}
+          initialCustomTo={editingStrategy.customTo || ''}
+          initialCandleLimit={editingStrategy.candleLimit || 1000}
           onClose={() => setEditingStrategy(null)}
-          onConfirm={async (targetComputer, targets, name) => {
-            console.log('onConfirm handler inside LiveOverviewPanel called', { targetComputer, targets, name });
+          onConfirm={async (targetComputer, targets, name, dateRangeOption, customFrom, customTo, candleLimit) => {
+            console.log('onConfirm handler inside LiveOverviewPanel called', { targetComputer, targets, name, dateRangeOption, customFrom, customTo, candleLimit });
             const strategyToUpdate = editingStrategy;
             setEditingStrategy(null); // Close the modal instantly
             try {
@@ -402,6 +406,10 @@ export default function LiveOverviewPanel({
                 name: name,
                 target_computer: targetComputer,
                 targets: targets,
+                dateRangeOption,
+                customFrom,
+                customTo,
+                candleLimit,
                 // also fallback main account_id & broker for backwards-compatibility compatibility
                 account_id: targets.length > 0 ? targets[0].account_id : strategyToUpdate.account_id,
                 broker: targets.length > 0 ? targets[0].broker : strategyToUpdate.broker

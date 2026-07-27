@@ -42,10 +42,10 @@ def save_strategy():
         "broker": payload.get("broker", "metatrader"),
         "target_computer": payload.get("target_computer", "All"),
         "targets": payload.get("targets", []),
-        "dateRangeOption": payload.get("dateRangeOption", "last_candles"),
-        "customFrom": payload.get("customFrom", ""),
-        "customTo": payload.get("customTo", ""),
-        "candleLimit": int(payload.get("candleLimit", 1000))
+        "dateRangeOption": payload.get("dateRangeOption") or "last_candles",
+        "customFrom": payload.get("customFrom") or "",
+        "customTo": payload.get("customTo") or "",
+        "candleLimit": int(payload.get("candleLimit") or 1000)
     }
     
     success = LiveStrategyHandler.save_strategy(strategy_config)
