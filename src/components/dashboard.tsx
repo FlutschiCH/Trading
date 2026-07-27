@@ -1258,31 +1258,6 @@ export default function Dashboard() {
 
   useEffect(() => {
     const loadLiveStrategyAndPerms = async () => {
-      try {
-        const stratRes = await fetch(`${API_BASE_URL}/api/live/strategies`);
-        const stratData = await stratRes.json();
-        if (stratData.status === 'success' && Array.isArray(stratData.strategies)) {
-          setLiveStrategies(stratData.strategies);
-          // If no selectedStrategyId is saved yet, fallback to the first active strategy
-          if (!selectedStrategyId && stratData.strategies.length > 0) {
-            setSelectedStrategyId(stratData.strategies[0].id);
-            localStorage.setItem('wyckoff_selected_live_strategy_id', stratData.strategies[0].id);
-          }
-        }
-      } catch (e) {
-        console.error('Failed to load live strategies:', e);
-      }
-
-      try {
-        const stratRes = await fetch(`${API_BASE_URL}/api/live/strategy`);
-        const stratData = await stratRes.json();
-        if (stratData.status === 'success' && stratData.strategy) {
-          setLiveStrategy(stratData.strategy);
-        }
-      } catch (e) {
-        console.error('Failed to load live strategy:', e);
-      }
-
       if ('Notification' in window && Notification.permission === 'default') {
         Notification.requestPermission();
       }
@@ -1747,19 +1722,7 @@ export default function Dashboard() {
 
   // Fetch other account/positions data once candles have initially loaded, and set up polling.
   useEffect(() => {
-    if (!initialCandlesLoaded) return;
-
-    fetchAccountData();
-    fetchPositionData();
-    fetchHistoryTrades(); // Initial load only
-
-    // Poll account and positions every 10s if autoPollTrades is enabled
-    if (!autoPollTrades) return;
-    const interval = setInterval(() => {
-      fetchAccountData();
-      fetchPositionData();
-    }, 10000);
-    return () => clearInterval(interval);
+    // Automatic fetching and polling of trades, positions, and account info has been removed to reduce request count on load/refresh.
   }, [initialCandlesLoaded, symbol, candleSource, autoPollTrades]);
 
   // Live Feed auto-update polling
