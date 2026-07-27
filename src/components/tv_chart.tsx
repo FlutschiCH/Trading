@@ -11,52 +11,55 @@ class SessionBoxRenderer implements SeriesPrimitivePaneRenderer {
     this._sessionCoords = sessionCoords;
   }
 
-  draw(ctx: CanvasRenderingContext2D) {
-    ctx.save();
-    this._sessionCoords.forEach(session => {
-      const x1 = session.x1;
-      const x2 = session.x2;
-      const y1 = session.y1;
-      const y2 = session.y2;
-      const width = Math.max(1, x2 - x1);
-      const height = Math.max(1, y2 - y1);
+  draw(target: any) {
+    target.useMediaCoordinateSpace((scope: any) => {
+      const ctx = scope.context;
+      ctx.save();
+      this._sessionCoords.forEach(session => {
+        const x1 = session.x1;
+        const x2 = session.x2;
+        const y1 = session.y1;
+        const y2 = session.y2;
+        const width = Math.max(1, x2 - x1);
+        const height = Math.max(1, y2 - y1);
 
-      if (width <= 0 || height <= 0) return;
+        if (width <= 0 || height <= 0) return;
 
-      const colorHex = session.color || '#3b82f6';
-      let r = 59, g = 130, b = 246;
-      if (colorHex.startsWith('#')) {
-        const hexVal = colorHex.replace('#', '');
-        if (hexVal.length === 3) {
-          r = parseInt(hexVal[0] + hexVal[0], 16);
-          g = parseInt(hexVal[1] + hexVal[1], 16);
-          b = parseInt(hexVal[2] + hexVal[2], 16);
-        } else if (hexVal.length === 6) {
-          r = parseInt(hexVal.substring(0, 2), 16);
-          g = parseInt(hexVal.substring(2, 4), 16);
-          b = parseInt(hexVal.substring(4, 6), 16);
+        const colorHex = session.color || '#3b82f6';
+        let r = 59, g = 130, b = 246;
+        if (colorHex.startsWith('#')) {
+          const hexVal = colorHex.replace('#', '');
+          if (hexVal.length === 3) {
+            r = parseInt(hexVal[0] + hexVal[0], 16);
+            g = parseInt(hexVal[1] + hexVal[1], 16);
+            b = parseInt(hexVal[2] + hexVal[2], 16);
+          } else if (hexVal.length === 6) {
+            r = parseInt(hexVal.substring(0, 2), 16);
+            g = parseInt(hexVal.substring(2, 4), 16);
+            b = parseInt(hexVal.substring(4, 6), 16);
+          }
         }
-      }
 
-      ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.08)`;
-      ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, 0.4)`;
-      ctx.lineWidth = 1.5;
-      ctx.setLineDash([2, 2]);
+        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.08)`;
+        ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, 0.4)`;
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([2, 2]);
 
-      ctx.fillRect(x1, y1, width, height);
-      ctx.strokeRect(x1, y1, width, height);
+        ctx.fillRect(x1, y1, width, height);
+        ctx.strokeRect(x1, y1, width, height);
 
-      if (width > 40) {
-        ctx.fillStyle = colorHex;
-        ctx.font = 'bold 9px sans-serif';
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'top';
-        ctx.globalAlpha = 0.8;
-        ctx.fillText(session.label || '', x1 + 6, y1 + 6);
-        ctx.globalAlpha = 1.0;
-      }
+        if (width > 40) {
+          ctx.fillStyle = colorHex;
+          ctx.font = 'bold 9px sans-serif';
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'top';
+          ctx.globalAlpha = 0.8;
+          ctx.fillText(session.label || '', x1 + 6, y1 + 6);
+          ctx.globalAlpha = 1.0;
+        }
+      });
+      ctx.restore();
     });
-    ctx.restore();
   }
 }
 
