@@ -8,6 +8,69 @@ from trading_handler import TradingHandler
 from wyckoff_handler import WyckoffHandler
 from backtest_helpers import get_pip_size, get_lot_size, is_datetime_in_sessions
 
+def calculate_date_bounds(option: str, custom_from: str = None, custom_to: str = None):
+    from datetime import datetime, timedelta, timezone
+    now = datetime.now(timezone.utc)
+    
+    if option == 'last_candles':
+        return None, None
+        
+    if option == 'this_week':
+        start = now - timedelta(days=now.weekday())
+        start = start.replace(hour=0, minute=0, second=0, microsecond=0)
+        return int(start.timestamp()), int(now.timestamp())
+        
+    if option == 'last_week':
+        this_week_start = now - timedelta(days=now.weekday())
+        this_week_start = this_week_start.replace(hour=0, minute=0, second=0, microsecond=0)
+        start = this_week_start - timedelta(days=7)
+        return int(start.timestamp()), int(this_week_start.timestamp())
+        
+    if option == 'this_month':
+        start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        return int(start.timestamp()), int(now.timestamp())
+        
+    if option == 'last_month':
+        first_day_this_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        last_day_last_month = first_day_this_month - timedelta(seconds=1)
+        start = last_day_last_month.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        return int(start.timestamp()), int(last_day_last_month.timestamp())
+        
+    if option == 'custom' and custom_from and custom_to:
+        try:
+            def parse_dt(s):
+                s = s.replace('Z', '').split('.')[0]
+                for fmt in ('%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d'):
+                    try:
+                        dt = datetime.strptime(s, fmt)
+                        return dt.replace(tzinfo=timezone.utc)
+                    except ValueError:
+                        continue
+                raise ValueError(f"Unknown format: {s}")
+            start = parse_dt(custom_from)
+            end = parse_dt(custom_to)
+            return int(start.timestamp()), int(end.timestamp())
+        except Exception as e:
+            print(f"Error parsing custom dates: {e}", flush=True)
+            
+    if option == 'from_start_date' and custom_from:
+        try:
+            def parse_dt(s):
+                s = s.replace('Z', '').split('.')[0]
+                for fmt in ('%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d'):
+                    try:
+                        dt = datetime.strptime(s, fmt)
+                        return dt.replace(tzinfo=timezone.utc)
+                    except ValueError:
+                        continue
+                raise ValueError(f"Unknown format: {s}")
+            start = parse_dt(custom_from)
+            return int(start.timestamp()), None
+        except Exception as e:
+            print(f"Error parsing custom from date: {e}", flush=True)
+            
+    return None, None
+
 class LiveRunner:
     _thread = None
     _stop_event = threading.Event()
@@ -104,12 +167,21 @@ class LiveRunner:
             cls._cache_configs[strategy_id] = (symbol, timeframe, lookback, broker_name)
 
         if not cached_candles:
-            # First fetch: warm up with 5000 candles
-            print(f"[Live Runner] Warm-up: Fetching 5000 candles for strategy {strategy_id} ({symbol} {timeframe})", flush=True)
+            # First fetch: warm up using backtest settings saved in strategy configuration
+            opt = strategy.get("dateRangeOption", "last_candles")
+            custom_from = strategy.get("customFrom")
+            custom_to = strategy.get("customTo")
+            limit = strategy.get("candleLimit", 5000)
+
+            date_from, date_to = calculate_date_bounds(opt, custom_from, custom_to)
+            
+            print(f"[Live Runner] Warm-up: Fetching candles for strategy {strategy_id} ({symbol} {timeframe}) using backtest settings: opt={opt}, limit={limit}, date_from={date_from}, date_to={date_to}", flush=True)
             candles = handler.fetch_candles(
                 symbol=symbol,
                 timeframe=timeframe,
-                limit=5000
+                limit=limit,
+                date_from=date_from,
+                date_to=date_to
             )
             if candles:
                 # Run Wyckoff Analysis on all fetched candles to warm up the cache

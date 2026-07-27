@@ -41,7 +41,11 @@ def save_strategy():
         "entryStabilityRule": payload.get("entryStabilityRule", "default"),
         "broker": payload.get("broker", "metatrader"),
         "target_computer": payload.get("target_computer", "All"),
-        "targets": payload.get("targets", [])
+        "targets": payload.get("targets", []),
+        "dateRangeOption": payload.get("dateRangeOption", "last_candles"),
+        "customFrom": payload.get("customFrom", ""),
+        "customTo": payload.get("customTo", ""),
+        "candleLimit": int(payload.get("candleLimit", 1000))
     }
     
     success = LiveStrategyHandler.save_strategy(strategy_config)

@@ -1097,7 +1097,11 @@ export default function Dashboard() {
           entryStabilityRule,
           broker: targetBroker,
           target_computer: targetComputer,
-          targets: targets
+          targets: targets,
+          dateRangeOption,
+          customFrom,
+          customTo,
+          candleLimit: parseInt(candleLimit) || 1000,
         }),
       });
       const result = await response.json();
