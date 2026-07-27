@@ -85,26 +85,50 @@ def get_strategy_cache(strategy_id):
     """
     from live_runner_handler import LiveRunner
     import json
-    cache = LiveRunner._candles_cache.get(strategy_id, [])
+    import socket
     
-    # Fall back to database stored candles if the in-memory cache is empty (e.g. on dev machine)
+    strategy = LiveStrategyHandler.get_strategy(strategy_id)
+    if not strategy:
+        return jsonify({"status": "error", "message": "Strategy not found"}), 404
+
+    try:
+        current_comp = socket.gethostname()
+    except:
+        current_comp = "Unknown"
+
+    target_comp = strategy.get("target_computer", "All")
+    is_targeted_here = (target_comp == 'All' or target_comp.lower() == current_comp.lower())
+
+    cache = LiveRunner._candles_cache.get(strategy_id, [])
+    trades = LiveRunner._trades_cache.get(strategy_id, [])
+    
     if not cache:
-        try:
-            strategy = LiveStrategyHandler.get_strategy(strategy_id)
-            if strategy:
+        if is_targeted_here:
+            try:
                 print(f"[Cache Endpoint] Cache miss for strategy {strategy_id}. Forcing synchronous warm-up evaluation...", flush=True)
                 LiveRunner._evaluate_strategy(strategy)
                 cache = LiveRunner._candles_cache.get(strategy_id, [])
-        except Exception as e:
-            print(f"Error forcing synchronous warm-up: {e}", flush=True)
-            
-        # Fall back to database stored candles if evaluation still failed to populate cache
-        if not cache:
-            return jsonify({"status": "error", "message": "Failed to retrieve strategy candles"}), 404
+                trades = LiveRunner._trades_cache.get(strategy_id, [])
+            except Exception as e:
+                print(f"Error forcing synchronous warm-up: {e}", flush=True)
+        else:
+            # Read from DB live_state when strategy runs on another machine (e.g. laptop)
+            if strategy.get("live_state"):
+                live_state = strategy["live_state"]
+                if isinstance(live_state, str):
+                    try:
+                        live_state = json.loads(live_state)
+                    except Exception:
+                        pass
+                if isinstance(live_state, dict):
+                    cache = live_state.get("candles", [])
+                    trades = live_state.get("trades", [])
+
+    if not cache:
+        return jsonify({"status": "error", "message": "Failed to retrieve strategy candles"}), 404
 
     limit = request.args.get('limit', type=int)
     if limit and cache:
         cache = cache[-limit:]
 
-    trades = LiveRunner._trades_cache.get(strategy_id, [])
     return jsonify({"status": "success", "strategy_id": strategy_id, "candles": cache, "trades": trades})

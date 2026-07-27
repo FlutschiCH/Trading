@@ -302,8 +302,8 @@ class LiveRunner:
         # Run trade evaluation logic to determine signals on the last completed candle
         should_buy, should_sell, state_info = cls._evaluate_signals(annotated_candles, strategy)
 
-        # Keep a history of the last 50 annotated candles to store in live_state in DB
-        recent_candles = annotated_candles[-50:] if len(annotated_candles) > 50 else annotated_candles
+        # Keep a history of the last 5000 annotated candles to store in live_state in DB
+        recent_candles = annotated_candles[-5000:] if len(annotated_candles) > 5000 else annotated_candles
         state_info["candles"] = recent_candles
 
         # Persist the latest live state to the database
@@ -511,7 +511,8 @@ class LiveRunner:
             "pending_sell_age": pending_sell_age,
             "status_message": status_message,
             "last_candle_time": datetime.fromtimestamp(last_c.get('time')).strftime("%Y-%m-%d %H:%M:%S") if last_c.get('time') else None,
-            "last_checked": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            "last_checked": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "trades": cls._trades_cache.get(strategy["id"], [])
         }
 
         return should_buy, should_sell, state_info
