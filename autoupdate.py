@@ -76,7 +76,7 @@ def check_and_install_dependencies(python_exe):
                 pip_exe += ".exe"
             if not os.path.exists(pip_exe):
                 pip_exe = "pip"
-            subprocess.run([pip_exe, "install", "-r", "requirements.txt"], cwd="backend", check=True)
+            subprocess.run([pip_exe, "install", "-r", "requirements.txt"], cwd="backend", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
         except Exception as e:
             print(f"Failed to install dependencies: {e}", flush=True)
 
