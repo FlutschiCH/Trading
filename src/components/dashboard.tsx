@@ -2362,7 +2362,7 @@ export default function Dashboard() {
             }}>
               {activeAccount ? `${activeAccount.name} Active` : 'No Active Account'}
             </div>
-            {(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && (
+            {(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname === '89.217.138.51') && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: 'var(--app-panel-header-bg)', border: '1px solid var(--app-card-border)', borderRadius: '6px', padding: '4px 8px' }}>
                 <span style={{ fontSize: '10px', color: 'var(--app-text-muted)', fontWeight: 'bold' }}>Target API:</span>
                 <select
@@ -2382,12 +2382,14 @@ export default function Dashboard() {
                   }}
                 >
                   <option value={`http://${window.location.hostname}:8751`}>Local Host (8751)</option>
+                  <option value="http://89.217.138.51:8751">Laptop Server (89.217.138.51)</option>
                   <option value="https://trading-production-cb87.up.railway.app">Railway Live Container</option>
                 </select>
               </div>
             )}
             {(window.location.hostname === 'localhost' || 
-              window.location.hostname === '127.0.0.1') && (
+              window.location.hostname === '127.0.0.1' ||
+              window.location.hostname === '89.217.138.51') && (
               <button
                 onClick={async () => {
                   try {
