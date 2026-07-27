@@ -41,25 +41,15 @@ def backtest():
     date_to = payload.get('date_to')
 
     # Fetch up-to-date candles on the backend
-    if candle_source == 'yfinance':
-        from yfinance_handler import YFinanceHandler
-        candles = YFinanceHandler.fetch_candles(
-            symbol=symbol,
-            timeframe=timeframe,
-            limit=limit,
-            date_from=date_from,
-            date_to=date_to
-        )
-    else:
-        from broker_handler import BrokerHandler
-        handler = BrokerHandler.get_handler(candle_source)
-        candles = handler.fetch_candles(
-            symbol=symbol,
-            timeframe=timeframe,
-            limit=limit,
-            date_from=date_from,
-            date_to=date_to
-        )
+    from broker_handler import BrokerHandler
+    handler = BrokerHandler.get_handler(candle_source)
+    candles = handler.fetch_candles(
+        symbol=symbol,
+        timeframe=timeframe,
+        limit=limit,
+        date_from=date_from,
+        date_to=date_to
+    )
     
     if not candles:
         return jsonify({"status": "error", "message": "Failed to fetch up-to-date candles for backtest."}), 400
@@ -240,24 +230,15 @@ def backtest_optimize():
     date_to = payload.get('date_to')
 
     # Fetch up-to-date candles on the backend
-    if candle_source == 'yfinance':
-        from yfinance_handler import YFinanceHandler
-        candles = YFinanceHandler.fetch_candles(
-            symbol=symbol,
-            timeframe=timeframe,
-            limit=limit,
-            date_from=date_from,
-            date_to=date_to
-        )
-    else:
-        from metatrader_handler import MetaTraderHandler
-        candles = MetaTraderHandler.fetch_candles(
-            symbol=symbol,
-            timeframe=timeframe,
-            limit=limit,
-            date_from=date_from,
-            date_to=date_to
-        )
+    from broker_handler import BrokerHandler
+    handler = BrokerHandler.get_handler(candle_source)
+    candles = handler.fetch_candles(
+        symbol=symbol,
+        timeframe=timeframe,
+        limit=limit,
+        date_from=date_from,
+        date_to=date_to
+    )
     
     if not candles:
         return jsonify({"status": "error", "message": "Failed to fetch up-to-date candles for optimization."}), 400
