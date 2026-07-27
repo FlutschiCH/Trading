@@ -1277,6 +1277,11 @@ export default function Dashboard() {
     }
     setLoadingStrategy(true);
 
+    if (forceFullRefresh) {
+      setCandles([]);
+      setLiveSimulatedTrades([]);
+    }
+
     const isIncremental = !forceFullRefresh && candles.length > 0;
     const reqLimit = isIncremental ? 2 : candleLimit;
 
