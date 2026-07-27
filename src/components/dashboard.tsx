@@ -1271,17 +1271,24 @@ export default function Dashboard() {
   }, []);
 
   // Fetch candle data and analyze on Flask backend
-  const fetchCandles = async (overrideBroker?: string, isBackground: boolean = false) => {
+  const fetchCandles = async (overrideBroker?: string, isBackground: boolean = false, forceFullRefresh: boolean = false) => {
     if (!isBackground) {
       setLoading(true);
     }
     setLoadingStrategy(true);
+
+    const isIncremental = !forceFullRefresh && candles.length > 0;
+    const reqLimit = isIncremental ? 2 : candleLimit;
+
     try {
       let rawCandles: Candle[] = [];
       
       if (isLiveFeed && selectedStrategyId) {
         try {
-          const response = await fetch(`${API_BASE_URL}/api/live/strategy/cache/${selectedStrategyId}`);
+          const url = isIncremental 
+            ? `${API_BASE_URL}/api/live/strategy/cache/${selectedStrategyId}?limit=2`
+            : `${API_BASE_URL}/api/live/strategy/cache/${selectedStrategyId}`;
+          const response = await fetch(url);
           const result = await response.json();
           if (result && result.status === 'success' && Array.isArray(result.candles)) {
             rawCandles = result.candles.sort((a: Candle, b: Candle) => a.time - b.time);
@@ -1301,7 +1308,7 @@ export default function Dashboard() {
               broker: overrideBroker || candleSource,
               symbol: symbol,
               interval: timeframe,
-              limit: candleLimit,
+              limit: reqLimit,
               lookback: parseInt(lookbackWindow) || 20,
             }),
           });
@@ -1319,8 +1326,22 @@ export default function Dashboard() {
       }
 
       if (rawCandles.length > 0) {
-        // Set raw candles immediately and stop initial loading to show chart instantly
-        setCandles(rawCandles);
+        if (isIncremental) {
+          setCandles(prev => {
+            const merged = [...prev];
+            rawCandles.forEach((newCandle) => {
+              const idx = merged.findIndex(c => c.time === newCandle.time);
+              if (idx !== -1) {
+                merged[idx] = newCandle;
+              } else {
+                merged.push(newCandle);
+              }
+            });
+            return merged.sort((a, b) => a.time - b.time);
+          });
+        } else {
+          setCandles(rawCandles);
+        }
         setLoading(false);
         setInitialCandlesLoaded(true);
       }
@@ -1732,9 +1753,9 @@ export default function Dashboard() {
   // Live Feed auto-update polling
   useEffect(() => {
     if (!isLiveFeed) return;
-    fetchCandles(undefined, true);
+    fetchCandles(undefined, true, true);
     const interval = setInterval(() => {
-      fetchCandles(undefined, true);
+      fetchCandles(undefined, true, false);
     }, 2000);
     return () => clearInterval(interval);
   }, [isLiveFeed, symbol, timeframe, selectedStrategyId]);
@@ -2675,7 +2696,7 @@ export default function Dashboard() {
                 candles={backtestResults?.candles || candles} 
                 loading={loading} 
                 loadingStrategy={loadingStrategy} 
-                onRefresh={fetchCandles} 
+                onRefresh={(broker, isBg) => fetchCandles(broker, isBg, true)} 
                 entryPrice={selectedTrade?.entryPrice}
                 slPrice={selectedTrade?.slPrice}
                 tpPrice={selectedTrade?.tpPrice}
@@ -2878,7 +2899,7 @@ export default function Dashboard() {
                       candles={isLiveFeed ? candles : (backtestResults?.candles || candles)} 
                       loading={loading} 
                       loadingStrategy={loadingStrategy} 
-                      onRefresh={fetchCandles} 
+                      onRefresh={(broker, isBg) => fetchCandles(broker, isBg, true)} 
                       entryPrice={selectedTrade?.entryPrice}
                       slPrice={selectedTrade?.slPrice}
                       tpPrice={selectedTrade?.tpPrice}

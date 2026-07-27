@@ -80,6 +80,7 @@ def get_strategy_cache(strategy_id):
     Retrieve cached annotated candles for a specific live strategy.
     """
     from live_runner_handler import LiveRunner
+    import json
     cache = LiveRunner._candles_cache.get(strategy_id, [])
     
     # Fall back to database stored candles if the in-memory cache is empty (e.g. on dev machine)
@@ -92,5 +93,9 @@ def get_strategy_cache(strategy_id):
                     cache = live_state["candles"]
         except Exception as e:
             print(f"Error loading candles from db fallback for strategy {strategy_id}: {e}", flush=True)
+
+    limit = request.args.get('limit', type=int)
+    if limit and cache:
+        cache = cache[-limit:]
 
     return jsonify({"status": "success", "strategy_id": strategy_id, "candles": cache})
