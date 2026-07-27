@@ -76,19 +76,10 @@ def candles():
     handler = BrokerHandler.get_handler(broker_name)
     candles_data = handler.fetch_candles(symbol, timeframe, limit, date_from, date_to)
 
-    lookback = payload.get('lookback')
-    simulated_trades = []
-    if lookback:
-        try:
-            from wyckoff_handler import WyckoffHandler
-            candles_data = WyckoffHandler.analyze_wyckoff_structure(candles_data, lookback=int(lookback))
-        except Exception as e:
-            print(f"Error running Wyckoff analysis on trade candles: {e}", flush=True)
-
     return jsonify({
         "status": "success",
         "candles": candles_data,
-        "trades": simulated_trades
+        "trades": []
     })
 
 @trading_routes.route('/trade/history', methods=['POST'])
