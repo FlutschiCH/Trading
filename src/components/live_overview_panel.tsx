@@ -365,15 +365,17 @@ export default function LiveOverviewPanel({
           onClose={() => setEditingStrategy(null)}
           onConfirm={async (targetComputer, targets, name) => {
             console.log('onConfirm handler inside LiveOverviewPanel called', { targetComputer, targets, name });
+            const strategyToUpdate = editingStrategy;
+            setEditingStrategy(null); // Close the modal instantly
             try {
               const updatedConfig = {
-                ...editingStrategy,
+                ...strategyToUpdate,
                 name: name,
                 target_computer: targetComputer,
                 targets: targets,
                 // also fallback main account_id & broker for backwards-compatibility compatibility
-                account_id: targets.length > 0 ? targets[0].account_id : editingStrategy.account_id,
-                broker: targets.length > 0 ? targets[0].broker : editingStrategy.broker
+                account_id: targets.length > 0 ? targets[0].account_id : strategyToUpdate.account_id,
+                broker: targets.length > 0 ? targets[0].broker : strategyToUpdate.broker
               };
               console.log('Sending POST to /api/live/strategy with config:', updatedConfig);
               const res = await fetch(`${API_BASE_URL}/api/live/strategy`, {
@@ -384,7 +386,6 @@ export default function LiveOverviewPanel({
               const data = await res.json();
               console.log('POST /api/live/strategy response:', data);
               if (data.status === 'success') {
-                setEditingStrategy(null);
                 fetchStrategies();
               } else {
                 alert(data.message || 'Failed to save strategy changes');
