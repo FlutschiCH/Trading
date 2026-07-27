@@ -118,6 +118,23 @@ def run_auto_closer():
 
         time.sleep(15) # check every 15 seconds
 
+class CustomWSGILogger:
+    def __init__(self):
+        self.candle_request_count = 0
+
+    def write(self, msg):
+        if "OPTIONS " in msg:
+            return
+        if "/api/trade/candles" in msg:
+            self.candle_request_count += 1
+            if self.candle_request_count % 20 != 0:
+                return
+            print(f"[API Log] /api/trade/candles request processed (Show 1/20 | Total: {self.candle_request_count})", flush=True)
+            return
+        m = msg.strip()
+        if m:
+            print(m, flush=True)
+
 if __name__ == '__main__':
     import threading
     try:
@@ -144,7 +161,7 @@ if __name__ == '__main__':
     # Initialize high-performance WSGI Server
     port = int(os.environ.get("PORT", 8751))
     print(f"Starting gevent WSGI Server on port {port}...", flush=True)
-    http_server = WSGIServer(('0.0.0.0', port), app)
+    http_server = WSGIServer(('0.0.0.0', port), app, log=CustomWSGILogger())
     
     # Play startup sound once local server is ready
     try:
