@@ -681,6 +681,7 @@ export default function TVChart({
       setDateRangeCoords(null);
     }
 
+    const visibleRange = timeScale.getVisibleLogicalRange();
     const currentFvgs = fvgsRef.current;
     if (currentFvgs && currentFvgs.length > 0 && candlesRef.current) {
       const getCoordinateForTime = (time: number) => {
@@ -691,7 +692,18 @@ export default function TVChart({
         return timeScale.timeToCoordinate(time as any);
       };
 
-      const coords = currentFvgs.map(fvg => {
+      const filteredFvgs = visibleRange
+        ? currentFvgs.filter(fvg => {
+            const idxStart = candlesRef.current.findIndex(c => Number(c.time) === Number(fvg.timeStart));
+            const idxEnd = candlesRef.current.findIndex(c => Number(c.time) === Number(fvg.timeEnd));
+            if (idxStart === -1 && idxEnd === -1) return false;
+            const startLogical = idxStart !== -1 ? idxStart : idxEnd;
+            const endLogical = idxEnd !== -1 ? idxEnd : idxStart;
+            return startLogical <= visibleRange.to && endLogical >= visibleRange.from;
+          })
+        : currentFvgs;
+
+      const coords = filteredFvgs.map(fvg => {
         const x1 = getCoordinateForTime(fvg.timeStart);
         const x2 = getCoordinateForTime(fvg.timeEnd);
         const y1 = series.priceToCoordinate(fvg.priceMax);
@@ -705,6 +717,8 @@ export default function TVChart({
 
     if (currentSessions && currentSessions.length > 0 && candlesRef.current && candlesRef.current.length > 0) {
       const activeCoords: any[] = [];
+      const startIdxLimit = visibleRange ? Math.max(0, Math.floor(visibleRange.from) - 5) : 0;
+      const endIdxLimit = visibleRange ? Math.min(candlesRef.current.length - 1, Math.ceil(visibleRange.to) + 5) : candlesRef.current.length - 1;
 
       currentSessions.forEach(session => {
         const [startH, startM] = session.start.split(':').map(Number);
@@ -733,7 +747,7 @@ export default function TVChart({
           return day === 0 ? 7 : day;
         };
 
-        for (let i = 0; i < candlesRef.current.length; i++) {
+        for (let i = startIdxLimit; i <= endIdxLimit; i++) {
           const candle = candlesRef.current[i];
           const minutes = getSessionMinutes(candle.time);
           const weekday = getSessionWeekday(candle.time);
@@ -744,7 +758,6 @@ export default function TVChart({
             if (startVal <= endVal) {
               isInSession = minutes >= startVal && minutes < endVal;
             } else {
-              // Over-night sessions (e.g. 22:00 to 02:00)
               isInSession = minutes >= startVal || minutes < endVal;
             }
           }
@@ -760,7 +773,7 @@ export default function TVChart({
             }
           }
 
-          const isLastCandle = i === candlesRef.current.length - 1;
+          const isLastCandle = i === endIdxLimit;
           const willCloseSession = !isInSession || isLastCandle;
 
           if (willCloseSession && sessionActiveStartIdx !== null) {
@@ -798,10 +811,13 @@ export default function TVChart({
 
     const currentCandles = candlesRef.current;
     if (currentCandles && currentCandles.length > 0) {
+      const startIdxLimit = visibleRange ? Math.max(0, Math.floor(visibleRange.from) - 5) : 0;
+      const endIdxLimit = visibleRange ? Math.min(currentCandles.length - 1, Math.ceil(visibleRange.to) + 5) : currentCandles.length - 1;
+
       const zones: any[] = [];
       let currentZone: any = null;
 
-      for (let i = 0; i < currentCandles.length; i++) {
+      for (let i = startIdxLimit; i <= endIdxLimit; i++) {
         const c = currentCandles[i];
         const stage = c.wyckoff_stage || 'TRANSITION';
 
@@ -831,7 +847,7 @@ export default function TVChart({
       const oversold: any[] = [];
       const overbought: any[] = [];
 
-      for (let i = 0; i < currentCandles.length; i++) {
+      for (let i = startIdxLimit; i <= endIdxLimit; i++) {
         const c = currentCandles[i];
         if (c.support_level !== undefined && c.low < c.support_level) {
           const x = timeScale.timeToCoordinate(c.time);
