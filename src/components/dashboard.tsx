@@ -1716,7 +1716,7 @@ export default function Dashboard() {
       fetchCandles(undefined, true);
     }, 2000);
     return () => clearInterval(interval);
-  }, [isLiveFeed, symbol, timeframe, liveStrategy]);
+  }, [isLiveFeed, symbol, timeframe, selectedStrategyId]);
 
   const currentConnected = true;
 
