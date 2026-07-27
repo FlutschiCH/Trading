@@ -127,8 +127,11 @@ if __name__ == '__main__':
         print(f"Failed to start auto-closer thread: {e}", flush=True)
 
     try:
-        from live_runner_handler import LiveRunner
-        LiveRunner.start()
+        if os.environ.get("LIVE_RUNNER_ENABLED", "True").lower() in ("true", "1"):
+            from live_runner_handler import LiveRunner
+            LiveRunner.start()
+        else:
+            print("[Live Runner] Skipped startup (disabled via LIVE_RUNNER_ENABLED env var).", flush=True)
     except Exception as e:
         print(f"Failed to start live runner: {e}", flush=True)
     # MetaTrader 5 auto-login sequence skipped for cTrader headless focus
