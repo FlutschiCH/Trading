@@ -63,14 +63,18 @@ export default function LiveOverviewPanel({
 
   const fetchStrategies = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/live/strategies`);
+      const url = `${API_BASE_URL}/api/live/strategies`;
+      console.log(`[HTTP Request] Calling live strategies endpoint: ${url}`);
+      const res = await fetch(url);
       const data = await res.json();
+      console.log(`[HTTP Response] Reply from live strategies endpoint:`, data);
       if (data.status === 'success') {
         setStrategies(data.strategies || []);
       } else {
         setError(data.message || 'Failed to fetch strategies');
       }
     } catch (err: any) {
+      console.error(`[HTTP Error] Failed to fetch live strategies:`, err);
       setError(err.message || 'Error connecting to backend');
     } finally {
       setLoading(false);
