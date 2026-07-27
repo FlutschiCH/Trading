@@ -2362,8 +2362,8 @@ export default function Dashboard() {
               {activeAccount ? `${activeAccount.name} Active` : 'No Active Account'}
             </div>
             {(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname === '89.217.138.51') && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: 'var(--app-panel-header-bg)', border: '1px solid var(--app-card-border)', borderRadius: '6px', padding: '4px 8px' }}>
-                <span style={{ fontSize: '10px', color: 'var(--app-text-muted)', fontWeight: 'bold' }}>Target API:</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '6px', padding: '4px 8px' }}>
+                <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 'bold' }}>Target API:</span>
                 <select
                   value={localStorage.getItem('wyckoff_api_target') || `http://${window.location.hostname}:8751`}
                   onChange={(e) => {
@@ -2371,18 +2371,19 @@ export default function Dashboard() {
                     window.location.reload();
                   }}
                   style={{
-                    background: 'none',
+                    backgroundColor: '#1e293b',
                     border: 'none',
-                    color: 'var(--app-text)',
+                    color: '#ffffff',
                     fontSize: '11px',
                     fontWeight: 'bold',
                     cursor: 'pointer',
-                    outline: 'none'
+                    outline: 'none',
+                    padding: '2px 4px'
                   }}
                 >
-                  <option value={`http://${window.location.hostname}:8751`}>Local Host (8751)</option>
-                  <option value="http://89.217.138.51:8751">Laptop Server (89.217.138.51)</option>
-                  <option value="https://trading-production-cb87.up.railway.app">Railway Live Container</option>
+                  <option style={{ backgroundColor: '#1e293b', color: '#ffffff' }} value={`http://${window.location.hostname}:8751`}>Local Host (8751)</option>
+                  <option style={{ backgroundColor: '#1e293b', color: '#ffffff' }} value="http://89.217.138.51:8751">Laptop Server (89.217.138.51)</option>
+                  <option style={{ backgroundColor: '#1e293b', color: '#ffffff' }} value="https://trading-production-cb87.up.railway.app">Railway Live Container</option>
                 </select>
               </div>
             )}
