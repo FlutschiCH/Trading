@@ -1,7 +1,86 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType, CandlestickSeries, HistogramSeries, LineSeries, createSeriesMarkers } from 'lightweight-charts';
+import type { ISeriesPrimitive, SeriesPrimitivePaneView, SeriesPrimitivePaneRenderer } from 'lightweight-charts';
 import { Square, PenTool, Trash2, XCircle, RefreshCw, Maximize2, Minimize2, Settings, Play, Pause, SkipBack, SkipForward, X } from 'lucide-react';
 import { calculateDateBounds } from '../App';
+
+class SessionBoxRenderer implements SeriesPrimitivePaneRenderer {
+  private _sessionCoords: any[];
+
+  constructor(sessionCoords: any[]) {
+    this._sessionCoords = sessionCoords;
+  }
+
+  draw(ctx: CanvasRenderingContext2D) {
+    ctx.save();
+    this._sessionCoords.forEach(session => {
+      const x1 = session.x1;
+      const x2 = session.x2;
+      const y1 = session.y1;
+      const y2 = session.y2;
+      const width = Math.max(1, x2 - x1);
+      const height = Math.max(1, y2 - y1);
+
+      if (width <= 0 || height <= 0) return;
+
+      const colorHex = session.color || '#3b82f6';
+      let r = 59, g = 130, b = 246;
+      if (colorHex.startsWith('#')) {
+        const hexVal = colorHex.replace('#', '');
+        if (hexVal.length === 3) {
+          r = parseInt(hexVal[0] + hexVal[0], 16);
+          g = parseInt(hexVal[1] + hexVal[1], 16);
+          b = parseInt(hexVal[2] + hexVal[2], 16);
+        } else if (hexVal.length === 6) {
+          r = parseInt(hexVal.substring(0, 2), 16);
+          g = parseInt(hexVal.substring(2, 4), 16);
+          b = parseInt(hexVal.substring(4, 6), 16);
+        }
+      }
+
+      ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.08)`;
+      ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, 0.4)`;
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([2, 2]);
+
+      ctx.fillRect(x1, y1, width, height);
+      ctx.strokeRect(x1, y1, width, height);
+
+      if (width > 40) {
+        ctx.fillStyle = colorHex;
+        ctx.font = 'bold 9px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        ctx.globalAlpha = 0.8;
+        ctx.fillText(session.label || '', x1 + 6, y1 + 6);
+        ctx.globalAlpha = 1.0;
+      }
+    });
+    ctx.restore();
+  }
+}
+
+class SessionBoxPrimitive implements ISeriesPrimitive {
+  private _sessionCoords: any[];
+
+  constructor(sessionCoords: any[]) {
+    this._sessionCoords = sessionCoords;
+  }
+
+  updateSessionCoords(sessionCoords: any[]) {
+    this._sessionCoords = sessionCoords;
+  }
+
+  update() {}
+
+  paneViews(): readonly SeriesPrimitivePaneView[] {
+    return [
+      {
+        renderer: () => new SessionBoxRenderer(this._sessionCoords)
+      }
+    ];
+  }
+}
 
 const isLocal = typeof window !== 'undefined' &&
   (window.location.hostname === 'localhost' ||
@@ -301,6 +380,7 @@ export default function TVChart({
   const supportLineSeriesRef = useRef<any>(null);
   const resistanceLineSeriesRef = useRef<any>(null);
   const smaLineSeriesRef = useRef<any>(null);
+  const sessionBoxPrimitiveRef = useRef<any>(null);
 
   // Drawing Tools State
   const [activeTool, setActiveTool] = useState<'none' | 'trendline' | 'rectangle' | 'delete'>('none');
@@ -715,7 +795,7 @@ export default function TVChart({
       setFvgCoords([]);
     }
 
-    if (currentSessions && currentSessions.length > 0 && candlesRef.current && candlesRef.current.length > 0) {
+    if (chartSettings.showSessions && currentSessions && currentSessions.length > 0 && candlesRef.current && candlesRef.current.length > 0) {
       const activeCoords: any[] = [];
       const startIdxLimit = visibleRange ? Math.max(0, Math.floor(visibleRange.from) - 5) : 0;
       const endIdxLimit = visibleRange ? Math.min(candlesRef.current.length - 1, Math.ceil(visibleRange.to) + 5) : candlesRef.current.length - 1;
@@ -804,8 +884,14 @@ export default function TVChart({
         }
       });
 
+      if (sessionBoxPrimitiveRef.current) {
+        sessionBoxPrimitiveRef.current.updateSessionCoords(activeCoords);
+      }
       setSessionCoords(activeCoords);
     } else {
+      if (sessionBoxPrimitiveRef.current) {
+        sessionBoxPrimitiveRef.current.updateSessionCoords([]);
+      }
       setSessionCoords([]);
     }
 
@@ -1042,6 +1128,10 @@ export default function TVChart({
     supportLineSeriesRef.current = supportLineSeries;
     resistanceLineSeriesRef.current = resistanceLineSeries;
     smaLineSeriesRef.current = smaLineSeries;
+
+    const sessionBoxPrimitive = new SessionBoxPrimitive([]);
+    candlestickSeries.attachPrimitive(sessionBoxPrimitive);
+    sessionBoxPrimitiveRef.current = sessionBoxPrimitive;
 
     const selectedTradePathSeries = mainChart.addSeries(LineSeries, {
       color: '#10b981',
@@ -2415,72 +2505,7 @@ export default function TVChart({
               );
             })}
 
-            {chartSettings.showSessions && sessionCoords.map((session, index) => {
-              const rightScaleWidth = chartRef.current ? chartRef.current.priceScale('right').width() : 55;
-              const plotWidth = chartContainerRef.current ? chartContainerRef.current.clientWidth - rightScaleWidth : 0;
-              const plotHeight = chartHeight - 26; // Subtracting bottom time axis height
 
-              // If completely outside the plot area, don't render
-              if (session.x1 > plotWidth || session.y1 > plotHeight) return null;
-
-              // Clip dimensions to plot boundary
-              const renderX1 = Math.max(0, Math.min(plotWidth, session.x1));
-              const renderX2 = Math.max(0, Math.min(plotWidth, session.x2));
-              const renderY1 = Math.max(0, Math.min(plotHeight, session.y1));
-              const renderY2 = Math.max(0, Math.min(plotHeight, session.y2));
-
-              const width = Math.max(1, renderX2 - renderX1);
-              const height = Math.max(1, renderY2 - renderY1);
-
-              if (width <= 0 || height <= 0) return null;
-
-              // 8% opacity fill, 40% stroke opacity
-              const colorHex = session.color || '#3b82f6';
-              // Convert hex to rgba to apply opacity
-              let r = 59, g = 130, b = 246;
-              if (colorHex.startsWith('#')) {
-                const hexVal = colorHex.replace('#', '');
-                if (hexVal.length === 3) {
-                  r = parseInt(hexVal[0] + hexVal[0], 16);
-                  g = parseInt(hexVal[1] + hexVal[1], 16);
-                  b = parseInt(hexVal[2] + hexVal[2], 16);
-                } else if (hexVal.length === 6) {
-                  r = parseInt(hexVal.substring(0, 2), 16);
-                  g = parseInt(hexVal.substring(2, 4), 16);
-                  b = parseInt(hexVal.substring(4, 6), 16);
-                }
-              }
-
-              const fill = `rgba(${r}, ${g}, ${b}, 0.08)`;
-              const stroke = `rgba(${r}, ${g}, ${b}, 0.4)`;
-
-              return (
-                <g key={`session-${index}`} style={{ pointerEvents: 'none' }}>
-                  <rect
-                    x={renderX1}
-                    y={renderY1}
-                    width={width}
-                    height={height}
-                    fill={fill}
-                    stroke={stroke}
-                    strokeWidth={1.5}
-                    strokeDasharray="2 2"
-                  />
-                  {width > 40 && (
-                    <text
-                      x={renderX1 + 6}
-                      y={renderY1 + 14}
-                      fill={colorHex}
-                      fontSize="9px"
-                      fontWeight="bold"
-                      style={{ opacity: 0.8 }}
-                    >
-                      {session.label}
-                    </text>
-                  )}
-                </g>
-              );
-            })}
 
             {/* Wyckoff Oversold (Spring) Highlight Shading & Boundary Ticks */}
             {chartSettings.showTrLines && oversoldCoords.map((coord, idx) => {
