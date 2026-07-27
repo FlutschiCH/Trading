@@ -63,15 +63,22 @@ class SessionBoxRenderer implements SeriesPrimitivePaneRenderer {
 class SessionBoxPrimitive implements ISeriesPrimitive {
   private _sessionCoords: any[];
 
+  private _requestUpdate?: () => void;
+
   constructor(sessionCoords: any[]) {
     this._sessionCoords = sessionCoords;
   }
 
   updateSessionCoords(sessionCoords: any[]) {
     this._sessionCoords = sessionCoords;
+    if (this._requestUpdate) {
+      this._requestUpdate();
+    }
   }
 
-  update() {}
+  update(requestUpdate: () => void) {
+    this._requestUpdate = requestUpdate;
+  }
 
   paneViews(): readonly SeriesPrimitivePaneView[] {
     return [
@@ -634,7 +641,7 @@ export default function TVChart({
       updateDrawingCoordinates();
     }, 50);
     return () => clearTimeout(timer);
-  }, [dateRangeOption, customFrom, customTo, activeCandles, enabledIndicators, visibleFvgs, sessions, sessionsTimezone]);
+  }, [dateRangeOption, customFrom, customTo, activeCandles, enabledIndicators, visibleFvgs, sessions, sessionsTimezone, chartSettings]);
 
   useEffect(() => {
     selectedTradeRef.current = selectedTrade;
