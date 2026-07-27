@@ -100,19 +100,7 @@ def get_strategy_cache(strategy_id):
             
         # Fall back to database stored candles if evaluation still failed to populate cache
         if not cache:
-            try:
-                strategy = LiveStrategyHandler.get_strategy(strategy_id)
-                if strategy and strategy.get("live_state"):
-                    live_state = strategy["live_state"]
-                    if isinstance(live_state, str):
-                        try:
-                            live_state = json.loads(live_state)
-                        except Exception:
-                            pass
-                    if isinstance(live_state, dict) and "candles" in live_state:
-                        cache = live_state["candles"]
-            except Exception as e:
-                print(f"Error loading candles from db fallback for strategy {strategy_id}: {e}", flush=True)
+            return jsonify({"status": "error", "message": "Failed to retrieve strategy candles"}), 404
 
     limit = request.args.get('limit', type=int)
     if limit and cache:
