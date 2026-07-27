@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Play, Pause, Trash2, Clock, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Play, Pause, Trash2, Clock, CheckCircle2, AlertTriangle, RefreshCw } from 'lucide-react';
 import { API_BASE_URL } from '../api';
 import DeployModal from './deploy_modal';
 
@@ -145,11 +145,33 @@ export default function LiveOverviewPanel({
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      {/* Header section with Timer */}
+      {/* Header section with Timer & Refresh */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', borderBottom: '1px solid #1f2937', paddingBottom: '8px' }}>
-        <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 'bold' }}>
-          LIVE STRATEGIES ({strategies.length})
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 'bold' }}>
+            LIVE STRATEGIES ({strategies.length})
+          </span>
+          <button
+            onClick={fetchStrategies}
+            title="Refresh Strategies"
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#94a3b8',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '2px',
+              borderRadius: '4px',
+              transition: 'color 0.2s',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = '#3b82f6')}
+            onMouseLeave={(e) => (e.currentTarget.style.color = '#94a3b8')}
+          >
+            <RefreshCw size={12} />
+          </button>
+        </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', padding: '3px 8px', borderRadius: '12px' }}>
           <Clock size={12} />
           <span>Next check in {countdown}s</span>
