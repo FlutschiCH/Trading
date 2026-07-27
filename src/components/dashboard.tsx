@@ -299,9 +299,7 @@ export default function Dashboard() {
   const [connectionMode, setConnectionMode] = useState<'openapi' | 'fix'>('fix');
   const [isConnectedOpenAPI] = useState(true);
   const [isConnectedFIX] = useState(true);
-  const [isLiveFeed, setIsLiveFeed] = useState<boolean>(() => {
-    return localStorage.getItem('wyckoff_is_live_feed') === 'true';
-  });
+  const [isLiveFeed, setIsLiveFeed] = useState<boolean>(false);
 
   // Account & Positions
   const [accountInfo, setAccountInfo] = useState<AccountInfo | null>(null);
