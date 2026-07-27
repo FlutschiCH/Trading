@@ -2847,14 +2847,14 @@ export default function Dashboard() {
                       onCandleSourceChange={setCandleSource}
                       availableSymbols={availableSymbols}
                       availableTimeframes={availableTimeframes}
-                      candles={backtestResults?.candles || candles} 
+                      candles={isLiveFeed ? candles : (backtestResults?.candles || candles)} 
                       loading={loading} 
                       loadingStrategy={loadingStrategy} 
                       onRefresh={fetchCandles} 
                       entryPrice={selectedTrade?.entryPrice}
                       slPrice={selectedTrade?.slPrice}
                       tpPrice={selectedTrade?.tpPrice}
-                      trades={backtestResults ? backtestResults.trades : (liveSimulatedTrades.length > 0 ? liveSimulatedTrades : liveTrades)}
+                      trades={isLiveFeed ? (liveSimulatedTrades.length > 0 ? liveSimulatedTrades : liveTrades) : (backtestResults ? backtestResults.trades : (liveSimulatedTrades.length > 0 ? liveSimulatedTrades : liveTrades))}
                       selectedTrade={selectedTrade}
                       onSelectTrade={(trade) => {
                         setSelectedTrade(trade);
