@@ -78,6 +78,8 @@ class LiveRunner:
     _last_processed = {} 
     # In-memory cache to store full candle history per strategy
     _candles_cache = {}
+    # In-memory cache to store simulated trades per strategy
+    _trades_cache = {}
 
     @classmethod
     def start(cls):
@@ -186,9 +188,36 @@ class LiveRunner:
             )
             print(f"[Live Runner DEBUG] Warm-up: Fetch returned {len(candles) if candles else 0} candles for strategy {strategy_id}", flush=True)
             if candles:
-                # Run Wyckoff Analysis on all fetched candles to warm up the cache
-                annotated_candles = WyckoffHandler.analyze_wyckoff_structure(candles, lookback=lookback)
+                # Run backtest logic to initialize candles and trades cache
+                from strategy_handler import StrategyHandler
+                backtest_res = StrategyHandler.run_backtest(
+                    candles=candles,
+                    symbol=symbol,
+                    sl_val=strategy["slVal"],
+                    sl_type=strategy["slType"],
+                    rr=strategy["rr"],
+                    size=strategy["size"],
+                    initial_balance=10000.0,
+                    use_risk_sizing=strategy["useRiskSizing"],
+                    risk_pct=strategy["riskPct"],
+                    use_break_even=strategy.get("useBreakEven", False),
+                    be_trigger_r=strategy.get("beTriggerR", 1.0),
+                    lookback_window=lookback,
+                    fees_percent=0.0,
+                    daily_retry_limit=0,
+                    allow_opposite_close=True,
+                    date_from=date_from,
+                    date_to=date_to,
+                    timezone=strategy.get("timezone", "Local"),
+                    sessions=strategy.get("sessions", []),
+                    use_global_close=strategy.get("useGlobalClose", False),
+                    global_close_time=strategy.get("globalCloseTime", ""),
+                    entry_stability_rule=strategy.get("entryStabilityRule", "default"),
+                    broker=broker_name
+                )
+                annotated_candles = backtest_res.get("candles", [])
                 cls._candles_cache[strategy_id] = annotated_candles
+                cls._trades_cache[strategy_id] = backtest_res.get("trades", [])
             else:
                 annotated_candles = []
         else:
@@ -232,6 +261,35 @@ class LiveRunner:
                 cls._candles_cache[strategy_id] = annotated_candles
             else:
                 annotated_candles = cached_candles
+
+        # Update simulated trades in cache to match backtest engine output
+        if annotated_candles:
+            try:
+                from backtest_helpers import run_trade_simulation
+                sim_res = run_trade_simulation(
+                    annotated_data=annotated_candles,
+                    symbol=symbol,
+                    sl_val=strategy["slVal"],
+                    sl_type=strategy["slType"],
+                    rr=strategy["rr"],
+                    size=strategy["size"],
+                    initial_balance=10000.0,
+                    use_risk_sizing=strategy["useRiskSizing"],
+                    risk_pct=strategy["riskPct"],
+                    use_break_even=strategy.get("useBreakEven", False),
+                    be_trigger_r=strategy.get("beTriggerR", 1.0),
+                    fees_percent=0.0,
+                    daily_retry_limit=0,
+                    allow_opposite_close=True,
+                    timezone=strategy.get("timezone", "Local"),
+                    sessions=strategy.get("sessions", []),
+                    use_global_close=strategy.get("useGlobalClose", False),
+                    global_close_time=strategy.get("globalCloseTime", ""),
+                    entry_stability_rule=strategy.get("entryStabilityRule", "default")
+                )
+                cls._trades_cache[strategy_id] = sim_res.get("trades", [])
+            except Exception as e:
+                print(f"Error updating simulated trades cache: {e}", flush=True)
 
         if not annotated_candles or len(annotated_candles) < lookback + 10:
             LiveStrategyHandler.update_strategy_state(strategy_id, {

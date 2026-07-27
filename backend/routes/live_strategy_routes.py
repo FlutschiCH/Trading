@@ -106,35 +106,5 @@ def get_strategy_cache(strategy_id):
     if limit and cache:
         cache = cache[-limit:]
 
-    trades = []
-    if cache:
-        try:
-            strategy = LiveStrategyHandler.get_strategy(strategy_id)
-            if strategy:
-                from backtest_helpers import run_trade_simulation
-                sim_res = run_trade_simulation(
-                    annotated_data=cache,
-                    symbol=strategy["symbol"],
-                    sl_val=strategy["slVal"],
-                    sl_type=strategy["slType"],
-                    rr=strategy["rr"],
-                    size=strategy["size"],
-                    initial_balance=10000.0,
-                    use_risk_sizing=strategy["useRiskSizing"],
-                    risk_pct=strategy["riskPct"],
-                    use_break_even=strategy.get("useBreakEven", False),
-                    be_trigger_r=strategy.get("beTriggerR", 1.0),
-                    fees_percent=0.0,
-                    daily_retry_limit=0,
-                    allow_opposite_close=True,
-                    timezone=strategy.get("timezone", "Local"),
-                    sessions=strategy.get("sessions", []),
-                    use_global_close=strategy.get("useGlobalClose", False),
-                    global_close_time=strategy.get("globalCloseTime", ""),
-                    entry_stability_rule=strategy.get("entryStabilityRule", "default")
-                )
-                trades = sim_res.get("trades", [])
-        except Exception as e:
-            print(f"Error simulating trades for strategy cache: {e}", flush=True)
-
+    trades = LiveRunner._trades_cache.get(strategy_id, [])
     return jsonify({"status": "success", "strategy_id": strategy_id, "candles": cache, "trades": trades})
