@@ -143,7 +143,7 @@ class LiveRunner:
         from live_strategy_handler import LiveStrategyHandler
         from broker_handler import BrokerHandler
         handler = BrokerHandler.get_handler(broker_name)
-        print(f"[Live Runner DEBUG] Resolved handler for broker '{broker_name}': {handler.__name__ if handler else 'None'}", flush=True)
+        # print(f"[Live Runner DEBUG] Resolved handler for broker '{broker_name}': {handler.__name__ if handler else 'None'}", flush=True)
 
         cached_candles = cls._candles_cache.get(strategy_id, [])
         
@@ -222,13 +222,13 @@ class LiveRunner:
                 annotated_candles = []
         else:
             # Incremental fetch: fetch only the last 10 candles
-            print(f"[Live Runner] Incremental: Fetching 10 candles for strategy {strategy_id} ({symbol} {timeframe})", flush=True)
+            # print(f"[Live Runner] Incremental: Fetching 10 candles for strategy {strategy_id} ({symbol} {timeframe})", flush=True)
             new_candles = handler.fetch_candles(
                 symbol=symbol,
                 timeframe=timeframe,
                 limit=10
             )
-            print(f"[Live Runner DEBUG] Incremental: Fetch returned {len(new_candles) if new_candles else 0} candles for strategy {strategy_id}", flush=True)
+            # print(f"[Live Runner DEBUG] Incremental: Fetch returned {len(new_candles) if new_candles else 0} candles for strategy {strategy_id}", flush=True)
             if new_candles:
                 # Convert cached annotated candles to raw candles for the lookback window to calculate accurate Wyckoff indicators on the transition boundary
                 # We need at least lookback * 2 historical candles for stable indicator calculations on the new candles
