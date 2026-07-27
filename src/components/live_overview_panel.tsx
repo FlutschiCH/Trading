@@ -86,7 +86,6 @@ export default function LiveOverviewPanel({
     const timer = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
-          fetchStrategies();
           return 15;
         }
         return prev - 1;
