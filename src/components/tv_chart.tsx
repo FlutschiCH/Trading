@@ -407,6 +407,7 @@ export default function TVChart({
         showTrades: true,
         showTrLines: true,
         autoRefreshCandles: true,
+        autoRefreshSeconds: 5,
       };
     } catch {
       return {
@@ -415,6 +416,7 @@ export default function TVChart({
         showTrades: true,
         showTrLines: true,
         autoRefreshCandles: true,
+        autoRefreshSeconds: 5,
       };
     }
   });
@@ -431,11 +433,12 @@ export default function TVChart({
   // Live fetching of candles if enabled
   useEffect(() => {
     if (!chartSettings.autoRefreshCandles || replayTime !== null) return;
+    const intervalMs = Math.max(1, chartSettings.autoRefreshSeconds || 5) * 1000;
     const interval = setInterval(() => {
       onRefresh(undefined, true); // background refresh call
-    }, 5000);
+    }, intervalMs);
     return () => clearInterval(interval);
-  }, [chartSettings.autoRefreshCandles, replayTime, onRefresh]);
+  }, [chartSettings.autoRefreshCandles, chartSettings.autoRefreshSeconds, replayTime, onRefresh]);
   const [chartHeight, setChartHeight] = useState(window.innerWidth < 768 ? 380 : 680);
   const [weisHeight, setWeisHeight] = useState(window.innerWidth < 768 ? 100 : 140);
   const chartHeightRef = useRef(chartHeight);
@@ -2014,15 +2017,43 @@ export default function TVChart({
                     />
                     Trading Range (TR)
                   </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff', borderTop: '1px solid #334155', paddingTop: '6px', marginTop: '4px' }}>
-                    <input
-                      type="checkbox"
-                      checked={chartSettings.autoRefreshCandles ?? true}
-                      onChange={(e) => setChartSettings({ ...chartSettings, autoRefreshCandles: e.target.checked })}
-                      style={{ cursor: 'pointer' }}
-                    />
-                    ⚡ Auto-Refresh Candles (5s)
-                  </label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', borderTop: '1px solid #334155', paddingTop: '6px', marginTop: '4px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}>
+                      <input
+                        type="checkbox"
+                        checked={chartSettings.autoRefreshCandles ?? true}
+                        onChange={(e) => setChartSettings({ ...chartSettings, autoRefreshCandles: e.target.checked })}
+                        style={{ cursor: 'pointer' }}
+                      />
+                      ⚡ Auto-Refresh Candles
+                    </label>
+                    {chartSettings.autoRefreshCandles && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: '22px', fontSize: '11px', color: '#94a3b8' }}>
+                        <span>Interval:</span>
+                        <input
+                          type="number"
+                          min="1"
+                          max="3600"
+                          value={chartSettings.autoRefreshSeconds ?? 5}
+                          onChange={(e) => {
+                            const secs = Math.max(1, parseInt(e.target.value) || 1);
+                            setChartSettings({ ...chartSettings, autoRefreshSeconds: secs });
+                          }}
+                          style={{
+                            width: '50px',
+                            backgroundColor: '#1e293b',
+                            border: '1px solid #334155',
+                            borderRadius: '4px',
+                            color: '#ffffff',
+                            padding: '2px 6px',
+                            fontSize: '11px',
+                            outline: 'none',
+                          }}
+                        />
+                        <span>secs</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </>
             )}
