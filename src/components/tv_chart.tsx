@@ -298,6 +298,9 @@ export default function TVChart({
   const beLineRef = useRef<any>(null);
   const wyckoffSupportLineRef = useRef<any>(null);
   const wyckoffResistanceLineRef = useRef<any>(null);
+  const supportLineSeriesRef = useRef<any>(null);
+  const resistanceLineSeriesRef = useRef<any>(null);
+  const smaLineSeriesRef = useRef<any>(null);
 
   // Drawing Tools State
   const [activeTool, setActiveTool] = useState<'none' | 'trendline' | 'rectangle' | 'delete'>('none');
@@ -390,11 +393,8 @@ export default function TVChart({
   const [fvgCoords, setFvgCoords] = useState<any[]>([]);
   const [sessionCoords, setSessionCoords] = useState<any[]>([]);
   const [wyckoffZones, setWyckoffZones] = useState<any[]>([]);
-  const [supportLineSegments, setSupportLineSegments] = useState<any[]>([]);
-  const [resistanceLineSegments, setResistanceLineSegments] = useState<any[]>([]);
   const [oversoldCoords, setOversoldCoords] = useState<any[]>([]);
   const [overboughtCoords, setOverboughtCoords] = useState<any[]>([]);
-  const [trendLineSegments, setTrendLineSegments] = useState<any[]>([]);
   const selectedTradeRef = useRef(selectedTrade);
 
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
@@ -828,39 +828,6 @@ export default function TVChart({
 
       setWyckoffZones(zoneCoords);
 
-      const supSegs: any[] = [];
-      const resSegs: any[] = [];
-
-      for (let i = 1; i < currentCandles.length; i++) {
-        const cPrev = currentCandles[i - 1];
-        const cCurr = currentCandles[i];
-
-        if (cPrev.support_level !== undefined && cCurr.support_level !== undefined) {
-          const x1 = timeScale.timeToCoordinate(cPrev.time);
-          const x2 = timeScale.timeToCoordinate(cCurr.time);
-          const y1 = series.priceToCoordinate(cPrev.support_level);
-          const y2 = series.priceToCoordinate(cCurr.support_level);
-
-          if (x1 !== null && x2 !== null && y1 !== null && y2 !== null) {
-            supSegs.push({ x1, x2, y1, y2, stage: cCurr.wyckoff_stage });
-          }
-        }
-
-        if (cPrev.resistance_level !== undefined && cCurr.resistance_level !== undefined) {
-          const x1 = timeScale.timeToCoordinate(cPrev.time);
-          const x2 = timeScale.timeToCoordinate(cCurr.time);
-          const y1 = series.priceToCoordinate(cPrev.resistance_level);
-          const y2 = series.priceToCoordinate(cCurr.resistance_level);
-
-          if (x1 !== null && x2 !== null && y1 !== null && y2 !== null) {
-            resSegs.push({ x1, x2, y1, y2, stage: cCurr.wyckoff_stage });
-          }
-        }
-      }
-
-      setSupportLineSegments(supSegs);
-      setResistanceLineSegments(resSegs);
-
       const oversold: any[] = [];
       const overbought: any[] = [];
 
@@ -888,42 +855,10 @@ export default function TVChart({
       }
       setOversoldCoords(oversold);
       setOverboughtCoords(overbought);
-
-      const trendSegs: any[] = [];
-      for (let i = 1; i < currentCandles.length; i++) {
-        const cPrev = currentCandles[i - 1];
-        const cCurr = currentCandles[i];
-
-        const smaPrev = cPrev.sma_20;
-        const smaCurr = cCurr.sma_20;
-
-        if (smaPrev === undefined || smaPrev === null || smaCurr === undefined || smaCurr === null) {
-          continue;
-        }
-
-        const x1 = timeScale.timeToCoordinate(cPrev.time);
-        const x2 = timeScale.timeToCoordinate(cCurr.time);
-        const y1 = series.priceToCoordinate(smaPrev);
-        const y2 = series.priceToCoordinate(smaCurr);
-
-        if (x1 !== null && x2 !== null && y1 !== null && y2 !== null) {
-          trendSegs.push({
-            x1,
-            x2,
-            y1,
-            y2,
-            stage: cCurr.wyckoff_stage || 'TRANSITION'
-          });
-        }
-      }
-      setTrendLineSegments(trendSegs);
     } else {
       setWyckoffZones([]);
-      setSupportLineSegments([]);
-      setResistanceLineSegments([]);
       setOversoldCoords([]);
       setOverboughtCoords([]);
-      setTrendLineSegments([]);
     }
   };
 
@@ -990,6 +925,32 @@ export default function TVChart({
       lineWidth: 2,
       lineStyle: 1, // Dashed
       title: 'TR Low',
+    });
+
+    const supportLineSeries = mainChart.addSeries(LineSeries, {
+      color: '#3b82f6',
+      lineWidth: 1.5,
+      lineStyle: 1, // Dashed
+      title: 'Support',
+      lastValueVisible: false,
+      priceLineVisible: false,
+    });
+
+    const resistanceLineSeries = mainChart.addSeries(LineSeries, {
+      color: '#f59e0b',
+      lineWidth: 1.5,
+      lineStyle: 1, // Dashed
+      title: 'Resistance',
+      lastValueVisible: false,
+      priceLineVisible: false,
+    });
+
+    const smaLineSeries = mainChart.addSeries(LineSeries, {
+      color: '#10b981',
+      lineWidth: 2,
+      title: 'SMA (20)',
+      lastValueVisible: false,
+      priceLineVisible: false,
     });
 
     const weisChart = createChart(weisContainerRef.current, {
@@ -1062,6 +1023,9 @@ export default function TVChart({
     weisSeriesRef.current = weisSeries;
     trHighSeriesRef.current = trHighSeries;
     trLowSeriesRef.current = trLowSeries;
+    supportLineSeriesRef.current = supportLineSeries;
+    resistanceLineSeriesRef.current = resistanceLineSeries;
+    smaLineSeriesRef.current = smaLineSeries;
 
     const selectedTradePathSeries = mainChart.addSeries(LineSeries, {
       color: '#10b981',
@@ -1295,6 +1259,34 @@ export default function TVChart({
       }
     }
 
+    if (supportLineSeriesRef.current && resistanceLineSeriesRef.current && smaLineSeriesRef.current) {
+      if (chartSettings.showTrLines) {
+        const supportData: any[] = [];
+        const resistanceData: any[] = [];
+        const smaData: any[] = [];
+
+        activeCandles.forEach(c => {
+          if (c.support_level !== undefined && c.support_level !== null) {
+            supportData.push({ time: c.time, value: c.support_level });
+          }
+          if (c.resistance_level !== undefined && c.resistance_level !== null) {
+            resistanceData.push({ time: c.time, value: c.resistance_level });
+          }
+          if (c.sma_20 !== undefined && c.sma_20 !== null) {
+            smaData.push({ time: c.time, value: c.sma_20 });
+          }
+        });
+
+        supportLineSeriesRef.current.setData(supportData);
+        resistanceLineSeriesRef.current.setData(resistanceData);
+        smaLineSeriesRef.current.setData(smaData);
+      } else {
+        supportLineSeriesRef.current.setData([]);
+        resistanceLineSeriesRef.current.setData([]);
+        smaLineSeriesRef.current.setData([]);
+      }
+    }
+
     if (weisSeriesRef.current) {
       const volumeData = activeCandles.map((c) => {
         const isUp = c.close >= c.open;
@@ -1409,6 +1401,9 @@ export default function TVChart({
     candlestickSeriesRef.current.applyOptions({ priceFormat });
     if (trHighSeriesRef.current) trHighSeriesRef.current.applyOptions({ priceFormat });
     if (trLowSeriesRef.current) trLowSeriesRef.current.applyOptions({ priceFormat });
+    if (supportLineSeriesRef.current) supportLineSeriesRef.current.applyOptions({ priceFormat });
+    if (resistanceLineSeriesRef.current) resistanceLineSeriesRef.current.applyOptions({ priceFormat });
+    if (smaLineSeriesRef.current) smaLineSeriesRef.current.applyOptions({ priceFormat });
   }, [symbol, activeCandles]);
 
 
@@ -2316,49 +2311,6 @@ export default function TVChart({
           >
 
 
-            {chartSettings.showTrLines && supportLineSegments.map((seg, idx) => {
-              let color = '#cbd5e1';
-              if (seg.stage === 'ACCUMULATION') color = '#3b82f6';
-              else if (seg.stage === 'MARKUP') color = '#10b981';
-              else if (seg.stage === 'DISTRIBUTION') color = '#f59e0b';
-              else if (seg.stage === 'MARKDOWN') color = '#ef4444';
-
-              return (
-                <line
-                  key={`sup-seg-${idx}`}
-                  x1={seg.x1}
-                  y1={seg.y1}
-                  x2={seg.x2}
-                  y2={seg.y2}
-                  stroke={color}
-                  strokeWidth={2}
-                  strokeDasharray="4 2"
-                  style={{ pointerEvents: 'none', opacity: 0.8 }}
-                />
-              );
-            })}
-
-            {chartSettings.showTrLines && resistanceLineSegments.map((seg, idx) => {
-              let color = '#cbd5e1';
-              if (seg.stage === 'ACCUMULATION') color = '#3b82f6';
-              else if (seg.stage === 'MARKUP') color = '#10b981';
-              else if (seg.stage === 'DISTRIBUTION') color = '#f59e0b';
-              else if (seg.stage === 'MARKDOWN') color = '#ef4444';
-
-              return (
-                <line
-                  key={`res-seg-${idx}`}
-                  x1={seg.x1}
-                  y1={seg.y1}
-                  x2={seg.x2}
-                  y2={seg.y2}
-                  stroke={color}
-                  strokeWidth={2}
-                  strokeDasharray="4 2"
-                  style={{ pointerEvents: 'none', opacity: 0.8 }}
-                />
-              );
-            })}
             {chartSettings.showTrades && selectedTradeCoords && (
               <rect
                 x={Math.min(selectedTradeCoords.x1, selectedTradeCoords.x2)}
@@ -2607,28 +2559,6 @@ export default function TVChart({
                     Overbought
                   </text>
                 </g>
-              );
-            })}
-            {/* Wyckoff Colored SMA Trend Line */}
-            {trendLineSegments.map((seg, idx) => {
-              if (hiddenStages.includes(seg.stage)) return null;
-              let color = '#cbd5e1';
-              if (seg.stage === 'ACCUMULATION') color = '#3b82f6';
-              else if (seg.stage === 'MARKUP') color = '#10b981';
-              else if (seg.stage === 'DISTRIBUTION') color = '#f59e0b';
-              else if (seg.stage === 'MARKDOWN') color = '#ef4444';
-
-              return (
-                <line
-                  key={`trend-line-seg-${idx}`}
-                  x1={seg.x1}
-                  y1={seg.y1}
-                  x2={seg.x2}
-                  y2={seg.y2}
-                  stroke={color}
-                  strokeWidth={2.5}
-                  style={{ pointerEvents: 'none', opacity: 0.95 }}
-                />
               );
             })}
           </svg>
