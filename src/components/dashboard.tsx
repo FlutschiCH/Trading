@@ -2409,7 +2409,7 @@ export default function Dashboard() {
             }}>
               {activeAccount ? `${activeAccount.name} Active` : 'No Active Account'}
             </div>
-            {(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname === '89.217.138.51') && (
+            {(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '6px', padding: '4px 8px' }}>
                 <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 'bold' }}>Target API:</span>
                 <select

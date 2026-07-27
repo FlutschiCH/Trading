@@ -7,8 +7,11 @@ const isLocal = typeof window !== 'undefined' &&
    window.location.hostname.startsWith('172.'));
 
 const getBaseUrl = () => {
-  if (!isLocal) return 'https://trading-production-cb87.up.railway.app';
-  return localStorage.getItem('wyckoff_api_target') || `http://${window.location.hostname}:8751`;
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return localStorage.getItem('wyckoff_api_target') || `http://${window.location.hostname}:8751`;
+  }
+  // Default for deployed environment (e.g. trading.flutschi.ch)
+  return 'http://89.217.138.51:8751';
 };
 
 export const API_BASE_URL = getBaseUrl();
