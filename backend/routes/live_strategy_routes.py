@@ -81,4 +81,16 @@ def get_strategy_cache(strategy_id):
     """
     from live_runner_handler import LiveRunner
     cache = LiveRunner._candles_cache.get(strategy_id, [])
+    
+    # Fall back to database stored candles if the in-memory cache is empty (e.g. on dev machine)
+    if not cache:
+        try:
+            strategy = LiveStrategyHandler.get_strategy(strategy_id)
+            if strategy and strategy.get("live_state"):
+                live_state = json.loads(strategy["live_state"])
+                if isinstance(live_state, dict) and "candles" in live_state:
+                    cache = live_state["candles"]
+        except Exception as e:
+            print(f"Error loading candles from db fallback for strategy {strategy_id}: {e}", flush=True)
+
     return jsonify({"status": "success", "strategy_id": strategy_id, "candles": cache})
