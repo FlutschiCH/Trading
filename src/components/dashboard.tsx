@@ -1697,13 +1697,12 @@ export default function Dashboard() {
 
     fetchAccountData();
     fetchPositionData();
-    fetchHistoryTrades();
+    fetchHistoryTrades(); // Initial load only
 
-    // Poll account, positions, and history every 10s
+    // Poll account and positions every 10s (skip history)
     const interval = setInterval(() => {
       fetchAccountData();
       fetchPositionData();
-      fetchHistoryTrades();
     }, 10000);
     return () => clearInterval(interval);
   }, [initialCandlesLoaded, symbol, candleSource]);
