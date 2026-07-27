@@ -1294,7 +1294,7 @@ export default function Dashboard() {
           const result = await apiService.fetchLiveStrategyCache(selectedStrategyId, isIncremental ? 2 : undefined);
           if (result && result.status === 'success' && Array.isArray(result.candles)) {
             rawCandles = result.candles.sort((a: Candle, b: Candle) => a.time - b.time);
-            setLiveSimulatedTrades([]);
+            setLiveSimulatedTrades(result.trades || []);
           }
         } catch (err) {
           console.error("Failed to fetch live feed cache:", err);

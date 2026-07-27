@@ -162,7 +162,7 @@ if __name__ == '__main__':
 
     # Initialize high-performance WSGI Server
     port = int(os.environ.get("PORT", 8751))
-    print(f"Starting gevent WSGI Server on port {port}...", flush=True)
+    print(f"Started! Port: {port}...", flush=True)
     http_server = WSGIServer(('0.0.0.0', port), app, log=CustomWSGILogger())
     
     # Play startup sound once local server is ready
