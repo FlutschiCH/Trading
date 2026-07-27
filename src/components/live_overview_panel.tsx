@@ -78,7 +78,9 @@ export default function LiveOverviewPanel({
   };
 
   useEffect(() => {
-    fetchStrategies();
+    // Disabled automatic fetching on mount as requested
+    // fetchStrategies();
+    setLoading(false);
   }, []);
 
   // Simple 15-second interval refetch
