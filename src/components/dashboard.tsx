@@ -1264,7 +1264,7 @@ export default function Dashboard() {
         }
       }
 
-      if (rawCandles.length === 0) {
+      if (rawCandles.length === 0 && !isLiveFeed) {
         try {
           const response = await fetch(`${API_BASE_URL}/api/trade/candles`, {
             method: 'POST',
