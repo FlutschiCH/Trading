@@ -1281,16 +1281,22 @@ export default function TVChart({
       const smaData: any[] = [];
 
       activeCandles.forEach(c => {
+        let stageColor = '#cbd5e1';
+        if (c.wyckoff_stage === 'ACCUMULATION') stageColor = '#3b82f6';
+        else if (c.wyckoff_stage === 'MARKUP') stageColor = '#10b981';
+        else if (c.wyckoff_stage === 'DISTRIBUTION') stageColor = '#f59e0b';
+        else if (c.wyckoff_stage === 'MARKDOWN') stageColor = '#ef4444';
+
         if (chartSettings.showTrLines) {
           if (c.support_level !== undefined && c.support_level !== null) {
-            supportData.push({ time: c.time, value: c.support_level });
+            supportData.push({ time: c.time, value: c.support_level, color: stageColor });
           }
           if (c.resistance_level !== undefined && c.resistance_level !== null) {
-            resistanceData.push({ time: c.time, value: c.resistance_level });
+            resistanceData.push({ time: c.time, value: c.resistance_level, color: stageColor });
           }
         }
         if (c.sma_20 !== undefined && c.sma_20 !== null) {
-          smaData.push({ time: c.time, value: c.sma_20 });
+          smaData.push({ time: c.time, value: c.sma_20, color: stageColor });
         }
       });
 
