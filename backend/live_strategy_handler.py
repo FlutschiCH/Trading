@@ -103,6 +103,38 @@ class LiveStrategyHandler:
                     SQLHandler.execute_query("ALTER TABLE live_strategies ADD COLUMN target_computer VARCHAR(100) DEFAULT 'All'")
                 except Exception:
                     pass
+            # Add dateRangeOption column if not exists
+            try:
+                SQLHandler.execute_query("SELECT dateRangeOption FROM live_strategies LIMIT 1")
+            except Exception:
+                try:
+                    SQLHandler.execute_query("ALTER TABLE live_strategies ADD COLUMN dateRangeOption VARCHAR(50) DEFAULT 'last_candles'")
+                except Exception:
+                    pass
+            # Add customFrom column if not exists
+            try:
+                SQLHandler.execute_query("SELECT customFrom FROM live_strategies LIMIT 1")
+            except Exception:
+                try:
+                    SQLHandler.execute_query("ALTER TABLE live_strategies ADD COLUMN customFrom VARCHAR(100) DEFAULT ''")
+                except Exception:
+                    pass
+            # Add customTo column if not exists
+            try:
+                SQLHandler.execute_query("SELECT customTo FROM live_strategies LIMIT 1")
+            except Exception:
+                try:
+                    SQLHandler.execute_query("ALTER TABLE live_strategies ADD COLUMN customTo VARCHAR(100) DEFAULT ''")
+                except Exception:
+                    pass
+            # Add candleLimit column if not exists
+            try:
+                SQLHandler.execute_query("SELECT candleLimit FROM live_strategies LIMIT 1")
+            except Exception:
+                try:
+                    SQLHandler.execute_query("ALTER TABLE live_strategies ADD COLUMN candleLimit INT DEFAULT 1000")
+                except Exception:
+                    pass
             LiveStrategyHandler._db_initialized = True
         except Exception as e:
             print(f"Error initializing live_strategies DB table: {e}", flush=True)
@@ -122,10 +154,11 @@ class LiveStrategyHandler:
         INSERT INTO live_strategies (
             id, name, symbol, status, timeframe, slVal, slType, rr, size, 
             useRiskSizing, riskPct, useBreakEven, beTriggerR, lookbackWindow, deployedAt,
-            timezone, sessions, useGlobalClose, globalCloseTime, entryStabilityRule, broker, account_id, target_computer
+            timezone, sessions, useGlobalClose, globalCloseTime, entryStabilityRule, broker, account_id, target_computer,
+            dateRangeOption, customFrom, customTo, candleLimit
         ) VALUES (
             %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-            %s, %s, %s, %s, %s, %s, %s, %s
+            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
         ) ON DUPLICATE KEY UPDATE 
             name=VALUES(name),
             symbol=VALUES(symbol),
@@ -148,7 +181,11 @@ class LiveStrategyHandler:
             entryStabilityRule=VALUES(entryStabilityRule),
             broker=VALUES(broker),
             account_id=VALUES(account_id),
-            target_computer=VALUES(target_computer)
+            target_computer=VALUES(target_computer),
+            dateRangeOption=VALUES(dateRangeOption),
+            customFrom=VALUES(customFrom),
+            customTo=VALUES(customTo),
+            candleLimit=VALUES(candleLimit)
         """
         # Resolve currently active account if not provided
         acc_id = strategy.get("account_id")
@@ -181,7 +218,11 @@ class LiveStrategyHandler:
             strategy.get("entryStabilityRule", "default"),
             strategy.get("broker", "metatrader"),
             acc_id,
-            strategy.get("target_computer", "All")
+            strategy.get("target_computer", "All"),
+            strategy.get("dateRangeOption", "last_candles"),
+            strategy.get("customFrom", ""),
+            strategy.get("customTo", ""),
+            strategy.get("candleLimit", 1000)
         )
         try:
             SQLHandler.execute_query(query, params)
@@ -321,6 +362,10 @@ class LiveStrategyHandler:
             "broker": row.get("broker", "metatrader") or "metatrader",
             "account_id": row.get("account_id") or "",
             "target_computer": row.get("target_computer", "All") or "All",
+            "dateRangeOption": row.get("dateRangeOption", "last_candles") or "last_candles",
+            "customFrom": row.get("customFrom") or "",
+            "customTo": row.get("customTo") or "",
+            "candleLimit": int(row.get("candleLimit", 1000) if row.get("candleLimit") is not None else 1000),
             "live_state": live_state_dict
         }
 
