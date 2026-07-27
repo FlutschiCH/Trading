@@ -299,7 +299,11 @@ export default function Dashboard() {
   const [connectionMode, setConnectionMode] = useState<'openapi' | 'fix'>('fix');
   const [isConnectedOpenAPI] = useState(true);
   const [isConnectedFIX] = useState(true);
-  const [isLiveFeed, setIsLiveFeed] = useState<boolean>(false);
+  const [isLiveFeed, setIsLiveFeed] = useState<boolean>(() => localStorage.getItem('wyckoff_is_live_feed') === 'true');
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_is_live_feed', isLiveFeed.toString());
+  }, [isLiveFeed]);
   const [autoPollTrades, setAutoPollTrades] = useState<boolean>(() => localStorage.getItem('wyckoff_auto_poll_trades') === 'true');
   const [showTradesSettings, setShowTradesSettings] = useState<boolean>(false);
 
