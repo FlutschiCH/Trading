@@ -2313,10 +2313,15 @@ export default function TVChart({
                     >
                       Reset
                     </button>
-                  ) : (
+                  ) : isLiveFeed ? (
                     <span style={{ fontSize: '8px', color: '#10b981', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                      <span style={{ display: 'inline-block', width: '4px', height: '4px', backgroundColor: '#10b981', borderRadius: '50%' }}></span>
+                      <span style={{ display: 'inline-block', width: '4px', height: '4px', backgroundColor: '#10b981', borderRadius: '50%', animation: 'pulse 1.5s infinite' }}></span>
                       LIVE
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: '8px', color: '#9ca3af', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                      <span style={{ display: 'inline-block', width: '4px', height: '4px', backgroundColor: '#64748b', borderRadius: '50%' }}></span>
+                      HISTORICAL
                     </span>
                   )}
                 </div>
