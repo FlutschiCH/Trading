@@ -2145,6 +2145,28 @@ export default function Dashboard() {
               {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
             </button>
             <button 
+              onClick={handleRestartServer}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                border: '1px solid rgba(239, 68, 68, 0.2)',
+                cursor: 'pointer',
+                borderRadius: '6px',
+                padding: '6px 12px',
+                color: '#ef4444',
+                fontWeight: 'bold',
+                fontSize: '11px',
+                outline: 'none',
+                transition: 'all 0.2s',
+              }}
+              title="Update code from git and restart laptop backend"
+            >
+              <RefreshCw size={12} />
+              Update & Restart Laptop
+            </button>
+            <button 
               onClick={() => setShowMenu(!showMenu)} 
               style={{
                 display: 'flex',
