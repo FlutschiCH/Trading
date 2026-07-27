@@ -63,9 +63,6 @@ interface TVChartProps {
   hiddenStages?: string[];
   isLiveFeed?: boolean;
   onLiveFeedChange?: (active: boolean) => void;
-  liveStrategies?: any[];
-  selectedStrategyId?: string;
-  onSelectedStrategyIdChange?: (id: string) => void;
 }
 
 export default function TVChart({
@@ -101,10 +98,7 @@ export default function TVChart({
   locateTimestamp = null,
   hiddenStages = [],
   isLiveFeed = false,
-  onLiveFeedChange,
-  liveStrategies = [],
-  selectedStrategyId = '',
-  onSelectedStrategyIdChange
+  onLiveFeedChange
 }: TVChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const weisContainerRef = useRef<HTMLDivElement>(null);

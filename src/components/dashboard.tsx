@@ -2873,12 +2873,6 @@ export default function Dashboard() {
                       hiddenStages={hiddenStages}
                       isLiveFeed={isLiveFeed}
                       onLiveFeedChange={setIsLiveFeed}
-                      liveStrategies={liveStrategies}
-                      selectedStrategyId={selectedStrategyId}
-                      onSelectedStrategyIdChange={(id) => {
-                        setSelectedStrategyId(id);
-                        localStorage.setItem('wyckoff_selected_live_strategy_id', id);
-                      }}
                     />
                   </div>
                   {renderResizeHandle('chart')}
