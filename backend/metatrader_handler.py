@@ -58,6 +58,10 @@ class MetaTraderHandler(BaseBrokerHandler):
         try:
             login, password, server = MetaTraderHandler._resolve_credentials(login, password, server, **kwargs)
         except Exception as e:
+            if not MT5_AVAILABLE:
+                raise ImportError("MetaTrader 5 library is not available on this platform.")
+            raise e
+
         if not MT5_AVAILABLE:
             raise ImportError("MetaTrader 5 library is not available on this platform.")
 
