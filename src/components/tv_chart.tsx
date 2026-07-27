@@ -1877,22 +1877,7 @@ export default function TVChart({
               <div>Last Candle (UTC): <span style={{ color: '#eab308', fontWeight: 'bold' }}>{new Date(candles[candles.length - 1].time * 1000).toISOString().replace('T', ' ').substring(0, 19)}</span></div>
             </div>
           )}
-          {loadingStrategy && (
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: '11px',
-              color: '#38bdf8',
-              backgroundColor: 'rgba(56, 189, 248, 0.1)',
-              padding: '4px 8px',
-              borderRadius: '6px',
-              border: '1px solid rgba(56, 189, 248, 0.2)'
-            }}>
-              <span className="animate-pulse" style={{ display: 'inline-block', width: '6px', height: '6px', backgroundColor: '#38bdf8', borderRadius: '50%' }}></span>
-              Analyzing Wyckoff & Weis Wave...
-            </div>
-          )}
+
           {onLiveFeedChange && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <button
