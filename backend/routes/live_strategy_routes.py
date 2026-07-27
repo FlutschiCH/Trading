@@ -92,7 +92,12 @@ def get_strategy_cache(strategy_id):
         try:
             strategy = LiveStrategyHandler.get_strategy(strategy_id)
             if strategy and strategy.get("live_state"):
-                live_state = json.loads(strategy["live_state"])
+                live_state = strategy["live_state"]
+                if isinstance(live_state, str):
+                    try:
+                        live_state = json.loads(live_state)
+                    except Exception:
+                        pass
                 if isinstance(live_state, dict) and "candles" in live_state:
                     cache = live_state["candles"]
         except Exception as e:
