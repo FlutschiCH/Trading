@@ -406,7 +406,7 @@ export default function TVChart({
         showSessions: true,
         showTrades: true,
         showTrLines: true,
-        showLiveRunnerOverlay: false,
+        autoRefreshCandles: true,
       };
     } catch {
       return {
@@ -414,7 +414,7 @@ export default function TVChart({
         showSessions: true,
         showTrades: true,
         showTrLines: true,
-        showLiveRunnerOverlay: false,
+        autoRefreshCandles: true,
       };
     }
   });
@@ -427,6 +427,15 @@ export default function TVChart({
     // Polling of live strategies endpoint disabled
     setLiveStrategyState(null);
   }, [symbol, timeframe]);
+
+  // Live fetching of candles if enabled
+  useEffect(() => {
+    if (!chartSettings.autoRefreshCandles || replayTime !== null) return;
+    const interval = setInterval(() => {
+      onRefresh(undefined, true); // background refresh call
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [chartSettings.autoRefreshCandles, replayTime, onRefresh]);
   const [chartHeight, setChartHeight] = useState(window.innerWidth < 768 ? 380 : 680);
   const [weisHeight, setWeisHeight] = useState(window.innerWidth < 768 ? 100 : 140);
   const chartHeightRef = useRef(chartHeight);
@@ -2004,6 +2013,15 @@ export default function TVChart({
                       style={{ cursor: 'pointer' }}
                     />
                     Trading Range (TR)
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff', borderTop: '1px solid #334155', paddingTop: '6px', marginTop: '4px' }}>
+                    <input
+                      type="checkbox"
+                      checked={chartSettings.autoRefreshCandles ?? true}
+                      onChange={(e) => setChartSettings({ ...chartSettings, autoRefreshCandles: e.target.checked })}
+                      style={{ cursor: 'pointer' }}
+                    />
+                    ⚡ Auto-Refresh Candles (5s)
                   </label>
                 </div>
               </>
