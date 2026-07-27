@@ -1134,9 +1134,13 @@ export default function TVChart({
       if (parentCard) {
         const parentHeight = parentCard.clientHeight;
         if (parentHeight > 200) {
-          // Reserve ~40px for panel header, ~140px for weis wave, ~30px padding
-          const newChartH = Math.max(150, parentHeight - 210);
+          // Total space inside card minus header desk height (~48px)
+          const usableHeight = parentHeight - 55;
+          // Allocate 75% to main chart and 25% to Weis Wave volume
+          const newChartH = Math.max(120, Math.floor(usableHeight * 0.72));
+          const newWeisH = Math.max(60, Math.floor(usableHeight * 0.24));
           setChartHeight(newChartH);
+          setWeisHeight(newWeisH);
         }
       }
       
