@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Activity, X, TrendingUp, TrendingDown, Clock, HelpCircle, RefreshCw, Menu, ChevronDown, Sun, Moon } from 'lucide-react';
+import { Activity, X, TrendingUp, TrendingDown, Clock, HelpCircle, RefreshCw, Menu, ChevronDown, Sun, Moon, Settings } from 'lucide-react';
 import TVChart from './tv_chart';
 import WyckoffBacktester from './wyckoff_backtester';
 import HowToPage from './how_to_page';
@@ -300,6 +300,8 @@ export default function Dashboard() {
   const [isConnectedOpenAPI] = useState(true);
   const [isConnectedFIX] = useState(true);
   const [isLiveFeed, setIsLiveFeed] = useState<boolean>(false);
+  const [autoPollTrades, setAutoPollTrades] = useState<boolean>(() => localStorage.getItem('wyckoff_auto_poll_trades') === 'true');
+  const [showTradesSettings, setShowTradesSettings] = useState<boolean>(false);
 
   // Account & Positions
   const [accountInfo, setAccountInfo] = useState<AccountInfo | null>(null);
@@ -1738,6 +1740,11 @@ export default function Dashboard() {
     setLoadingStrategy(false);
   }, [symbol, timeframe, candleLimit, candleSource]);
 
+  // Save autoPollTrades to localStorage
+  useEffect(() => {
+    localStorage.setItem('wyckoff_auto_poll_trades', autoPollTrades.toString());
+  }, [autoPollTrades]);
+
   // Fetch other account/positions data once candles have initially loaded, and set up polling.
   useEffect(() => {
     if (!initialCandlesLoaded) return;
@@ -1746,13 +1753,14 @@ export default function Dashboard() {
     fetchPositionData();
     fetchHistoryTrades(); // Initial load only
 
-    // Poll account and positions every 10s (skip history)
+    // Poll account and positions every 10s if autoPollTrades is enabled
+    if (!autoPollTrades) return;
     const interval = setInterval(() => {
       fetchAccountData();
       fetchPositionData();
     }, 10000);
     return () => clearInterval(interval);
-  }, [initialCandlesLoaded, symbol, candleSource]);
+  }, [initialCandlesLoaded, symbol, candleSource, autoPollTrades]);
 
   // Live Feed auto-update polling
   useEffect(() => {
@@ -3089,8 +3097,86 @@ export default function Dashboard() {
                     onDragStart={(e) => handleDragStart(e, 'trades')}
                     style={headerStyle}
                   >
-                    <span>📈 Live Trades & P&L</span>
-                    <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header to Move</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', justifyContent: 'space-between' }}>
+                      <span>📈 Live Trades & P&L</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', position: 'relative' }}>
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setShowTradesSettings(!showTradesSettings);
+                          }}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#9ca3af',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            padding: '4px',
+                            borderRadius: '4px',
+                            transition: 'background-color 0.2s',
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--app-hover-bg)'}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                          title="Trades Panel Settings"
+                        >
+                          <Settings size={14} />
+                        </button>
+                        {showTradesSettings && (
+                          <>
+                            <div
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setShowTradesSettings(false);
+                              }}
+                              style={{
+                                position: 'fixed',
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                                zIndex: 999
+                              }}
+                            />
+                            <div 
+                              onClick={(e) => e.stopPropagation()}
+                              style={{
+                                position: 'absolute',
+                                top: '100%',
+                                right: 0,
+                                marginTop: '6px',
+                                backgroundColor: '#0f172a',
+                                border: '1px solid #1f2937',
+                                borderRadius: '8px',
+                                padding: '12px',
+                                zIndex: 1000,
+                                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)',
+                                minWidth: '170px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '8px',
+                              }}
+                            >
+                              <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#9ca3af', borderBottom: '1px solid #1f2937', paddingBottom: '6px', marginBottom: '4px', textAlign: 'left' }}>
+                                Trades Configuration
+                              </div>
+                              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '11px', color: '#ffffff', userSelect: 'none' }}>
+                                <input
+                                  type="checkbox"
+                                  checked={autoPollTrades}
+                                  onChange={(e) => setAutoPollTrades(e.target.checked)}
+                                  style={{ cursor: 'pointer' }}
+                                />
+                                🔄 Live Auto-Polling (10s)
+                              </label>
+                            </div>
+                          </>
+                        )}
+                        <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header</span>
+                      </div>
+                    </div>
                   </div>
                   <div className="no-drag" style={contentStyle}>
                     <LiveTradesPanel
