@@ -1276,31 +1276,27 @@ export default function TVChart({
     }
 
     if (supportLineSeriesRef.current && resistanceLineSeriesRef.current && smaLineSeriesRef.current) {
-      if (chartSettings.showTrLines) {
-        const supportData: any[] = [];
-        const resistanceData: any[] = [];
-        const smaData: any[] = [];
+      const supportData: any[] = [];
+      const resistanceData: any[] = [];
+      const smaData: any[] = [];
 
-        activeCandles.forEach(c => {
+      activeCandles.forEach(c => {
+        if (chartSettings.showTrLines) {
           if (c.support_level !== undefined && c.support_level !== null) {
             supportData.push({ time: c.time, value: c.support_level });
           }
           if (c.resistance_level !== undefined && c.resistance_level !== null) {
             resistanceData.push({ time: c.time, value: c.resistance_level });
           }
-          if (c.sma_20 !== undefined && c.sma_20 !== null) {
-            smaData.push({ time: c.time, value: c.sma_20 });
-          }
-        });
+        }
+        if (c.sma_20 !== undefined && c.sma_20 !== null) {
+          smaData.push({ time: c.time, value: c.sma_20 });
+        }
+      });
 
-        supportLineSeriesRef.current.setData(supportData);
-        resistanceLineSeriesRef.current.setData(resistanceData);
-        smaLineSeriesRef.current.setData(smaData);
-      } else {
-        supportLineSeriesRef.current.setData([]);
-        resistanceLineSeriesRef.current.setData([]);
-        smaLineSeriesRef.current.setData([]);
-      }
+      supportLineSeriesRef.current.setData(supportData);
+      resistanceLineSeriesRef.current.setData(resistanceData);
+      smaLineSeriesRef.current.setData(smaData);
     }
 
     if (weisSeriesRef.current) {
