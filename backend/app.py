@@ -123,14 +123,16 @@ class CustomWSGILogger:
         self.candle_request_count = 0
 
     def write(self, msg):
-        if "OPTIONS " in msg:
-            return
-        if "/api/trade/candles" in msg:
-            self.candle_request_count += 1
-            if self.candle_request_count % 20 != 0:
+        is_200 = " 200 " in msg
+        if is_200:
+            if "OPTIONS " in msg:
                 return
-            print(f"[API Log] /api/trade/candles request processed (Show 1/20 | Total: {self.candle_request_count})", flush=True)
-            return
+            if "/api/trade/candles" in msg:
+                self.candle_request_count += 1
+                if self.candle_request_count % 20 != 0:
+                    return
+                print(f"[API Log] /api/trade/candles request processed (Show 1/20 | Total: {self.candle_request_count})", flush=True)
+                return
         m = msg.strip()
         if m:
             print(m, flush=True)
