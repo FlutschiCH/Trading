@@ -79,6 +79,28 @@ export default function DeployModal({
   }, [initialTargets]);
 
   useEffect(() => {
+    // Attempt loading from localStorage cache first
+    let cachedList: any[] = [];
+    try {
+      const saved = localStorage.getItem('wyckoff_accounts');
+      if (saved) {
+        cachedList = JSON.parse(saved);
+        setAccounts(cachedList);
+        
+        // Auto select active account or first account if we don't have initialTargets
+        if (!initialTargets || initialTargets.length === 0) {
+          const active = cachedList.find((a: any) => a.is_active || a.active);
+          if (active) {
+            setSelectedAccounts([active.account_id]);
+          } else if (cachedList.length > 0) {
+            setSelectedAccounts([cachedList[0].account_id]);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to parse cached accounts:", e);
+    }
+
     const fetchAccounts = async () => {
       try {
         const res = await fetch(`${API_BASE_URL}/api/accounts`);
@@ -87,6 +109,7 @@ export default function DeployModal({
           // The API returns either { data: [...] } or { accounts: [...] } or direct array
           const list = data.data || data.accounts || (Array.isArray(data) ? data : []);
           setAccounts(list);
+          localStorage.setItem('wyckoff_accounts', JSON.stringify(list));
           // Auto select active account or first account if we don't have initialTargets
           if (!initialTargets || initialTargets.length === 0) {
             const active = list.find((a: any) => a.is_active || a.active);

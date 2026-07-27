@@ -247,8 +247,22 @@ export default function Dashboard() {
   const [candleLimit, setCandleLimit] = useState<number>(() => {
     return parseInt(localStorage.getItem('wyckoff_candle_limit') || '5000');
   });
-  const [accounts, setAccounts] = useState<any[]>([]);
-  const [activeAccount, setActiveAccount] = useState<any>(null);
+  const [accounts, setAccounts] = useState<any[]>(() => {
+    try {
+      const saved = localStorage.getItem('wyckoff_accounts');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [activeAccount, setActiveAccount] = useState<any>(() => {
+    try {
+      const saved = localStorage.getItem('wyckoff_active_account');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   const [showAccountModal, setShowAccountModal] = useState(false);
   const [newAccName, setNewAccName] = useState('');
   const [newAccBroker, setNewAccBroker] = useState<'ctrader' | 'metatrader'>('ctrader');
@@ -1351,7 +1365,9 @@ export default function Dashboard() {
       const res = await fetch(`${API_BASE_URL}/api/accounts`);
       const data = await res.json();
       if (data.status === 'success') {
-        setAccounts(data.data || []);
+        const list = data.data || [];
+        setAccounts(list);
+        localStorage.setItem('wyckoff_accounts', JSON.stringify(list));
       }
     } catch (e) {
       console.error("Failed to load accounts:", e);
@@ -1364,9 +1380,11 @@ export default function Dashboard() {
       const data = await res.json();
       if (data.status === 'success' && data.data) {
         setActiveAccount(data.data);
+        localStorage.setItem('wyckoff_active_account', JSON.stringify(data.data));
         return data.data;
       } else {
         setActiveAccount(null);
+        localStorage.removeItem('wyckoff_active_account');
         return null;
       }
     } catch (e) {
