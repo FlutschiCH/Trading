@@ -47,8 +47,8 @@ export default function ComputerManager({ setView }: ComputerManagerProps) {
     setHosts(prev => prev.map((h, i) => i === hostIndex ? { ...h, loading: true } : h));
     
     const startTime = performance.now();
+    console.log(`[ComputerManager] Pinging host: ${host.name} (${host.type}) - URL: ${host.url}/api/system/status`);
     try {
-      // Add a cache-buster to prevent browser caching
       const response = await fetch(`${host.url}/api/system/status?_cb=${Date.now()}`, {
         method: 'GET',
         headers: { 'Accept': 'application/json' },
@@ -111,6 +111,7 @@ export default function ComputerManager({ setView }: ComputerManagerProps) {
       return;
     }
     
+    console.log(`[ComputerManager] Sending restart request to host: ${host.name} (${host.type}) - URL: ${host.url}/api/system/restart`);
     try {
       const response = await fetch(`${host.url}/api/system/restart`, {
         method: 'POST',
