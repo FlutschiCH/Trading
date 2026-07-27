@@ -431,15 +431,17 @@ export default function Dashboard() {
   }, []);
 
   const handleRestartServer = async () => {
-    if (!window.confirm("Are you sure you want to update and restart the backend server?")) return;
+    if (!window.confirm("Are you sure you want to update and restart the backend server on the Laptop?")) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/api/system/restart`, {
+      const laptopUrl = 'http://89.217.138.51:8751';
+      console.log(`[Dashboard] Sending update & restart request to laptop server: ${laptopUrl}/api/system/restart`);
+      const res = await fetch(`${laptopUrl}/api/system/restart`, {
         method: 'POST'
       });
       const data = await res.json();
-      alert(data.message || "Restart command sent. The server should be back in a few seconds.");
+      alert(data.message || "Restart command sent. The laptop server should be back in a few seconds.");
     } catch (e) {
-      alert("Error sending restart command. Please verify the server is running.");
+      alert("Error sending restart command. Please verify the laptop server is running and reachable.");
     }
   };
 
