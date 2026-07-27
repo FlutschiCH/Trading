@@ -1282,7 +1282,7 @@ export default function Dashboard() {
       setLiveSimulatedTrades([]);
     }
 
-    const isIncremental = !forceFullRefresh && candles.length > 0;
+    const isIncremental = !forceFullRefresh && candles.length >= 100;
     const reqLimit = isIncremental ? 2 : candleLimit;
 
     try {
