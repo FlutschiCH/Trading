@@ -86,7 +86,6 @@ export default function LiveOverviewPanel({
     const timer = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
-          fetchStrategies();
           return 15;
         }
         return prev - 1;
@@ -95,6 +94,13 @@ export default function LiveOverviewPanel({
 
     return () => clearInterval(timer);
   }, []);
+
+  // Run fetch strategies when countdown resets to 15
+  useEffect(() => {
+    if (countdown === 15) {
+      fetchStrategies();
+    }
+  }, [countdown]);
 
   const handleToggleStatus = async (strategy: LiveStrategy) => {
     const nextStatus = strategy.status === 'active' ? 'paused' : 'active';
