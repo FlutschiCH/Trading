@@ -145,17 +145,18 @@ class LiveRunner:
 
         cached_candles = cls._candles_cache.get(strategy_id, [])
         
+        opt = strategy.get("dateRangeOption", "last_candles")
+        custom_from = strategy.get("customFrom") or ""
+        custom_to = strategy.get("customTo") or ""
+        limit = strategy.get("candleLimit", 5000)
+
         # If cache exists, verify configuration hasn't changed.
         if cached_candles:
             # Check if any config parameter changed compared to what is currently cached
-            first_candle = cached_candles[0]
-            # If the lookback window or other parameters changed, clear cache to force warm-up
-            # We can check a class level metadata dict or simply verify lookback
-            # Let's save a config metadata dict for validation
             if not hasattr(cls, '_cache_configs'):
                 cls._cache_configs = {}
             prev_config = cls._cache_configs.get(strategy_id)
-            curr_config = (symbol, timeframe, lookback, broker_name)
+            curr_config = (symbol, timeframe, lookback, broker_name, opt, custom_from, custom_to, limit)
             if prev_config != curr_config:
                 print(f"[Live Runner] Strategy {strategy_id} configuration changed from {prev_config} to {curr_config}. Clearing cache.", flush=True)
                 cached_candles = []
@@ -164,7 +165,7 @@ class LiveRunner:
         else:
             if not hasattr(cls, '_cache_configs'):
                 cls._cache_configs = {}
-            cls._cache_configs[strategy_id] = (symbol, timeframe, lookback, broker_name)
+            cls._cache_configs[strategy_id] = (symbol, timeframe, lookback, broker_name, opt, custom_from, custom_to, limit)
 
         if not cached_candles:
             # First fetch: warm up using backtest settings saved in strategy configuration
