@@ -58,29 +58,11 @@ class MetaTraderHandler(BaseBrokerHandler):
         try:
             login, password, server = MetaTraderHandler._resolve_credentials(login, password, server, **kwargs)
         except Exception as e:
-            if not MT5_AVAILABLE:
-                # If MT5 package is not available (Linux / Railway / development testing environment), fallback to local mock
-                pass
-            else:
-                raise e
         if not MT5_AVAILABLE:
-            import time
-            print("MetaTrader 5 skipped (non-Windows platform). Using local mock candles fallback.", flush=True)
-            curr = int(time.time())
-            mock_candles = []
-            for i in range(limit):
-                mock_candles.append({
-                    "time": curr - (limit - i) * 900,
-                    "open": 50000.0,
-                    "high": 50100.0,
-                    "low": 49900.0,
-                    "close": 50000.0,
-                    "volume": 10.0
-                })
-            return mock_candles
+            raise ImportError("MetaTrader 5 library is not available on this platform.")
 
         if not MetaTraderHandler._initialize_mt5(login, password, server):
-            return []
+            raise RuntimeError("Failed to initialize MetaTrader 5 connection.")
 
         # Map timeframe string to MT5 timeframe constants
         tf_map = {

@@ -197,17 +197,12 @@ class CTraderHandler(BaseBrokerHandler):
                 if candles_list:
                     from candle_sanitizer import sanitize_and_fill_candles
                     return sanitize_and_fill_candles(candles_list, timeframe=timeframe)
-
-            # Fallback to YFinance if API trendbar request returns empty or error
-            from yfinance_handler import YFinanceHandler
-            return YFinanceHandler.fetch_candles(symbol=symbol, timeframe=timeframe, limit=limit, date_from=date_from, date_to=date_to)
-        except Exception:
-            # Fallback
-            try:
-                from yfinance_handler import YFinanceHandler
-                return YFinanceHandler.fetch_candles(symbol=symbol, timeframe=timeframe, limit=limit, date_from=date_from, date_to=date_to)
-            except Exception:
-                return []
+                else:
+                    raise RuntimeError("cTrader API returned empty trendbar data.")
+            else:
+                raise RuntimeError(f"cTrader API returned error response: {res}")
+        except Exception as e:
+            raise RuntimeError(f"Failed to fetch candles from cTrader: {e}")
 
     @staticmethod
     def get_symbols(**kwargs) -> dict:
