@@ -1060,7 +1060,6 @@ export default function TVChart({
     const smaLineSeries = mainChart.addSeries(LineSeries, {
       color: '#10b981',
       lineWidth: 2,
-      title: 'SMA (20)',
       lastValueVisible: false,
       priceLineVisible: false,
     });
