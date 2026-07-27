@@ -1270,6 +1270,15 @@ export default function Dashboard() {
         Notification.requestPermission();
       }
       fetchFavourites();
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/live/strategies`);
+        const data = await response.json();
+        if (data.status === 'success' && Array.isArray(data.strategies)) {
+          setLiveStrategies(data.strategies);
+        }
+      } catch (err) {
+        console.error("Failed to fetch live strategies on startup:", err);
+      }
     };
     loadLiveStrategyAndPerms();
   }, []);
