@@ -152,6 +152,7 @@ interface TVChartProps {
   hiddenStages?: string[];
   isLiveFeed?: boolean;
   onLiveFeedChange?: (active: boolean) => void;
+  isMobile?: boolean;
 }
 
 export default function TVChart({
@@ -187,7 +188,8 @@ export default function TVChart({
   locateTimestamp = null,
   hiddenStages = [],
   isLiveFeed = false,
-  onLiveFeedChange
+  onLiveFeedChange,
+  isMobile = false
 }: TVChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const weisContainerRef = useRef<HTMLDivElement>(null);
@@ -2417,7 +2419,7 @@ export default function TVChart({
 
 
             {/* Wyckoff Oversold (Spring) Highlight Shading & Boundary Ticks */}
-            {chartSettings.showTrLines && oversoldCoords.map((coord, idx) => {
+            {!isMobile && chartSettings.showTrLines && oversoldCoords.map((coord, idx) => {
               const rightScaleWidth = chartRef.current ? chartRef.current.priceScale('right').width() : 55;
               const plotWidth = chartContainerRef.current ? chartContainerRef.current.clientWidth - rightScaleWidth : 0;
               const plotHeight = chartHeight - 26;
@@ -2466,7 +2468,7 @@ export default function TVChart({
             })}
 
             {/* Wyckoff Overbought (Upthrust) Highlight Shading & Boundary Ticks */}
-            {chartSettings.showTrLines && overboughtCoords.map((coord, idx) => {
+            {!isMobile && chartSettings.showTrLines && overboughtCoords.map((coord, idx) => {
               const rightScaleWidth = chartRef.current ? chartRef.current.priceScale('right').width() : 55;
               const plotWidth = chartContainerRef.current ? chartContainerRef.current.clientWidth - rightScaleWidth : 0;
               const plotHeight = chartHeight - 26;

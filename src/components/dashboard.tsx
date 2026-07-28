@@ -2360,6 +2360,7 @@ export default function Dashboard() {
                       hiddenStages={hiddenStages}
                       isLiveFeed={isLiveFeed}
                       onLiveFeedChange={setIsLiveFeed}
+                      isMobile={true}
                     />
                   </div>
                 ) : mobileTab === 'backtester' ? (
