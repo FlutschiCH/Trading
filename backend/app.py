@@ -126,6 +126,8 @@ class CustomWSGILogger:
         self.candle_request_count = 0
 
     def write(self, msg):
+        if "/api/terminal/stream" in msg:
+            return
         is_200 = " 200 " in msg
         if is_200:
             if "OPTIONS " in msg:
