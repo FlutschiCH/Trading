@@ -8,6 +8,7 @@ import LiveOverviewPanel from './live_overview_panel';
 import SymbolMappingsView from './symbol_mappings_view';
 import ComputerManager from './computer_manager';
 import HeaderBar from './header_bar';
+import MobileTabNav from './mobile_tab_nav';
 import { API_BASE_URL } from '../api';
 import * as apiService from '../services/apiService';
 import '../App.css';
@@ -2286,84 +2287,7 @@ export default function Dashboard() {
             )}
 
             {isMobile && (
-              <div style={{
-                display: 'flex',
-                backgroundColor: '#0f172a',
-                border: '1px solid #1e293b',
-                borderRadius: '8px',
-                padding: '4px',
-                marginBottom: '16px',
-                gap: '4px',
-              }}>
-                <button
-                  onClick={() => setMobileTab('chart')}
-                  style={{
-                    flex: 1,
-                    padding: '8px 12px',
-                    borderRadius: '6px',
-                    border: 'none',
-                    backgroundColor: mobileTab === 'chart' ? '#2563eb' : 'transparent',
-                    color: '#ffffff',
-                    fontWeight: 'bold',
-                    fontSize: '12px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s',
-                  }}
-                >
-                  📊 Chart View
-                </button>
-                <button
-                  onClick={() => setMobileTab('backtester')}
-                  style={{
-                    flex: 1,
-                    padding: '8px 12px',
-                    borderRadius: '6px',
-                    border: 'none',
-                    backgroundColor: mobileTab === 'backtester' ? '#2563eb' : 'transparent',
-                    color: '#ffffff',
-                    fontWeight: 'bold',
-                    fontSize: '12px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s',
-                  }}
-                >
-                  ⚙️ Backtester
-                </button>
-                <button
-                  onClick={() => setMobileTab('trades')}
-                  style={{
-                    flex: 1,
-                    padding: '8px 12px',
-                    borderRadius: '6px',
-                    border: 'none',
-                    backgroundColor: mobileTab === 'trades' ? '#2563eb' : 'transparent',
-                    color: '#ffffff',
-                    fontWeight: 'bold',
-                    fontSize: '12px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s',
-                  }}
-                >
-                  📈 Trades
-                </button>
-                <button
-                  onClick={() => setMobileTab('live_overview')}
-                  style={{
-                    flex: 1,
-                    padding: '8px 12px',
-                    borderRadius: '6px',
-                    border: 'none',
-                    backgroundColor: mobileTab === 'live_overview' ? '#2563eb' : 'transparent',
-                    color: '#ffffff',
-                    fontWeight: 'bold',
-                    fontSize: '12px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s',
-                  }}
-                >
-                  ⚡ Live Overview
-                </button>
-              </div>
+              <MobileTabNav activeTab={mobileTab} onTabChange={setMobileTab} />
             )}
 
             {isMobile ? (
