@@ -147,6 +147,7 @@ interface TVChartProps {
   tradeFilter?: 'all' | 'wins' | 'losses';
   onTradeFilterChange?: (filter: 'all' | 'wins' | 'losses') => void;
   sessions?: any[];
+  openPositions?: any[];
   sessionsTimezone?: 'UTC' | 'Local';
   locateTimestamp?: number | null;
   hiddenStages?: string[];
@@ -157,6 +158,7 @@ interface TVChartProps {
 
 export default function TVChart({
   symbol,
+  openPositions = [],
   onSymbolChange,
   timeframe,
   onTimeframeChange,
@@ -432,6 +434,7 @@ export default function TVChart({
 
   // References to dynamically generated trade level LineSeries
   const dynamicLineSeriesRef = useRef<any[]>([]);
+  const activePositionsRef = useRef<any[]>([]);
   const selectedTradePathSeriesRef = useRef<any>(null);
 
   useEffect(() => {
@@ -509,19 +512,22 @@ export default function TVChart({
   const [chartSettings, setChartSettings] = useState(() => {
     try {
       const saved = localStorage.getItem('tv_chart_settings');
-      return saved ? JSON.parse(saved) : {
-        showFvg: true,
-        showSessions: true,
-        showTrades: true,
-        showTrLines: true,
-        autoRefreshCandles: true,
-        autoRefreshSeconds: 5,
+      const parsed = saved ? JSON.parse(saved) : {};
+      return {
+        showFvg: parsed.showFvg ?? true,
+        showSessions: parsed.showSessions ?? true,
+        showTrades: parsed.showTrades ?? true,
+        showPositions: parsed.showPositions ?? true,
+        showTrLines: parsed.showTrLines ?? true,
+        autoRefreshCandles: parsed.autoRefreshCandles ?? true,
+        autoRefreshSeconds: parsed.autoRefreshSeconds ?? 5,
       };
     } catch {
       return {
         showFvg: true,
         showSessions: true,
         showTrades: true,
+        showPositions: true,
         showTrLines: true,
         autoRefreshCandles: true,
         autoRefreshSeconds: 5,
@@ -1604,6 +1610,130 @@ export default function TVChart({
     }
   }, [entryPrice, slPrice, tpPrice, candles, chartSettings.showTrades]);
 
+  // Effect for rendering active live positions (Entry, SL, TP)
+  useEffect(() => {
+    if (activePositionsRef.current.length > 0) {
+      activePositionsRef.current.forEach((item) => {
+        try {
+          if (item.type === 'priceLine' && candlestickSeriesRef.current) {
+            candlestickSeriesRef.current.removePriceLine(item.line);
+          } else if (item.type === 'lineSeries' && chartRef.current) {
+            chartRef.current.removeSeries(item.line);
+          }
+        } catch (e) {}
+      });
+      activePositionsRef.current = [];
+    }
+
+    if (chartSettings.showPositions === false) return;
+
+    let positionsList: any[] = [];
+    if (Array.isArray(openPositions) && openPositions.length > 0) {
+      positionsList = openPositions;
+    } else {
+      try {
+        const stored = localStorage.getItem('wyckoff_active_positions');
+        if (stored) {
+          positionsList = JSON.parse(stored);
+        }
+      } catch (e) {}
+    }
+
+    if (!Array.isArray(positionsList) || positionsList.length === 0) return;
+    if (!candlestickSeriesRef.current || !chartRef.current || !activeCandles || activeCandles.length === 0) return;
+
+    const currentSymbolClean = (symbol || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+    const matchingPositions = positionsList.filter((p) => {
+      if (!p || !p.symbol) return false;
+      const posSymbolClean = String(p.symbol).replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+      return posSymbolClean.includes(currentSymbolClean) || currentSymbolClean.includes(posSymbolClean);
+    });
+
+    if (matchingPositions.length === 0) return;
+
+    const sortedTimes = activeCandles.map((c) => Number(c.time)).sort((a, b) => a - b);
+
+    matchingPositions.forEach((pos) => {
+      const side = (pos.trade_side || 'BUY').toUpperCase();
+      const volume = pos.volume !== undefined ? pos.volume : '';
+      const entryPriceVal = parseFloat(pos.entry_price ?? pos.entryPrice);
+      const slVal = parseFloat(pos.stop_loss ?? pos.sl ?? 0);
+      const tpVal = parseFloat(pos.take_profit ?? pos.tp ?? 0);
+      const entryTs = pos.entry_timestamp ? Number(pos.entry_timestamp) : null;
+
+      if (isNaN(entryPriceVal) || entryPriceVal <= 0) return;
+
+      const isBuy = side === 'BUY';
+      const entryColor = isBuy ? '#3b82f6' : '#ec4899';
+      const slColor = '#ef4444';
+      const tpColor = '#10b981';
+
+      // 1. Full horizontal price lines across price scale
+      const entryPriceLine = candlestickSeriesRef.current.createPriceLine({
+        price: entryPriceVal,
+        color: entryColor,
+        lineWidth: 2,
+        lineStyle: 0,
+        axisLabelVisible: true,
+        title: `POS ${side} ${volume} @ ${entryPriceVal.toFixed(5)}`,
+      });
+      activePositionsRef.current.push({ type: 'priceLine', line: entryPriceLine });
+
+      if (slVal > 0) {
+        const slPriceLine = candlestickSeriesRef.current.createPriceLine({
+          price: slVal,
+          color: slColor,
+          lineWidth: 1,
+          lineStyle: 2,
+          axisLabelVisible: true,
+          title: `POS SL @ ${slVal.toFixed(5)}`,
+        });
+        activePositionsRef.current.push({ type: 'priceLine', line: slPriceLine });
+      }
+
+      if (tpVal > 0) {
+        const tpPriceLine = candlestickSeriesRef.current.createPriceLine({
+          price: tpVal,
+          color: tpColor,
+          lineWidth: 1,
+          lineStyle: 2,
+          axisLabelVisible: true,
+          title: `POS TP @ ${tpVal.toFixed(5)}`,
+        });
+        activePositionsRef.current.push({ type: 'priceLine', line: tpPriceLine });
+      }
+
+      // 2. Line segments starting from entry timestamp to current candle
+      if (entryTs) {
+        let startIdx = sortedTimes.findIndex((t) => t >= entryTs);
+        if (startIdx === -1) {
+          startIdx = 0;
+        }
+
+        const segmentTimes = sortedTimes.slice(startIdx);
+        if (segmentTimes.length > 0) {
+          const createSegmentSeries = (val: number, color: string, style: number = 0) => {
+            const lineSeries = chartRef.current.addSeries(LineSeries, {
+              color,
+              lineWidth: 2,
+              lineStyle: style,
+              lastValueVisible: false,
+              priceLineVisible: false,
+              crosshairMarkerVisible: false,
+            });
+            const lineData = segmentTimes.map((t) => ({ time: t, value: val }));
+            lineSeries.setData(lineData);
+            activePositionsRef.current.push({ type: 'lineSeries', line: lineSeries });
+          };
+
+          createSegmentSeries(entryPriceVal, entryColor, 0);
+          if (slVal > 0) createSegmentSeries(slVal, slColor, 1);
+          if (tpVal > 0) createSegmentSeries(tpVal, tpColor, 1);
+        }
+      }
+    });
+  }, [openPositions, chartSettings.showPositions, activeCandles, symbol]);
+
   const handleSVGMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
     if (activeTool === 'none' || activeTool === 'delete') return;
     if (!chartRef.current || !candlestickSeriesRef.current) return;
@@ -1857,6 +1987,7 @@ export default function TVChart({
                         <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}><input type="checkbox" checked={chartSettings.showFvg} onChange={(e) => setChartSettings({ ...chartSettings, showFvg: e.target.checked })} style={{ cursor: 'pointer' }} /> Fair Value Gaps (FVG)</label>
                         <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}><input type="checkbox" checked={chartSettings.showSessions} onChange={(e) => setChartSettings({ ...chartSettings, showSessions: e.target.checked })} style={{ cursor: 'pointer' }} /> Trading Sessions</label>
                         <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}><input type="checkbox" checked={chartSettings.showTrades} onChange={(e) => setChartSettings({ ...chartSettings, showTrades: e.target.checked })} style={{ cursor: 'pointer' }} /> Trades & Order Levels</label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}><input type="checkbox" checked={chartSettings.showPositions ?? true} onChange={(e) => setChartSettings({ ...chartSettings, showPositions: e.target.checked })} style={{ cursor: 'pointer' }} /> Active Positions (Entry/SL/TP)</label>
                         <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}><input type="checkbox" checked={chartSettings.showTrLines} onChange={(e) => setChartSettings({ ...chartSettings, showTrLines: e.target.checked })} style={{ cursor: 'pointer' }} /> Trading Range (TR)</label>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', borderTop: '1px solid #334155', paddingTop: '6px', marginTop: '4px' }}>
                           <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}><input type="checkbox" checked={chartSettings.autoRefreshCandles ?? true} onChange={(e) => setChartSettings({ ...chartSettings, autoRefreshCandles: e.target.checked })} style={{ cursor: 'pointer' }} /> ⚡ Auto-Refresh Candles</label>
@@ -1958,6 +2089,7 @@ export default function TVChart({
                       <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}><input type="checkbox" checked={chartSettings.showFvg} onChange={(e) => setChartSettings({ ...chartSettings, showFvg: e.target.checked })} style={{ cursor: 'pointer' }} /> Fair Value Gaps (FVG)</label>
                       <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}><input type="checkbox" checked={chartSettings.showSessions} onChange={(e) => setChartSettings({ ...chartSettings, showSessions: e.target.checked })} style={{ cursor: 'pointer' }} /> Trading Sessions</label>
                       <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}><input type="checkbox" checked={chartSettings.showTrades} onChange={(e) => setChartSettings({ ...chartSettings, showTrades: e.target.checked })} style={{ cursor: 'pointer' }} /> Trades & Order Levels</label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}><input type="checkbox" checked={chartSettings.showPositions ?? true} onChange={(e) => setChartSettings({ ...chartSettings, showPositions: e.target.checked })} style={{ cursor: 'pointer' }} /> Active Positions (Entry/SL/TP)</label>
                       <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}><input type="checkbox" checked={chartSettings.showTrLines} onChange={(e) => setChartSettings({ ...chartSettings, showTrLines: e.target.checked })} style={{ cursor: 'pointer' }} /> Trading Range (TR)</label>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', borderTop: '1px solid #334155', paddingTop: '6px', marginTop: '4px' }}>
                         <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}><input type="checkbox" checked={chartSettings.autoRefreshCandles ?? true} onChange={(e) => setChartSettings({ ...chartSettings, autoRefreshCandles: e.target.checked })} style={{ cursor: 'pointer' }} /> ⚡ Auto-Refresh Candles</label>

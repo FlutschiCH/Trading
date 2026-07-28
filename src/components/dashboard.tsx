@@ -372,7 +372,14 @@ export default function Dashboard() {
 
   // Account & Positions
   const [accountInfo, setAccountInfo] = useState<AccountInfo | null>(null);
-  const [openPositions, setOpenPositions] = useState<Position[]>([]);
+  const [openPositions, setOpenPositions] = useState<Position[]>(() => {
+    try {
+      const saved = localStorage.getItem('wyckoff_active_positions');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
 
   // Backtester states
   const [backtestSL, setBacktestSL] = useState(() => localStorage.getItem('wyckoff_backtest_sl') || '20');
@@ -1442,6 +1449,9 @@ export default function Dashboard() {
       const result = await response.json();
       if (result.status === 'success') {
         setOpenPositions(result.data);
+        try {
+          localStorage.setItem('wyckoff_active_positions', JSON.stringify(result.data));
+        } catch (e) {}
       }
     } catch (error) {
       console.error('Positions data error:', error);
@@ -2327,6 +2337,7 @@ export default function Dashboard() {
                     </div>
                     <TVChart
                       symbol={symbol}
+                      openPositions={openPositions}
                       onSymbolChange={setSymbol}
                       timeframe={timeframe}
                       onTimeframeChange={setTimeframe}
@@ -2710,6 +2721,7 @@ export default function Dashboard() {
                         <div className="no-drag" style={{ padding: '0px', flex: 1, display: 'flex', flexDirection: 'column' }}>
                           <TVChart
                             symbol={symbol}
+                            openPositions={openPositions}
                             onSymbolChange={setSymbol}
                             timeframe={timeframe}
                             onTimeframeChange={setTimeframe}
