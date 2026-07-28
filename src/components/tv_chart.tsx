@@ -784,13 +784,13 @@ export default function TVChart({
 
       const filteredFvgs = visibleRange
         ? currentFvgs.filter(fvg => {
-            const idxStart = candlesRef.current.findIndex(c => Number(c.time) === Number(fvg.timeStart));
-            const idxEnd = candlesRef.current.findIndex(c => Number(c.time) === Number(fvg.timeEnd));
-            if (idxStart === -1 && idxEnd === -1) return false;
-            const startLogical = idxStart !== -1 ? idxStart : idxEnd;
-            const endLogical = idxEnd !== -1 ? idxEnd : idxStart;
-            return startLogical <= visibleRange.to && endLogical >= visibleRange.from;
-          })
+          const idxStart = candlesRef.current.findIndex(c => Number(c.time) === Number(fvg.timeStart));
+          const idxEnd = candlesRef.current.findIndex(c => Number(c.time) === Number(fvg.timeEnd));
+          if (idxStart === -1 && idxEnd === -1) return false;
+          const startLogical = idxStart !== -1 ? idxStart : idxEnd;
+          const endLogical = idxEnd !== -1 ? idxEnd : idxStart;
+          return startLogical <= visibleRange.to && endLogical >= visibleRange.from;
+        })
         : currentFvgs;
 
       const coords = filteredFvgs.map(fvg => {
@@ -1213,7 +1213,7 @@ export default function TVChart({
     const resizeObserver = new ResizeObserver((entries) => {
       if (!chartContainerRef.current || !mainChart) return;
       const width = chartContainerRef.current.clientWidth;
-      
+
       // Dynamically calculate chart and weis heights based on parent card height if defined
       const parentCard = chartContainerRef.current.closest('.no-drag')?.parentElement;
       if (parentCard) {
@@ -1228,7 +1228,7 @@ export default function TVChart({
           setWeisHeight(newWeisH);
         }
       }
-      
+
       if (width > 0) {
         mainChart.resize(width, chartHeightRef.current);
         if (weisContainerRef.current && weisChart) {
@@ -1979,23 +1979,6 @@ export default function TVChart({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {candles && candles.length > 0 && (
-            <div style={{
-              fontSize: '10px',
-              color: '#9ca3af',
-              backgroundColor: '#111827',
-              border: '1px solid #1f2937',
-              borderRadius: '6px',
-              padding: '3px 6px',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'flex-start',
-              lineHeight: '1.2'
-            }}>
-              <div>Last Candle (Local): <span style={{ color: '#fff', fontWeight: 'bold' }}>{new Date(candles[candles.length - 1].time * 1000).toLocaleString()}</span></div>
-              <div>Last Candle (UTC): <span style={{ color: '#eab308', fontWeight: 'bold' }}>{new Date(candles[candles.length - 1].time * 1000).toISOString().replace('T', ' ').substring(0, 19)}</span></div>
-            </div>
-          )}
 
           {onLiveFeedChange && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -2334,95 +2317,7 @@ export default function TVChart({
 
           {/* Wyckoff Quantitative Market Structure Overlay */}
           {(() => {
-            const activeCandle = selectedCandle || (activeCandles && activeCandles.length > 0 ? activeCandles[activeCandles.length - 1] : null);
-            if (!activeCandle) return null;
 
-            return (
-              <div style={{
-                position: 'absolute',
-                top: '12px',
-                left: '12px',
-                zIndex: 10,
-                backgroundColor: 'rgba(15, 23, 42, 0.85)',
-                backdropFilter: 'blur(8px)',
-                border: '1px solid rgba(51, 65, 85, 0.6)',
-                borderRadius: '6px',
-                padding: '6px 10px',
-                fontSize: '11px',
-                color: '#cbd5e1',
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
-                pointerEvents: 'auto',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px',
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontWeight: 'bold', fontSize: '10px', color: '#9ca3af' }}>WYCKOFF:</span>
-                  <span style={{
-                    fontWeight: 'extrabold',
-                    color: activeCandle.wyckoff_stage === 'ACCUMULATION' ? '#3b82f6' :
-                      activeCandle.wyckoff_stage === 'MARKUP' ? '#10b981' :
-                        activeCandle.wyckoff_stage === 'DISTRIBUTION' ? '#f59e0b' :
-                          activeCandle.wyckoff_stage === 'MARKDOWN' ? '#ef4444' : '#cbd5e1',
-                  }}>
-                    {activeCandle.wyckoff_stage || 'TRANSITION'}
-                  </span>
-                  {(replayTime !== null || selectedCandle) ? (
-                    <button
-                      onClick={() => {
-                        setReplayTime(null);
-                        setIsPlaying(false);
-                        setReplayToolActive(false);
-                        if (onSelectCandle) onSelectCandle(null);
-                      }}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: '#3b82f6',
-                        fontSize: '9px',
-                        cursor: 'pointer',
-                        textDecoration: 'underline',
-                        padding: 0,
-                      }}
-                    >
-                      Reset
-                    </button>
-                  ) : isLiveFeed ? (
-                    <span style={{ fontSize: '8px', color: '#10b981', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                      <span style={{ display: 'inline-block', width: '4px', height: '4px', backgroundColor: '#10b981', borderRadius: '50%', animation: 'pulse 1.5s infinite' }}></span>
-                      LIVE
-                    </span>
-                  ) : (
-                    <span style={{ fontSize: '8px', color: '#9ca3af', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                      <span style={{ display: 'inline-block', width: '4px', height: '4px', backgroundColor: '#64748b', borderRadius: '50%' }}></span>
-                      HISTORICAL
-                    </span>
-                  )}
-                </div>
-
-                <div style={{ display: 'flex', gap: '8px', color: '#9ca3af', fontSize: '10px', borderTop: '1px solid rgba(51, 65, 85, 0.4)', paddingTop: '4px' }}>
-                  <span>S: <strong style={{ color: '#ffffff' }}>{activeCandle.support_level ? `$${activeCandle.support_level.toFixed(2)}` : 'N/A'}</strong></span>
-                  <span>R: <strong style={{ color: '#ffffff' }}>{activeCandle.resistance_level ? `$${activeCandle.resistance_level.toFixed(2)}` : 'N/A'}</strong></span>
-                </div>
-
-                {activeCandle.wyckoff_signal && (
-                  <div style={{
-                    color: activeCandle.wyckoff_signal.includes('Spring') ? '#10b981' : '#ef4444',
-                    fontWeight: 'bold',
-                    fontSize: '9px',
-                    backgroundColor: activeCandle.wyckoff_signal.includes('Spring') ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                    border: '1px solid ' + (activeCandle.wyckoff_signal.includes('Spring') ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'),
-                    borderRadius: '4px',
-                    padding: '2px 4px',
-                    textAlign: 'center',
-                    marginTop: '2px',
-                  }}>
-                    ⚡ {activeCandle.wyckoff_signal}
-                  </div>
-                )}
-              </div>
-            );
-          })()}
 
           <svg
             style={{
