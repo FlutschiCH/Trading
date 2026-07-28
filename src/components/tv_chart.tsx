@@ -1031,21 +1031,22 @@ export default function TVChart({
       color: '#f59e0b',
       lineWidth: 2,
       lineStyle: 1, // Dashed
-      title: 'TR High',
+      lastValueVisible: false,
+      priceLineVisible: false,
     });
 
     const trLowSeries = mainChart.addSeries(LineSeries, {
       color: '#f59e0b',
       lineWidth: 2,
       lineStyle: 1, // Dashed
-      title: 'TR Low',
+      lastValueVisible: false,
+      priceLineVisible: false,
     });
 
     const supportLineSeries = mainChart.addSeries(LineSeries, {
       color: '#3b82f6',
       lineWidth: 1 as any,
       lineStyle: 1, // Dashed
-      title: 'Support',
       lastValueVisible: false,
       priceLineVisible: false,
     });
@@ -1054,7 +1055,6 @@ export default function TVChart({
       color: '#f59e0b',
       lineWidth: 1 as any,
       lineStyle: 1, // Dashed
-      title: 'Resistance',
       lastValueVisible: false,
       priceLineVisible: false,
     });
