@@ -1,6 +1,7 @@
 # /backend/terminal_handler.py
 import sys
 from gevent.lock import RLock
+from gevent.queue import Queue
 
 class TerminalHandler:
     _lock = RLock()
