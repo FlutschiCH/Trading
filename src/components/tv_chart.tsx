@@ -2435,11 +2435,7 @@ export default function TVChart({
                   <g key={`svg-pos-drag-${pos.position_id}`}>
                     {/* SL Draggable Badge */}
                     {slY !== null && slY > 0 && slY < chartHeight - 30 && (
-                      <g
-                        style={{ cursor: 'ns-resize', pointerEvents: 'all' }}
-                        onMouseDown={(e) => handleStartDragPosition(pos, 'SL', slPrice, e)}
-                        onPointerDown={(e) => handleStartDragPosition(pos, 'SL', slPrice, e)}
-                      >
+                      <g key={`sl-group-${pos.position_id}`}>
                         <line
                           x1={0}
                           y1={slY}
@@ -2448,37 +2444,41 @@ export default function TVChart({
                           stroke="#ef4444"
                           strokeWidth={dragPosState?.position_id === pos.position_id && dragPosState?.type === 'SL' ? 3 : 2}
                           strokeDasharray="4 4"
+                          style={{ pointerEvents: 'none' }}
                         />
-                        <rect
-                          x={plotWidth - 115}
-                          y={slY - 11}
-                          width={110}
-                          height={22}
-                          rx={4}
-                          fill="#ef4444"
-                          stroke="#ffffff"
-                          strokeWidth={1}
-                        />
-                        <text
-                          x={plotWidth - 60}
-                          y={slY + 4}
-                          fill="#ffffff"
-                          fontSize="10"
-                          fontWeight="bold"
-                          textAnchor="middle"
+                        <g
+                          style={{ cursor: 'ns-resize', pointerEvents: 'all' }}
+                          onMouseDown={(e) => handleStartDragPosition(pos, 'SL', slPrice, e)}
+                          onPointerDown={(e) => handleStartDragPosition(pos, 'SL', slPrice, e)}
                         >
-                          ↔ SL: {slPrice.toFixed(5)}
-                        </text>
+                          <rect
+                            x={plotWidth - 115}
+                            y={slY - 11}
+                            width={110}
+                            height={22}
+                            rx={4}
+                            fill="#ef4444"
+                            stroke="#ffffff"
+                            strokeWidth={1}
+                          />
+                          <text
+                            x={plotWidth - 60}
+                            y={slY + 4}
+                            fill="#ffffff"
+                            fontSize="10"
+                            fontWeight="bold"
+                            textAnchor="middle"
+                            style={{ userSelect: 'none', pointerEvents: 'none' }}
+                          >
+                            ↔ SL: {slPrice.toFixed(5)}
+                          </text>
+                        </g>
                       </g>
                     )}
 
                     {/* TP Draggable Badge */}
                     {tpY !== null && tpY > 0 && tpY < chartHeight - 30 && (
-                      <g
-                        style={{ cursor: 'ns-resize', pointerEvents: 'all' }}
-                        onMouseDown={(e) => handleStartDragPosition(pos, 'TP', tpPrice, e)}
-                        onPointerDown={(e) => handleStartDragPosition(pos, 'TP', tpPrice, e)}
-                      >
+                      <g key={`tp-group-${pos.position_id}`}>
                         <line
                           x1={0}
                           y1={tpY}
@@ -2487,27 +2487,35 @@ export default function TVChart({
                           stroke="#10b981"
                           strokeWidth={dragPosState?.position_id === pos.position_id && dragPosState?.type === 'TP' ? 3 : 2}
                           strokeDasharray="4 4"
+                          style={{ pointerEvents: 'none' }}
                         />
-                        <rect
-                          x={plotWidth - 115}
-                          y={tpY - 11}
-                          width={110}
-                          height={22}
-                          rx={4}
-                          fill="#10b981"
-                          stroke="#ffffff"
-                          strokeWidth={1}
-                        />
-                        <text
-                          x={plotWidth - 60}
-                          y={tpY + 4}
-                          fill="#ffffff"
-                          fontSize="10"
-                          fontWeight="bold"
-                          textAnchor="middle"
+                        <g
+                          style={{ cursor: 'ns-resize', pointerEvents: 'all' }}
+                          onMouseDown={(e) => handleStartDragPosition(pos, 'TP', tpPrice, e)}
+                          onPointerDown={(e) => handleStartDragPosition(pos, 'TP', tpPrice, e)}
                         >
-                          ↔ TP: {tpPrice.toFixed(5)}
-                        </text>
+                          <rect
+                            x={plotWidth - 115}
+                            y={tpY - 11}
+                            width={110}
+                            height={22}
+                            rx={4}
+                            fill="#10b981"
+                            stroke="#ffffff"
+                            strokeWidth={1}
+                          />
+                          <text
+                            x={plotWidth - 60}
+                            y={tpY + 4}
+                            fill="#ffffff"
+                            fontSize="10"
+                            fontWeight="bold"
+                            textAnchor="middle"
+                            style={{ userSelect: 'none', pointerEvents: 'none' }}
+                          >
+                            ↔ TP: {tpPrice.toFixed(5)}
+                          </text>
+                        </g>
                       </g>
                     )}
 
