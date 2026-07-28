@@ -2328,11 +2328,11 @@ export default function Dashboard() {
                     >
                       <RefreshCw size={12} /> Update Backend
                     </button>
-                    <button 
-                      onClick={() => {
-                        setShowMobileNav(false);
-                        window.open('https://89.217.138.51:8751/api/live/strategies', '_blank');
-                      }}
+                    <a 
+                      href="https://89.217.138.51:8751/api/live/strategies"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => setShowMobileNav(false)}
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -2348,10 +2348,11 @@ export default function Dashboard() {
                         fontSize: '11px',
                         fontWeight: 'bold',
                         gridColumn: 'span 2',
+                        textDecoration: 'none',
                       }}
                     >
                       <ShieldAlert size={12} /> Authorize Laptop SSL
-                    </button>
+                    </a>
                   </div>
                 </div>
 
@@ -2564,8 +2565,10 @@ export default function Dashboard() {
                   Update & Restart Laptop
                 </button>
                 
-                <button 
-                  onClick={() => window.open('https://89.217.138.51:8751/api/live/strategies', '_blank')}
+                <a 
+                  href="https://89.217.138.51:8751/api/live/strategies"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -2580,12 +2583,13 @@ export default function Dashboard() {
                     fontSize: '11px',
                     outline: 'none',
                     transition: 'all 0.2s',
+                    textDecoration: 'none',
                   }}
                   title="Open Laptop backend to authorize HTTPS Self-Signed Certificate"
                 >
                   <ShieldAlert size={12} />
                   Authorize Laptop SSL
-                </button>
+                </a>
                 <button 
                   onClick={() => setShowMenu(!showMenu)} 
                   style={{
