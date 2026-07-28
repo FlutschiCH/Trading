@@ -1821,6 +1821,9 @@ export default function Dashboard() {
       alignItems: 'center',
       gap: '16px',
       flexWrap: 'wrap' as const,
+      position: 'sticky' as const,
+      top: 0,
+      zIndex: 100,
     },
     logoSection: {
       display: 'flex',
