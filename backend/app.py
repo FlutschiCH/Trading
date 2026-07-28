@@ -11,6 +11,21 @@ load_dotenv()
 # Ensure the backend directory is in python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
+def disable_quick_edit():
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            kernel32 = ctypes.windll.kernel32
+            h_input = kernel32.GetStdHandle(-10)
+            mode = ctypes.c_ulong()
+            if kernel32.GetConsoleMode(h_input, ctypes.byref(mode)):
+                new_mode = (mode.value & ~0x0040) | 0x0080
+                kernel32.SetConsoleMode(h_input, new_mode)
+        except Exception:
+            pass
+
+disable_quick_edit()
+
 from terminal_handler import TerminalHandler
 TerminalHandler.init()
 
