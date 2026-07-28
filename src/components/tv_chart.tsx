@@ -1741,9 +1741,18 @@ export default function TVChart({
     symbol: string;
   } | null>(null);
 
-  const handleStartDragPosition = (pos: any, type: 'SL' | 'TP', initialPrice: number, e: React.MouseEvent) => {
+  const handleStartDragPosition = (pos: any, type: 'SL' | 'TP', initialPrice: number, e: React.MouseEvent | React.PointerEvent) => {
     e.stopPropagation();
     e.preventDefault();
+    if (e.nativeEvent) {
+      e.nativeEvent.stopImmediatePropagation();
+    }
+    if (chartRef.current) {
+      chartRef.current.applyOptions({
+        handleScroll: false,
+        handleScale: false,
+      });
+    }
     setDragPosState({
       position_id: pos.position_id,
       type,
@@ -1755,7 +1764,14 @@ export default function TVChart({
   useEffect(() => {
     if (!dragPosState) return;
 
-    const handleGlobalMouseMove = (e: MouseEvent) => {
+    if (chartRef.current) {
+      chartRef.current.applyOptions({
+        handleScroll: false,
+        handleScale: false,
+      });
+    }
+
+    const handleGlobalMouseMove = (e: MouseEvent | PointerEvent) => {
       if (!chartContainerRef.current || !candlestickSeriesRef.current) return;
       const rect = chartContainerRef.current.getBoundingClientRect();
       const y = e.clientY - rect.top;
@@ -1769,6 +1785,22 @@ export default function TVChart({
       if (!dragPosState) return;
       const targetState = dragPosState;
       setDragPosState(null);
+
+      if (chartRef.current) {
+        chartRef.current.applyOptions({
+          handleScroll: {
+            mouseWheel: true,
+            pressedMouseMove: true,
+            horzTouchDrag: true,
+            vertTouchDrag: true,
+          },
+          handleScale: {
+            axisPressedMouseMove: true,
+            mouseWheel: true,
+            pinch: true,
+          },
+        });
+      }
 
       try {
         let positionsList: any[] = [];
@@ -1805,10 +1837,30 @@ export default function TVChart({
     };
 
     window.addEventListener('mousemove', handleGlobalMouseMove);
+    window.addEventListener('pointermove', handleGlobalMouseMove);
     window.addEventListener('mouseup', handleGlobalMouseUp);
+    window.addEventListener('pointerup', handleGlobalMouseUp);
     return () => {
       window.removeEventListener('mousemove', handleGlobalMouseMove);
+      window.removeEventListener('pointermove', handleGlobalMouseMove);
       window.removeEventListener('mouseup', handleGlobalMouseUp);
+      window.removeEventListener('pointerup', handleGlobalMouseUp);
+
+      if (chartRef.current) {
+        chartRef.current.applyOptions({
+          handleScroll: {
+            mouseWheel: true,
+            pressedMouseMove: true,
+            horzTouchDrag: true,
+            vertTouchDrag: true,
+          },
+          handleScale: {
+            axisPressedMouseMove: true,
+            mouseWheel: true,
+            pinch: true,
+          },
+        });
+      }
     };
   }, [dragPosState, openPositions, candleSource, onRefresh]);
 
@@ -2386,6 +2438,7 @@ export default function TVChart({
                       <g
                         style={{ cursor: 'ns-resize', pointerEvents: 'all' }}
                         onMouseDown={(e) => handleStartDragPosition(pos, 'SL', slPrice, e)}
+                        onPointerDown={(e) => handleStartDragPosition(pos, 'SL', slPrice, e)}
                       >
                         <line
                           x1={0}
@@ -2424,6 +2477,7 @@ export default function TVChart({
                       <g
                         style={{ cursor: 'ns-resize', pointerEvents: 'all' }}
                         onMouseDown={(e) => handleStartDragPosition(pos, 'TP', tpPrice, e)}
+                        onPointerDown={(e) => handleStartDragPosition(pos, 'TP', tpPrice, e)}
                       >
                         <line
                           x1={0}
