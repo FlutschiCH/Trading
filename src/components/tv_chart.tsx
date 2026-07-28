@@ -2315,10 +2315,6 @@ export default function TVChart({
             </div>
           )}
 
-          {/* Wyckoff Quantitative Market Structure Overlay */}
-          {(() => {
-
-
           <svg
             style={{
               position: 'absolute',
