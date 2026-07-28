@@ -1872,7 +1872,7 @@ export default function TVChart({
                     </>
                   )}
                 </div>
-                <button onClick={toggleFullscreen} style={styles.refreshBtn} title="Toggle Fullscreen">{isFullscreen ? <Minimize size={14} /> : <Maximize size={14} />}</button>
+                <button onClick={toggleFullscreen} style={styles.refreshBtn} title="Toggle Fullscreen">{isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}</button>
               </div>
             </div>
           </>
