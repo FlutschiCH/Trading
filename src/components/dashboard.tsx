@@ -2508,24 +2508,28 @@ export default function Dashboard() {
             )}
           </>
         ) : (
-          <>
-            <div style={styles.logoSection}>
-              <Activity size={28} style={{ color: '#3b82f6' }} />
-              <span style={styles.logoText}>WYCKOFF</span>
-              <span 
-                title={`cTrader ${connectionMode.toUpperCase()}: ${currentConnected ? 'ONLINE' : 'OFFLINE'}`}
-                style={{
-                  width: '8px',
-                  height: '8px',
-                  borderRadius: '50%',
-                  backgroundColor: currentConnected ? '#10b981' : '#ef4444',
-                  boxShadow: `0 0 8px ${currentConnected ? '#10b981' : '#ef4444'}`,
-                  display: 'inline-block',
-                  marginLeft: '4px',
-                  flexShrink: 0,
-                }}
-              />
-              <div style={{ position: 'relative', display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '10px' }}>
+            {/* Top Row: Logo, Update, Authorize SSL, Links, Target API */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+              <div style={styles.logoSection}>
+                <Activity size={28} style={{ color: '#3b82f6' }} />
+                <span style={styles.logoText}>WYCKOFF</span>
+                <span 
+                  title={`cTrader ${connectionMode.toUpperCase()}: ${currentConnected ? 'ONLINE' : 'OFFLINE'}`}
+                  style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    backgroundColor: currentConnected ? '#10b981' : '#ef4444',
+                    boxShadow: `0 0 8px ${currentConnected ? '#10b981' : '#ef4444'}`,
+                    display: 'inline-block',
+                    marginLeft: '4px',
+                    flexShrink: 0,
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                 <button 
                   onClick={toggleTheme}
                   style={{
@@ -2545,7 +2549,7 @@ export default function Dashboard() {
                 >
                   {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
                 </button>
-                 <button 
+                <button 
                   onClick={handleRestartServer}
                   style={{
                     display: 'flex',
@@ -2593,165 +2597,191 @@ export default function Dashboard() {
                   <ShieldAlert size={12} />
                   Authorize Laptop SSL
                 </a>
-                <button 
-                  onClick={() => setShowMenu(!showMenu)} 
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    backgroundColor: 'var(--app-panel-header-bg)',
-                    border: '1px solid var(--app-card-border)',
-                    cursor: 'pointer',
-                    borderRadius: '6px',
-                    padding: '6px 12px',
-                    color: 'var(--app-text)',
-                    fontWeight: 'bold',
-                    fontSize: '11px',
-                    outline: 'none',
-                    transition: 'all 0.2s',
-                  }}
-                >
-                  <Menu size={12} /> Links & Resources <ChevronDown size={12} />
-                </button>
-                {showMenu && (
-                  <>
-                    <div 
-                      onClick={() => setShowMenu(false)}
-                      style={{
-                        position: 'fixed',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        zIndex: 999,
-                        backgroundColor: 'transparent',
-                      }}
-                    />
-                    <div style={{
-                      position: 'absolute',
-                      top: 'calc(100% + 8px)',
-                      left: 0,
-                      backgroundColor: '#0f172a',
-                      border: '1px solid #334155',
-                      borderRadius: '8px',
-                      boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 20px rgba(59, 130, 246, 0.1)',
-                      padding: '6px 0',
+                <div style={{ position: 'relative' }}>
+                  <button 
+                    onClick={() => setShowMenu(!showMenu)} 
+                    style={{
                       display: 'flex',
-                      flexDirection: 'column',
-                      minWidth: '220px',
-                      zIndex: 1000,
-                    }}>
-                      <a href="https://openapi.ctrader.com/apps" target="_blank" rel="noopener noreferrer" className="menu-item" onClick={() => setShowMenu(false)}>
-                        cTrader Apps
-                      </a>
-                      <a href="https://gemini.google.com/app/71d33e33a84aa328" target="_blank" rel="noopener noreferrer" className="menu-item" onClick={() => setShowMenu(false)}>
-                        Wyckoff Prompt
-                      </a>
-                      <a href="https://trader.ftmo.com/accounts-overview" target="_blank" rel="noopener noreferrer" className="menu-item" onClick={() => setShowMenu(false)}>
-                        FTMO Overview
-                      </a>
-                      <a href="https://saphir.metanet.ch:8443/phpMyAdmin/index.php?db=aa_wyckoff_trading" target="_blank" rel="noopener noreferrer" className="menu-item" onClick={() => setShowMenu(false)}>
-                        Database (phpMyAdmin)
-                      </a>
-                      <a href="https://railway.com/project/aa01f500-c3df-4d47-b60a-821237699d0d/service/05376c29-94f0-44f3-acc2-93d5d104019f/settings?environmentId=7a63d6ae-f3e6-452d-b527-6311f6f9b551" target="_blank" rel="noopener noreferrer" className="menu-item" onClick={() => setShowMenu(false)}>
-                        Railway Settings
-                      </a>
-                       <a 
-                        href="#symbol-mappings" 
-                        className="menu-item" 
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setView('mappings');
-                          setShowMenu(false);
-                        }}
-                      >
-                        🔗 Symbol Mappings
-                      </a>
-                      <a 
-                        href="#live-trades" 
-                        className="menu-item" 
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setView('trades');
-                          setShowMenu(false);
-                        }}
-                      >
-                        📈 Live Trades & History
-                      </a>
-                      <a 
-                        href="#computers" 
-                        className="menu-item" 
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setView('computers');
-                          setShowMenu(false);
-                        }}
-                      >
-                        💻 Computer Manager
-                      </a>
-                      <button 
-                        onClick={() => {
-                          setShowMenu(false);
-                          triggerPWAEventNotification("Sound Check", "Local audio sound test completed successfully!", "trade_open");
-                        }}
-                        className="menu-item"
+                      alignItems: 'center',
+                      gap: '6px',
+                      backgroundColor: 'var(--app-panel-header-bg)',
+                      border: '1px solid var(--app-card-border)',
+                      cursor: 'pointer',
+                      borderRadius: '6px',
+                      padding: '6px 12px',
+                      color: 'var(--app-text)',
+                      fontWeight: 'bold',
+                      fontSize: '11px',
+                      outline: 'none',
+                      transition: 'all 0.2s',
+                    }}
+                  >
+                    <Menu size={12} /> Links & Resources <ChevronDown size={12} />
+                  </button>
+                  {showMenu && (
+                    <>
+                      <div 
+                        onClick={() => setShowMenu(false)}
                         style={{
-                          background: 'none',
-                          border: 'none',
-                          textAlign: 'left',
-                          width: '100%',
-                          cursor: 'pointer',
-                          display: 'block',
-                          fontFamily: 'inherit',
-                          padding: '8px 16px',
-                          color: '#94a3b8'
+                          position: 'fixed',
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          zIndex: 999,
+                          backgroundColor: 'transparent',
                         }}
-                      >
-                        🔔 Test Local Sound
-                      </button>
-                      <button 
-                        onClick={() => {
-                          setShowMenu(false);
-                          handleRestartServer();
-                        }}
-                        className="menu-item"
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          textAlign: 'left',
-                          width: '100%',
-                          cursor: 'pointer',
-                          display: 'block',
-                          fontFamily: 'inherit',
-                          padding: '8px 16px',
-                          color: '#ef4444',
-                          fontWeight: 'bold'
-                        }}
-                      >
-                        🔄 Update & Restart Server
-                      </button>
-                      <a href="/how-to" className="menu-item" style={{ borderTop: '1px solid #1e293b', paddingTop: '8px', marginTop: '4px' }} onClick={() => setShowMenu(false)}>
-                        📖 How It Works
-                      </a>
-                    </div>
-                  </>
+                      />
+                      <div style={{
+                        position: 'absolute',
+                        top: 'calc(100% + 8px)',
+                        right: 0,
+                        backgroundColor: '#0f172a',
+                        border: '1px solid #334155',
+                        borderRadius: '8px',
+                        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 20px rgba(59, 130, 246, 0.1)',
+                        padding: '6px 0',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        minWidth: '220px',
+                        zIndex: 1000,
+                      }}>
+                        <a href="https://openapi.ctrader.com/apps" target="_blank" rel="noopener noreferrer" className="menu-item" onClick={() => setShowMenu(false)}>
+                          cTrader Apps
+                        </a>
+                        <a href="https://gemini.google.com/app/71d33e33a84aa328" target="_blank" rel="noopener noreferrer" className="menu-item" onClick={() => setShowMenu(false)}>
+                          Wyckoff Prompt
+                        </a>
+                        <a href="https://trader.ftmo.com/accounts-overview" target="_blank" rel="noopener noreferrer" className="menu-item" onClick={() => setShowMenu(false)}>
+                          FTMO Overview
+                        </a>
+                        <a href="https://saphir.metanet.ch:8443/phpMyAdmin/index.php?db=aa_wyckoff_trading" target="_blank" rel="noopener noreferrer" className="menu-item" onClick={() => setShowMenu(false)}>
+                          Database (phpMyAdmin)
+                        </a>
+                        <a href="https://railway.com/project/aa01f500-c3df-4d47-b60a-821237699d0d/service/05376c29-94f0-44f3-acc2-93d5d104019f/settings?environmentId=7a63d6ae-f3e6-452d-b527-6311f6f9b551" target="_blank" rel="noopener noreferrer" className="menu-item" onClick={() => setShowMenu(false)}>
+                          Railway Settings
+                        </a>
+                        <a 
+                          href="#symbol-mappings" 
+                          className="menu-item" 
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setView('mappings');
+                            setShowMenu(false);
+                          }}
+                        >
+                          🔗 Symbol Mappings
+                        </a>
+                        <a 
+                          href="#live-trades" 
+                          className="menu-item" 
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setView('trades');
+                            setShowMenu(false);
+                          }}
+                        >
+                          📈 Live Trades & History
+                        </a>
+                        <a 
+                          href="#computers" 
+                          className="menu-item" 
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setView('computers');
+                            setShowMenu(false);
+                          }}
+                        >
+                          💻 Computer Manager
+                        </a>
+                        <button 
+                          onClick={() => {
+                            setShowMenu(false);
+                            triggerPWAEventNotification("Sound Check", "Local audio sound test completed successfully!", "trade_open");
+                          }}
+                          className="menu-item"
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            textAlign: 'left',
+                            width: '100%',
+                            cursor: 'pointer',
+                            display: 'block',
+                            fontFamily: 'inherit',
+                            padding: '8px 16px',
+                            color: '#94a3b8'
+                          }}
+                        >
+                          🔔 Test Local Sound
+                        </button>
+                        <button 
+                          onClick={() => {
+                            setShowMenu(false);
+                            handleRestartServer();
+                          }}
+                          className="menu-item"
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            textAlign: 'left',
+                            width: '100%',
+                            cursor: 'pointer',
+                            display: 'block',
+                            fontFamily: 'inherit',
+                            padding: '8px 16px',
+                            color: '#ef4444',
+                            fontWeight: 'bold'
+                          }}
+                        >
+                          🔄 Update & Restart Server
+                        </button>
+                        <a href="/how-to" className="menu-item" style={{ borderTop: '1px solid #1e293b', paddingTop: '8px', marginTop: '4px' }} onClick={() => setShowMenu(false)}>
+                          📖 How It Works
+                        </a>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname === '89.217.138.51') && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '6px', padding: '4px 8px' }}>
+                    <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 'bold' }}>Target API:</span>
+                    <select
+                      value={localStorage.getItem('wyckoff_api_target') || `http://${window.location.hostname}:8751`}
+                      onChange={(e) => {
+                        localStorage.setItem('wyckoff_api_target', e.target.value);
+                        window.location.reload();
+                      }}
+                      style={{
+                        backgroundColor: '#1e293b',
+                        border: 'none',
+                        color: '#ffffff',
+                        fontSize: '11px',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        outline: 'none',
+                      }}
+                    >
+                      <option style={{ backgroundColor: '#1e293b', color: '#ffffff' }} value={`http://${window.location.hostname}:8751`}>Local Host (8751)</option>
+                      <option style={{ backgroundColor: '#1e293b', color: '#ffffff' }} value="https://89.217.138.51:8751">Laptop Server (89.217.138.51)</option>
+                      <option style={{ backgroundColor: '#1e293b', color: '#ffffff' }} value="https://trading-production-cb87.up.railway.app">Railway Live Container</option>
+                    </select>
+                  </div>
                 )}
               </div>
             </div>
 
-            {/* Centered Account Selector */}
+            {/* Second Row: Centered Account Selector Bar */}
             <div style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '10px',
               justifyContent: 'center',
-              flex: 1,
-              margin: '0 20px',
+              gap: '12px',
+              width: '100%',
               backgroundColor: 'rgba(15, 23, 42, 0.4)',
               border: '1px solid var(--app-card-border)',
               borderRadius: '8px',
-              padding: '4px 12px',
-              maxWidth: '650px'
+              padding: '6px 16px',
             }}>
               {activeAccount ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
@@ -2833,101 +2863,7 @@ export default function Dashboard() {
                 ⚙️ Manage
               </button>
             </div>
-
-            {view !== 'mappings' && (
-              <div style={{
-                ...styles.controlsSection,
-                ...(isMobile ? {
-                  flexDirection: 'column',
-                  width: '100%',
-                  gap: '12px',
-                  marginTop: '12px',
-                  alignItems: 'stretch',
-                } : {})
-              }}>
-                <div style={{
-                  color: candleSource === 'metatrader' ? '#3b82f6' : '#f59e0b',
-                  fontWeight: 'bold',
-                  fontSize: '12px',
-                  backgroundColor: candleSource === 'metatrader' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(245, 158, 11, 0.1)',
-                  border: `1px solid ${candleSource === 'metatrader' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(245, 158, 11, 0.2)'}`,
-                  padding: '6px 12px',
-                  borderRadius: '6px',
-                  textAlign: 'center',
-                  ...(isMobile ? { width: '100%' } : {})
-                }}>
-                  {activeAccount ? `${activeAccount.name} Active` : 'No Active Account'}
-                </div>
-                {(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '6px', padding: '4px 8px' }}>
-                    <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 'bold' }}>Target API:</span>
-                    <select
-                      value={localStorage.getItem('wyckoff_api_target') || `http://${window.location.hostname}:8751`}
-                      onChange={(e) => {
-                        localStorage.setItem('wyckoff_api_target', e.target.value);
-                        window.location.reload();
-                      }}
-                      style={{
-                        backgroundColor: '#1e293b',
-                        border: 'none',
-                        color: '#ffffff',
-                        fontSize: '11px',
-                        fontWeight: 'bold',
-                        cursor: 'pointer',
-                        outline: 'none',
-                        padding: '2px 4px'
-                      }}
-                    >
-                      <option style={{ backgroundColor: '#1e293b', color: '#ffffff' }} value={`http://${window.location.hostname}:8751`}>Local Host (8751)</option>
-                      <option style={{ backgroundColor: '#1e293b', color: '#ffffff' }} value="https://89.217.138.51:8751">Laptop Server (89.217.138.51)</option>
-                      <option style={{ backgroundColor: '#1e293b', color: '#ffffff' }} value="https://trading-production-cb87.up.railway.app">Railway Live Container</option>
-                    </select>
-                  </div>
-                )}
-                {(window.location.hostname === 'localhost' || 
-                  window.location.hostname === '127.0.0.1' ||
-                  window.location.hostname === '89.217.138.51') && (
-                  <button
-                    onClick={async () => {
-                      try {
-                        const response = await fetch('https://trading-production-cb87.up.railway.app/api/ctrader/order', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ symbol: 'EURUSD', order_type: 'buy', volume: 0.01 })
-                        });
-                        const data = await response.json();
-                        if (data.status === 'success') {
-                          alert(`Test Order Placed successfully!\nDetails: ${data.message || JSON.stringify(data)}`);
-                        } else {
-                          alert(`Test Order Error:\n${data.message || JSON.stringify(data)}`);
-                        }
-                      } catch (err: any) {
-                        alert(`Failed to trigger order: ${err.message}`);
-                      }
-                    }}
-                    style={{
-                      color: '#ffffff',
-                      fontWeight: 'bold',
-                      fontSize: '12px',
-                      backgroundColor: '#ef4444',
-                      border: 'none',
-                      padding: '6px 12px',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      textAlign: 'center',
-                      marginLeft: '8px',
-                      transition: 'background-color 0.2s',
-                      ...(isMobile ? { width: '100%', marginLeft: 0 } : {})
-                    }}
-                    onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#dc2626')}
-                    onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#ef4444')}
-                  >
-                    🚀 Test cTrader Order
-                  </button>
-                )}
-              </div>
-            )}
-          </>
+          </div>
         )}
       </header>
 
