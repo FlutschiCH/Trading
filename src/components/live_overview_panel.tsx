@@ -206,34 +206,45 @@ export default function LiveOverviewPanel({
                 }}
               >
                 {/* Symbol, Timeframe, Actions */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <div style={{
+                  display: 'flex',
+                  flexDirection: isMobileLayout ? 'column' : 'row',
+                  justifyContent: 'space-between',
+                  alignItems: isMobileLayout ? 'flex-start' : 'center',
+                  gap: isMobileLayout ? '8px' : '0',
+                  marginBottom: '10px'
+                }}>
                   <div>
                     {strategy.name && (
                       <div style={{ fontSize: '10px', color: '#3b82f6', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '2px' }}>
                         {strategy.name}
                       </div>
                     )}
-                    <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#f8fafc', marginRight: '6px' }}>
-                      {strategy.symbol}
-                    </span>
-                    <span style={{ fontSize: '10px', backgroundColor: '#1e293b', color: '#94a3b8', padding: '2px 6px', borderRadius: '4px' }}>
-                      {strategy.timeframe}
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#f8fafc' }}>
+                        {strategy.symbol}
+                      </span>
+                      <span style={{ fontSize: '10px', backgroundColor: '#1e293b', color: '#94a3b8', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
+                        {strategy.timeframe}
+                      </span>
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap', width: isMobileLayout ? '100%' : 'auto' }}>
                     {onSelectStrategy && (
                       <button
                         onClick={() => onSelectStrategy(strategy.id)}
                         style={{
+                          flex: isMobileLayout ? 1 : 'none',
                           backgroundColor: selectedStrategyId === strategy.id && isLiveFeed ? 'rgba(16, 185, 129, 0.15)' : '#1e293b',
                           color: selectedStrategyId === strategy.id && isLiveFeed ? '#10b981' : '#d1d5db',
                           border: `1px solid ${selectedStrategyId === strategy.id && isLiveFeed ? '#10b981' : '#334155'}`,
-                          borderRadius: '4px',
-                          padding: '4px 8px',
+                          borderRadius: '6px',
+                          padding: '6px 10px',
                           cursor: 'pointer',
-                          fontSize: '10px',
+                          fontSize: '11px',
                           fontWeight: 'bold',
-                          transition: 'all 0.2s'
+                          transition: 'all 0.2s',
+                          whiteSpace: 'nowrap'
                         }}
                       >
                         {selectedStrategyId === strategy.id && isLiveFeed ? '📺 Displaying' : '📊 Display on Chart'}
@@ -245,10 +256,10 @@ export default function LiveOverviewPanel({
                         backgroundColor: '#1e293b',
                         color: '#d1d5db',
                         border: '1px solid #334155',
-                        borderRadius: '4px',
-                        padding: '4px 8px',
+                        borderRadius: '6px',
+                        padding: '6px 10px',
                         cursor: 'pointer',
-                        fontSize: '10px',
+                        fontSize: '11px',
                         fontWeight: 'bold'
                       }}
                     >
@@ -260,17 +271,18 @@ export default function LiveOverviewPanel({
                       style={{
                         backgroundColor: isPaused ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)',
                         color: isPaused ? '#10b981' : '#f59e0b',
-                        border: 'none',
-                        borderRadius: '4px',
-                        padding: '4px 8px',
+                        border: '1px solid ' + (isPaused ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)'),
+                        borderRadius: '6px',
+                        padding: '6px 10px',
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
                         gap: '4px',
-                        fontSize: '10px'
+                        fontSize: '11px',
+                        fontWeight: 'bold'
                       }}
                     >
-                      {isPaused ? <Play size={10} /> : <Pause size={10} />}
+                      {isPaused ? <Play size={12} /> : <Pause size={12} />}
                       {isPaused ? 'Resume' : 'Pause'}
                     </button>
                     <button
@@ -279,13 +291,13 @@ export default function LiveOverviewPanel({
                       style={{
                         backgroundColor: 'rgba(239, 68, 68, 0.1)',
                         color: '#ef4444',
-                        border: 'none',
-                        borderRadius: '4px',
-                        padding: '4px 6px',
+                        border: '1px solid rgba(239, 68, 68, 0.2)',
+                        borderRadius: '6px',
+                        padding: '6px 8px',
                         cursor: 'pointer'
                       }}
                     >
-                      <Trash2 size={10} />
+                      <Trash2 size={12} />
                     </button>
                   </div>
                 </div>
