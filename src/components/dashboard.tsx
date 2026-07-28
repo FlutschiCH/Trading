@@ -2625,7 +2625,19 @@ export default function Dashboard() {
                       <span>⚡ Live Strategies Overview</span>
                     </div>
                     <div style={{ padding: '16px', overflowY: 'auto' }}>
-                      <LiveOverviewPanel isMobileLayout={true} />
+                      <LiveOverviewPanel
+                        isMobileLayout={true}
+                        selectedStrategyId={selectedStrategyId}
+                        isLiveFeed={isLiveFeed}
+                        onSelectStrategy={(id) => {
+                          setSelectedStrategyId(id);
+                          localStorage.setItem('wyckoff_selected_live_strategy_id', id);
+                          setIsLiveFeed(true);
+                          localStorage.setItem('wyckoff_is_live_feed', 'true');
+                          setMobileTab('chart');
+                          setTimeout(() => fetchCandles(), 50);
+                        }}
+                      />
                     </div>
                   </div>
                 )}
