@@ -1794,11 +1794,10 @@ export default function Dashboard() {
     localStorage.setItem('wyckoff_trades_poll_interval', tradesPollInterval.toString());
   }, [tradesPollInterval]);
 
-  // Fetch account/positions/history data on initial load and setup interval polling when autoPollTrades is enabled.
+  // Fetch account/positions data on initial load and setup interval polling when autoPollTrades is enabled.
   useEffect(() => {
     fetchAccountData();
     fetchPositionData();
-    fetchHistoryTrades();
 
     if (!autoPollTrades) return;
 
@@ -1806,7 +1805,6 @@ export default function Dashboard() {
     const interval = setInterval(() => {
       fetchAccountData();
       fetchPositionData();
-      fetchHistoryTrades();
     }, ms);
 
     return () => clearInterval(interval);
@@ -2598,9 +2596,6 @@ export default function Dashboard() {
                         dailyPnl={dailyPnl}
                         weeklyPnl={weeklyPnl}
                         openPositions={openPositions}
-                        historyTrades={historyTrades}
-                        loadingHistory={loadingHistory}
-                        historyError={historyError}
                         handleClosePosition={handleClosePosition}
                         isMobileLayout={true}
                       />
@@ -3004,9 +2999,6 @@ export default function Dashboard() {
                             dailyPnl={dailyPnl}
                             weeklyPnl={weeklyPnl}
                             openPositions={openPositions}
-                            historyTrades={historyTrades}
-                            loadingHistory={loadingHistory}
-                            historyError={historyError}
                             handleClosePosition={handleClosePosition}
                             isMobileLayout={false}
                           />

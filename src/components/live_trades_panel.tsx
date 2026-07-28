@@ -20,9 +20,6 @@ interface LiveTradesPanelProps {
   dailyPnl: number;
   weeklyPnl: number;
   openPositions: Position[];
-  historyTrades: HistoryTrade[];
-  loadingHistory: boolean;
-  historyError: string | null;
   handleClosePosition: (position: Position) => void;
   isMobileLayout?: boolean;
 }
@@ -31,9 +28,6 @@ export default function LiveTradesPanel({
   dailyPnl,
   weeklyPnl,
   openPositions,
-  historyTrades,
-  loadingHistory,
-  historyError,
   handleClosePosition,
   isMobileLayout = false,
 }: LiveTradesPanelProps) {
@@ -94,25 +88,6 @@ export default function LiveTradesPanel({
             ))}
           </div>
         )}
-
-        {/* Closed Deals */}
-        <h4 style={{ margin: '0 0 10px 0', fontSize: '13px', color: '#f8fafc', fontWeight: 'bold' }}>History</h4>
-        {loadingHistory ? (
-          <div style={{ color: '#64748b', fontSize: '12px' }}>Loading history...</div>
-        ) : historyError ? (
-          <div style={{ color: '#ef4444', fontSize: '12px' }}>{historyError}</div>
-        ) : historyTrades.length === 0 ? (
-          <div style={{ color: '#64748b', fontSize: '12px' }}>No history found.</div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '250px', overflowY: 'auto' }}>
-            {historyTrades.slice(0, 15).map(h => (
-              <div key={h.ticket} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', borderBottom: '1px solid #1f2937', paddingBottom: '6px' }}>
-                <span style={{ color: '#94a3b8' }}>{h.symbol} ({h.volume})</span>
-                <span style={{ fontWeight: 'bold', color: h.profit >= 0 ? '#10b981' : '#ef4444' }}>{h.profit >= 0 ? '+' : ''}${h.profit.toFixed(2)}</span>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
     );
   }
@@ -165,25 +140,6 @@ export default function LiveTradesPanel({
                   Close
                 </button>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Closed Deals */}
-      <h4 style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#f8fafc', fontWeight: 'bold' }}>History</h4>
-      {loadingHistory ? (
-        <div style={{ color: '#64748b', fontSize: '11px' }}>Loading...</div>
-      ) : historyError ? (
-        <div style={{ color: '#ef4444', fontSize: '11px' }}>{historyError}</div>
-      ) : historyTrades.length === 0 ? (
-        <div style={{ color: '#64748b', fontSize: '11px' }}>No history.</div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '180px', overflowY: 'auto' }}>
-          {historyTrades.slice(0, 10).map(h => (
-            <div key={h.ticket} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', borderBottom: '1px solid #1f2937', paddingBottom: '4px' }}>
-              <span style={{ color: '#94a3b8' }}>{h.symbol} ({h.volume})</span>
-              <span style={{ fontWeight: 'bold', color: h.profit >= 0 ? '#10b981' : '#ef4444' }}>{h.profit >= 0 ? '+' : ''}${h.profit.toFixed(2)}</span>
             </div>
           ))}
         </div>
