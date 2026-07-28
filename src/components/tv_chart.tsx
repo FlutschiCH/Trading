@@ -1763,11 +1763,10 @@ export default function TVChart({
 
   return (
     <div id={isFullscreen ? "tv-chart-fullscreen-container" : undefined} style={{ ...styles.container, ...(isFullscreen ? { position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 99999, backgroundColor: '#0b0f19', display: 'flex', flexDirection: 'column', padding: isMobile ? '8px' : '16px', boxSizing: 'border-box', overflowY: 'auto' } : {}), ...(isMobile ? { padding: '8px', gap: '8px' } : {}) }}>
-      <div style={styles.toolbar}>
-        <div style={{ ...styles.toolsGroup, flexWrap: 'wrap', gap: isMobile ? '6px' : '12px' }}>
-          {/* Symbol Search Input */}
-          <div style={{ ...styles.pairGroup, position: 'relative' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+      <div style={{ ...styles.toolbar, ...(isMobile ? { flexDirection: 'column', gap: '8px', alignItems: 'stretch' } : {}) }}>
+        {isMobile ? (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
               <div style={{ position: 'relative' }}>
                 <input
                   type="text"
@@ -1791,164 +1790,38 @@ export default function TVChart({
                 />
                 {showSymbolDropdown && (
                   <>
-                    <div
-                      onClick={() => setShowSymbolDropdown(false)}
-                      style={{
-                        position: 'fixed',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        zIndex: 999
-                      }}
-                    />
-                    <div style={{
-                      position: 'absolute',
-                      top: '100%',
-                      left: 0,
-                      right: 0,
-                      backgroundColor: '#0f172a',
-                      border: '1px solid #334155',
-                      borderRadius: '6px',
-                      maxHeight: '200px',
-                      overflowY: 'auto',
-                      zIndex: 1000,
-                      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)',
-                      minWidth: '160px'
-                    }}>
+                    <div onClick={() => setShowSymbolDropdown(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }} />
+                    <div style={{ position: 'absolute', top: '100%', left: 0, backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '6px', maxHeight: '200px', overflowY: 'auto', zIndex: 1000, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)', minWidth: '160px' }}>
                       {filteredSymbols.length > 0 ? (
-                        filteredSymbols
-                          .map((sym, idx) => (
-                            <div
-                              key={sym}
-                              onClick={() => {
-                                onSymbolChange(sym);
-                                setShowSymbolDropdown(false);
-                              }}
-                              style={{
-                                padding: '6px 10px',
-                                cursor: 'pointer',
-                                fontSize: '12px',
-                                color: '#ffffff',
-                                backgroundColor: idx === highlightedIndex ? '#2563eb' : (symbol === sym ? 'rgba(37, 99, 235, 0.3)' : 'transparent'),
-                                transition: 'background-color 0.15s',
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center'
-                              }}
-                              onMouseEnter={() => {
-                                setHighlightedIndex(idx);
-                              }}
-                            >
-                              <span>{sym}</span>
-                              <span
-                                onClick={(e) => toggleFavoriteSymbol(sym, e)}
-                                style={{
-                                  color: favoriteSymbols.includes(sym) ? '#f59e0b' : '#4b5563',
-                                  fontSize: '14px',
-                                  padding: '2px 4px',
-                                  cursor: 'pointer',
-                                  transition: 'color 0.15s'
-                                }}
-                              >
-                                ★
-                              </span>
-                            </div>
-                          ))
+                        filteredSymbols.map((sym, idx) => (
+                          <div key={sym} onClick={() => { onSymbolChange(sym); setShowSymbolDropdown(false); }} style={{ padding: '6px 10px', cursor: 'pointer', fontSize: '12px', color: '#ffffff', backgroundColor: idx === highlightedIndex ? '#2563eb' : (symbol === sym ? 'rgba(37, 99, 235, 0.3)' : 'transparent'), transition: 'background-color 0.15s', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} onMouseEnter={() => setHighlightedIndex(idx)}>
+                            <span>{sym}</span>
+                            <span onClick={(e) => toggleFavoriteSymbol(sym, e)} style={{ color: favoriteSymbols.includes(sym) ? '#f59e0b' : '#4b5563', fontSize: '14px', padding: '2px 4px', cursor: 'pointer', transition: 'color 0.15s' }}>★</span>
+                          </div>
+                        ))
                       ) : (
-                        <div style={{ padding: '6px 10px', fontSize: '11px', color: '#6b7280' }}>
-                          No results found
-                        </div>
+                        <div style={{ padding: '6px 10px', fontSize: '11px', color: '#6b7280' }}>No results found</div>
                       )}
                     </div>
                   </>
                 )}
               </div>
-            </div>
-          </div>
-
-          {/* Timeframe Custom Dropdown */}
-          <div style={{ ...styles.pairGroup, position: 'relative' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
               <div style={{ position: 'relative' }}>
                 <button
                   onClick={() => setShowTimeframeDropdown(!showTimeframeDropdown)}
-                  style={{
-                    ...styles.pairSelect,
-                    backgroundColor: '#1e293b',
-                    color: '#ffffff',
-                    border: '1px solid #334155',
-                    padding: '4px 8px',
-                    fontSize: '12px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '6px',
-                    cursor: 'pointer'
-                  }}
+                  style={{ ...styles.pairSelect, backgroundColor: '#1e293b', color: '#ffffff', border: '1px solid #334155', padding: '4px 8px', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', cursor: 'pointer' }}
                 >
                   <span>{timeframe}</span>
                   <span style={{ fontSize: '10px', color: '#94a3b8' }}>▼</span>
                 </button>
                 {showTimeframeDropdown && (
                   <>
-                    <div
-                      onClick={() => setShowTimeframeDropdown(false)}
-                      style={{
-                        position: 'fixed',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        zIndex: 999
-                      }}
-                    />
-                    <div style={{
-                      position: 'absolute',
-                      top: '100%',
-                      left: 0,
-                      backgroundColor: '#0f172a',
-                      border: '1px solid #334155',
-                      borderRadius: '6px',
-                      maxHeight: '200px',
-                      overflowY: 'auto',
-                      zIndex: 1000,
-                      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)',
-                      minWidth: '100px'
-                    }}>
+                    <div onClick={() => setShowTimeframeDropdown(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }} />
+                    <div style={{ position: 'absolute', top: '100%', right: 0, backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '6px', maxHeight: '200px', overflowY: 'auto', zIndex: 1000, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)', minWidth: '100px' }}>
                       {sortedTimeframes.map((tf) => (
-                        <div
-                          key={tf}
-                          onClick={() => {
-                            onTimeframeChange(tf);
-                            setShowTimeframeDropdown(false);
-                          }}
-                          style={{
-                            padding: '6px 10px',
-                            cursor: 'pointer',
-                            fontSize: '12px',
-                            color: '#ffffff',
-                            backgroundColor: timeframe === tf ? 'rgba(37, 99, 235, 0.3)' : 'transparent',
-                            transition: 'background-color 0.15s',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            gap: '12px'
-                          }}
-                        >
+                        <div key={tf} onClick={() => { onTimeframeChange(tf); setShowTimeframeDropdown(false); }} style={{ padding: '6px 10px', cursor: 'pointer', fontSize: '12px', color: '#ffffff', backgroundColor: timeframe === tf ? 'rgba(37, 99, 235, 0.3)' : 'transparent', transition: 'background-color 0.15s', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
                           <span>{tf}</span>
-                          <span
-                            onClick={(e) => toggleFavoriteTimeframe(tf, e)}
-                            style={{
-                              color: favoriteTimeframes.includes(tf) ? '#f59e0b' : '#4b5563',
-                              fontSize: '14px',
-                              padding: '2px 4px',
-                              cursor: 'pointer',
-                              transition: 'color 0.15s'
-                            }}
-                          >
-                            ★
-                          </span>
+                          <span onClick={(e) => toggleFavoriteTimeframe(tf, e)} style={{ color: favoriteTimeframes.includes(tf) ? '#f59e0b' : '#4b5563', fontSize: '14px', padding: '2px 4px', cursor: 'pointer', transition: 'color 0.15s' }}>★</span>
                         </div>
                       ))}
                     </div>
@@ -1956,218 +1829,154 @@ export default function TVChart({
                 )}
               </div>
             </div>
-          </div>
-
-          {/* Trades Filter */}
-          <div style={styles.pairGroup}>
-            <select
-              value={actualFilter}
-              onChange={(e) => setActualFilter(e.target.value as 'all' | 'wins' | 'losses')}
-              style={styles.pairSelect}
-            >
-              <option value="all">{isMobile ? 'Both' : 'Both (Winners & Losers)'}</option>
-              <option value="wins">{isMobile ? 'Wins' : 'Winners Only'}</option>
-              <option value="losses">{isMobile ? 'Losses' : 'Losers Only'}</option>
-            </select>
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '4px' : '8px' }}>
-
-          {onLiveFeedChange && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <button
-                onClick={() => {
-                  const nextVal = !isLiveFeed;
-                  localStorage.setItem('wyckoff_is_live_feed', String(nextVal));
-                  onLiveFeedChange(nextVal);
-                  setTimeout(() => onRefresh(), 50);
-                }}
-                style={{
-                  ...styles.refreshBtn,
-                  backgroundColor: isLiveFeed ? '#10b981' : '#1f2937',
-                  color: '#ffffff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  padding: isMobile ? '4px 8px' : '6px 12px',
-                  fontSize: '11px',
-                  fontWeight: 'bold',
-                  boxShadow: isLiveFeed ? '0 0 10px rgba(16, 185, 129, 0.4)' : 'none'
-                }}
-                title="Toggle Live Feed"
-              >
-                <span style={{
-                  width: '6px',
-                  height: '6px',
-                  borderRadius: '50%',
-                  backgroundColor: isLiveFeed ? '#ffffff' : '#9ca3af',
-                  display: 'inline-block',
-                  animation: isLiveFeed ? 'pulse 1.5s infinite' : 'none'
-                }}></span>
-                {isMobile ? 'LIVE' : 'Live Feed'}
-              </button>
-            </div>
-          )}
-          <button
-            onClick={() => onRefresh()}
-            style={styles.refreshBtn}
-            title="Refresh chart data"
-          >
-            <RefreshCw size={14} className={loadingStrategy ? 'animate-spin' : ''} />
-          </button>
-          <button
-            onClick={() => {
-              if (replayToolActive) {
-                setReplayTime(null);
-                setIsPlaying(false);
-                if (onSelectCandleRef.current) {
-                  onSelectCandleRef.current(null);
-                }
-              }
-              setReplayToolActive(!replayToolActive);
-            }}
-            style={{
-              ...styles.refreshBtn,
-              backgroundColor: replayToolActive ? '#2563eb' : '#1f2937',
-              color: replayToolActive ? '#ffffff' : '#9ca3af',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              padding: isMobile ? '4px 8px' : '6px 12px',
-              fontSize: '11px',
-              fontWeight: 'bold',
-            }}
-            title="Toggle Replay Tool"
-          >
-            <Play size={12} fill={replayToolActive ? "#ffffff" : "none"} />
-            {isMobile ? 'Replay' : 'Replay'}
-          </button>
-          <div style={{ position: 'relative' }}>
-            <button
-              onClick={() => setShowSettingsDropdown(!showSettingsDropdown)}
-              style={styles.refreshBtn}
-              title="Chart Visibility Settings"
-            >
-              <Settings size={16} />
-            </button>
-            {showSettingsDropdown && (
-              <>
-                <div
-                  onClick={() => setShowSettingsDropdown(false)}
-                  style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    zIndex: 999
-                  }}
-                />
-                <div style={{
-                  position: 'absolute',
-                  top: '100%',
-                  right: 0,
-                  marginTop: '6px',
-                  backgroundColor: '#0f172a',
-                  border: '1px solid #1f2937',
-                  borderRadius: '8px',
-                  padding: '12px',
-                  zIndex: 1000,
-                  boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)',
-                  minWidth: '180px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '8px',
-                }}>
-                  <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#9ca3af', borderBottom: '1px solid #1f2937', paddingBottom: '6px', marginBottom: '4px' }}>
-                    Chart Visibility
-                  </div>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}>
-                    <input
-                      type="checkbox"
-                      checked={chartSettings.showFvg}
-                      onChange={(e) => setChartSettings({ ...chartSettings, showFvg: e.target.checked })}
-                      style={{ cursor: 'pointer' }}
-                    />
-                    Fair Value Gaps (FVG)
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}>
-                    <input
-                      type="checkbox"
-                      checked={chartSettings.showSessions}
-                      onChange={(e) => setChartSettings({ ...chartSettings, showSessions: e.target.checked })}
-                      style={{ cursor: 'pointer' }}
-                    />
-                    Trading Sessions
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}>
-                    <input
-                      type="checkbox"
-                      checked={chartSettings.showTrades}
-                      onChange={(e) => setChartSettings({ ...chartSettings, showTrades: e.target.checked })}
-                      style={{ cursor: 'pointer' }}
-                    />
-                    Trades & Order Levels
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}>
-                    <input
-                      type="checkbox"
-                      checked={chartSettings.showTrLines}
-                      onChange={(e) => setChartSettings({ ...chartSettings, showTrLines: e.target.checked })}
-                      style={{ cursor: 'pointer' }}
-                    />
-                    Trading Range (TR)
-                  </label>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', borderTop: '1px solid #334155', paddingTop: '6px', marginTop: '4px' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}>
-                      <input
-                        type="checkbox"
-                        checked={chartSettings.autoRefreshCandles ?? true}
-                        onChange={(e) => setChartSettings({ ...chartSettings, autoRefreshCandles: e.target.checked })}
-                        style={{ cursor: 'pointer' }}
-                      />
-                      ⚡ Auto-Refresh Candles
-                    </label>
-                    {chartSettings.autoRefreshCandles && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: '22px', fontSize: '11px', color: '#94a3b8' }}>
-                        <span>Interval:</span>
-                        <input
-                          type="number"
-                          min="1"
-                          max="3600"
-                          value={chartSettings.autoRefreshSeconds ?? 5}
-                          onChange={(e) => {
-                            const secs = Math.max(1, parseInt(e.target.value) || 1);
-                            setChartSettings({ ...chartSettings, autoRefreshSeconds: secs });
-                          }}
-                          style={{
-                            width: '50px',
-                            backgroundColor: '#1e293b',
-                            border: '1px solid #334155',
-                            borderRadius: '4px',
-                            color: '#ffffff',
-                            padding: '2px 6px',
-                            fontSize: '11px',
-                            outline: 'none',
-                          }}
-                        />
-                        <span>secs</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+              <select value={actualFilter} onChange={(e) => setActualFilter(e.target.value as 'all' | 'wins' | 'losses')} style={{ ...styles.pairSelect, backgroundColor: '#1e293b', border: '1px solid #334155' }}>
+                <option value="all">Both</option>
+                <option value="wins">Wins</option>
+                <option value="losses">Losses</option>
+              </select>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {onLiveFeedChange && (
+                  <button
+                    onClick={() => { const nextVal = !isLiveFeed; localStorage.setItem('wyckoff_is_live_feed', String(nextVal)); onLiveFeedChange(nextVal); setTimeout(() => onRefresh(), 50); }}
+                    style={{ ...styles.refreshBtn, backgroundColor: isLiveFeed ? '#10b981' : '#1f2937', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', fontSize: '11px', fontWeight: 'bold', boxShadow: isLiveFeed ? '0 0 10px rgba(16, 185, 129, 0.4)' : 'none' }}
+                    title="Toggle Live Feed"
+                  >
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: isLiveFeed ? '#ffffff' : '#9ca3af', display: 'inline-block', animation: isLiveFeed ? 'pulse 1.5s infinite' : 'none' }}></span>
+                    LIVE
+                  </button>
+                )}
+                <button onClick={() => onRefresh()} style={styles.refreshBtn} title="Refresh chart data"><RefreshCw size={14} className={loadingStrategy ? 'animate-spin' : ''} /></button>
+                <div style={{ position: 'relative' }}>
+                  <button onClick={() => setShowSettingsDropdown(!showSettingsDropdown)} style={styles.refreshBtn} title="Chart Visibility Settings"><Settings size={14} /></button>
+                  {showSettingsDropdown && (
+                    <>
+                      <div onClick={() => setShowSettingsDropdown(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }} />
+                      <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '6px', backgroundColor: '#0f172a', border: '1px solid #1f2937', borderRadius: '8px', padding: '12px', zIndex: 1000, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)', minWidth: '180px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#9ca3af', borderBottom: '1px solid #1f2937', paddingBottom: '6px', marginBottom: '4px' }}>Chart Visibility</div>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}><input type="checkbox" checked={chartSettings.showFvg} onChange={(e) => setChartSettings({ ...chartSettings, showFvg: e.target.checked })} style={{ cursor: 'pointer' }} /> Fair Value Gaps (FVG)</label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}><input type="checkbox" checked={chartSettings.showSessions} onChange={(e) => setChartSettings({ ...chartSettings, showSessions: e.target.checked })} style={{ cursor: 'pointer' }} /> Trading Sessions</label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}><input type="checkbox" checked={chartSettings.showTrades} onChange={(e) => setChartSettings({ ...chartSettings, showTrades: e.target.checked })} style={{ cursor: 'pointer' }} /> Trades & Order Levels</label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}><input type="checkbox" checked={chartSettings.showTrLines} onChange={(e) => setChartSettings({ ...chartSettings, showTrLines: e.target.checked })} style={{ cursor: 'pointer' }} /> Trading Range (TR)</label>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', borderTop: '1px solid #334155', paddingTop: '6px', marginTop: '4px' }}>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}><input type="checkbox" checked={chartSettings.autoRefreshCandles ?? true} onChange={(e) => setChartSettings({ ...chartSettings, autoRefreshCandles: e.target.checked })} style={{ cursor: 'pointer' }} /> ⚡ Auto-Refresh Candles</label>
+                          {chartSettings.autoRefreshCandles && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: '22px', fontSize: '11px', color: '#94a3b8' }}>
+                              <span>Interval:</span>
+                              <input type="number" min="1" max="3600" value={chartSettings.autoRefreshSeconds ?? 5} onChange={(e) => { const secs = Math.max(1, parseInt(e.target.value) || 1); setChartSettings({ ...chartSettings, autoRefreshSeconds: secs }); }} style={{ width: '50px', backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '4px', color: '#ffffff', padding: '2px 6px', fontSize: '11px', outline: 'none' }} />
+                              <span>secs</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
+                    </>
+                  )}
+                </div>
+                <button onClick={toggleFullscreen} style={styles.refreshBtn} title="Toggle Fullscreen">{isFullscreen ? <Minimize size={14} /> : <Maximize size={14} />}</button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ ...styles.toolsGroup, flexWrap: 'wrap', gap: '12px' }}>
+              <div style={{ ...styles.pairGroup, position: 'relative' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <div style={{ position: 'relative' }}>
+                    <input type="text" placeholder="Search symbol..." value={showSymbolDropdown ? symbolSearch : symbol} onFocus={() => { setSymbolSearch(''); setShowSymbolDropdown(true); }} onChange={(e) => setSymbolSearch(e.target.value)} onKeyDown={handleKeyDown} style={{ ...styles.pairSelect, backgroundColor: '#1e293b', color: '#ffffff', border: '1px solid #334155', padding: '4px 8px', fontSize: '12px', width: '110px' }} />
+                    {showSymbolDropdown && (
+                      <>
+                        <div onClick={() => setShowSymbolDropdown(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }} />
+                        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '6px', maxHeight: '200px', overflowY: 'auto', zIndex: 1000, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)', minWidth: '160px' }}>
+                          {filteredSymbols.length > 0 ? (
+                            filteredSymbols.map((sym, idx) => (
+                              <div key={sym} onClick={() => { onSymbolChange(sym); setShowSymbolDropdown(false); }} style={{ padding: '6px 10px', cursor: 'pointer', fontSize: '12px', color: '#ffffff', backgroundColor: idx === highlightedIndex ? '#2563eb' : (symbol === sym ? 'rgba(37, 99, 235, 0.3)' : 'transparent'), transition: 'background-color 0.15s', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} onMouseEnter={() => setHighlightedIndex(idx)}>
+                                <span>{sym}</span>
+                                <span onClick={(e) => toggleFavoriteSymbol(sym, e)} style={{ color: favoriteSymbols.includes(sym) ? '#f59e0b' : '#4b5563', fontSize: '14px', padding: '2px 4px', cursor: 'pointer', transition: 'color 0.15s' }}>★</span>
+                              </div>
+                            ))
+                          ) : (
+                            <div style={{ padding: '6px 10px', fontSize: '11px', color: '#6b7280' }}>No results found</div>
+                          )}
+                        </div>
+                      </>
                     )}
                   </div>
                 </div>
-              </>
-            )}
-          </div>
-          <button
-            onClick={toggleFullscreen}
-            style={styles.refreshBtn}
-            title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
-          >
-            {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-          </button>
-        </div>
+              </div>
+              <div style={{ ...styles.pairGroup, position: 'relative' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <div style={{ position: 'relative' }}>
+                    <button onClick={() => setShowTimeframeDropdown(!showTimeframeDropdown)} style={{ ...styles.pairSelect, backgroundColor: '#1e293b', color: '#ffffff', border: '1px solid #334155', padding: '4px 8px', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', cursor: 'pointer' }}>
+                      <span>{timeframe}</span>
+                      <span style={{ fontSize: '10px', color: '#94a3b8' }}>▼</span>
+                    </button>
+                    {showTimeframeDropdown && (
+                      <>
+                        <div onClick={() => setShowTimeframeDropdown(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }} />
+                        <div style={{ position: 'absolute', top: '100%', left: 0, backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '6px', maxHeight: '200px', overflowY: 'auto', zIndex: 1000, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)', minWidth: '100px' }}>
+                          {sortedTimeframes.map((tf) => (
+                            <div key={tf} onClick={() => { onTimeframeChange(tf); setShowTimeframeDropdown(false); }} style={{ padding: '6px 10px', cursor: 'pointer', fontSize: '12px', color: '#ffffff', backgroundColor: timeframe === tf ? 'rgba(37, 99, 235, 0.3)' : 'transparent', transition: 'background-color 0.15s', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                              <span>{tf}</span>
+                              <span onClick={(e) => toggleFavoriteTimeframe(tf, e)} style={{ color: favoriteTimeframes.includes(tf) ? '#f59e0b' : '#4b5563', fontSize: '14px', padding: '2px 4px', cursor: 'pointer', transition: 'color 0.15s' }}>★</span>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div style={styles.pairGroup}>
+                <select value={actualFilter} onChange={(e) => setActualFilter(e.target.value as 'all' | 'wins' | 'losses')} style={styles.pairSelect}>
+                  <option value="all">Both (Winners & Losers)</option>
+                  <option value="wins">Winners Only</option>
+                  <option value="losses">Losers Only</option>
+                </select>
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {onLiveFeedChange && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <button onClick={() => { const nextVal = !isLiveFeed; localStorage.setItem('wyckoff_is_live_feed', String(nextVal)); onLiveFeedChange(nextVal); setTimeout(() => onRefresh(), 50); }} style={{ ...styles.refreshBtn, backgroundColor: isLiveFeed ? '#10b981' : '#1f2937', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '11px', fontWeight: 'bold', boxShadow: isLiveFeed ? '0 0 10px rgba(16, 185, 129, 0.4)' : 'none' }} title="Toggle Live Feed">
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: isLiveFeed ? '#ffffff' : '#9ca3af', display: 'inline-block', animation: isLiveFeed ? 'pulse 1.5s infinite' : 'none' }}></span>
+                    Live Feed
+                  </button>
+                </div>
+              )}
+              <button onClick={() => onRefresh()} style={styles.refreshBtn} title="Refresh chart data"><RefreshCw size={14} className={loadingStrategy ? 'animate-spin' : ''} /></button>
+              <button onClick={() => { if (replayToolActive) { setReplayTime(null); setIsPlaying(false); if (onSelectCandleRef.current) { onSelectCandleRef.current(null); } } setReplayToolActive(!replayToolActive); }} style={{ ...styles.refreshBtn, backgroundColor: replayToolActive ? '#2563eb' : '#1f2937', color: replayToolActive ? '#ffffff' : '#9ca3af', display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '11px', fontWeight: 'bold' }} title="Toggle Replay Tool">
+                <Play size={12} fill={replayToolActive ? "#ffffff" : "none"} />
+                Replay
+              </button>
+              <div style={{ position: 'relative' }}>
+                <button onClick={() => setShowSettingsDropdown(!showSettingsDropdown)} style={styles.refreshBtn} title="Chart Visibility Settings"><Settings size={16} /></button>
+                {showSettingsDropdown && (
+                  <>
+                    <div onClick={() => setShowSettingsDropdown(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }} />
+                    <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '6px', backgroundColor: '#0f172a', border: '1px solid #1f2937', borderRadius: '8px', padding: '12px', zIndex: 1000, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)', minWidth: '180px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#9ca3af', borderBottom: '1px solid #1f2937', paddingBottom: '6px', marginBottom: '4px' }}>Chart Visibility</div>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}><input type="checkbox" checked={chartSettings.showFvg} onChange={(e) => setChartSettings({ ...chartSettings, showFvg: e.target.checked })} style={{ cursor: 'pointer' }} /> Fair Value Gaps (FVG)</label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}><input type="checkbox" checked={chartSettings.showSessions} onChange={(e) => setChartSettings({ ...chartSettings, showSessions: e.target.checked })} style={{ cursor: 'pointer' }} /> Trading Sessions</label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}><input type="checkbox" checked={chartSettings.showTrades} onChange={(e) => setChartSettings({ ...chartSettings, showTrades: e.target.checked })} style={{ cursor: 'pointer' }} /> Trades & Order Levels</label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}><input type="checkbox" checked={chartSettings.showTrLines} onChange={(e) => setChartSettings({ ...chartSettings, showTrLines: e.target.checked })} style={{ cursor: 'pointer' }} /> Trading Range (TR)</label>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', borderTop: '1px solid #334155', paddingTop: '6px', marginTop: '4px' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}><input type="checkbox" checked={chartSettings.autoRefreshCandles ?? true} onChange={(e) => setChartSettings({ ...chartSettings, autoRefreshCandles: e.target.checked })} style={{ cursor: 'pointer' }} /> ⚡ Auto-Refresh Candles</label>
+                        {chartSettings.autoRefreshCandles && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: '22px', fontSize: '11px', color: '#94a3b8' }}>
+                            <span>Interval:</span>
+                            <input type="number" min="1" max="3600" value={chartSettings.autoRefreshSeconds ?? 5} onChange={(e) => { const secs = Math.max(1, parseInt(e.target.value) || 1); setChartSettings({ ...chartSettings, autoRefreshSeconds: secs }); }} style={{ width: '50px', backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '4px', color: '#ffffff', padding: '2px 6px', fontSize: '11px', outline: 'none' }} />
+                            <span>secs</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+              <button onClick={toggleFullscreen} style={styles.refreshBtn} title="Toggle Fullscreen">{isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}</button>
+            </div>
+          </>
+        )}
       </div>
 
       <div style={styles.chartWrapper}>
