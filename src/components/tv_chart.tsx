@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType, CandlestickSeries, HistogramSeries, LineSeries, createSeriesMarkers } from 'lightweight-charts';
-import type { ISeriesPrimitive, SeriesPrimitivePaneView, SeriesPrimitivePaneRenderer } from 'lightweight-charts';
+import type { ISeriesPrimitive, IPrimitivePaneView as SeriesPrimitivePaneView, IPrimitivePaneRenderer as SeriesPrimitivePaneRenderer } from 'lightweight-charts';
 import { Square, PenTool, Trash2, XCircle, RefreshCw, Maximize2, Minimize2, Settings, Play, Pause, SkipBack, SkipForward, X } from 'lucide-react';
 import { calculateDateBounds } from '../App';
 
@@ -1041,7 +1041,7 @@ export default function TVChart({
 
     const supportLineSeries = mainChart.addSeries(LineSeries, {
       color: '#3b82f6',
-      lineWidth: 1.5,
+      lineWidth: 1 as any,
       lineStyle: 1, // Dashed
       title: 'Support',
       lastValueVisible: false,
@@ -1050,7 +1050,7 @@ export default function TVChart({
 
     const resistanceLineSeries = mainChart.addSeries(LineSeries, {
       color: '#f59e0b',
-      lineWidth: 1.5,
+      lineWidth: 1 as any,
       lineStyle: 1, // Dashed
       title: 'Resistance',
       lastValueVisible: false,
@@ -2033,7 +2033,7 @@ export default function TVChart({
             </div>
           )}
           <button
-            onClick={onRefresh}
+            onClick={() => onRefresh()}
             style={styles.refreshBtn}
             title="Refresh chart data"
           >

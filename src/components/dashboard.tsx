@@ -296,7 +296,7 @@ export default function Dashboard() {
   const [loadingBacktest, setLoadingBacktest] = useState(false);
   const [backtestProgress, setBacktestProgress] = useState(0);
 
-  const [view, setView] = useState<'dashboard' | 'mappings' | 'trades'>('dashboard');
+  const [view, setView] = useState<'dashboard' | 'mappings' | 'trades' | 'computers'>('dashboard');
   const [connectionMode, setConnectionMode] = useState<'openapi' | 'fix'>('fix');
   const [isConnectedOpenAPI] = useState(true);
   const [isConnectedFIX] = useState(true);
@@ -1096,7 +1096,7 @@ export default function Dashboard() {
         dateRangeOption,
         customFrom,
         customTo,
-        candleLimit: parseInt(candleLimit) || 1000,
+        candleLimit: candleLimit || 1000,
       });
       if (result.status === 'success') {
         setLiveStrategy(result.strategy);

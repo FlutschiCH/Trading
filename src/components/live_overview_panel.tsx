@@ -6,6 +6,7 @@ import DeployModal from './deploy_modal';
 interface LiveStrategy {
   id: string;
   symbol: string;
+  name?: string;
   status: 'active' | 'paused';
   timeframe: string;
   slVal: number;

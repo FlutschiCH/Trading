@@ -4,8 +4,8 @@
         "symbol": "EURUSD.ecn",
         "lookback_window": 20,
         "date_from": 1782864000,
-        "date_to": 1785189996,
-        "limit": 5449
+        "date_to": 1785193303,
+        "limit": 5460
     },
     "metrics": {
         "winRate": 69.23076923076923,
@@ -15,7 +15,7 @@
         "maxDrawdown": 3.815521518699934,
         "maxDailyLoss": 1.9900000000000018,
         "dailyLossBreached": false,
-        "candleCount": 5449
+        "candleCount": 5460
     },
     "trades": [
         {
@@ -71654,14 +71654,157 @@
             "time": 1785189900,
             "open": 1.1371,
             "high": 1.13721,
-            "low": 1.1371,
-            "close": 1.13717,
-            "volume": 90.0,
+            "low": 1.13705,
+            "close": 1.13705,
+            "volume": 176.0,
             "wyckoff_signal": null,
             "wyckoff_stage": "ACCUMULATION",
-            "sma_20": 1.1369995,
+            "sma_20": 1.1369935,
             "support_level": 1.13669,
             "resistance_level": 1.13736
+        },
+        {
+            "time": 1785190200,
+            "open": 1.13705,
+            "high": 1.13705,
+            "low": 1.13689,
+            "close": 1.137,
+            "volume": 80.0,
+            "wyckoff_signal": null,
+            "wyckoff_stage": "ACCUMULATION",
+            "sma_20": 1.137003,
+            "support_level": 1.13669,
+            "resistance_level": 1.13736
+        },
+        {
+            "time": 1785190500,
+            "open": 1.137,
+            "high": 1.13712,
+            "low": 1.13699,
+            "close": 1.13709,
+            "volume": 64.0,
+            "wyckoff_signal": null,
+            "wyckoff_stage": "ACCUMULATION",
+            "sma_20": 1.1370175,
+            "support_level": 1.13669,
+            "resistance_level": 1.13736
+        },
+        {
+            "time": 1785190800,
+            "open": 1.13709,
+            "high": 1.1371,
+            "low": 1.13693,
+            "close": 1.13693,
+            "volume": 70.0,
+            "wyckoff_signal": null,
+            "wyckoff_stage": "ACCUMULATION",
+            "sma_20": 1.1370275,
+            "support_level": 1.13669,
+            "resistance_level": 1.13736
+        },
+        {
+            "time": 1785191100,
+            "open": 1.13694,
+            "high": 1.13696,
+            "low": 1.13694,
+            "close": 1.13694,
+            "volume": 34.0,
+            "wyckoff_signal": null,
+            "wyckoff_stage": "ACCUMULATION",
+            "sma_20": 1.137038,
+            "support_level": 1.1367,
+            "resistance_level": 1.13736
+        },
+        {
+            "time": 1785191400,
+            "open": 1.13694,
+            "high": 1.13697,
+            "low": 1.13693,
+            "close": 1.13696,
+            "volume": 67.0,
+            "wyckoff_signal": null,
+            "wyckoff_stage": "ACCUMULATION",
+            "sma_20": 1.1370464999999998,
+            "support_level": 1.1367099999999999,
+            "resistance_level": 1.13736
+        },
+        {
+            "time": 1785191700,
+            "open": 1.13697,
+            "high": 1.13704,
+            "low": 1.13696,
+            "close": 1.137,
+            "volume": 78.0,
+            "wyckoff_signal": null,
+            "wyckoff_stage": "ACCUMULATION",
+            "sma_20": 1.1370575,
+            "support_level": 1.1367099999999999,
+            "resistance_level": 1.13736
+        },
+        {
+            "time": 1785192000,
+            "open": 1.137,
+            "high": 1.137,
+            "low": 1.13693,
+            "close": 1.13693,
+            "volume": 54.0,
+            "wyckoff_signal": null,
+            "wyckoff_stage": "ACCUMULATION",
+            "sma_20": 1.1370625,
+            "support_level": 1.13674,
+            "resistance_level": 1.13736
+        },
+        {
+            "time": 1785192300,
+            "open": 1.13693,
+            "high": 1.13695,
+            "low": 1.13692,
+            "close": 1.13693,
+            "volume": 58.0,
+            "wyckoff_signal": null,
+            "wyckoff_stage": "ACCUMULATION",
+            "sma_20": 1.1370574999999998,
+            "support_level": 1.13683,
+            "resistance_level": 1.13736
+        },
+        {
+            "time": 1785192600,
+            "open": 1.13693,
+            "high": 1.13695,
+            "low": 1.13691,
+            "close": 1.13694,
+            "volume": 39.0,
+            "wyckoff_signal": null,
+            "wyckoff_stage": "ACCUMULATION",
+            "sma_20": 1.1370365000000002,
+            "support_level": 1.13689,
+            "resistance_level": 1.13736
+        },
+        {
+            "time": 1785192900,
+            "open": 1.13694,
+            "high": 1.13694,
+            "low": 1.1369,
+            "close": 1.13693,
+            "volume": 38.0,
+            "wyckoff_signal": null,
+            "wyckoff_stage": "TRANSITION",
+            "sma_20": 1.1370235000000002,
+            "support_level": 1.13689,
+            "resistance_level": 1.13736
+        },
+        {
+            "time": 1785193200,
+            "open": 1.13691,
+            "high": 1.13694,
+            "low": 1.13691,
+            "close": 1.13692,
+            "volume": 14.0,
+            "wyckoff_signal": null,
+            "wyckoff_stage": "TRANSITION",
+            "sma_20": 1.1370185000000002,
+            "support_level": 1.13689,
+            "resistance_level": 1.13727
         }
     ]
 }
