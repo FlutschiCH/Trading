@@ -163,7 +163,11 @@ if __name__ == '__main__':
     # Initialize high-performance WSGI Server
     port = int(os.environ.get("PORT", 8751))
     print(f"Started! Port: {port}...", flush=True)
-    http_server = WSGIServer(('0.0.0.0', port), app, log=CustomWSGILogger())
+    
+    from ssl_config import get_ssl_config
+    ssl_args = get_ssl_config()
+    
+    http_server = WSGIServer(('0.0.0.0', port), app, log=CustomWSGILogger(), **ssl_args)
     
     # Play startup sound once local server is ready
     try:
