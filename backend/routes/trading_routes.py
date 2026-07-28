@@ -27,14 +27,32 @@ def order():
         return jsonify({"status": "error", "message": "Invalid JSON format"}), 400
 
     symbol = payload.get('symbol', 'EURUSD')
-    side = payload.get('order_type', 'buy')
+    side = payload.get('order_type') or payload.get('side', 'buy')
     volume = float(payload.get('volume', 0.01))
     price = payload.get('price')
     if price is not None:
         price = float(price)
 
+    stop_loss = payload.get('stop_loss')
+    if stop_loss is not None:
+        stop_loss = float(stop_loss)
+    take_profit = payload.get('take_profit')
+    if take_profit is not None:
+        take_profit = float(take_profit)
+
+    magic = payload.get('magic')
+
     handler = _get_handler(payload)
-    result = handler.create_order(symbol, side, volume, price)
+    result = handler.create_order(
+        symbol=symbol,
+        side=side,
+        volume=volume,
+        price=price,
+        stop_loss=stop_loss,
+        take_profit=take_profit,
+        magic=magic,
+        **payload
+    )
     return jsonify(result)
 
 @trading_routes.route('/trade/close', methods=['POST'])
