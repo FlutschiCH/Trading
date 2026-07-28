@@ -343,7 +343,15 @@ export default function TVChart({
   const activeFavSymbols = favoriteSymbols.filter(s => availableSymbols.includes(s));
   const activeFavTimeframes = favoriteTimeframes.filter(t => availableTimeframes.includes(t));
 
-  const filteredSymbols = availableSymbols.filter(s => s.toLowerCase().includes(symbolSearch.toLowerCase()));
+  const filteredSymbols = [...availableSymbols]
+    .filter(s => s.toLowerCase().includes(symbolSearch.toLowerCase()))
+    .sort((a, b) => {
+      const aFav = favoriteSymbols.includes(a);
+      const bFav = favoriteSymbols.includes(b);
+      if (aFav && !bFav) return -1;
+      if (!aFav && bFav) return 1;
+      return a.localeCompare(b);
+    });
 
   useEffect(() => {
     setHighlightedIndex(0);
@@ -1751,7 +1759,6 @@ export default function TVChart({
         <div style={{ ...styles.toolsGroup, flexWrap: 'wrap', gap: isMobile ? '6px' : '12px' }}>
           {/* Symbol Search Input */}
           <div style={{ ...styles.pairGroup, position: 'relative' }}>
-            {!isMobile && <span style={{ color: '#9ca3af', fontSize: '10px' }}>Symbol</span>}
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
               <div style={{ position: 'relative' }}>
                 <input
@@ -1771,7 +1778,7 @@ export default function TVChart({
                     border: '1px solid #334155',
                     padding: '4px 8px',
                     fontSize: '12px',
-                    width: '120px'
+                    width: '110px'
                   }}
                 />
                 {showSymbolDropdown && (
@@ -1870,33 +1877,8 @@ export default function TVChart({
             </div>
           </div>
 
-          {/* Quick Favorite Symbols Shortcuts */}
-          {activeFavSymbols.length > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
-              {activeFavSymbols.map(sym => (
-                <button
-                  key={sym}
-                  onClick={() => onSymbolChange(sym)}
-                  style={{
-                    backgroundColor: symbol === sym ? 'rgba(59, 130, 246, 0.2)' : '#1e293b',
-                    border: `1px solid ${symbol === sym ? '#3b82f6' : '#334155'}`,
-                    color: symbol === sym ? '#3b82f6' : '#d1d5db',
-                    fontSize: '11px',
-                    padding: '3px 8px',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s'
-                  }}
-                >
-                  {sym}
-                </button>
-              ))}
-            </div>
-          )}
-
           {/* Timeframe */}
           <div style={styles.pairGroup}>
-            {!isMobile && <span style={{ color: '#9ca3af', fontSize: '10px' }}>Timeframe</span>}
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
               <select
                 value={timeframe}
@@ -1928,33 +1910,8 @@ export default function TVChart({
             </div>
           </div>
 
-          {/* Quick Favorite Timeframes Shortcuts */}
-          {activeFavTimeframes.length > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
-              {activeFavTimeframes.map(tf => (
-                <button
-                  key={tf}
-                  onClick={() => onTimeframeChange(tf)}
-                  style={{
-                    backgroundColor: timeframe === tf ? 'rgba(59, 130, 246, 0.2)' : '#1e293b',
-                    border: `1px solid ${timeframe === tf ? '#3b82f6' : '#334155'}`,
-                    color: timeframe === tf ? '#3b82f6' : '#d1d5db',
-                    fontSize: '11px',
-                    padding: '3px 8px',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s'
-                  }}
-                >
-                  {tf}
-                </button>
-              ))}
-            </div>
-          )}
-
           {/* Trades Filter */}
           <div style={styles.pairGroup}>
-            {!isMobile && <span style={{ color: '#9ca3af', fontSize: '10px' }}>Trades</span>}
             <select
               value={actualFilter}
               onChange={(e) => setActualFilter(e.target.value as 'all' | 'wins' | 'losses')}
