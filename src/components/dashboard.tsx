@@ -360,7 +360,14 @@ export default function Dashboard() {
   useEffect(() => {
     localStorage.setItem('wyckoff_is_live_feed', isLiveFeed.toString());
   }, [isLiveFeed]);
-  const [autoPollTrades, setAutoPollTrades] = useState<boolean>(() => localStorage.getItem('wyckoff_auto_poll_trades') === 'true');
+  const [autoPollTrades, setAutoPollTrades] = useState<boolean>(() => {
+    const val = localStorage.getItem('wyckoff_auto_poll_trades');
+    return val === null ? true : val === 'true';
+  });
+  const [tradesPollInterval, setTradesPollInterval] = useState<number>(() => {
+    const val = localStorage.getItem('wyckoff_trades_poll_interval');
+    return val ? parseInt(val, 10) : 10;
+  });
   const [showTradesSettings, setShowTradesSettings] = useState<boolean>(false);
 
   // Account & Positions
@@ -1778,10 +1785,14 @@ export default function Dashboard() {
     setLoadingStrategy(false);
   }, [symbol, timeframe, candleLimit, candleSource]);
 
-  // Save autoPollTrades to localStorage
+  // Save autoPollTrades & tradesPollInterval to localStorage
   useEffect(() => {
     localStorage.setItem('wyckoff_auto_poll_trades', autoPollTrades.toString());
   }, [autoPollTrades]);
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_trades_poll_interval', tradesPollInterval.toString());
+  }, [tradesPollInterval]);
 
   // Fetch account/positions/history data on initial load and setup interval polling when autoPollTrades is enabled.
   useEffect(() => {
@@ -1791,14 +1802,15 @@ export default function Dashboard() {
 
     if (!autoPollTrades) return;
 
+    const ms = Math.max(1, tradesPollInterval) * 1000;
     const interval = setInterval(() => {
       fetchAccountData();
       fetchPositionData();
       fetchHistoryTrades();
-    }, 10000);
+    }, ms);
 
     return () => clearInterval(interval);
-  }, [candleSource, autoPollTrades]);
+  }, [candleSource, autoPollTrades, tradesPollInterval]);
 
   // Live Feed auto-update polling
   useEffect(() => {
@@ -2554,8 +2566,28 @@ export default function Dashboard() {
                                   onChange={(e) => setAutoPollTrades(e.target.checked)}
                                   style={{ cursor: 'pointer' }}
                                 />
-                                🔄 Live Auto-Polling (10s)
+                                🔄 Live Auto-Polling
                               </label>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#9ca3af' }}>
+                                <span>Interval (s):</span>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max="300"
+                                  value={tradesPollInterval}
+                                  onChange={(e) => setTradesPollInterval(Math.max(1, parseInt(e.target.value) || 1))}
+                                  style={{
+                                    width: '50px',
+                                    backgroundColor: '#1e293b',
+                                    border: '1px solid #334155',
+                                    borderRadius: '4px',
+                                    color: '#ffffff',
+                                    fontSize: '11px',
+                                    padding: '2px 4px',
+                                    outline: 'none',
+                                  }}
+                                />
+                              </div>
                             </div>
                           </>
                         )}
@@ -2938,8 +2970,28 @@ export default function Dashboard() {
                                         onChange={(e) => setAutoPollTrades(e.target.checked)}
                                         style={{ cursor: 'pointer' }}
                                       />
-                                      🔄 Live Auto-Polling (10s)
+                                      🔄 Live Auto-Polling
                                     </label>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#9ca3af' }}>
+                                      <span>Interval (s):</span>
+                                      <input
+                                        type="number"
+                                        min="1"
+                                        max="300"
+                                        value={tradesPollInterval}
+                                        onChange={(e) => setTradesPollInterval(Math.max(1, parseInt(e.target.value) || 1))}
+                                        style={{
+                                          width: '50px',
+                                          backgroundColor: '#1e293b',
+                                          border: '1px solid #334155',
+                                          borderRadius: '4px',
+                                          color: '#ffffff',
+                                          fontSize: '11px',
+                                          padding: '2px 4px',
+                                          outline: 'none',
+                                        }}
+                                      />
+                                    </div>
                                   </div>
                                 </>
                               )}
