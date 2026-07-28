@@ -2122,7 +2122,7 @@ export default function Dashboard() {
             >
               {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
             </button>
-            <button 
+             <button 
               onClick={handleRestartServer}
               style={{
                 display: 'flex',
@@ -2143,6 +2143,29 @@ export default function Dashboard() {
             >
               <RefreshCw size={12} />
               Update & Restart Laptop
+            </button>
+            
+            <button 
+              onClick={() => window.open('https://89.217.138.51:8751/api/live/strategies', '_blank')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                border: '1px solid rgba(59, 130, 246, 0.2)',
+                cursor: 'pointer',
+                borderRadius: '6px',
+                padding: '6px 12px',
+                color: '#3b82f6',
+                fontWeight: 'bold',
+                fontSize: '11px',
+                outline: 'none',
+                transition: 'all 0.2s',
+              }}
+              title="Open Laptop backend to authorize HTTPS Self-Signed Certificate"
+            >
+              <ShieldAlert size={12} />
+              Authorize Laptop SSL
             </button>
             <button 
               onClick={() => setShowMenu(!showMenu)} 
