@@ -61,7 +61,7 @@ export default function DeployModal({
 }: DeployModalProps) {
   const [hosts, setHosts] = useState<HostStatus[]>([
     { name: 'Local Dev Machine', url: 'http://localhost:8751', type: 'local', online: false, loading: true },
-    { name: 'Laptop Server (Remote)', url: 'http://89.217.138.51:8751', type: 'laptop', online: false, loading: true },
+    { name: 'Laptop Server (Remote)', url: 'https://89.217.138.51:8751', type: 'laptop', online: false, loading: true },
     { name: 'Railway Cloud Container', url: 'https://trading-production-cb87.up.railway.app', type: 'railway', online: false, loading: true },
   ]);
 

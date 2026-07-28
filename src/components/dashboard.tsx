@@ -433,7 +433,7 @@ export default function Dashboard() {
   const handleRestartServer = async () => {
     if (!window.confirm("Are you sure you want to update and restart the backend server on the Laptop?")) return;
     try {
-      const laptopUrl = 'http://89.217.138.51:8751';
+      const laptopUrl = 'https://89.217.138.51:8751';
       console.log(`[Dashboard] Sending update & restart request to laptop server: ${laptopUrl}/api/system/restart`);
       const res = await fetch(`${laptopUrl}/api/system/restart`, {
         method: 'POST'
@@ -2430,7 +2430,7 @@ export default function Dashboard() {
                   }}
                 >
                   <option style={{ backgroundColor: '#1e293b', color: '#ffffff' }} value={`http://${window.location.hostname}:8751`}>Local Host (8751)</option>
-                  <option style={{ backgroundColor: '#1e293b', color: '#ffffff' }} value="http://89.217.138.51:8751">Laptop Server (89.217.138.51)</option>
+                  <option style={{ backgroundColor: '#1e293b', color: '#ffffff' }} value="https://89.217.138.51:8751">Laptop Server (89.217.138.51)</option>
                   <option style={{ backgroundColor: '#1e293b', color: '#ffffff' }} value="https://trading-production-cb87.up.railway.app">Railway Live Container</option>
                 </select>
               </div>

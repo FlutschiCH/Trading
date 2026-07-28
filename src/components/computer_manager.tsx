@@ -28,7 +28,7 @@ export default function ComputerManager({ setView }: ComputerManagerProps) {
     },
     {
       name: 'Laptop Server (Remote)',
-      url: 'http://89.217.138.51:8751',
+      url: 'https://89.217.138.51:8751',
       type: 'laptop',
       online: false,
       loading: true,
