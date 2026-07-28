@@ -11,7 +11,8 @@ const getBaseUrl = () => {
     return localStorage.getItem('wyckoff_api_target') || `http://${window.location.hostname}:8751`;
   }
   // Default for deployed environment (e.g. trading.flutschi.ch)
-  return 'http://89.217.138.51:8751';
+  // Under HTTPS page, requests must also use HTTPS.
+  return 'https://89.217.138.51:8751';
 };
 
 export const API_BASE_URL = getBaseUrl();
