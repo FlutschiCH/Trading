@@ -1,6 +1,23 @@
 import React, { useState } from 'react';
 import { Activity, X, Menu, ChevronDown, Sun, Moon, RefreshCw, ShieldAlert } from 'lucide-react';
-import { triggerPWAEventNotification } from '../utils/pwaNotifications';
+import { API_BASE_URL } from '../api';
+
+const triggerPWAEventNotification = (title: string, body: string, soundType: string = 'alert') => {
+  fetch(`${API_BASE_URL}/api/notification/trigger`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message: `${title}: ${body}`, sound_type: soundType })
+  }).catch(err => console.error("Failed to trigger local backend sound:", err));
+
+  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage({
+      type: 'SHOW_NOTIFICATION',
+      payload: { title, body }
+    });
+  } else if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification(title, { body, icon: '/favicon.svg' });
+  }
+};
 
 interface Account {
   account_id: string;
