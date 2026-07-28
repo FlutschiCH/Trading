@@ -587,7 +587,7 @@ class LiveRunner:
                 print(f"[Live Runner] Triggering {direction} order for target {target_acc_id} on {symbol}. Params: {params}", flush=True)
 
                 # 4. Dispatch Order
-                handler.create_order(
+                order_res = handler.create_order(
                     symbol=symbol,
                     side=direction,
                     volume=params["qty"],
@@ -597,5 +597,34 @@ class LiveRunner:
                     magic=magic,
                     **target_kwargs
                 )
+
+                from discord_handler import send_discord_message
+                if isinstance(order_res, dict) and order_res.get("status") in ("error", "failed"):
+                    err_msg = order_res.get("message", "Unknown error")
+                    print(f"[Live Runner] Order execution failed for target {target_acc_id} on {symbol}: {err_msg}", flush=True)
+                    send_discord_message(
+                        f"❌ **Broker Order Execution Failed!**\n"
+                        f"🎛️ **Strategy ID:** `{strategy_id}`\n"
+                        f"🏦 **Broker:** `{target_broker}` (Acc: `{target_acc_id}`)\n"
+                        f"📊 **Symbol:** `{symbol}` | ➡️ **Side:** `{direction}`\n"
+                        f"⚠️ **Error:** `{err_msg}`"
+                    )
+                else:
+                    print(f"[Live Runner] Order successfully executed for target {target_acc_id} on {symbol}.", flush=True)
+                    send_discord_message(
+                        f"✅ **Real Trade Executed Successfully!**\n"
+                        f"🎛️ **Strategy ID:** `{strategy_id}`\n"
+                        f"🏦 **Broker:** `{target_broker}` (Acc: `{target_acc_id}`)\n"
+                        f"📊 **Symbol:** `{symbol}` | ➡️ **Side:** `{direction}`\n"
+                        f"📦 **Volume:** `{params['qty']}` | 💵 **Entry:** `{params['entry_price']:.5f}`\n"
+                        f"🛑 **SL:** `{params['sl_price']:.5f}` | 🎯 **TP:** `{params['tp_price']:.5f}`"
+                    )
             except Exception as target_err:
                 print(f"[Live Runner] Error executing trade for target {target.get('account_id')}: {target_err}", flush=True)
+                from discord_handler import send_discord_message
+                send_discord_message(
+                    f"❌ **Broker Order Exception!**\n"
+                    f"🎛️ **Strategy ID:** `{strategy_id}`\n"
+                    f"🏦 **Target Account:** `{target.get('account_id')}`\n"
+                    f"⚠️ **Exception:** `{str(target_err)}`"
+                )
