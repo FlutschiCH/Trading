@@ -3128,153 +3128,319 @@ export default function Dashboard() {
         )}
 
         {isMobile ? (
-          <div style={{
-            width: '100%',
-            backgroundColor: '#0f172a',
-            border: '1px solid #1e293b',
-            borderRadius: '12px',
-            overflow: 'hidden',
-            padding: mobileTab === 'chart' ? '0' : '16px',
-          }}>
+          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {mobileTab === 'chart' ? (
-              <TVChart 
-                symbol={symbol} 
-                onSymbolChange={setSymbol}
-                timeframe={timeframe}
-                onTimeframeChange={setTimeframe}
-                candleSource={candleSource}
-                onCandleSourceChange={setCandleSource}
-                availableSymbols={availableSymbols}
-                availableTimeframes={availableTimeframes}
-                candles={backtestResults?.candles || candles} 
-                loading={loading} 
-                loadingStrategy={loadingStrategy} 
-                onRefresh={(broker, isBg) => fetchCandles(broker, isBg, true)} 
-                entryPrice={selectedTrade?.entryPrice}
-                slPrice={selectedTrade?.slPrice}
-                tpPrice={selectedTrade?.tpPrice}
-                trades={backtestResults ? backtestResults.trades : (liveSimulatedTrades.length > 0 ? liveSimulatedTrades : liveTrades)}
-                selectedTrade={selectedTrade}
-                onSelectTrade={(trade) => {
-                  setSelectedTrade(trade);
-                  setShowModal(true);
-                }}
-                dateRangeOption={dateRangeOption}
-                customFrom={customFrom}
-                customTo={customTo}
-                onSelectCandle={setSelectedCandle}
-                locateTimestamp={locateTimestamp}
-                tradeFilter={tradeFilter}
-                onTradeFilterChange={setTradeFilter}
-                sessions={tradingSessions}
-                sessionsTimezone={sessionsTimezone}
-                selectedCandle={selectedCandle}
-                hiddenStages={hiddenStages}
-                isLiveFeed={isLiveFeed}
-                onLiveFeedChange={setIsLiveFeed}
-              />
+              <div style={{
+                width: '100%',
+                backgroundColor: 'var(--app-card-bg)',
+                border: '1px solid var(--app-card-border)',
+                borderRadius: '12px',
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  backgroundColor: 'var(--app-panel-header-bg)',
+                  padding: '10px 16px',
+                  borderBottom: '1px solid var(--app-card-border)',
+                  fontSize: '12px',
+                  fontWeight: 'bold',
+                  color: 'var(--app-text)',
+                }}>
+                  <span>📊 Candlestick & Weis Wave Analysis Chart</span>
+                </div>
+                <TVChart 
+                  symbol={symbol} 
+                  onSymbolChange={setSymbol}
+                  timeframe={timeframe}
+                  onTimeframeChange={setTimeframe}
+                  candleSource={candleSource}
+                  onCandleSourceChange={setCandleSource}
+                  availableSymbols={availableSymbols}
+                  availableTimeframes={availableTimeframes}
+                  candles={backtestResults?.candles || candles} 
+                  loading={loading} 
+                  loadingStrategy={loadingStrategy} 
+                  onRefresh={(broker, isBg) => fetchCandles(broker, isBg, true)} 
+                  entryPrice={selectedTrade?.entryPrice}
+                  slPrice={selectedTrade?.slPrice}
+                  tpPrice={selectedTrade?.tpPrice}
+                  trades={backtestResults ? backtestResults.trades : (liveSimulatedTrades.length > 0 ? liveSimulatedTrades : liveTrades)}
+                  selectedTrade={selectedTrade}
+                  onSelectTrade={(trade) => {
+                    setSelectedTrade(trade);
+                    setShowModal(true);
+                  }}
+                  dateRangeOption={dateRangeOption}
+                  customFrom={customFrom}
+                  customTo={customTo}
+                  onSelectCandle={setSelectedCandle}
+                  locateTimestamp={locateTimestamp}
+                  tradeFilter={tradeFilter}
+                  onTradeFilterChange={setTradeFilter}
+                  sessions={tradingSessions}
+                  sessionsTimezone={sessionsTimezone}
+                  selectedCandle={selectedCandle}
+                  hiddenStages={hiddenStages}
+                  isLiveFeed={isLiveFeed}
+                  onLiveFeedChange={setIsLiveFeed}
+                />
+              </div>
             ) : mobileTab === 'backtester' ? (
-              <WyckoffBacktester
-                isReadOnly={isProdHost && !isAuthenticated}
-                symbol={symbol}
-                timeframe={timeframe}
-                broker={candleSource}
-                liveStrategy={liveStrategy}
-                isDeploying={isDeploying}
-                deployLiveStrategy={deployLiveStrategy}
-                backtestBalance={backtestBalance}
-                setBacktestBalance={setBacktestBalance}
-                useRiskSizing={useRiskSizing}
-                setUseRiskSizing={setUseRiskSizing}
-                backtestRiskPct={backtestRiskPct}
-                setBacktestRiskPct={setBacktestRiskPct}
-                backtestSize={backtestSize}
-                setBacktestSize={setBacktestSize}
-                backtestSL={backtestSL}
-                setBacktestSL={setBacktestSL}
-                backtestSLType={backtestSLType}
-                setBacktestSLType={setBacktestSLType}
-                backtestRR={backtestRR}
-                setBacktestRR={setBacktestRR}
-                useBreakEven={useBreakEven}
-                setUseBreakEven={setUseBreakEven}
-                backtestBE={backtestBE}
-                setBacktestBE={setBacktestBE}
-                lookbackWindow={lookbackWindow}
-                setLookbackWindow={setLookbackWindow}
-                backtestResults={backtestResults}
-                backtestTab={backtestTab}
-                setBacktestTab={setBacktestTab}
-                tradeFilter={tradeFilter}
-                setTradeFilter={setTradeFilter}
-                selectedTrade={selectedTrade}
-                setSelectedTrade={setSelectedTrade}
-                setShowModal={setShowModal}
-                backtestFees={backtestFees}
-                setBacktestFees={setBacktestFees}
-                enabledIndicators={enabledIndicators}
-                setEnabledIndicators={setEnabledIndicators}
-                dateRangeOption={dateRangeOption}
-                setDateRangeOption={setDateRangeOption}
-                customFrom={customFrom}
-                setCustomFrom={setCustomFrom}
-                customTo={customTo}
-                setCustomTo={setCustomTo}
-                entryStabilityRule={entryStabilityRule}
-                setEntryStabilityRule={setEntryStabilityRule}
-                candleLimit={candleLimit}
-                setCandleLimit={setCandleLimit}
-                favouriteCandles={favouriteCandles}
-                onDeleteFavourite={handleDeleteFavourite}
-                onUpdateNotes={handleUpdateFavouriteNotes}
-                onLocateCandle={handleLocateCandle}
-                styles={styles}
-                onRunBacktest={runBacktest}
-                loadingBacktest={loadingBacktest}
-                backtestProgress={backtestProgress}
-                dailyRetryLimit={dailyRetryLimit}
-                setDailyRetryLimit={setDailyRetryLimit}
-                allowOppositeClose={allowOppositeClose}
-                setAllowOppositeClose={setAllowOppositeClose}
-                onCancelBacktest={cancelBacktest}
-                sessionsTimezone={sessionsTimezone}
-                setSessionsTimezone={setSessionsTimezone}
-                tradingSessions={tradingSessions}
-                setTradingSessions={setTradingSessions}
-                useGlobalClose={useGlobalClose}
-                setUseGlobalClose={setUseGlobalClose}
-                globalCloseTime={globalCloseTime}
-                setGlobalCloseTime={setGlobalCloseTime}
-                hiddenStages={hiddenStages}
-                setHiddenStages={setHiddenStages}
-                isOptimizeMode={isOptimizeMode}
-                setIsOptimizeMode={setIsOptimizeMode}
-                rrStart={rrStart}
-                setRRStart={setRRStart}
-                rrEnd={rrEnd}
-                setRREnd={setRREnd}
-                rrStep={rrStep}
-                setRRStep={setRRStep}
-                optimizationResults={optimizationResults}
-                setOptimizationResults={setOptimizationResults}
-                onRunOptimization={runOptimization}
-                onSaveSettings={saveBacktestSettings}
-              />
+              <div style={{
+                width: '100%',
+                backgroundColor: 'var(--app-card-bg)',
+                border: '1px solid var(--app-card-border)',
+                borderRadius: '12px',
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  backgroundColor: 'var(--app-panel-header-bg)',
+                  padding: '10px 16px',
+                  borderBottom: '1px solid var(--app-card-border)',
+                  fontSize: '12px',
+                  fontWeight: 'bold',
+                  color: 'var(--app-text)',
+                }}>
+                  <span>⚙️ Wyckoff Backtester</span>
+                </div>
+                <div style={{ padding: '16px', overflowY: 'auto' }}>
+                  <WyckoffBacktester
+                    isReadOnly={isProdHost && !isAuthenticated}
+                    symbol={symbol}
+                    timeframe={timeframe}
+                    broker={candleSource}
+                    liveStrategy={liveStrategy}
+                    isDeploying={isDeploying}
+                    deployLiveStrategy={deployLiveStrategy}
+                    backtestBalance={backtestBalance}
+                    setBacktestBalance={setBacktestBalance}
+                    useRiskSizing={useRiskSizing}
+                    setUseRiskSizing={setUseRiskSizing}
+                    backtestRiskPct={backtestRiskPct}
+                    setBacktestRiskPct={setBacktestRiskPct}
+                    backtestSize={backtestSize}
+                    setBacktestSize={setBacktestSize}
+                    backtestSL={backtestSL}
+                    setBacktestSL={setBacktestSL}
+                    backtestSLType={backtestSLType}
+                    setBacktestSLType={setBacktestSLType}
+                    backtestRR={backtestRR}
+                    setBacktestRR={setBacktestRR}
+                    useBreakEven={useBreakEven}
+                    setUseBreakEven={setUseBreakEven}
+                    backtestBE={backtestBE}
+                    setBacktestBE={setBacktestBE}
+                    lookbackWindow={lookbackWindow}
+                    setLookbackWindow={setLookbackWindow}
+                    backtestResults={backtestResults}
+                    backtestTab={backtestTab}
+                    setBacktestTab={setBacktestTab}
+                    tradeFilter={tradeFilter}
+                    setTradeFilter={setTradeFilter}
+                    selectedTrade={selectedTrade}
+                    setSelectedTrade={setSelectedTrade}
+                    setShowModal={setShowModal}
+                    backtestFees={backtestFees}
+                    setBacktestFees={setBacktestFees}
+                    enabledIndicators={enabledIndicators}
+                    setEnabledIndicators={setEnabledIndicators}
+                    dateRangeOption={dateRangeOption}
+                    setDateRangeOption={setDateRangeOption}
+                    customFrom={customFrom}
+                    setCustomFrom={setCustomFrom}
+                    customTo={customTo}
+                    setCustomTo={setCustomTo}
+                    entryStabilityRule={entryStabilityRule}
+                    setEntryStabilityRule={setEntryStabilityRule}
+                    candleLimit={candleLimit}
+                    setCandleLimit={setCandleLimit}
+                    favouriteCandles={favouriteCandles}
+                    onDeleteFavourite={handleDeleteFavourite}
+                    onUpdateNotes={handleUpdateFavouriteNotes}
+                    onLocateCandle={handleLocateCandle}
+                    styles={styles}
+                    onRunBacktest={runBacktest}
+                    loadingBacktest={loadingBacktest}
+                    backtestProgress={backtestProgress}
+                    dailyRetryLimit={dailyRetryLimit}
+                    setDailyRetryLimit={setDailyRetryLimit}
+                    allowOppositeClose={allowOppositeClose}
+                    setAllowOppositeClose={setAllowOppositeClose}
+                    onCancelBacktest={cancelBacktest}
+                    sessionsTimezone={sessionsTimezone}
+                    setSessionsTimezone={setSessionsTimezone}
+                    tradingSessions={tradingSessions}
+                    setTradingSessions={setTradingSessions}
+                    useGlobalClose={useGlobalClose}
+                    setUseGlobalClose={setUseGlobalClose}
+                    globalCloseTime={globalCloseTime}
+                    setGlobalCloseTime={setGlobalCloseTime}
+                    hiddenStages={hiddenStages}
+                    setHiddenStages={setHiddenStages}
+                    isOptimizeMode={isOptimizeMode}
+                    setIsOptimizeMode={setIsOptimizeMode}
+                    rrStart={rrStart}
+                    setRRStart={setRRStart}
+                    rrEnd={rrEnd}
+                    setRREnd={setRREnd}
+                    rrStep={rrStep}
+                    setRRStep={setRRStep}
+                    optimizationResults={optimizationResults}
+                    setOptimizationResults={setOptimizationResults}
+                    onRunOptimization={runOptimization}
+                    onSaveSettings={saveBacktestSettings}
+                  />
+                </div>
+              </div>
             ) : mobileTab === 'trades' ? (
-              <LiveTradesPanel
-                dailyPnl={dailyPnl}
-                weeklyPnl={weeklyPnl}
-                openPositions={openPositions}
-                historyTrades={historyTrades}
-                loadingHistory={loadingHistory}
-                historyError={historyError}
-                handleClosePosition={handleClosePosition}
-                isMobileLayout={true}
-              />
+              <div style={{
+                width: '100%',
+                backgroundColor: 'var(--app-card-bg)',
+                border: '1px solid var(--app-card-border)',
+                borderRadius: '12px',
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  backgroundColor: 'var(--app-panel-header-bg)',
+                  padding: '10px 16px',
+                  borderBottom: '1px solid var(--app-card-border)',
+                  fontSize: '12px',
+                  fontWeight: 'bold',
+                  color: 'var(--app-text)',
+                }}>
+                  <span>📈 Live Trades & P&L</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', position: 'relative' }}>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setShowTradesSettings(!showTradesSettings);
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#9ca3af',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '4px',
+                        borderRadius: '4px',
+                        transition: 'background-color 0.2s',
+                      }}
+                      title="Trades Panel Settings"
+                    >
+                      <Settings size={14} />
+                    </button>
+                    {showTradesSettings && (
+                      <>
+                        <div
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setShowTradesSettings(false);
+                          }}
+                          style={{
+                            position: 'fixed',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            zIndex: 999
+                          }}
+                        />
+                        <div 
+                          onClick={(e) => e.stopPropagation()}
+                          style={{
+                            position: 'absolute',
+                            top: '100%',
+                            right: 0,
+                            marginTop: '6px',
+                            backgroundColor: '#0f172a',
+                            border: '1px solid #1f2937',
+                            borderRadius: '8px',
+                            padding: '12px',
+                            zIndex: 1000,
+                            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)',
+                            minWidth: '170px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '8px',
+                          }}
+                        >
+                          <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#9ca3af', borderBottom: '1px solid #1f2937', paddingBottom: '6px', marginBottom: '4px', textAlign: 'left' }}>
+                            Trades Configuration
+                          </div>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '11px', color: '#ffffff', userSelect: 'none' }}>
+                            <input
+                              type="checkbox"
+                              checked={autoPollTrades}
+                              onChange={(e) => setAutoPollTrades(e.target.checked)}
+                              style={{ cursor: 'pointer' }}
+                            />
+                            🔄 Live Auto-Polling (10s)
+                          </label>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <div style={{ padding: '16px', overflowY: 'auto' }}>
+                  <LiveTradesPanel
+                    dailyPnl={dailyPnl}
+                    weeklyPnl={weeklyPnl}
+                    openPositions={openPositions}
+                    historyTrades={historyTrades}
+                    loadingHistory={loadingHistory}
+                    historyError={historyError}
+                    handleClosePosition={handleClosePosition}
+                    isMobileLayout={true}
+                  />
+                </div>
+              </div>
             ) : (
-              <LiveOverviewPanel isMobileLayout={true} />
+              <div style={{
+                width: '100%',
+                backgroundColor: 'var(--app-card-bg)',
+                border: '1px solid var(--app-card-border)',
+                borderRadius: '12px',
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  backgroundColor: 'var(--app-panel-header-bg)',
+                  padding: '10px 16px',
+                  borderBottom: '1px solid var(--app-card-border)',
+                  fontSize: '12px',
+                  fontWeight: 'bold',
+                  color: 'var(--app-text)',
+                }}>
+                  <span>⚡ Live Strategies Overview</span>
+                </div>
+                <div style={{ padding: '16px', overflowY: 'auto' }}>
+                  <LiveOverviewPanel isMobileLayout={true} />
+                </div>
+              </div>
             )}
           </div>
+        )
         ) : (
           <div style={{
             display: 'flex',
