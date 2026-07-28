@@ -44,8 +44,8 @@ def get_ssl_config(cert_path: str = "cert.pem", key_path: str = "key.pem") -> Di
             cert.get_subject().OU = "Trading App Dev"
             cert.get_subject().CN = "89.217.138.51"
             cert.set_serial_number(1000)
-            cert.gmtime_notBefore().set_time_unique()
-            cert.gmtime_notAfter().set_time_unique()
+            cert.set_notBefore(b"20260101000000Z")
+            cert.set_notAfter(b"20360101000000Z")
             cert.set_issuer(cert.get_subject())
             cert.set_pubkey(k)
             cert.sign(k, 'sha256')
