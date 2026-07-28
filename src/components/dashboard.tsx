@@ -7,6 +7,7 @@ import LiveTradesPanel from './live_trades_panel';
 import LiveOverviewPanel from './live_overview_panel';
 import SymbolMappingsView from './symbol_mappings_view';
 import ComputerManager from './computer_manager';
+import HeaderBar from './header_bar';
 import { API_BASE_URL } from '../api';
 import * as apiService from '../services/apiService';
 import '../App.css';
@@ -88,12 +89,12 @@ export const getPrecisionForSymbol = (symbol: string) => {
 export const formatPrice = (price: number | undefined | null, symbol: string) => {
   if (price === undefined || price === null) return '';
   return price.toFixed(getPrecisionForSymbol(symbol));
-};export const getWeekStart = (now: Date) => {
+}; export const getWeekStart = (now: Date) => {
   const day = now.getDay();
   const hours = now.getHours();
   const start = new Date(now);
   start.setHours(20, 0, 0, 0);
-  
+
   if (day === 0) { // Sunday
     if (hours < 20) {
       start.setDate(start.getDate() - 7);
@@ -106,11 +107,11 @@ export const formatPrice = (price: number | undefined | null, symbol: string) =>
 
 export const calculateDateBounds = (option: string, customFrom?: string, customTo?: string): { date_from?: number; date_to?: number } => {
   const now = new Date();
-  
+
   if (option === 'last_candles') {
     return {};
   }
-  
+
   if (option === 'this_week') {
     const start = getWeekStart(now);
     return {
@@ -118,7 +119,7 @@ export const calculateDateBounds = (option: string, customFrom?: string, customT
       date_to: Math.floor(now.getTime() / 1000)
     };
   }
-  
+
   if (option === 'last_week') {
     const end = getWeekStart(now);
     const start = new Date(end);
@@ -128,7 +129,7 @@ export const calculateDateBounds = (option: string, customFrom?: string, customT
       date_to: Math.floor(end.getTime() / 1000)
     };
   }
-  
+
   if (option === 'this_month') {
     const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
     return {
@@ -136,7 +137,7 @@ export const calculateDateBounds = (option: string, customFrom?: string, customT
       date_to: Math.floor(now.getTime() / 1000)
     };
   }
-  
+
   if (option === 'last_month') {
     const start = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0);
     const end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
@@ -145,7 +146,7 @@ export const calculateDateBounds = (option: string, customFrom?: string, customT
       date_to: Math.floor(end.getTime() / 1000)
     };
   }
-  
+
   if (option === 'custom' && customFrom && customTo) {
     const start = new Date(customFrom);
     const end = new Date(customTo);
@@ -154,14 +155,14 @@ export const calculateDateBounds = (option: string, customFrom?: string, customT
       date_to: Math.floor(end.getTime() / 1000)
     };
   }
-  
+
   if (option === 'from_start_date' && customFrom) {
     const start = new Date(customFrom);
     return {
       date_from: Math.floor(start.getTime() / 1000)
     };
   }
-  
+
   return {};
 };
 
@@ -231,7 +232,7 @@ export default function Dashboard() {
   };
 
   const [availableSymbols, setAvailableSymbols] = useState<string[]>([
-    'BTCUSD', 'ETHUSD', 'EURUSD', 'GBPUSD', 'USDJPY', 
+    'BTCUSD', 'ETHUSD', 'EURUSD', 'GBPUSD', 'USDJPY',
     'AUDUSD', 'USDCAD', 'XAUUSD', 'US30', 'GER40'
   ]);
   const [availableTimeframes, setAvailableTimeframes] = useState<string[]>([
@@ -416,7 +417,7 @@ export default function Dashboard() {
   const [favNotesInput, setFavNotesInput] = useState<string>('');
   const [locateTimestamp, setLocateTimestamp] = useState<number | null>(null);
   const [hiddenStages, setHiddenStages] = useState<string[]>([]);
-  
+
   const [historyTrades, setHistoryTrades] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [historyError, setHistoryError] = useState('');
@@ -425,14 +426,14 @@ export default function Dashboard() {
 
   // Sessions & Auto-Close Safeguards
   const [sessionsTimezone, setSessionsTimezone] = useState<'UTC' | 'Local'>(() => (localStorage.getItem('wyckoff_sessions_timezone') as 'UTC' | 'Local') || 'UTC');
-  
+
   // Optimization States
   const [isOptimizeMode, setIsOptimizeMode] = useState<boolean>(() => localStorage.getItem('wyckoff_optimize_mode') === 'true');
   const [rrStart, setRRStart] = useState<string>(() => localStorage.getItem('wyckoff_rr_start') || '1.0');
   const [rrEnd, setRREnd] = useState<string>(() => localStorage.getItem('wyckoff_rr_end') || '5.0');
   const [rrStep, setRRStep] = useState<string>(() => localStorage.getItem('wyckoff_rr_step') || '0.5');
   const [optimizationResults, setOptimizationResults] = useState<any[] | null>(null);
-  
+
   const [tradingSessions, setTradingSessions] = useState<any[]>(() => {
     try {
       const val = localStorage.getItem('wyckoff_trading_sessions');
@@ -442,7 +443,7 @@ export default function Dashboard() {
           return parsed;
         }
       }
-      
+
       const defaults = [
         { id: 'london', start: '08:00', end: '16:00', closeOnEnd: false, weekdays: [1, 2, 3, 4, 5], color: '#3b82f6' },
         { id: 'newyork', start: '13:00', end: '21:00', closeOnEnd: false, weekdays: [1, 2, 3, 4, 5], color: '#10b981' }
@@ -469,7 +470,7 @@ export default function Dashboard() {
         }
         return [...parsed, 'trades', 'live_overview'];
       }
-    } catch {}
+    } catch { }
     return ['chart', 'backtester', 'trades', 'live_overview'];
   });
   const [dragOverId, setDragOverId] = useState<string | null>(null);
@@ -716,11 +717,11 @@ export default function Dashboard() {
     const target = e.target as HTMLElement;
     // Don't drag if clicking buttons/inputs/selects
     if (
-      target.tagName === 'INPUT' || 
-      target.tagName === 'BUTTON' || 
-      target.tagName === 'SELECT' || 
-      target.closest('button') || 
-      target.closest('input') || 
+      target.tagName === 'INPUT' ||
+      target.tagName === 'BUTTON' ||
+      target.tagName === 'SELECT' ||
+      target.closest('button') ||
+      target.closest('input') ||
       target.closest('select') ||
       target.closest('.no-drag')
     ) {
@@ -889,16 +890,16 @@ export default function Dashboard() {
       return;
     }
     if (!symbol) return;
-    
+
     if (backtestAbortControllerRef.current) {
       backtestAbortControllerRef.current.abort();
     }
-    
+
     const controller = new AbortController();
     backtestAbortControllerRef.current = controller;
     const backtestId = Date.now().toString();
     activeBacktestIdRef.current = backtestId;
-    
+
     setLoadingBacktest(true);
     try {
       setBacktestProgress(0);
@@ -954,7 +955,7 @@ export default function Dashboard() {
           buffer += decoder.decode(value, { stream: !done });
           const lines = buffer.split("\n");
           buffer = lines.pop() || "";
-          
+
           for (const line of lines) {
             if (line.trim()) {
               try {
@@ -1015,16 +1016,16 @@ export default function Dashboard() {
       return;
     }
     if (!symbol) return;
-    
+
     if (backtestAbortControllerRef.current) {
       backtestAbortControllerRef.current.abort();
     }
-    
+
     const controller = new AbortController();
     backtestAbortControllerRef.current = controller;
     const backtestId = Date.now().toString();
     activeBacktestIdRef.current = backtestId;
-    
+
     setLoadingBacktest(true);
     try {
       setBacktestProgress(0);
@@ -1083,7 +1084,7 @@ export default function Dashboard() {
           buffer += decoder.decode(value, { stream: !done });
           const lines = buffer.split("\n");
           buffer = lines.pop() || "";
-          
+
           for (const line of lines) {
             if (line.trim()) {
               try {
@@ -1347,7 +1348,7 @@ export default function Dashboard() {
 
     try {
       let rawCandles: Candle[] = [];
-      
+
       if (isLiveFeed && selectedStrategyId) {
         try {
           const result = await apiService.fetchLiveStrategyCache(selectedStrategyId, isIncremental ? 2 : undefined);
@@ -1630,9 +1631,9 @@ export default function Dashboard() {
     let daily = 0;
     let weekly = 0;
     const now = new Date();
-    
+
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() / 1000;
-    
+
     const tempNow = new Date();
     const day = tempNow.getDay();
     const diff = tempNow.getDate() - day + (day === 0 ? -6 : 1);
@@ -2058,19 +2059,19 @@ export default function Dashboard() {
     const symUpper = sym.toUpperCase();
     if (symUpper.includes('JPY')) return 0.01;
     if (symUpper.includes('XAU') || symUpper.includes('GOLD') || symUpper.includes('XAG')) return 0.1;
-    
+
     const isCrypto = ['BTC', 'ETH', 'SOL', 'LTC', 'XRP', 'ADA', 'DOT', 'DOGE', 'LINK', 'UNI', 'PEPE', 'SHIB'].some(c => symUpper.includes(c));
     if (isCrypto) {
       if (price > 1000) return 1.0;
       if (price > 10) return 0.1;
       return 0.001;
     }
-    
+
     const forexCurrencies = ['EUR', 'GBP', 'AUD', 'NZD', 'USD', 'CAD', 'CHF', 'SEK', 'NOK', 'SGD', 'HKD', 'ZAR', 'MXN'];
     if (forexCurrencies.some(curr => symUpper.includes(curr))) {
       return 0.0001;
     }
-    
+
     if (price > 1000) return 1.0;
     if (price > 100) return 0.1;
     if (price > 1) return 0.01;
@@ -2096,13 +2097,13 @@ export default function Dashboard() {
   const liveTrades = openPositions.map((pos: any) => {
     let slPrice = pos.stop_loss;
     let tpPrice = pos.take_profit;
-    
+
     if (!slPrice && liveStrategy && liveStrategy.symbol === pos.symbol) {
       const slVal = parseFloat(liveStrategy.slVal) || 1.0;
       const rr = parseFloat(liveStrategy.rr) || 2.0;
       const isBuy = pos.trade_side === 'BUY';
       const entry = pos.entry_price;
-      
+
       if (liveStrategy.slType === 'price') {
         const pipSize = getPipSize(pos.symbol, entry);
         slPrice = isBuy ? entry - slVal * pipSize : entry + slVal * pipSize;
@@ -2114,17 +2115,17 @@ export default function Dashboard() {
       } else {
         slPrice = isBuy ? entry * (1 - slVal / 100) : entry * (1 + slVal / 100);
       }
-      
+
       const slDistancePrice = Math.abs(entry - slPrice);
       tpPrice = isBuy ? entry + slDistancePrice * rr : entry - slDistancePrice * rr;
     }
-    
+
     let entryTimestamp = pos.entry_timestamp;
     if (!entryTimestamp && candles.length > 0) {
       const matchedCandle = candles.find((c) => pos.entry_price >= c.low && pos.entry_price <= c.high);
       entryTimestamp = matchedCandle ? matchedCandle.time : candles[candles.length - 1].time;
     }
-    
+
     return {
       id: pos.position_id,
       symbol: pos.symbol,
@@ -2140,732 +2141,23 @@ export default function Dashboard() {
 
   return (
     <div style={styles.container}>
-      
+
       {/* Upper Navigation Desk Bar */}
-      {/* Upper Navigation Desk Bar */}
-      <header style={{
-        ...styles.header,
-        ...(isMobile ? { padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative' } : {})
-      }}>
-        {isMobile ? (
-          <>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Activity size={24} style={{ color: '#3b82f6' }} />
-              <span style={{ ...styles.logoText, fontSize: '16px' }}>WYCKOFF</span>
-              <span 
-                title={`cTrader ${connectionMode.toUpperCase()}: ${currentConnected ? 'ONLINE' : 'OFFLINE'}`}
-                style={{
-                  width: '8px',
-                  height: '8px',
-                  borderRadius: '50%',
-                  backgroundColor: currentConnected ? '#10b981' : '#ef4444',
-                  boxShadow: `0 0 8px ${currentConnected ? '#10b981' : '#ef4444'}`,
-                  display: 'inline-block',
-                }}
-              />
-            </div>
-            
-            <button
-              onClick={() => setShowMobileNav(!showMobileNav)}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: 'var(--app-text)',
-                cursor: 'pointer',
-                padding: '6px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                outline: 'none',
-              }}
-            >
-              {showMobileNav ? <X size={24} /> : <Menu size={24} />}
-            </button>
-
-            {showMobileNav && (
-              <div style={{
-                position: 'absolute',
-                top: '100%',
-                left: 0,
-                right: 0,
-                backgroundColor: '#0b0f19',
-                borderBottom: '1px solid var(--app-card-border)',
-                padding: '16px',
-                zIndex: 9999,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '16px',
-                maxHeight: 'calc(100vh - 60px)',
-                overflowY: 'auto',
-                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)',
-              }}>
-                {/* Account Section */}
-                <div style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '8px',
-                  backgroundColor: 'rgba(15, 23, 42, 0.4)',
-                  border: '1px solid var(--app-card-border)',
-                  borderRadius: '8px',
-                  padding: '12px',
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '11px', color: 'var(--app-text-muted)', fontWeight: 'bold' }}>Active Account:</span>
-                    <button
-                      onClick={() => {
-                        setShowMobileNav(false);
-                        setShowAccountModal(true);
-                      }}
-                      style={{
-                        backgroundColor: 'transparent',
-                        border: 'none',
-                        color: '#3b82f6',
-                        fontSize: '11px',
-                        fontWeight: 'bold',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      ⚙️ Manage
-                    </button>
-                  </div>
-                  {activeAccount ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{
-                          fontWeight: 'bold',
-                          color: activeAccount.broker_type === 'ctrader' ? '#f59e0b' : '#3b82f6',
-                          textTransform: 'uppercase',
-                          fontSize: '9px',
-                          backgroundColor: activeAccount.broker_type === 'ctrader' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(59, 130, 246, 0.15)',
-                          padding: '1px 4px',
-                          borderRadius: '3px'
-                        }}>
-                          {activeAccount.broker_type === 'ctrader' ? 'cTrader' : 'MT5'}
-                        </span>
-                        <span style={{ color: 'var(--app-text)', fontWeight: 'bold' }}>{activeAccount.name}</span>
-                      </div>
-                      {accountInfo && (
-                        <div style={{ color: '#10b981', fontWeight: 'bold' }}>
-                          Balance: {accountInfo.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {accountInfo.currency || 'USD'}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <span style={{ color: 'var(--app-text-muted)', fontSize: '12px' }}>No Active Account</span>
-                  )}
-                  <select
-                    value={activeAccount?.account_id || ''}
-                    onChange={(e) => {
-                      handleSwitchAccount(e.target.value);
-                      setShowMobileNav(false);
-                    }}
-                    style={{
-                      backgroundColor: 'var(--app-panel-header-bg)',
-                      border: '1px solid var(--app-card-border)',
-                      color: 'var(--app-text)',
-                      fontSize: '12px',
-                      padding: '6px',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      outline: 'none',
-                      marginTop: '4px',
-                      width: '100%',
-                    }}
-                  >
-                    <option value="" disabled>Switch account...</option>
-                    {accounts.map((acc) => (
-                      <option key={acc.account_id} value={acc.account_id}>
-                        {acc.name} ({acc.broker_type === 'ctrader' ? 'cTrader' : 'MT5'})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Quick Actions */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <span style={{ fontSize: '11px', color: 'var(--app-text-muted)', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Quick Actions</span>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                    <button 
-                      onClick={() => {
-                        toggleTheme();
-                        setShowMobileNav(false);
-                      }}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '6px',
-                        backgroundColor: 'var(--app-panel-header-bg)',
-                        border: '1px solid var(--app-card-border)',
-                        cursor: 'pointer',
-                        borderRadius: '6px',
-                        padding: '8px',
-                        color: 'var(--app-text)',
-                        outline: 'none',
-                        fontSize: '11px',
-                        fontWeight: 'bold',
-                      }}
-                    >
-                      {theme === 'dark' ? <Sun size={12} /> : <Moon size={12} />} Theme
-                    </button>
-                    <button 
-                      onClick={() => {
-                        setShowMobileNav(false);
-                        handleRestartServer();
-                      }}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '6px',
-                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                        border: '1px solid rgba(239, 68, 68, 0.2)',
-                        cursor: 'pointer',
-                        borderRadius: '6px',
-                        padding: '8px',
-                        color: '#ef4444',
-                        outline: 'none',
-                        fontSize: '11px',
-                        fontWeight: 'bold',
-                      }}
-                    >
-                      <RefreshCw size={12} /> Update Backend
-                    </button>
-                    <a 
-                      href="https://89.217.138.51:8751/api/live/strategies"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={() => setShowMobileNav(false)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '6px',
-                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                        border: '1px solid rgba(59, 130, 246, 0.2)',
-                        cursor: 'pointer',
-                        borderRadius: '6px',
-                        padding: '8px',
-                        color: '#3b82f6',
-                        outline: 'none',
-                        fontSize: '11px',
-                        fontWeight: 'bold',
-                        gridColumn: 'span 2',
-                        textDecoration: 'none',
-                      }}
-                    >
-                      <ShieldAlert size={12} /> Authorize Laptop SSL
-                    </a>
-                  </div>
-                </div>
-
-                {/* Resource Links */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <span style={{ fontSize: '11px', color: 'var(--app-text-muted)', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Resources & Navigation</span>
-                  <div style={{ display: 'flex', flexDirection: 'column', backgroundColor: 'var(--app-panel-header-bg)', borderRadius: '8px', overflow: 'hidden' }}>
-                    <a href="https://openapi.ctrader.com/apps" target="_blank" rel="noopener noreferrer" className="menu-item" style={{ padding: '10px 16px', borderBottom: '1px solid var(--app-card-border)', textDecoration: 'none', color: 'var(--app-text)', fontSize: '12px' }} onClick={() => setShowMobileNav(false)}>
-                      cTrader Apps
-                    </a>
-                    <a href="https://gemini.google.com/app/71d33e33a84aa328" target="_blank" rel="noopener noreferrer" className="menu-item" style={{ padding: '10px 16px', borderBottom: '1px solid var(--app-card-border)', textDecoration: 'none', color: 'var(--app-text)', fontSize: '12px' }} onClick={() => setShowMobileNav(false)}>
-                      Wyckoff Prompt
-                    </a>
-                    <a href="https://trader.ftmo.com/accounts-overview" target="_blank" rel="noopener noreferrer" className="menu-item" style={{ padding: '10px 16px', borderBottom: '1px solid var(--app-card-border)', textDecoration: 'none', color: 'var(--app-text)', fontSize: '12px' }} onClick={() => setShowMobileNav(false)}>
-                      FTMO Overview
-                    </a>
-                    <a href="https://saphir.metanet.ch:8443/phpMyAdmin/index.php?db=aa_wyckoff_trading" target="_blank" rel="noopener noreferrer" className="menu-item" style={{ padding: '10px 16px', borderBottom: '1px solid var(--app-card-border)', textDecoration: 'none', color: 'var(--app-text)', fontSize: '12px' }} onClick={() => setShowMobileNav(false)}>
-                      Database (phpMyAdmin)
-                    </a>
-                    <a href="https://railway.com/project/aa01f500-c3df-4d47-b60a-821237699d0d/service/05376c29-94f0-44f3-acc2-93d5d104019f/settings?environmentId=7a63d6ae-f3e6-452d-b527-6311f6f9b551" target="_blank" rel="noopener noreferrer" className="menu-item" style={{ padding: '10px 16px', borderBottom: '1px solid var(--app-card-border)', textDecoration: 'none', color: 'var(--app-text)', fontSize: '12px' }} onClick={() => setShowMobileNav(false)}>
-                      Railway Settings
-                    </a>
-                    <a 
-                      href="#symbol-mappings" 
-                      className="menu-item" 
-                      style={{ padding: '10px 16px', borderBottom: '1px solid var(--app-card-border)', textDecoration: 'none', color: 'var(--app-text)', fontSize: '12px' }}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setView('mappings');
-                        setShowMobileNav(false);
-                      }}
-                    >
-                      🔗 Symbol Mappings
-                    </a>
-                    <a 
-                      href="#live-trades" 
-                      className="menu-item" 
-                      style={{ padding: '10px 16px', borderBottom: '1px solid var(--app-card-border)', textDecoration: 'none', color: 'var(--app-text)', fontSize: '12px' }}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setView('trades');
-                        setShowMobileNav(false);
-                      }}
-                    >
-                      📈 Live Trades & History
-                    </a>
-                    <a 
-                      href="#computers" 
-                      className="menu-item" 
-                      style={{ padding: '10px 16px', borderBottom: '1px solid var(--app-card-border)', textDecoration: 'none', color: 'var(--app-text)', fontSize: '12px' }}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setView('computers');
-                        setShowMobileNav(false);
-                      }}
-                    >
-                      💻 Computer Manager
-                    </a>
-                    <button 
-                      onClick={() => {
-                        setShowMobileNav(false);
-                        triggerPWAEventNotification("Sound Check", "Local audio sound test completed successfully!", "trade_open");
-                      }}
-                      className="menu-item"
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        textAlign: 'left',
-                        width: '100%',
-                        cursor: 'pointer',
-                        display: 'block',
-                        fontFamily: 'inherit',
-                        padding: '10px 16px',
-                        borderBottom: '1px solid var(--app-card-border)',
-                        color: 'var(--app-text)',
-                        fontSize: '12px'
-                      }}
-                    >
-                      🔔 Test Local Sound
-                    </button>
-                    <a href="/how-to" className="menu-item" style={{ padding: '10px 16px', textDecoration: 'none', color: 'var(--app-text)', fontSize: '12px' }} onClick={() => setShowMobileNav(false)}>
-                      📖 How It Works
-                    </a>
-                  </div>
-                </div>
-
-                {/* Target API & cTrader test buttons */}
-                {(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname === '89.217.138.51') && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderTop: '1px solid var(--app-card-border)', paddingTop: '12px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '6px', padding: '6px 12px', justifyContent: 'space-between' }}>
-                      <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 'bold' }}>Target API:</span>
-                      <select
-                        value={localStorage.getItem('wyckoff_api_target') || `http://${window.location.hostname}:8751`}
-                        onChange={(e) => {
-                          localStorage.setItem('wyckoff_api_target', e.target.value);
-                          window.location.reload();
-                        }}
-                        style={{
-                          backgroundColor: '#1e293b',
-                          border: 'none',
-                          color: '#ffffff',
-                          fontSize: '11px',
-                          fontWeight: 'bold',
-                          cursor: 'pointer',
-                          outline: 'none',
-                        }}
-                      >
-                        <option style={{ backgroundColor: '#1e293b', color: '#ffffff' }} value={`http://${window.location.hostname}:8751`}>Local Host (8751)</option>
-                        <option style={{ backgroundColor: '#1e293b', color: '#ffffff' }} value="https://89.217.138.51:8751">Laptop Server (89.217.138.51)</option>
-                        <option style={{ backgroundColor: '#1e293b', color: '#ffffff' }} value="https://trading-production-cb87.up.railway.app">Railway Live Container</option>
-                      </select>
-                    </div>
-                    <button
-                      onClick={async () => {
-                        setShowMobileNav(false);
-                        try {
-                          const response = await fetch('https://trading-production-cb87.up.railway.app/api/ctrader/order', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ symbol: 'EURUSD', order_type: 'buy', volume: 0.01 })
-                          });
-                          const data = await response.json();
-                          if (data.status === 'success') {
-                            alert(`Test Order Placed successfully!\nDetails: ${data.message || JSON.stringify(data)}`);
-                          } else {
-                            alert(`Test Order Error:\n${data.message || JSON.stringify(data)}`);
-                          }
-                        } catch (err: any) {
-                          alert(`Failed to trigger order: ${err.message}`);
-                        }
-                      }}
-                      style={{
-                        color: '#ffffff',
-                        fontWeight: 'bold',
-                        fontSize: '12px',
-                        backgroundColor: '#ef4444',
-                        border: 'none',
-                        padding: '8px',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        textAlign: 'center',
-                        width: '100%'
-                      }}
-                    >
-                      🚀 Test cTrader Order
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '10px' }}>
-            {/* Top Row: Logo, Update, Authorize SSL, Links, Target API */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-              <div style={styles.logoSection}>
-                <Activity size={28} style={{ color: '#3b82f6' }} />
-                <span style={styles.logoText}>WYCKOFF</span>
-                <span 
-                  title={`cTrader ${connectionMode.toUpperCase()}: ${currentConnected ? 'ONLINE' : 'OFFLINE'}`}
-                  style={{
-                    width: '8px',
-                    height: '8px',
-                    borderRadius: '50%',
-                    backgroundColor: currentConnected ? '#10b981' : '#ef4444',
-                    boxShadow: `0 0 8px ${currentConnected ? '#10b981' : '#ef4444'}`,
-                    display: 'inline-block',
-                    marginLeft: '4px',
-                    flexShrink: 0,
-                  }}
-                />
-              </div>
-
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                <button 
-                  onClick={toggleTheme}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    backgroundColor: 'var(--app-panel-header-bg)',
-                    border: '1px solid var(--app-card-border)',
-                    cursor: 'pointer',
-                    borderRadius: '6px',
-                    padding: '6px',
-                    color: 'var(--app-text)',
-                    outline: 'none',
-                    transition: 'all 0.2s',
-                  }}
-                  title={theme === 'dark' ? "Switch to Light Mode" : "Switch to Dark Mode"}
-                >
-                  {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
-                </button>
-                <button 
-                  onClick={handleRestartServer}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                    border: '1px solid rgba(239, 68, 68, 0.2)',
-                    cursor: 'pointer',
-                    borderRadius: '6px',
-                    padding: '6px 12px',
-                    color: '#ef4444',
-                    fontWeight: 'bold',
-                    fontSize: '11px',
-                    outline: 'none',
-                    transition: 'all 0.2s',
-                  }}
-                  title="Update code from git and restart laptop backend"
-                >
-                  <RefreshCw size={12} />
-                  Update & Restart Laptop
-                </button>
-                
-                <a 
-                  href="https://89.217.138.51:8751/api/live/strategies"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                    border: '1px solid rgba(59, 130, 246, 0.2)',
-                    cursor: 'pointer',
-                    borderRadius: '6px',
-                    padding: '6px 12px',
-                    color: '#3b82f6',
-                    fontWeight: 'bold',
-                    fontSize: '11px',
-                    outline: 'none',
-                    transition: 'all 0.2s',
-                    textDecoration: 'none',
-                  }}
-                  title="Open Laptop backend to authorize HTTPS Self-Signed Certificate"
-                >
-                  <ShieldAlert size={12} />
-                  Authorize Laptop SSL
-                </a>
-                <div style={{ position: 'relative' }}>
-                  <button 
-                    onClick={() => setShowMenu(!showMenu)} 
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      backgroundColor: 'var(--app-panel-header-bg)',
-                      border: '1px solid var(--app-card-border)',
-                      cursor: 'pointer',
-                      borderRadius: '6px',
-                      padding: '6px 12px',
-                      color: 'var(--app-text)',
-                      fontWeight: 'bold',
-                      fontSize: '11px',
-                      outline: 'none',
-                      transition: 'all 0.2s',
-                    }}
-                  >
-                    <Menu size={12} /> Links & Resources <ChevronDown size={12} />
-                  </button>
-                  {showMenu && (
-                    <>
-                      <div 
-                        onClick={() => setShowMenu(false)}
-                        style={{
-                          position: 'fixed',
-                          top: 0,
-                          left: 0,
-                          right: 0,
-                          bottom: 0,
-                          zIndex: 999,
-                          backgroundColor: 'transparent',
-                        }}
-                      />
-                      <div style={{
-                        position: 'absolute',
-                        top: 'calc(100% + 8px)',
-                        right: 0,
-                        backgroundColor: '#0f172a',
-                        border: '1px solid #334155',
-                        borderRadius: '8px',
-                        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 20px rgba(59, 130, 246, 0.1)',
-                        padding: '6px 0',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        minWidth: '220px',
-                        zIndex: 1000,
-                      }}>
-                        <a href="https://openapi.ctrader.com/apps" target="_blank" rel="noopener noreferrer" className="menu-item" onClick={() => setShowMenu(false)}>
-                          cTrader Apps
-                        </a>
-                        <a href="https://gemini.google.com/app/71d33e33a84aa328" target="_blank" rel="noopener noreferrer" className="menu-item" onClick={() => setShowMenu(false)}>
-                          Wyckoff Prompt
-                        </a>
-                        <a href="https://trader.ftmo.com/accounts-overview" target="_blank" rel="noopener noreferrer" className="menu-item" onClick={() => setShowMenu(false)}>
-                          FTMO Overview
-                        </a>
-                        <a href="https://saphir.metanet.ch:8443/phpMyAdmin/index.php?db=aa_wyckoff_trading" target="_blank" rel="noopener noreferrer" className="menu-item" onClick={() => setShowMenu(false)}>
-                          Database (phpMyAdmin)
-                        </a>
-                        <a href="https://railway.com/project/aa01f500-c3df-4d47-b60a-821237699d0d/service/05376c29-94f0-44f3-acc2-93d5d104019f/settings?environmentId=7a63d6ae-f3e6-452d-b527-6311f6f9b551" target="_blank" rel="noopener noreferrer" className="menu-item" onClick={() => setShowMenu(false)}>
-                          Railway Settings
-                        </a>
-                        <a 
-                          href="#symbol-mappings" 
-                          className="menu-item" 
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setView('mappings');
-                            setShowMenu(false);
-                          }}
-                        >
-                          🔗 Symbol Mappings
-                        </a>
-                        <a 
-                          href="#live-trades" 
-                          className="menu-item" 
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setView('trades');
-                            setShowMenu(false);
-                          }}
-                        >
-                          📈 Live Trades & History
-                        </a>
-                        <a 
-                          href="#computers" 
-                          className="menu-item" 
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setView('computers');
-                            setShowMenu(false);
-                          }}
-                        >
-                          💻 Computer Manager
-                        </a>
-                        <button 
-                          onClick={() => {
-                            setShowMenu(false);
-                            triggerPWAEventNotification("Sound Check", "Local audio sound test completed successfully!", "trade_open");
-                          }}
-                          className="menu-item"
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            textAlign: 'left',
-                            width: '100%',
-                            cursor: 'pointer',
-                            display: 'block',
-                            fontFamily: 'inherit',
-                            padding: '8px 16px',
-                            color: '#94a3b8'
-                          }}
-                        >
-                          🔔 Test Local Sound
-                        </button>
-                        <button 
-                          onClick={() => {
-                            setShowMenu(false);
-                            handleRestartServer();
-                          }}
-                          className="menu-item"
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            textAlign: 'left',
-                            width: '100%',
-                            cursor: 'pointer',
-                            display: 'block',
-                            fontFamily: 'inherit',
-                            padding: '8px 16px',
-                            color: '#ef4444',
-                            fontWeight: 'bold'
-                          }}
-                        >
-                          🔄 Update & Restart Server
-                        </button>
-                        <a href="/how-to" className="menu-item" style={{ borderTop: '1px solid #1e293b', paddingTop: '8px', marginTop: '4px' }} onClick={() => setShowMenu(false)}>
-                          📖 How It Works
-                        </a>
-                      </div>
-                    </>
-                  )}
-                </div>
-
-                {(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname === '89.217.138.51') && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '6px', padding: '4px 8px' }}>
-                    <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 'bold' }}>Target API:</span>
-                    <select
-                      value={localStorage.getItem('wyckoff_api_target') || `http://${window.location.hostname}:8751`}
-                      onChange={(e) => {
-                        localStorage.setItem('wyckoff_api_target', e.target.value);
-                        window.location.reload();
-                      }}
-                      style={{
-                        backgroundColor: '#1e293b',
-                        border: 'none',
-                        color: '#ffffff',
-                        fontSize: '11px',
-                        fontWeight: 'bold',
-                        cursor: 'pointer',
-                        outline: 'none',
-                      }}
-                    >
-                      <option style={{ backgroundColor: '#1e293b', color: '#ffffff' }} value={`http://${window.location.hostname}:8751`}>Local Host (8751)</option>
-                      <option style={{ backgroundColor: '#1e293b', color: '#ffffff' }} value="https://89.217.138.51:8751">Laptop Server (89.217.138.51)</option>
-                      <option style={{ backgroundColor: '#1e293b', color: '#ffffff' }} value="https://trading-production-cb87.up.railway.app">Railway Live Container</option>
-                    </select>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Second Row: Centered Account Selector Bar */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '12px',
-              width: '100%',
-              backgroundColor: 'rgba(15, 23, 42, 0.4)',
-              border: '1px solid var(--app-card-border)',
-              borderRadius: '8px',
-              padding: '6px 16px',
-            }}>
-              {activeAccount ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
-                  <span style={{
-                    fontWeight: 'bold',
-                    color: activeAccount.broker_type === 'ctrader' ? '#f59e0b' : '#3b82f6',
-                    textTransform: 'uppercase',
-                    fontSize: '10px',
-                    backgroundColor: activeAccount.broker_type === 'ctrader' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(59, 130, 246, 0.15)',
-                    padding: '2px 6px',
-                    borderRadius: '4px'
-                  }}>
-                    {activeAccount.broker_type === 'ctrader' ? 'cTrader' : 'MT5'}
-                  </span>
-                  <span style={{ color: 'var(--app-text)', fontWeight: 'bold' }}>{activeAccount.name}</span>
-                  <span style={{ color: 'var(--app-text-muted)', fontSize: '11px' }}>({activeAccount.account_id})</span>
-                  {accountInfo ? (
-                    <span style={{ 
-                      color: '#10b981', 
-                      fontWeight: 'bold', 
-                      fontSize: '11px',
-                      backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                      padding: '2px 6px',
-                      borderRadius: '4px',
-                      border: '1px solid rgba(16, 185, 129, 0.2)',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px'
-                    }}>
-                      <span style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: '#10b981', display: 'inline-block' }}></span>
-                      {accountInfo.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {accountInfo.currency || 'USD'}
-                    </span>
-                  ) : (
-                    <span style={{ color: 'var(--app-text-muted)', fontSize: '11px', fontStyle: 'italic' }}>
-                      (Loading balance...)
-                    </span>
-                  )}
-                </div>
-              ) : (
-                <span style={{ color: 'var(--app-text-muted)', fontSize: '12px' }}>No Active Account</span>
-              )}
-
-              <select
-                value={activeAccount?.account_id || ''}
-                onChange={(e) => handleSwitchAccount(e.target.value)}
-                style={{
-                  backgroundColor: 'var(--app-panel-header-bg)',
-                  border: '1px solid var(--app-card-border)',
-                  color: 'var(--app-text)',
-                  fontSize: '12px',
-                  padding: '4px 8px',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  outline: 'none',
-                }}
-              >
-                <option value="" disabled>Switch account...</option>
-                {accounts.map((acc) => (
-                  <option key={acc.account_id} value={acc.account_id}>
-                    {acc.name} ({acc.broker_type === 'ctrader' ? 'cTrader' : 'MT5'})
-                  </option>
-                ))}
-              </select>
-
-              <button
-                onClick={() => setShowAccountModal(true)}
-                style={{
-                  backgroundColor: '#1e293b',
-                  border: '1px solid #334155',
-                  color: '#f8fafc',
-                  padding: '4px 10px',
-                  borderRadius: '6px',
-                  fontSize: '11px',
-                  fontWeight: 'bold',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                }}
-              >
-                ⚙️ Manage
-              </button>
-            </div>
-          </div>
-        )}
-      </header>
+      <HeaderBar
+        isMobile={isMobile}
+        theme={theme}
+        toggleTheme={toggleTheme}
+        connectionMode={connectionMode}
+        currentConnected={currentConnected}
+        activeAccount={activeAccount}
+        accountInfo={accountInfo}
+        accounts={accounts}
+        handleSwitchAccount={handleSwitchAccount}
+        setShowAccountModal={setShowAccountModal}
+        handleRestartServer={handleRestartServer}
+        setView={setView}
+        styles={styles}
+      />
 
       {window.location.pathname === '/how-to' ? (
         <HowToPage />
@@ -2882,570 +2174,217 @@ export default function Dashboard() {
         />
       ) : (
         <>
-      {/* Main Grid View */}
-      <main style={styles.mainLayout}>
-        {selectedCandle && (
-          <div style={{
-            backgroundColor: '#0f172a',
-            border: '1.5px solid #eab308',
-            boxShadow: '0 0 15px rgba(234, 179, 8, 0.15)',
-            borderRadius: '12px',
-            padding: '16px',
-            display: 'flex',
-            flexDirection: isMobile ? 'column' : 'row',
-            justifyContent: 'space-between',
-            alignItems: isMobile ? 'stretch' : 'center',
-            gap: '16px',
-            position: 'relative'
-          }}>
-            <button 
-              onClick={() => setSelectedCandle(null)}
-              style={{
-                position: 'absolute',
-                top: '12px',
-                right: '12px',
-                background: 'none',
-                border: 'none',
-                color: '#94a3b8',
-                cursor: 'pointer'
-              }}
-            >
-              <X size={16} />
-            </button>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#f1f5f9' }}>
-                  🔍 Selected Candle Details
-                </span>
-                <span style={{
-                  fontSize: '9px',
-                  fontWeight: 'bold',
-                  backgroundColor: timeframe === '1m' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                  color: timeframe === '1m' ? '#10b981' : '#ef4444',
-                  padding: '2px 6px',
-                  borderRadius: '4px'
-                }}>
-                  {timeframe === '1m' ? '1m Candle Supported' : '1m Only (Read Only)'}
-                </span>
-              </div>
-              <span style={{ fontSize: '11px', color: '#94a3b8' }}>
-                Time: {formatDateTime(selectedCandle.time)} | Open: {formatPrice(selectedCandle.open, symbol)} | High: {formatPrice(selectedCandle.high, symbol)} | Low: {formatPrice(selectedCandle.low, symbol)} | Close: {formatPrice(selectedCandle.close, symbol)} | Vol: {selectedCandle.volume.toFixed(1)}
-              </span>
-              {selectedCandle.vsa_patterns && selectedCandle.vsa_patterns.length > 0 && (
-                <span style={{ fontSize: '11px', color: '#f59e0b', fontWeight: '500' }}>
-                  VSA Patterns: {selectedCandle.vsa_patterns.join(', ')}
-                </span>
-              )}
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-              {timeframe === '1m' ? (
-                <>
-                  <input 
-                    type="text"
-                    placeholder="Add custom notes..."
-                    value={favNotesInput}
-                    onChange={(e) => setFavNotesInput(e.target.value)}
-                    style={{
-                      backgroundColor: '#1e293b',
-                      border: '1px solid #334155',
-                      borderRadius: '6px',
-                      padding: '6px 12px',
-                      color: '#f8fafc',
-                      fontSize: '12px',
-                      minWidth: '220px',
-                      outline: 'none'
-                    }}
-                  />
-                  <button
-                    onClick={() => handleSaveFavourite(selectedCandle, favNotesInput)}
-                    style={{
-                      backgroundColor: '#eab308',
-                      color: '#0b0f19',
-                      border: 'none',
-                      borderRadius: '6px',
-                      padding: '6px 16px',
-                      fontSize: '12px',
-                      fontWeight: 'bold',
-                      cursor: 'pointer',
-                      boxShadow: '0 4px 10px rgba(234, 179, 8, 0.2)',
-                      transition: 'all 0.2s'
-                    }}
-                  >
-                    ⭐ Favourite Candle
-                  </button>
-                </>
-              ) : (
-                <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: 'bold' }}>
-                  ⚠️ Save to Favourites is only available for 1m timeframe candles
-                </span>
-              )}
-            </div>
-          </div>
-        )}
-
-        {isMobile && (
-          <div style={{
-            display: 'flex',
-            backgroundColor: '#0f172a',
-            border: '1px solid #1e293b',
-            borderRadius: '8px',
-            padding: '4px',
-            marginBottom: '16px',
-            gap: '4px',
-          }}>
-            <button
-              onClick={() => setMobileTab('chart')}
-              style={{
-                flex: 1,
-                padding: '8px 12px',
-                borderRadius: '6px',
-                border: 'none',
-                backgroundColor: mobileTab === 'chart' ? '#2563eb' : 'transparent',
-                color: '#ffffff',
-                fontWeight: 'bold',
-                fontSize: '12px',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-              }}
-            >
-              📊 Chart View
-            </button>
-            <button
-              onClick={() => setMobileTab('backtester')}
-              style={{
-                flex: 1,
-                padding: '8px 12px',
-                borderRadius: '6px',
-                border: 'none',
-                backgroundColor: mobileTab === 'backtester' ? '#2563eb' : 'transparent',
-                color: '#ffffff',
-                fontWeight: 'bold',
-                fontSize: '12px',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-              }}
-            >
-              ⚙️ Backtester
-            </button>
-            <button
-              onClick={() => setMobileTab('trades')}
-              style={{
-                flex: 1,
-                padding: '8px 12px',
-                borderRadius: '6px',
-                border: 'none',
-                backgroundColor: mobileTab === 'trades' ? '#2563eb' : 'transparent',
-                color: '#ffffff',
-                fontWeight: 'bold',
-                fontSize: '12px',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-              }}
-            >
-              📈 Trades
-            </button>
-            <button
-              onClick={() => setMobileTab('live_overview')}
-              style={{
-                flex: 1,
-                padding: '8px 12px',
-                borderRadius: '6px',
-                border: 'none',
-                backgroundColor: mobileTab === 'live_overview' ? '#2563eb' : 'transparent',
-                color: '#ffffff',
-                fontWeight: 'bold',
-                fontSize: '12px',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-              }}
-            >
-              ⚡ Live Overview
-            </button>
-          </div>
-        )}
-
-        {isMobile ? (
-          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {mobileTab === 'chart' ? (
+          {/* Main Grid View */}
+          <main style={styles.mainLayout}>
+            {selectedCandle && (
               <div style={{
-                width: '100%',
-                backgroundColor: 'var(--app-card-bg)',
-                border: '1px solid var(--app-card-border)',
+                backgroundColor: '#0f172a',
+                border: '1.5px solid #eab308',
+                boxShadow: '0 0 15px rgba(234, 179, 8, 0.15)',
                 borderRadius: '12px',
-                overflow: 'hidden',
+                padding: '16px',
                 display: 'flex',
-                flexDirection: 'column'
+                flexDirection: isMobile ? 'column' : 'row',
+                justifyContent: 'space-between',
+                alignItems: isMobile ? 'stretch' : 'center',
+                gap: '16px',
+                position: 'relative'
               }}>
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  backgroundColor: 'var(--app-panel-header-bg)',
-                  padding: '10px 16px',
-                  borderBottom: '1px solid var(--app-card-border)',
-                  fontSize: '12px',
-                  fontWeight: 'bold',
-                  color: 'var(--app-text)',
-                }}>
-                  <span>📊 Candlestick & Weis Wave Analysis Chart</span>
-                </div>
-                <TVChart 
-                  symbol={symbol} 
-                  onSymbolChange={setSymbol}
-                  timeframe={timeframe}
-                  onTimeframeChange={setTimeframe}
-                  candleSource={candleSource}
-                  onCandleSourceChange={setCandleSource}
-                  availableSymbols={availableSymbols}
-                  availableTimeframes={availableTimeframes}
-                  candles={backtestResults?.candles || candles} 
-                  loading={loading} 
-                  loadingStrategy={loadingStrategy} 
-                  onRefresh={(broker, isBg) => fetchCandles(broker, isBg, true)} 
-                  entryPrice={selectedTrade?.entryPrice}
-                  slPrice={selectedTrade?.slPrice}
-                  tpPrice={selectedTrade?.tpPrice}
-                  trades={backtestResults ? backtestResults.trades : (liveSimulatedTrades.length > 0 ? liveSimulatedTrades : liveTrades)}
-                  selectedTrade={selectedTrade}
-                  onSelectTrade={(trade) => {
-                    setSelectedTrade(trade);
-                    setShowModal(true);
+                <button
+                  onClick={() => setSelectedCandle(null)}
+                  style={{
+                    position: 'absolute',
+                    top: '12px',
+                    right: '12px',
+                    background: 'none',
+                    border: 'none',
+                    color: '#94a3b8',
+                    cursor: 'pointer'
                   }}
-                  dateRangeOption={dateRangeOption}
-                  customFrom={customFrom}
-                  customTo={customTo}
-                  onSelectCandle={setSelectedCandle}
-                  locateTimestamp={locateTimestamp}
-                  tradeFilter={tradeFilter}
-                  onTradeFilterChange={setTradeFilter}
-                  sessions={tradingSessions}
-                  sessionsTimezone={sessionsTimezone}
-                  selectedCandle={selectedCandle}
-                  hiddenStages={hiddenStages}
-                  isLiveFeed={isLiveFeed}
-                  onLiveFeedChange={setIsLiveFeed}
-                />
-              </div>
-            ) : mobileTab === 'backtester' ? (
-              <div style={{
-                width: '100%',
-                backgroundColor: 'var(--app-card-bg)',
-                border: '1px solid var(--app-card-border)',
-                borderRadius: '12px',
-                overflow: 'hidden',
-                display: 'flex',
-                flexDirection: 'column'
-              }}>
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  backgroundColor: 'var(--app-panel-header-bg)',
-                  padding: '10px 16px',
-                  borderBottom: '1px solid var(--app-card-border)',
-                  fontSize: '12px',
-                  fontWeight: 'bold',
-                  color: 'var(--app-text)',
-                }}>
-                  <span>⚙️ Wyckoff Backtester</span>
-                </div>
-                <div style={{ padding: '16px', overflowY: 'auto' }}>
-                  <WyckoffBacktester
-                    isReadOnly={isProdHost && !isAuthenticated}
-                    symbol={symbol}
-                    timeframe={timeframe}
-                    broker={candleSource}
-                    liveStrategy={liveStrategy}
-                    isDeploying={isDeploying}
-                    deployLiveStrategy={deployLiveStrategy}
-                    backtestBalance={backtestBalance}
-                    setBacktestBalance={setBacktestBalance}
-                    useRiskSizing={useRiskSizing}
-                    setUseRiskSizing={setUseRiskSizing}
-                    backtestRiskPct={backtestRiskPct}
-                    setBacktestRiskPct={setBacktestRiskPct}
-                    backtestSize={backtestSize}
-                    setBacktestSize={setBacktestSize}
-                    backtestSL={backtestSL}
-                    setBacktestSL={setBacktestSL}
-                    backtestSLType={backtestSLType}
-                    setBacktestSLType={setBacktestSLType}
-                    backtestRR={backtestRR}
-                    setBacktestRR={setBacktestRR}
-                    useBreakEven={useBreakEven}
-                    setUseBreakEven={setUseBreakEven}
-                    backtestBE={backtestBE}
-                    setBacktestBE={setBacktestBE}
-                    lookbackWindow={lookbackWindow}
-                    setLookbackWindow={setLookbackWindow}
-                    backtestResults={backtestResults}
-                    backtestTab={backtestTab}
-                    setBacktestTab={setBacktestTab}
-                    tradeFilter={tradeFilter}
-                    setTradeFilter={setTradeFilter}
-                    selectedTrade={selectedTrade}
-                    setSelectedTrade={setSelectedTrade}
-                    setShowModal={setShowModal}
-                    backtestFees={backtestFees}
-                    setBacktestFees={setBacktestFees}
-                    enabledIndicators={enabledIndicators}
-                    setEnabledIndicators={setEnabledIndicators}
-                    dateRangeOption={dateRangeOption}
-                    setDateRangeOption={setDateRangeOption}
-                    customFrom={customFrom}
-                    setCustomFrom={setCustomFrom}
-                    customTo={customTo}
-                    setCustomTo={setCustomTo}
-                    entryStabilityRule={entryStabilityRule}
-                    setEntryStabilityRule={setEntryStabilityRule}
-                    candleLimit={candleLimit}
-                    setCandleLimit={setCandleLimit}
-                    favouriteCandles={favouriteCandles}
-                    onDeleteFavourite={handleDeleteFavourite}
-                    onUpdateNotes={handleUpdateFavouriteNotes}
-                    onLocateCandle={handleLocateCandle}
-                    styles={styles}
-                    onRunBacktest={runBacktest}
-                    loadingBacktest={loadingBacktest}
-                    backtestProgress={backtestProgress}
-                    dailyRetryLimit={dailyRetryLimit}
-                    setDailyRetryLimit={setDailyRetryLimit}
-                    allowOppositeClose={allowOppositeClose}
-                    setAllowOppositeClose={setAllowOppositeClose}
-                    onCancelBacktest={cancelBacktest}
-                    sessionsTimezone={sessionsTimezone}
-                    setSessionsTimezone={setSessionsTimezone}
-                    tradingSessions={tradingSessions}
-                    setTradingSessions={setTradingSessions}
-                    useGlobalClose={useGlobalClose}
-                    setUseGlobalClose={setUseGlobalClose}
-                    globalCloseTime={globalCloseTime}
-                    setGlobalCloseTime={setGlobalCloseTime}
-                    hiddenStages={hiddenStages}
-                    setHiddenStages={setHiddenStages}
-                    isOptimizeMode={isOptimizeMode}
-                    setIsOptimizeMode={setIsOptimizeMode}
-                    rrStart={rrStart}
-                    setRRStart={setRRStart}
-                    rrEnd={rrEnd}
-                    setRREnd={setRREnd}
-                    rrStep={rrStep}
-                    setRRStep={setRRStep}
-                    optimizationResults={optimizationResults}
-                    setOptimizationResults={setOptimizationResults}
-                    onRunOptimization={runOptimization}
-                    onSaveSettings={saveBacktestSettings}
-                  />
-                </div>
-              </div>
-            ) : mobileTab === 'trades' ? (
-              <div style={{
-                width: '100%',
-                backgroundColor: 'var(--app-card-bg)',
-                border: '1px solid var(--app-card-border)',
-                borderRadius: '12px',
-                overflow: 'hidden',
-                display: 'flex',
-                flexDirection: 'column'
-              }}>
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  backgroundColor: 'var(--app-panel-header-bg)',
-                  padding: '10px 16px',
-                  borderBottom: '1px solid var(--app-card-border)',
-                  fontSize: '12px',
-                  fontWeight: 'bold',
-                  color: 'var(--app-text)',
-                }}>
-                  <span>📈 Live Trades & P&L</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', position: 'relative' }}>
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setShowTradesSettings(!showTradesSettings);
-                      }}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: '#9ca3af',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        padding: '4px',
-                        borderRadius: '4px',
-                        transition: 'background-color 0.2s',
-                      }}
-                      title="Trades Panel Settings"
-                    >
-                      <Settings size={14} />
-                    </button>
-                    {showTradesSettings && (
-                      <>
-                        <div
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setShowTradesSettings(false);
-                          }}
-                          style={{
-                            position: 'fixed',
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            zIndex: 999
-                          }}
-                        />
-                        <div 
-                          onClick={(e) => e.stopPropagation()}
-                          style={{
-                            position: 'absolute',
-                            top: '100%',
-                            right: 0,
-                            marginTop: '6px',
-                            backgroundColor: '#0f172a',
-                            border: '1px solid #1f2937',
-                            borderRadius: '8px',
-                            padding: '12px',
-                            zIndex: 1000,
-                            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)',
-                            minWidth: '170px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '8px',
-                          }}
-                        >
-                          <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#9ca3af', borderBottom: '1px solid #1f2937', paddingBottom: '6px', marginBottom: '4px', textAlign: 'left' }}>
-                            Trades Configuration
-                          </div>
-                          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '11px', color: '#ffffff', userSelect: 'none' }}>
-                            <input
-                              type="checkbox"
-                              checked={autoPollTrades}
-                              onChange={(e) => setAutoPollTrades(e.target.checked)}
-                              style={{ cursor: 'pointer' }}
-                            />
-                            🔄 Live Auto-Polling (10s)
-                          </label>
-                        </div>
-                      </>
-                    )}
+                >
+                  <X size={16} />
+                </button>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#f1f5f9' }}>
+                      🔍 Selected Candle Details
+                    </span>
+                    <span style={{
+                      fontSize: '9px',
+                      fontWeight: 'bold',
+                      backgroundColor: timeframe === '1m' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                      color: timeframe === '1m' ? '#10b981' : '#ef4444',
+                      padding: '2px 6px',
+                      borderRadius: '4px'
+                    }}>
+                      {timeframe === '1m' ? '1m Candle Supported' : '1m Only (Read Only)'}
+                    </span>
                   </div>
+                  <span style={{ fontSize: '11px', color: '#94a3b8' }}>
+                    Time: {formatDateTime(selectedCandle.time)} | Open: {formatPrice(selectedCandle.open, symbol)} | High: {formatPrice(selectedCandle.high, symbol)} | Low: {formatPrice(selectedCandle.low, symbol)} | Close: {formatPrice(selectedCandle.close, symbol)} | Vol: {selectedCandle.volume.toFixed(1)}
+                  </span>
+                  {selectedCandle.vsa_patterns && selectedCandle.vsa_patterns.length > 0 && (
+                    <span style={{ fontSize: '11px', color: '#f59e0b', fontWeight: '500' }}>
+                      VSA Patterns: {selectedCandle.vsa_patterns.join(', ')}
+                    </span>
+                  )}
                 </div>
-                <div style={{ padding: '16px', overflowY: 'auto' }}>
-                  <LiveTradesPanel
-                    dailyPnl={dailyPnl}
-                    weeklyPnl={weeklyPnl}
-                    openPositions={openPositions}
-                    historyTrades={historyTrades}
-                    loadingHistory={loadingHistory}
-                    historyError={historyError}
-                    handleClosePosition={handleClosePosition}
-                    isMobileLayout={true}
-                  />
-                </div>
-              </div>
-            ) : (
-              <div style={{
-                width: '100%',
-                backgroundColor: 'var(--app-card-bg)',
-                border: '1px solid var(--app-card-border)',
-                borderRadius: '12px',
-                overflow: 'hidden',
-                display: 'flex',
-                flexDirection: 'column'
-              }}>
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  backgroundColor: 'var(--app-panel-header-bg)',
-                  padding: '10px 16px',
-                  borderBottom: '1px solid var(--app-card-border)',
-                  fontSize: '12px',
-                  fontWeight: 'bold',
-                  color: 'var(--app-text)',
-                }}>
-                  <span>⚡ Live Strategies Overview</span>
-                </div>
-                <div style={{ padding: '16px', overflowY: 'auto' }}>
-                  <LiveOverviewPanel isMobileLayout={true} />
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                  {timeframe === '1m' ? (
+                    <>
+                      <input
+                        type="text"
+                        placeholder="Add custom notes..."
+                        value={favNotesInput}
+                        onChange={(e) => setFavNotesInput(e.target.value)}
+                        style={{
+                          backgroundColor: '#1e293b',
+                          border: '1px solid #334155',
+                          borderRadius: '6px',
+                          padding: '6px 12px',
+                          color: '#f8fafc',
+                          fontSize: '12px',
+                          minWidth: '220px',
+                          outline: 'none'
+                        }}
+                      />
+                      <button
+                        onClick={() => handleSaveFavourite(selectedCandle, favNotesInput)}
+                        style={{
+                          backgroundColor: '#eab308',
+                          color: '#0b0f19',
+                          border: 'none',
+                          borderRadius: '6px',
+                          padding: '6px 16px',
+                          fontSize: '12px',
+                          fontWeight: 'bold',
+                          cursor: 'pointer',
+                          boxShadow: '0 4px 10px rgba(234, 179, 8, 0.2)',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        ⭐ Favourite Candle
+                      </button>
+                    </>
+                  ) : (
+                    <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: 'bold' }}>
+                      ⚠️ Save to Favourites is only available for 1m timeframe candles
+                    </span>
+                  )}
                 </div>
               </div>
             )}
-          </div>
-        ) : (
-          <div style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: '24px',
-            width: '100%',
-          }}>
-            {panelOrder.map((panelId) => {
-              const isDragOver = dragOverId === panelId;
-              const defaultWidth = panelId === 'chart' ? 'calc(50% - 16px)' : 'calc(25% - 16px)';
-              const dragStyles = {
-                width: cardWidths[panelId] ? `${cardWidths[panelId]}px` : defaultWidth,
-                height: cardHeights[panelId] ? `${cardHeights[panelId]}px` : undefined,
-                maxHeight: '800px',
+
+            {isMobile && (
+              <div style={{
                 display: 'flex',
-                flexDirection: 'column' as const,
-                flexGrow: cardWidths[panelId] ? 0 : 1,
-                flexShrink: 1,
-                minWidth: '280px',
-                border: isDragOver ? '2px dashed #3b82f6' : '1px solid var(--app-card-border)',
-                borderRadius: '12px',
-                backgroundColor: 'var(--app-card-bg)',
-                transition: activeResize ? 'none' : 'border 0.2s, opacity 0.2s',
-                opacity: isDragOver ? 0.75 : 1,
-                position: 'relative' as const,
-                overflow: 'hidden',
-              };
- 
-            const headerStyle = {
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              backgroundColor: 'var(--app-panel-header-bg)',
-              padding: '10px 16px',
-              cursor: 'grab',
-              userSelect: 'none' as const,
-              borderBottom: '1px solid var(--app-card-border)',
-              fontSize: '12px',
-              fontWeight: 'bold',
-              color: 'var(--app-text)',
-            };
-
-            const contentStyle = {
-              padding: '16px',
-              flex: 1,
-              overflowY: 'auto' as const,
-            };
-
-            if (panelId === 'chart') {
-              return (
-                <div
-                  key="chart"
-                  onDragOver={(e) => handleDragOver(e, 'chart')}
-                  onDrop={(e) => handleDrop(e, 'chart')}
-                  style={dragStyles}
+                backgroundColor: '#0f172a',
+                border: '1px solid #1e293b',
+                borderRadius: '8px',
+                padding: '4px',
+                marginBottom: '16px',
+                gap: '4px',
+              }}>
+                <button
+                  onClick={() => setMobileTab('chart')}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    backgroundColor: mobileTab === 'chart' ? '#2563eb' : 'transparent',
+                    color: '#ffffff',
+                    fontWeight: 'bold',
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                  }}
                 >
-                  <div 
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, 'chart')}
-                    style={headerStyle}
-                  >
-                    <span>📊 Candlestick & Weis Wave Analysis Chart</span>
-                    <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header to Move</span>
-                  </div>
-                  <div className="no-drag" style={{ padding: '0px', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                    <TVChart 
-                      symbol={symbol} 
+                  📊 Chart View
+                </button>
+                <button
+                  onClick={() => setMobileTab('backtester')}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    backgroundColor: mobileTab === 'backtester' ? '#2563eb' : 'transparent',
+                    color: '#ffffff',
+                    fontWeight: 'bold',
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  ⚙️ Backtester
+                </button>
+                <button
+                  onClick={() => setMobileTab('trades')}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    backgroundColor: mobileTab === 'trades' ? '#2563eb' : 'transparent',
+                    color: '#ffffff',
+                    fontWeight: 'bold',
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  📈 Trades
+                </button>
+                <button
+                  onClick={() => setMobileTab('live_overview')}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    backgroundColor: mobileTab === 'live_overview' ? '#2563eb' : 'transparent',
+                    color: '#ffffff',
+                    fontWeight: 'bold',
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  ⚡ Live Overview
+                </button>
+              </div>
+            )}
+
+            {isMobile ? (
+              <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {mobileTab === 'chart' ? (
+                  <div style={{
+                    width: '100%',
+                    backgroundColor: 'var(--app-card-bg)',
+                    border: '1px solid var(--app-card-border)',
+                    borderRadius: '12px',
+                    overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column'
+                  }}>
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      backgroundColor: 'var(--app-panel-header-bg)',
+                      padding: '10px 16px',
+                      borderBottom: '1px solid var(--app-card-border)',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                      color: 'var(--app-text)',
+                    }}>
+                      <span>📊 Candlestick & Weis Wave Analysis Chart</span>
+                    </div>
+                    <TVChart
+                      symbol={symbol}
                       onSymbolChange={setSymbol}
                       timeframe={timeframe}
                       onTimeframeChange={setTimeframe}
@@ -3453,14 +2392,14 @@ export default function Dashboard() {
                       onCandleSourceChange={setCandleSource}
                       availableSymbols={availableSymbols}
                       availableTimeframes={availableTimeframes}
-                      candles={isLiveFeed ? candles : (backtestResults?.candles || candles)} 
-                      loading={loading} 
-                      loadingStrategy={loadingStrategy} 
-                      onRefresh={(broker, isBg) => fetchCandles(broker, isBg, true)} 
+                      candles={backtestResults?.candles || candles}
+                      loading={loading}
+                      loadingStrategy={loadingStrategy}
+                      onRefresh={(broker, isBg) => fetchCandles(broker, isBg, true)}
                       entryPrice={selectedTrade?.entryPrice}
                       slPrice={selectedTrade?.slPrice}
                       tpPrice={selectedTrade?.tpPrice}
-                      trades={isLiveFeed ? (liveSimulatedTrades.length > 0 ? liveSimulatedTrades : liveTrades) : (backtestResults ? backtestResults.trades : (liveSimulatedTrades.length > 0 ? liveSimulatedTrades : liveTrades))}
+                      trades={backtestResults ? backtestResults.trades : (liveSimulatedTrades.length > 0 ? liveSimulatedTrades : liveTrades)}
                       selectedTrade={selectedTrade}
                       onSelectTrade={(trade) => {
                         setSelectedTrade(trade);
@@ -3471,8 +2410,6 @@ export default function Dashboard() {
                       customTo={customTo}
                       onSelectCandle={setSelectedCandle}
                       locateTimestamp={locateTimestamp}
-                      enabledIndicators={enabledIndicators}
-                      fvgs={fvgs}
                       tradeFilter={tradeFilter}
                       onTradeFilterChange={setTradeFilter}
                       sessions={tradingSessions}
@@ -3483,166 +2420,139 @@ export default function Dashboard() {
                       onLiveFeedChange={setIsLiveFeed}
                     />
                   </div>
-                  {renderResizeHandle('chart')}
-                </div>
-              );
-            }
-
-            if (panelId === 'backtester') {
-              return (
-                <div
-                  key="backtester"
-                  onDragOver={(e) => handleDragOver(e, 'backtester')}
-                  onDrop={(e) => handleDrop(e, 'backtester')}
-                  style={dragStyles}
-                >
-                  <div 
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, 'backtester')}
-                    style={headerStyle}
-                  >
-                    <span>
-                      ⚙️ Wyckoff Backtester
-                      {liveStrategy && liveStrategy.symbol === symbol && liveStrategy.timeframe === timeframe ? (
-                        <span style={{
-                          marginLeft: '8px',
-                          fontSize: '9px',
-                          color: '#10b981',
-                          backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                          border: '1px solid #10b981',
-                          padding: '2px 6px',
-                          borderRadius: '4px',
-                          fontWeight: 'bold',
-                          verticalAlign: 'middle',
-                        }}>
-                          ● LIVE RUNNING
-                        </span>
-                      ) : (
-                        <span style={{
-                          marginLeft: '8px',
-                          fontSize: '9px',
-                          color: '#9ca3af',
-                          backgroundColor: 'rgba(156, 163, 175, 0.15)',
-                          border: '1px solid #9ca3af',
-                          padding: '2px 6px',
-                          borderRadius: '4px',
-                          fontWeight: 'bold',
-                          verticalAlign: 'middle',
-                        }}>
-                          NOT DEPLOYED
-                        </span>
-                      )}
-                    </span>
-                    <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header to Move</span>
+                ) : mobileTab === 'backtester' ? (
+                  <div style={{
+                    width: '100%',
+                    backgroundColor: 'var(--app-card-bg)',
+                    border: '1px solid var(--app-card-border)',
+                    borderRadius: '12px',
+                    overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column'
+                  }}>
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      backgroundColor: 'var(--app-panel-header-bg)',
+                      padding: '10px 16px',
+                      borderBottom: '1px solid var(--app-card-border)',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                      color: 'var(--app-text)',
+                    }}>
+                      <span>⚙️ Wyckoff Backtester</span>
+                    </div>
+                    <div style={{ padding: '16px', overflowY: 'auto' }}>
+                      <WyckoffBacktester
+                        isReadOnly={isProdHost && !isAuthenticated}
+                        symbol={symbol}
+                        timeframe={timeframe}
+                        broker={candleSource}
+                        liveStrategy={liveStrategy}
+                        isDeploying={isDeploying}
+                        deployLiveStrategy={deployLiveStrategy}
+                        backtestBalance={backtestBalance}
+                        setBacktestBalance={setBacktestBalance}
+                        useRiskSizing={useRiskSizing}
+                        setUseRiskSizing={setUseRiskSizing}
+                        backtestRiskPct={backtestRiskPct}
+                        setBacktestRiskPct={setBacktestRiskPct}
+                        backtestSize={backtestSize}
+                        setBacktestSize={setBacktestSize}
+                        backtestSL={backtestSL}
+                        setBacktestSL={setBacktestSL}
+                        backtestSLType={backtestSLType}
+                        setBacktestSLType={setBacktestSLType}
+                        backtestRR={backtestRR}
+                        setBacktestRR={setBacktestRR}
+                        useBreakEven={useBreakEven}
+                        setUseBreakEven={setUseBreakEven}
+                        backtestBE={backtestBE}
+                        setBacktestBE={setBacktestBE}
+                        lookbackWindow={lookbackWindow}
+                        setLookbackWindow={setLookbackWindow}
+                        backtestResults={backtestResults}
+                        backtestTab={backtestTab}
+                        setBacktestTab={setBacktestTab}
+                        tradeFilter={tradeFilter}
+                        setTradeFilter={setTradeFilter}
+                        selectedTrade={selectedTrade}
+                        setSelectedTrade={setSelectedTrade}
+                        setShowModal={setShowModal}
+                        backtestFees={backtestFees}
+                        setBacktestFees={setBacktestFees}
+                        enabledIndicators={enabledIndicators}
+                        setEnabledIndicators={setEnabledIndicators}
+                        dateRangeOption={dateRangeOption}
+                        setDateRangeOption={setDateRangeOption}
+                        customFrom={customFrom}
+                        setCustomFrom={setCustomFrom}
+                        customTo={customTo}
+                        setCustomTo={setCustomTo}
+                        entryStabilityRule={entryStabilityRule}
+                        setEntryStabilityRule={setEntryStabilityRule}
+                        candleLimit={candleLimit}
+                        setCandleLimit={setCandleLimit}
+                        favouriteCandles={favouriteCandles}
+                        onDeleteFavourite={handleDeleteFavourite}
+                        onUpdateNotes={handleUpdateFavouriteNotes}
+                        onLocateCandle={handleLocateCandle}
+                        styles={styles}
+                        onRunBacktest={runBacktest}
+                        loadingBacktest={loadingBacktest}
+                        backtestProgress={backtestProgress}
+                        dailyRetryLimit={dailyRetryLimit}
+                        setDailyRetryLimit={setDailyRetryLimit}
+                        allowOppositeClose={allowOppositeClose}
+                        setAllowOppositeClose={setAllowOppositeClose}
+                        onCancelBacktest={cancelBacktest}
+                        sessionsTimezone={sessionsTimezone}
+                        setSessionsTimezone={setSessionsTimezone}
+                        tradingSessions={tradingSessions}
+                        setTradingSessions={setTradingSessions}
+                        useGlobalClose={useGlobalClose}
+                        setUseGlobalClose={setUseGlobalClose}
+                        globalCloseTime={globalCloseTime}
+                        setGlobalCloseTime={setGlobalCloseTime}
+                        hiddenStages={hiddenStages}
+                        setHiddenStages={setHiddenStages}
+                        isOptimizeMode={isOptimizeMode}
+                        setIsOptimizeMode={setIsOptimizeMode}
+                        rrStart={rrStart}
+                        setRRStart={setRRStart}
+                        rrEnd={rrEnd}
+                        setRREnd={setRREnd}
+                        rrStep={rrStep}
+                        setRRStep={setRRStep}
+                        optimizationResults={optimizationResults}
+                        setOptimizationResults={setOptimizationResults}
+                        onRunOptimization={runOptimization}
+                        onSaveSettings={saveBacktestSettings}
+                      />
+                    </div>
                   </div>
-                  <div className="no-drag" style={contentStyle}>
-                    <WyckoffBacktester
-                      isReadOnly={isProdHost && !isAuthenticated}
-                      symbol={symbol}
-                      timeframe={timeframe}
-                      broker={candleSource}
-                      liveStrategy={liveStrategy}
-                      isDeploying={isDeploying}
-                      deployLiveStrategy={deployLiveStrategy}
-                      backtestBalance={backtestBalance}
-                      setBacktestBalance={setBacktestBalance}
-                      useRiskSizing={useRiskSizing}
-                      setUseRiskSizing={setUseRiskSizing}
-                      backtestRiskPct={backtestRiskPct}
-                      setBacktestRiskPct={setBacktestRiskPct}
-                      backtestSize={backtestSize}
-                      setBacktestSize={setBacktestSize}
-                      backtestSL={backtestSL}
-                      setBacktestSL={setBacktestSL}
-                      backtestSLType={backtestSLType}
-                      setBacktestSLType={setBacktestSLType}
-                      backtestRR={backtestRR}
-                      setBacktestRR={setBacktestRR}
-                      useBreakEven={useBreakEven}
-                      setUseBreakEven={setUseBreakEven}
-                      backtestBE={backtestBE}
-                      setBacktestBE={setBacktestBE}
-                      lookbackWindow={lookbackWindow}
-                      setLookbackWindow={setLookbackWindow}
-                      backtestResults={backtestResults}
-                      backtestTab={backtestTab}
-                      setBacktestTab={setBacktestTab}
-                      tradeFilter={tradeFilter}
-                      setTradeFilter={setTradeFilter}
-                      selectedTrade={selectedTrade}
-                      setSelectedTrade={setSelectedTrade}
-                      setShowModal={setShowModal}
-                      backtestFees={backtestFees}
-                      setBacktestFees={setBacktestFees}
-                      enabledIndicators={enabledIndicators}
-                      setEnabledIndicators={setEnabledIndicators}
-                      dateRangeOption={dateRangeOption}
-                      setDateRangeOption={setDateRangeOption}
-                      customFrom={customFrom}
-                      setCustomFrom={setCustomFrom}
-                      customTo={customTo}
-                      setCustomTo={setCustomTo}
-                      entryStabilityRule={entryStabilityRule}
-                      setEntryStabilityRule={setEntryStabilityRule}
-                      candleLimit={candleLimit}
-                      setCandleLimit={setCandleLimit}
-                      favouriteCandles={favouriteCandles}
-                      onDeleteFavourite={handleDeleteFavourite}
-                      onUpdateNotes={handleUpdateFavouriteNotes}
-                      onLocateCandle={handleLocateCandle}
-                      styles={styles}
-                      onRunBacktest={runBacktest}
-                      loadingBacktest={loadingBacktest}
-                      backtestProgress={backtestProgress}
-                      dailyRetryLimit={dailyRetryLimit}
-                      setDailyRetryLimit={setDailyRetryLimit}
-                      allowOppositeClose={allowOppositeClose}
-                      setAllowOppositeClose={setAllowOppositeClose}
-                      onCancelBacktest={cancelBacktest}
-                      sessionsTimezone={sessionsTimezone}
-                      setSessionsTimezone={setSessionsTimezone}
-                      tradingSessions={tradingSessions}
-                      setTradingSessions={setTradingSessions}
-                      useGlobalClose={useGlobalClose}
-                      setUseGlobalClose={setUseGlobalClose}
-                      globalCloseTime={globalCloseTime}
-                      setGlobalCloseTime={setGlobalCloseTime}
-                      hiddenStages={hiddenStages}
-                      setHiddenStages={setHiddenStages}
-                      
-                      isOptimizeMode={isOptimizeMode}
-                      setIsOptimizeMode={setIsOptimizeMode}
-                      rrStart={rrStart}
-                      setRRStart={setRRStart}
-                      rrEnd={rrEnd}
-                      setRREnd={setRREnd}
-                      rrStep={rrStep}
-                      setRRStep={setRRStep}
-                      optimizationResults={optimizationResults}
-                      setOptimizationResults={setOptimizationResults}
-                      onRunOptimization={runOptimization}
-                      onSaveSettings={saveBacktestSettings}
-                    />
-                  </div>
-                  {renderResizeHandle('backtester')}
-                </div>
-              );
-            }
-
-            if (panelId === 'trades') {
-              return (
-                <div
-                  key="trades"
-                  onDragOver={(e) => handleDragOver(e, 'trades')}
-                  onDrop={(e) => handleDrop(e, 'trades')}
-                  style={dragStyles}
-                >
-                  <div 
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, 'trades')}
-                    style={headerStyle}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', justifyContent: 'space-between' }}>
+                ) : mobileTab === 'trades' ? (
+                  <div style={{
+                    width: '100%',
+                    backgroundColor: 'var(--app-card-bg)',
+                    border: '1px solid var(--app-card-border)',
+                    borderRadius: '12px',
+                    overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column'
+                  }}>
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      backgroundColor: 'var(--app-panel-header-bg)',
+                      padding: '10px 16px',
+                      borderBottom: '1px solid var(--app-card-border)',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                      color: 'var(--app-text)',
+                    }}>
                       <span>📈 Live Trades & P&L</span>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', position: 'relative' }}>
                         <button
@@ -3662,8 +2572,6 @@ export default function Dashboard() {
                             borderRadius: '4px',
                             transition: 'background-color 0.2s',
                           }}
-                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--app-hover-bg)'}
-                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                           title="Trades Panel Settings"
                         >
                           <Settings size={14} />
@@ -3685,7 +2593,7 @@ export default function Dashboard() {
                                 zIndex: 999
                               }}
                             />
-                            <div 
+                            <div
                               onClick={(e) => e.stopPropagation()}
                               style={{
                                 position: 'absolute',
@@ -3719,677 +2627,1061 @@ export default function Dashboard() {
                             </div>
                           </>
                         )}
-                        <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header</span>
                       </div>
                     </div>
+                    <div style={{ padding: '16px', overflowY: 'auto' }}>
+                      <LiveTradesPanel
+                        dailyPnl={dailyPnl}
+                        weeklyPnl={weeklyPnl}
+                        openPositions={openPositions}
+                        historyTrades={historyTrades}
+                        loadingHistory={loadingHistory}
+                        historyError={historyError}
+                        handleClosePosition={handleClosePosition}
+                        isMobileLayout={true}
+                      />
+                    </div>
                   </div>
-                  <div className="no-drag" style={contentStyle}>
-                    <LiveTradesPanel
-                      dailyPnl={dailyPnl}
-                      weeklyPnl={weeklyPnl}
-                      openPositions={openPositions}
-                      historyTrades={historyTrades}
-                      loadingHistory={loadingHistory}
-                      historyError={historyError}
-                      handleClosePosition={handleClosePosition}
-                      isMobileLayout={false}
-                    />
+                ) : (
+                  <div style={{
+                    width: '100%',
+                    backgroundColor: 'var(--app-card-bg)',
+                    border: '1px solid var(--app-card-border)',
+                    borderRadius: '12px',
+                    overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column'
+                  }}>
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      backgroundColor: 'var(--app-panel-header-bg)',
+                      padding: '10px 16px',
+                      borderBottom: '1px solid var(--app-card-border)',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                      color: 'var(--app-text)',
+                    }}>
+                      <span>⚡ Live Strategies Overview</span>
+                    </div>
+                    <div style={{ padding: '16px', overflowY: 'auto' }}>
+                      <LiveOverviewPanel isMobileLayout={true} />
+                    </div>
                   </div>
-                  {renderResizeHandle('trades')}
-                </div>
-              );
-            }
-
-            if (panelId === 'live_overview') {
-              return (
-                <div
-                  key="live_overview"
-                  onDragOver={(e) => handleDragOver(e, 'live_overview')}
-                  onDrop={(e) => handleDrop(e, 'live_overview')}
-                  style={dragStyles}
-                >
-                  <div 
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, 'live_overview')}
-                    style={headerStyle}
-                  >
-                    <span>⚡ Live Strategies Overview</span>
-                    <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header to Move</span>
-                  </div>
-                  <div className="no-drag" style={contentStyle}>
-                    <LiveOverviewPanel 
-                      isMobileLayout={false} 
-                      selectedStrategyId={selectedStrategyId}
-                      isLiveFeed={isLiveFeed}
-                      onSelectStrategy={(id) => {
-                        setSelectedStrategyId(id);
-                        localStorage.setItem('wyckoff_selected_live_strategy_id', id);
-                        setIsLiveFeed(true);
-                        localStorage.setItem('wyckoff_is_live_feed', 'true');
-                        // Trigger candle fetch on active display update
-                        setTimeout(() => fetchCandles(), 50);
-                      }}
-                    />
-                  </div>
-                  {renderResizeHandle('live_overview')}
-                </div>
-              );
-            }
-
-            return null;
-          })}
-        </div>
-      )}
-      {/* Terminal Streaming Component */}
-      <div style={{
-        width: '100%',
-        backgroundColor: '#090d16',
-        border: '1px solid #1f2937',
-        borderRadius: '12px',
-        overflow: 'hidden',
-        marginTop: '24px',
-        display: 'flex',
-        flexDirection: 'column',
-        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)',
-      }}>
-        {/* Terminal Header */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          backgroundColor: '#111827',
-          padding: '10px 16px',
-          borderBottom: '1px solid #1f2937',
-          fontSize: '12px',
-          fontWeight: 'bold',
-          color: '#f3f4f6',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span>💻 Terminal Logs Stream</span>
-            <span style={{
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              backgroundColor: terminalConnectionStatus === 'connected' ? '#10b981' : terminalConnectionStatus === 'connecting' ? '#f59e0b' : '#ef4444',
-              boxShadow: `0 0 8px ${terminalConnectionStatus === 'connected' ? '#10b981' : terminalConnectionStatus === 'connecting' ? '#f59e0b' : '#ef4444'}`,
-              display: 'inline-block',
-            }} title={`Connection Status: ${terminalConnectionStatus}`} />
-          </div>
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <button
-              onClick={() => setTerminalLogs([])}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#9ca3af',
-                cursor: 'pointer',
-                fontSize: '11px',
-                fontWeight: 'bold',
-                outline: 'none',
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.color = '#ffffff'}
-              onMouseLeave={(e) => e.currentTarget.style.color = '#9ca3af'}
-            >
-              Clear Logs
-            </button>
-            <button
-              onClick={() => setShowTerminal(!showTerminal)}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#3b82f6',
-                cursor: 'pointer',
-                fontSize: '11px',
-                fontWeight: 'bold',
-                outline: 'none',
-              }}
-            >
-              {showTerminal ? 'Hide' : 'Show'}
-            </button>
-          </div>
-        </div>
-
-        {/* Terminal logs content */}
-        {showTerminal && (
-          <div style={{
-            height: '240px',
-            overflowY: 'auto',
-            padding: '16px',
-            backgroundColor: '#05070c',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '2px',
-          }}>
-            {terminalLogs.length === 0 ? (
-              <div style={{ color: '#4b5563', fontFamily: 'monospace', fontSize: '12px', fontStyle: 'italic' }}>
-                Waiting for logs...
+                )}
               </div>
             ) : (
-              terminalLogs.map((line, idx) => {
-                let color = '#f8fafc'; // default white
-                const lower = line.toLowerCase();
-                if (lower.includes('error') || lower.includes('exception') || lower.includes('failed')) {
-                  color = '#ef4444'; // Red
-                } else if (lower.includes('warning') || lower.includes('warn')) {
-                  color = '#eab308'; // Yellow
-                } else if (lower.includes('success') || lower.includes('online') || lower.includes('started') || lower.includes('recovery')) {
-                  color = '#10b981'; // Green
-                } else if (lower.includes('[api log]') || lower.includes('request')) {
-                  color = '#38bdf8'; // Blue/Cyan
-                } else if (lower.includes('debug')) {
-                  color = '#a855f7'; // Purple
-                }
-                
-                return (
-                  <div key={idx} style={{ color, fontFamily: 'monospace', fontSize: '11px', whiteSpace: 'pre-wrap', lineHeight: '1.4' }}>
-                    {line}
-                  </div>
-                );
-              })
-            )}
-            <div ref={terminalEndRef} />
-          </div>
-        )}
-      </div>
-
-      </main>
-
-      {/* Trade Performance Detail Overlay */}
-      {showModal && selectedTrade && (
-        <div 
-          onClick={() => setShowModal(false)}
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(5, 7, 12, 0.85)',
-            backdropFilter: 'blur(8px)',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            zIndex: 9999,
-          }}
-        >
-          <div 
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              backgroundColor: '#0f172a',
-            border: `2px solid ${selectedTrade.pnl >= 0 ? '#10b981' : '#ef4444'}`,
-            boxShadow: `0 0 25px ${selectedTrade.pnl >= 0 ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)'}`,
-            borderRadius: '16px',
-            width: '90%',
-            maxWidth: '480px',
-            padding: '24px',
-            position: 'relative',
-            color: '#f8fafc',
-          }}>
-            <button 
-              onClick={() => setShowModal(false)}
-              style={{
-                position: 'absolute',
-                top: '16px',
-                right: '16px',
-                background: 'none',
-                border: 'none',
-                color: '#94a3b8',
-                cursor: 'pointer',
-                padding: '4px',
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: 'rgba(148, 163, 184, 0.05)'
-              }}
-            >
-              <X size={18} />
-            </button>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-              <span style={{
-                fontSize: '11px',
-                fontWeight: 'bold',
-                textTransform: 'uppercase',
-                letterSpacing: '1px',
-                padding: '3px 8px',
-                borderRadius: '6px',
-                backgroundColor: selectedTrade.type === 'BUY' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                color: selectedTrade.type === 'BUY' ? '#10b981' : '#ef4444'
-              }}>
-                {selectedTrade.type}
-              </span>
-              <h2 style={{ fontSize: '18px', fontWeight: 'bold', margin: 0, color: '#f1f5f9' }}>
-                Trade Performance Details
-              </h2>
-            </div>
-
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              backgroundColor: selectedTrade.pnl >= 0 ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
-              border: `1px solid ${selectedTrade.pnl >= 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)'}`,
-              borderRadius: '10px',
-              padding: '12px 16px',
-              marginBottom: '20px'
-            }}>
-              <div>
-                <span style={{ fontSize: '11px', color: '#94a3b8', display: 'block' }}>Net Profit/Loss</span>
-                <span style={{ fontSize: '20px', fontWeight: 'bold', color: selectedTrade.pnl >= 0 ? '#10b981' : '#ef4444' }}>
-                  {selectedTrade.pnl >= 0 ? '+' : ''}${selectedTrade.pnl.toFixed(2)}
-                </span>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <span style={{ fontSize: '11px', color: '#94a3b8', display: 'block' }}>Outcome</span>
-                <span style={{
-                  fontSize: '13px',
-                  fontWeight: 'bold',
-                  color: selectedTrade.pnl >= 0 ? '#10b981' : '#ef4444',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}>
-                  {selectedTrade.pnl >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-                  {selectedTrade.outcome}
-                </span>
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 24px', fontSize: '13px', marginBottom: '20px' }}>
-              <div>
-                <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Entry Price</span>
-                <span style={{ color: '#cbd5e1', fontWeight: '500' }}>${formatPrice(selectedTrade.entryPrice, symbol)}</span>
-              </div>
-              <div>
-                <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Exit Price</span>
-                <span style={{ color: '#cbd5e1', fontWeight: '500' }}>${formatPrice(selectedTrade.exitPrice, symbol)}</span>
-              </div>
-              <div>
-                <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Stop Loss</span>
-                <span style={{ color: '#ef4444', fontWeight: '500' }}>${formatPrice(selectedTrade.slPrice, symbol)}</span>
-              </div>
-              <div>
-                <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Take Profit</span>
-                <span style={{ color: '#10b981', fontWeight: '500' }}>${formatPrice(selectedTrade.tpPrice, symbol)}</span>
-              </div>
-              <div>
-                <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Quantity Size</span>
-                <span style={{ color: '#cbd5e1', fontWeight: '500' }}>{selectedTrade.qty.toFixed(4)}</span>
-              </div>
-              <div>
-                <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Time Closed</span>
-                <span style={{ color: '#cbd5e1', fontWeight: '500' }}>{selectedTrade.time}</span>
-              </div>
-            </div>
-
-            {selectedTrade.triggerReason && (
               <div style={{
-                borderTop: '1px solid #1e293b',
-                paddingTop: '16px',
-                marginTop: '12px',
                 display: 'flex',
-                flexDirection: 'column',
-                gap: '8px',
-                fontSize: '12px'
+                flexWrap: 'wrap',
+                gap: '24px',
+                width: '100%',
               }}>
-                <span style={{ color: '#cbd5e1', fontWeight: 'bold', display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Entry Trigger State (VSA & Structural Sweep)
-                </span>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '8px', backgroundColor: 'rgba(30, 41, 59, 0.3)', padding: '10px', borderRadius: '8px' }}>
-                  <div>
-                    <span style={{ color: '#64748b', display: 'block', fontSize: '10px' }}>Active VSA Patterns</span>
-                    <span style={{ color: '#f1f5f9', fontWeight: '500' }}>{selectedTrade.triggerReason.vsa_patterns}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid rgba(148, 163, 184, 0.1)', paddingTop: '6px' }}>
-                    <div>
-                      <span style={{ color: '#64748b', display: 'block', fontSize: '10px' }}>Swept Structural Level</span>
-                      <span style={{ color: '#f1f5f9', fontWeight: '500' }}>
-                        {selectedTrade.triggerReason.sweep_level ? `$${formatPrice(selectedTrade.triggerReason.sweep_level, symbol)}` : 'None'}
-                      </span>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <span style={{ color: '#64748b', display: 'block', fontSize: '10px' }}>Weis Wave Volume</span>
-                      <span style={{ color: '#f1f5f9', fontWeight: '500' }}>
-                        {selectedTrade.triggerReason.weis_wave_volume ? selectedTrade.triggerReason.weis_wave_volume.toFixed(1) : '0.0'}
-                      </span>
-                    </div>
-                  </div>
-                  {selectedTrade.triggerReason.entry_candle && (
-                    <div style={{ borderTop: '1px solid rgba(148, 163, 184, 0.1)', paddingTop: '6px' }}>
-                      <span style={{ color: '#64748b', display: 'block', fontSize: '10px', marginBottom: '2px' }}>Entry Candle OHLC</span>
-                      <span style={{ color: '#94a3b8', fontFamily: 'monospace' }}>
-                        O:{formatPrice(selectedTrade.triggerReason.entry_candle.open, symbol)} H:{formatPrice(selectedTrade.triggerReason.entry_candle.high, symbol)} L:{formatPrice(selectedTrade.triggerReason.entry_candle.low, symbol)} C:{formatPrice(selectedTrade.triggerReason.entry_candle.close, symbol)}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
+                {panelOrder.map((panelId) => {
+                  const isDragOver = dragOverId === panelId;
+                  const defaultWidth = panelId === 'chart' ? 'calc(50% - 16px)' : 'calc(25% - 16px)';
+                  const dragStyles = {
+                    width: cardWidths[panelId] ? `${cardWidths[panelId]}px` : defaultWidth,
+                    height: cardHeights[panelId] ? `${cardHeights[panelId]}px` : undefined,
+                    maxHeight: '800px',
+                    display: 'flex',
+                    flexDirection: 'column' as const,
+                    flexGrow: cardWidths[panelId] ? 0 : 1,
+                    flexShrink: 1,
+                    minWidth: '280px',
+                    border: isDragOver ? '2px dashed #3b82f6' : '1px solid var(--app-card-border)',
+                    borderRadius: '12px',
+                    backgroundColor: 'var(--app-card-bg)',
+                    transition: activeResize ? 'none' : 'border 0.2s, opacity 0.2s',
+                    opacity: isDragOver ? 0.75 : 1,
+                    position: 'relative' as const,
+                    overflow: 'hidden',
+                  };
 
-            <div style={{ borderTop: '1px solid #1e293b', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px' }}>
-                <span style={{ color: '#64748b', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                  <Clock size={13} /> Duration
-                </span>
-                <span style={{ color: '#f1f5f9', fontWeight: '500' }}>
-                  {selectedTrade.duration} bars / candles
-                </span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px' }}>
-                <span style={{ color: '#64748b', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                  <HelpCircle size={13} /> Exit Reason
-                </span>
-                <span style={{
-                  color: selectedTrade.exitReason?.includes('Stop Loss') ? '#ef4444' : selectedTrade.exitReason?.includes('Take Profit') ? '#10b981' : '#f1f5f9',
-                  fontWeight: 'bold'
-                }}>
-                  {selectedTrade.exitReason || 'Unknown'}
-                </span>
-              </div>
-              {selectedTrade.entryTimestamp && (
-                <button
-                  onClick={() => {
-                    handleLocateCandle({
-                      symbol: symbol,
-                      timeframe: timeframe,
-                      candle_time: selectedTrade.entryTimestamp
-                    });
-                    setShowModal(false);
-                  }}
-                  style={{
-                    marginTop: '8px',
-                    backgroundColor: '#2563eb',
-                    color: '#ffffff',
-                    border: 'none',
-                    borderRadius: '6px',
-                    padding: '8px',
+                  const headerStyle = {
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    backgroundColor: 'var(--app-panel-header-bg)',
+                    padding: '10px 16px',
+                    cursor: 'grab',
+                    userSelect: 'none' as const,
+                    borderBottom: '1px solid var(--app-card-border)',
                     fontSize: '12px',
                     fontWeight: 'bold',
+                    color: 'var(--app-text)',
+                  };
+
+                  const contentStyle = {
+                    padding: '16px',
+                    flex: 1,
+                    overflowY: 'auto' as const,
+                  };
+
+                  if (panelId === 'chart') {
+                    return (
+                      <div
+                        key="chart"
+                        onDragOver={(e) => handleDragOver(e, 'chart')}
+                        onDrop={(e) => handleDrop(e, 'chart')}
+                        style={dragStyles}
+                      >
+                        <div
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, 'chart')}
+                          style={headerStyle}
+                        >
+                          <span>📊 Candlestick & Weis Wave Analysis Chart</span>
+                          <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header to Move</span>
+                        </div>
+                        <div className="no-drag" style={{ padding: '0px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                          <TVChart
+                            symbol={symbol}
+                            onSymbolChange={setSymbol}
+                            timeframe={timeframe}
+                            onTimeframeChange={setTimeframe}
+                            candleSource={candleSource}
+                            onCandleSourceChange={setCandleSource}
+                            availableSymbols={availableSymbols}
+                            availableTimeframes={availableTimeframes}
+                            candles={isLiveFeed ? candles : (backtestResults?.candles || candles)}
+                            loading={loading}
+                            loadingStrategy={loadingStrategy}
+                            onRefresh={(broker, isBg) => fetchCandles(broker, isBg, true)}
+                            entryPrice={selectedTrade?.entryPrice}
+                            slPrice={selectedTrade?.slPrice}
+                            tpPrice={selectedTrade?.tpPrice}
+                            trades={isLiveFeed ? (liveSimulatedTrades.length > 0 ? liveSimulatedTrades : liveTrades) : (backtestResults ? backtestResults.trades : (liveSimulatedTrades.length > 0 ? liveSimulatedTrades : liveTrades))}
+                            selectedTrade={selectedTrade}
+                            onSelectTrade={(trade) => {
+                              setSelectedTrade(trade);
+                              setShowModal(true);
+                            }}
+                            dateRangeOption={dateRangeOption}
+                            customFrom={customFrom}
+                            customTo={customTo}
+                            onSelectCandle={setSelectedCandle}
+                            locateTimestamp={locateTimestamp}
+                            enabledIndicators={enabledIndicators}
+                            fvgs={fvgs}
+                            tradeFilter={tradeFilter}
+                            onTradeFilterChange={setTradeFilter}
+                            sessions={tradingSessions}
+                            sessionsTimezone={sessionsTimezone}
+                            selectedCandle={selectedCandle}
+                            hiddenStages={hiddenStages}
+                            isLiveFeed={isLiveFeed}
+                            onLiveFeedChange={setIsLiveFeed}
+                          />
+                        </div>
+                        {renderResizeHandle('chart')}
+                      </div>
+                    );
+                  }
+
+                  if (panelId === 'backtester') {
+                    return (
+                      <div
+                        key="backtester"
+                        onDragOver={(e) => handleDragOver(e, 'backtester')}
+                        onDrop={(e) => handleDrop(e, 'backtester')}
+                        style={dragStyles}
+                      >
+                        <div
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, 'backtester')}
+                          style={headerStyle}
+                        >
+                          <span>
+                            ⚙️ Wyckoff Backtester
+                            {liveStrategy && liveStrategy.symbol === symbol && liveStrategy.timeframe === timeframe ? (
+                              <span style={{
+                                marginLeft: '8px',
+                                fontSize: '9px',
+                                color: '#10b981',
+                                backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                                border: '1px solid #10b981',
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                fontWeight: 'bold',
+                                verticalAlign: 'middle',
+                              }}>
+                                ● LIVE RUNNING
+                              </span>
+                            ) : (
+                              <span style={{
+                                marginLeft: '8px',
+                                fontSize: '9px',
+                                color: '#9ca3af',
+                                backgroundColor: 'rgba(156, 163, 175, 0.15)',
+                                border: '1px solid #9ca3af',
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                fontWeight: 'bold',
+                                verticalAlign: 'middle',
+                              }}>
+                                NOT DEPLOYED
+                              </span>
+                            )}
+                          </span>
+                          <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header to Move</span>
+                        </div>
+                        <div className="no-drag" style={contentStyle}>
+                          <WyckoffBacktester
+                            isReadOnly={isProdHost && !isAuthenticated}
+                            symbol={symbol}
+                            timeframe={timeframe}
+                            broker={candleSource}
+                            liveStrategy={liveStrategy}
+                            isDeploying={isDeploying}
+                            deployLiveStrategy={deployLiveStrategy}
+                            backtestBalance={backtestBalance}
+                            setBacktestBalance={setBacktestBalance}
+                            useRiskSizing={useRiskSizing}
+                            setUseRiskSizing={setUseRiskSizing}
+                            backtestRiskPct={backtestRiskPct}
+                            setBacktestRiskPct={setBacktestRiskPct}
+                            backtestSize={backtestSize}
+                            setBacktestSize={setBacktestSize}
+                            backtestSL={backtestSL}
+                            setBacktestSL={setBacktestSL}
+                            backtestSLType={backtestSLType}
+                            setBacktestSLType={setBacktestSLType}
+                            backtestRR={backtestRR}
+                            setBacktestRR={setBacktestRR}
+                            useBreakEven={useBreakEven}
+                            setUseBreakEven={setUseBreakEven}
+                            backtestBE={backtestBE}
+                            setBacktestBE={setBacktestBE}
+                            lookbackWindow={lookbackWindow}
+                            setLookbackWindow={setLookbackWindow}
+                            backtestResults={backtestResults}
+                            backtestTab={backtestTab}
+                            setBacktestTab={setBacktestTab}
+                            tradeFilter={tradeFilter}
+                            setTradeFilter={setTradeFilter}
+                            selectedTrade={selectedTrade}
+                            setSelectedTrade={setSelectedTrade}
+                            setShowModal={setShowModal}
+                            backtestFees={backtestFees}
+                            setBacktestFees={setBacktestFees}
+                            enabledIndicators={enabledIndicators}
+                            setEnabledIndicators={setEnabledIndicators}
+                            dateRangeOption={dateRangeOption}
+                            setDateRangeOption={setDateRangeOption}
+                            customFrom={customFrom}
+                            setCustomFrom={setCustomFrom}
+                            customTo={customTo}
+                            setCustomTo={setCustomTo}
+                            entryStabilityRule={entryStabilityRule}
+                            setEntryStabilityRule={setEntryStabilityRule}
+                            candleLimit={candleLimit}
+                            setCandleLimit={setCandleLimit}
+                            favouriteCandles={favouriteCandles}
+                            onDeleteFavourite={handleDeleteFavourite}
+                            onUpdateNotes={handleUpdateFavouriteNotes}
+                            onLocateCandle={handleLocateCandle}
+                            styles={styles}
+                            onRunBacktest={runBacktest}
+                            loadingBacktest={loadingBacktest}
+                            backtestProgress={backtestProgress}
+                            dailyRetryLimit={dailyRetryLimit}
+                            setDailyRetryLimit={setDailyRetryLimit}
+                            allowOppositeClose={allowOppositeClose}
+                            setAllowOppositeClose={setAllowOppositeClose}
+                            onCancelBacktest={cancelBacktest}
+                            sessionsTimezone={sessionsTimezone}
+                            setSessionsTimezone={setSessionsTimezone}
+                            tradingSessions={tradingSessions}
+                            setTradingSessions={setTradingSessions}
+                            useGlobalClose={useGlobalClose}
+                            setUseGlobalClose={setUseGlobalClose}
+                            globalCloseTime={globalCloseTime}
+                            setGlobalCloseTime={setGlobalCloseTime}
+                            hiddenStages={hiddenStages}
+                            setHiddenStages={setHiddenStages}
+
+                            isOptimizeMode={isOptimizeMode}
+                            setIsOptimizeMode={setIsOptimizeMode}
+                            rrStart={rrStart}
+                            setRRStart={setRRStart}
+                            rrEnd={rrEnd}
+                            setRREnd={setRREnd}
+                            rrStep={rrStep}
+                            setRRStep={setRRStep}
+                            optimizationResults={optimizationResults}
+                            setOptimizationResults={setOptimizationResults}
+                            onRunOptimization={runOptimization}
+                            onSaveSettings={saveBacktestSettings}
+                          />
+                        </div>
+                        {renderResizeHandle('backtester')}
+                      </div>
+                    );
+                  }
+
+                  if (panelId === 'trades') {
+                    return (
+                      <div
+                        key="trades"
+                        onDragOver={(e) => handleDragOver(e, 'trades')}
+                        onDrop={(e) => handleDrop(e, 'trades')}
+                        style={dragStyles}
+                      >
+                        <div
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, 'trades')}
+                          style={headerStyle}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', justifyContent: 'space-between' }}>
+                            <span>📈 Live Trades & P&L</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', position: 'relative' }}>
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setShowTradesSettings(!showTradesSettings);
+                                }}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  color: '#9ca3af',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  padding: '4px',
+                                  borderRadius: '4px',
+                                  transition: 'background-color 0.2s',
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--app-hover-bg)'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                title="Trades Panel Settings"
+                              >
+                                <Settings size={14} />
+                              </button>
+                              {showTradesSettings && (
+                                <>
+                                  <div
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      setShowTradesSettings(false);
+                                    }}
+                                    style={{
+                                      position: 'fixed',
+                                      top: 0,
+                                      left: 0,
+                                      right: 0,
+                                      bottom: 0,
+                                      zIndex: 999
+                                    }}
+                                  />
+                                  <div
+                                    onClick={(e) => e.stopPropagation()}
+                                    style={{
+                                      position: 'absolute',
+                                      top: '100%',
+                                      right: 0,
+                                      marginTop: '6px',
+                                      backgroundColor: '#0f172a',
+                                      border: '1px solid #1f2937',
+                                      borderRadius: '8px',
+                                      padding: '12px',
+                                      zIndex: 1000,
+                                      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)',
+                                      minWidth: '170px',
+                                      display: 'flex',
+                                      flexDirection: 'column',
+                                      gap: '8px',
+                                    }}
+                                  >
+                                    <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#9ca3af', borderBottom: '1px solid #1f2937', paddingBottom: '6px', marginBottom: '4px', textAlign: 'left' }}>
+                                      Trades Configuration
+                                    </div>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '11px', color: '#ffffff', userSelect: 'none' }}>
+                                      <input
+                                        type="checkbox"
+                                        checked={autoPollTrades}
+                                        onChange={(e) => setAutoPollTrades(e.target.checked)}
+                                        style={{ cursor: 'pointer' }}
+                                      />
+                                      🔄 Live Auto-Polling (10s)
+                                    </label>
+                                  </div>
+                                </>
+                              )}
+                              <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="no-drag" style={contentStyle}>
+                          <LiveTradesPanel
+                            dailyPnl={dailyPnl}
+                            weeklyPnl={weeklyPnl}
+                            openPositions={openPositions}
+                            historyTrades={historyTrades}
+                            loadingHistory={loadingHistory}
+                            historyError={historyError}
+                            handleClosePosition={handleClosePosition}
+                            isMobileLayout={false}
+                          />
+                        </div>
+                        {renderResizeHandle('trades')}
+                      </div>
+                    );
+                  }
+
+                  if (panelId === 'live_overview') {
+                    return (
+                      <div
+                        key="live_overview"
+                        onDragOver={(e) => handleDragOver(e, 'live_overview')}
+                        onDrop={(e) => handleDrop(e, 'live_overview')}
+                        style={dragStyles}
+                      >
+                        <div
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, 'live_overview')}
+                          style={headerStyle}
+                        >
+                          <span>⚡ Live Strategies Overview</span>
+                          <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header to Move</span>
+                        </div>
+                        <div className="no-drag" style={contentStyle}>
+                          <LiveOverviewPanel
+                            isMobileLayout={false}
+                            selectedStrategyId={selectedStrategyId}
+                            isLiveFeed={isLiveFeed}
+                            onSelectStrategy={(id) => {
+                              setSelectedStrategyId(id);
+                              localStorage.setItem('wyckoff_selected_live_strategy_id', id);
+                              setIsLiveFeed(true);
+                              localStorage.setItem('wyckoff_is_live_feed', 'true');
+                              // Trigger candle fetch on active display update
+                              setTimeout(() => fetchCandles(), 50);
+                            }}
+                          />
+                        </div>
+                        {renderResizeHandle('live_overview')}
+                      </div>
+                    );
+                  }
+
+                  return null;
+                })}
+              </div>
+            )}
+            {/* Terminal Streaming Component */}
+            <div style={{
+              width: '100%',
+              backgroundColor: '#090d16',
+              border: '1px solid #1f2937',
+              borderRadius: '12px',
+              overflow: 'hidden',
+              marginTop: '24px',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)',
+            }}>
+              {/* Terminal Header */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                backgroundColor: '#111827',
+                padding: '10px 16px',
+                borderBottom: '1px solid #1f2937',
+                fontSize: '12px',
+                fontWeight: 'bold',
+                color: '#f3f4f6',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>💻 Terminal Logs Stream</span>
+                  <span style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    backgroundColor: terminalConnectionStatus === 'connected' ? '#10b981' : terminalConnectionStatus === 'connecting' ? '#f59e0b' : '#ef4444',
+                    boxShadow: `0 0 8px ${terminalConnectionStatus === 'connected' ? '#10b981' : terminalConnectionStatus === 'connecting' ? '#f59e0b' : '#ef4444'}`,
+                    display: 'inline-block',
+                  }} title={`Connection Status: ${terminalConnectionStatus}`} />
+                </div>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <button
+                    onClick={() => setTerminalLogs([])}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#9ca3af',
+                      cursor: 'pointer',
+                      fontSize: '11px',
+                      fontWeight: 'bold',
+                      outline: 'none',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.color = '#ffffff'}
+                    onMouseLeave={(e) => e.currentTarget.style.color = '#9ca3af'}
+                  >
+                    Clear Logs
+                  </button>
+                  <button
+                    onClick={() => setShowTerminal(!showTerminal)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#3b82f6',
+                      cursor: 'pointer',
+                      fontSize: '11px',
+                      fontWeight: 'bold',
+                      outline: 'none',
+                    }}
+                  >
+                    {showTerminal ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Terminal logs content */}
+              {showTerminal && (
+                <div style={{
+                  height: '240px',
+                  overflowY: 'auto',
+                  padding: '16px',
+                  backgroundColor: '#05070c',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '2px',
+                }}>
+                  {terminalLogs.length === 0 ? (
+                    <div style={{ color: '#4b5563', fontFamily: 'monospace', fontSize: '12px', fontStyle: 'italic' }}>
+                      Waiting for logs...
+                    </div>
+                  ) : (
+                    terminalLogs.map((line, idx) => {
+                      let color = '#f8fafc'; // default white
+                      const lower = line.toLowerCase();
+                      if (lower.includes('error') || lower.includes('exception') || lower.includes('failed')) {
+                        color = '#ef4444'; // Red
+                      } else if (lower.includes('warning') || lower.includes('warn')) {
+                        color = '#eab308'; // Yellow
+                      } else if (lower.includes('success') || lower.includes('online') || lower.includes('started') || lower.includes('recovery')) {
+                        color = '#10b981'; // Green
+                      } else if (lower.includes('[api log]') || lower.includes('request')) {
+                        color = '#38bdf8'; // Blue/Cyan
+                      } else if (lower.includes('debug')) {
+                        color = '#a855f7'; // Purple
+                      }
+
+                      return (
+                        <div key={idx} style={{ color, fontFamily: 'monospace', fontSize: '11px', whiteSpace: 'pre-wrap', lineHeight: '1.4' }}>
+                          {line}
+                        </div>
+                      );
+                    })
+                  )}
+                  <div ref={terminalEndRef} />
+                </div>
+              )}
+            </div>
+
+          </main>
+
+          {/* Trade Performance Detail Overlay */}
+          {showModal && selectedTrade && (
+            <div
+              onClick={() => setShowModal(false)}
+              style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: 'rgba(5, 7, 12, 0.85)',
+                backdropFilter: 'blur(8px)',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                zIndex: 9999,
+              }}
+            >
+              <div
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  backgroundColor: '#0f172a',
+                  border: `2px solid ${selectedTrade.pnl >= 0 ? '#10b981' : '#ef4444'}`,
+                  boxShadow: `0 0 25px ${selectedTrade.pnl >= 0 ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)'}`,
+                  borderRadius: '16px',
+                  width: '90%',
+                  maxWidth: '480px',
+                  padding: '24px',
+                  position: 'relative',
+                  color: '#f8fafc',
+                }}>
+                <button
+                  onClick={() => setShowModal(false)}
+                  style={{
+                    position: 'absolute',
+                    top: '16px',
+                    right: '16px',
+                    background: 'none',
+                    border: 'none',
+                    color: '#94a3b8',
                     cursor: 'pointer',
+                    padding: '4px',
+                    borderRadius: '50%',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '6px'
+                    backgroundColor: 'rgba(148, 163, 184, 0.05)'
                   }}
                 >
-                  📍 Go to Trade
+                  <X size={18} />
                 </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
-      {showAccountModal && (
-        <div
-          onClick={() => setShowAccountModal(false)}
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            zIndex: 9999,
-            backgroundColor: 'rgba(15, 23, 42, 0.75)',
-            backdropFilter: 'blur(4px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              backgroundColor: '#0f172a',
-              border: '1px solid #334155',
-              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
-              borderRadius: '16px',
-              width: '90%',
-              maxWidth: '520px',
-              padding: '24px',
-              position: 'relative',
-              color: '#f8fafc',
-            }}
-          >
-            <button
-              onClick={() => setShowAccountModal(false)}
-              style={{
-                position: 'absolute',
-                top: '16px',
-                right: '16px',
-                background: 'none',
-                border: 'none',
-                color: '#94a3b8',
-                cursor: 'pointer',
-                padding: '4px',
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: 'rgba(148, 163, 184, 0.05)'
-              }}
-            >
-              <X size={18} />
-            </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+                  <span style={{
+                    fontSize: '11px',
+                    fontWeight: 'bold',
+                    textTransform: 'uppercase',
+                    letterSpacing: '1px',
+                    padding: '3px 8px',
+                    borderRadius: '6px',
+                    backgroundColor: selectedTrade.type === 'BUY' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                    color: selectedTrade.type === 'BUY' ? '#10b981' : '#ef4444'
+                  }}>
+                    {selectedTrade.type}
+                  </span>
+                  <h2 style={{ fontSize: '18px', fontWeight: 'bold', margin: 0, color: '#f1f5f9' }}>
+                    Trade Performance Details
+                  </h2>
+                </div>
 
-            <h2 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '16px', color: '#f1f5f9' }}>
-              📁 Account Management
-            </h2>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  backgroundColor: selectedTrade.pnl >= 0 ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
+                  border: `1px solid ${selectedTrade.pnl >= 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)'}`,
+                  borderRadius: '10px',
+                  padding: '12px 16px',
+                  marginBottom: '20px'
+                }}>
+                  <div>
+                    <span style={{ fontSize: '11px', color: '#94a3b8', display: 'block' }}>Net Profit/Loss</span>
+                    <span style={{ fontSize: '20px', fontWeight: 'bold', color: selectedTrade.pnl >= 0 ? '#10b981' : '#ef4444' }}>
+                      {selectedTrade.pnl >= 0 ? '+' : ''}${selectedTrade.pnl.toFixed(2)}
+                    </span>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <span style={{ fontSize: '11px', color: '#94a3b8', display: 'block' }}>Outcome</span>
+                    <span style={{
+                      fontSize: '13px',
+                      fontWeight: 'bold',
+                      color: selectedTrade.pnl >= 0 ? '#10b981' : '#ef4444',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}>
+                      {selectedTrade.pnl >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                      {selectedTrade.outcome}
+                    </span>
+                  </div>
+                </div>
 
-            {/* List existing accounts */}
-            <div style={{ marginBottom: '24px', maxHeight: '200px', overflowY: 'auto' }}>
-              <h3 style={{ fontSize: '12px', fontWeight: 'bold', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '8px' }}>
-                Connected Accounts
-              </h3>
-              {accounts.length === 0 ? (
-                <div style={{ color: '#64748b', fontSize: '12px', padding: '8px 0' }}>No accounts connected yet.</div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {accounts.map((acc) => (
-                    <div
-                      key={acc.account_id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        backgroundColor: '#1e293b',
-                        borderRadius: '8px',
-                        padding: '8px 12px',
-                        border: acc.is_active ? '1px solid #3b82f6' : '1px solid transparent'
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{
-                          fontWeight: 'bold',
-                          color: acc.broker_type === 'ctrader' ? '#f59e0b' : '#3b82f6',
-                          fontSize: '10px',
-                          textTransform: 'uppercase',
-                          backgroundColor: acc.broker_type === 'ctrader' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(59, 130, 246, 0.15)',
-                          padding: '2px 6px',
-                          borderRadius: '4px'
-                        }}>
-                          {acc.broker_type === 'ctrader' ? 'cTrader' : 'MT5'}
-                        </span>
-                        <span style={{ fontSize: '13px', fontWeight: 'bold' }}>{acc.name}</span>
-                        <span style={{ fontSize: '11px', color: '#64748b' }}>({acc.account_id})</span>
-                        {acc.is_active === 1 && <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 'bold' }}> ● Active</span>}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 24px', fontSize: '13px', marginBottom: '20px' }}>
+                  <div>
+                    <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Entry Price</span>
+                    <span style={{ color: '#cbd5e1', fontWeight: '500' }}>${formatPrice(selectedTrade.entryPrice, symbol)}</span>
+                  </div>
+                  <div>
+                    <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Exit Price</span>
+                    <span style={{ color: '#cbd5e1', fontWeight: '500' }}>${formatPrice(selectedTrade.exitPrice, symbol)}</span>
+                  </div>
+                  <div>
+                    <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Stop Loss</span>
+                    <span style={{ color: '#ef4444', fontWeight: '500' }}>${formatPrice(selectedTrade.slPrice, symbol)}</span>
+                  </div>
+                  <div>
+                    <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Take Profit</span>
+                    <span style={{ color: '#10b981', fontWeight: '500' }}>${formatPrice(selectedTrade.tpPrice, symbol)}</span>
+                  </div>
+                  <div>
+                    <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Quantity Size</span>
+                    <span style={{ color: '#cbd5e1', fontWeight: '500' }}>{selectedTrade.qty.toFixed(4)}</span>
+                  </div>
+                  <div>
+                    <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Time Closed</span>
+                    <span style={{ color: '#cbd5e1', fontWeight: '500' }}>{selectedTrade.time}</span>
+                  </div>
+                </div>
+
+                {selectedTrade.triggerReason && (
+                  <div style={{
+                    borderTop: '1px solid #1e293b',
+                    paddingTop: '16px',
+                    marginTop: '12px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px',
+                    fontSize: '12px'
+                  }}>
+                    <span style={{ color: '#cbd5e1', fontWeight: 'bold', display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Entry Trigger State (VSA & Structural Sweep)
+                    </span>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '8px', backgroundColor: 'rgba(30, 41, 59, 0.3)', padding: '10px', borderRadius: '8px' }}>
+                      <div>
+                        <span style={{ color: '#64748b', display: 'block', fontSize: '10px' }}>Active VSA Patterns</span>
+                        <span style={{ color: '#f1f5f9', fontWeight: '500' }}>{selectedTrade.triggerReason.vsa_patterns}</span>
                       </div>
-                      <div style={{ display: 'flex', gap: '12px' }}>
-                        {acc.is_active !== 1 && (
-                          <button
-                            onClick={() => handleSwitchAccount(acc.account_id)}
-                            style={{
-                              backgroundColor: 'transparent',
-                              border: 'none',
-                              color: '#3b82f6',
-                              cursor: 'pointer',
-                              fontSize: '12px',
-                              fontWeight: 'bold'
-                            }}
-                          >
-                            Activate
-                          </button>
-                        )}
-                        <button
-                          onClick={() => handleDeleteAccount(acc.account_id)}
-                          style={{
-                            backgroundColor: 'transparent',
-                            border: 'none',
-                            color: '#ef4444',
-                            cursor: 'pointer',
-                            fontSize: '12px',
-                            fontWeight: 'bold'
-                          }}
-                        >
-                          Delete
-                        </button>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid rgba(148, 163, 184, 0.1)', paddingTop: '6px' }}>
+                        <div>
+                          <span style={{ color: '#64748b', display: 'block', fontSize: '10px' }}>Swept Structural Level</span>
+                          <span style={{ color: '#f1f5f9', fontWeight: '500' }}>
+                            {selectedTrade.triggerReason.sweep_level ? `$${formatPrice(selectedTrade.triggerReason.sweep_level, symbol)}` : 'None'}
+                          </span>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <span style={{ color: '#64748b', display: 'block', fontSize: '10px' }}>Weis Wave Volume</span>
+                          <span style={{ color: '#f1f5f9', fontWeight: '500' }}>
+                            {selectedTrade.triggerReason.weis_wave_volume ? selectedTrade.triggerReason.weis_wave_volume.toFixed(1) : '0.0'}
+                          </span>
+                        </div>
                       </div>
+                      {selectedTrade.triggerReason.entry_candle && (
+                        <div style={{ borderTop: '1px solid rgba(148, 163, 184, 0.1)', paddingTop: '6px' }}>
+                          <span style={{ color: '#64748b', display: 'block', fontSize: '10px', marginBottom: '2px' }}>Entry Candle OHLC</span>
+                          <span style={{ color: '#94a3b8', fontFamily: 'monospace' }}>
+                            O:{formatPrice(selectedTrade.triggerReason.entry_candle.open, symbol)} H:{formatPrice(selectedTrade.triggerReason.entry_candle.high, symbol)} L:{formatPrice(selectedTrade.triggerReason.entry_candle.low, symbol)} C:{formatPrice(selectedTrade.triggerReason.entry_candle.close, symbol)}
+                          </span>
+                        </div>
+                      )}
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Add new account form */}
-            <form onSubmit={handleAddAccount} style={{ borderTop: '1px solid #1e293b', paddingTop: '16px' }}>
-              <h3 style={{ fontSize: '12px', fontWeight: 'bold', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '12px' }}>
-                Add New Trading Account
-              </h3>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Account Name Label</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. My FTMO Live"
-                    value={newAccName}
-                    onChange={(e) => setNewAccName(e.target.value)}
-                    style={{
-                      width: '100%',
-                      backgroundColor: '#1e293b',
-                      border: '1px solid #334155',
-                      borderRadius: '6px',
-                      padding: '8px 12px',
-                      color: '#f8fafc',
-                      fontSize: '13px',
-                      outline: 'none'
-                    }}
-                  />
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Broker Platform</label>
-                    <select
-                      value={newAccBroker}
-                      onChange={(e) => setNewAccBroker(e.target.value as 'ctrader' | 'metatrader')}
-                      style={{
-                        width: '100%',
-                        backgroundColor: '#1e293b',
-                        border: '1px solid #334155',
-                        borderRadius: '6px',
-                        padding: '8px 12px',
-                        color: '#f8fafc',
-                        fontSize: '13px',
-                        outline: 'none',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      <option value="ctrader">cTrader</option>
-                      <option value="metatrader">MetaTrader 5</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Account Login / ID</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. 17151091"
-                      value={newAccId}
-                      onChange={(e) => setNewAccId(e.target.value)}
-                      style={{
-                        width: '100%',
-                        backgroundColor: '#1e293b',
-                        border: '1px solid #334155',
-                        borderRadius: '6px',
-                        padding: '8px 12px',
-                        color: '#f8fafc',
-                        fontSize: '13px',
-                        outline: 'none'
-                      }}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>
-                    {newAccBroker === 'ctrader' ? 'Access Token / OAuth Token' : 'Password'}
-                  </label>
-                  <input
-                    type="password"
-                    placeholder={newAccBroker === 'ctrader' ? 'Paste oauth token' : 'Account password'}
-                    value={newAccPassword}
-                    onChange={(e) => setNewAccPassword(e.target.value)}
-                    style={{
-                      width: '100%',
-                      backgroundColor: '#1e293b',
-                      border: '1px solid #334155',
-                      borderRadius: '6px',
-                      padding: '8px 12px',
-                      color: '#f8fafc',
-                      fontSize: '13px',
-                      outline: 'none'
-                    }}
-                  />
-                </div>
-
-                {newAccBroker === 'metatrader' && (
-                  <div>
-                    <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Server Name (MT5 Only)</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. JustMarkets-Demo"
-                      value={newAccServer}
-                      onChange={(e) => setNewAccServer(e.target.value)}
-                      style={{
-                        width: '100%',
-                        backgroundColor: '#1e293b',
-                        border: '1px solid #334155',
-                        borderRadius: '6px',
-                        padding: '8px 12px',
-                        color: '#f8fafc',
-                        fontSize: '13px',
-                        outline: 'none'
-                      }}
-                    />
                   </div>
                 )}
 
+                <div style={{ borderTop: '1px solid #1e293b', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px' }}>
+                    <span style={{ color: '#64748b', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      <Clock size={13} /> Duration
+                    </span>
+                    <span style={{ color: '#f1f5f9', fontWeight: '500' }}>
+                      {selectedTrade.duration} bars / candles
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px' }}>
+                    <span style={{ color: '#64748b', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      <HelpCircle size={13} /> Exit Reason
+                    </span>
+                    <span style={{
+                      color: selectedTrade.exitReason?.includes('Stop Loss') ? '#ef4444' : selectedTrade.exitReason?.includes('Take Profit') ? '#10b981' : '#f1f5f9',
+                      fontWeight: 'bold'
+                    }}>
+                      {selectedTrade.exitReason || 'Unknown'}
+                    </span>
+                  </div>
+                  {selectedTrade.entryTimestamp && (
+                    <button
+                      onClick={() => {
+                        handleLocateCandle({
+                          symbol: symbol,
+                          timeframe: timeframe,
+                          candle_time: selectedTrade.entryTimestamp
+                        });
+                        setShowModal(false);
+                      }}
+                      style={{
+                        marginTop: '8px',
+                        backgroundColor: '#2563eb',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        padding: '8px',
+                        fontSize: '12px',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      📍 Go to Trade
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {showAccountModal && (
+            <div
+              onClick={() => setShowAccountModal(false)}
+              style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                zIndex: 9999,
+                backgroundColor: 'rgba(15, 23, 42, 0.75)',
+                backdropFilter: 'blur(4px)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <div
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  backgroundColor: '#0f172a',
+                  border: '1px solid #334155',
+                  boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
+                  borderRadius: '16px',
+                  width: '90%',
+                  maxWidth: '520px',
+                  padding: '24px',
+                  position: 'relative',
+                  color: '#f8fafc',
+                }}
+              >
                 <button
-                  type="submit"
+                  onClick={() => setShowAccountModal(false)}
                   style={{
-                    backgroundColor: '#2563eb',
-                    color: '#ffffff',
+                    position: 'absolute',
+                    top: '16px',
+                    right: '16px',
+                    background: 'none',
                     border: 'none',
-                    borderRadius: '6px',
-                    padding: '10px',
-                    fontSize: '13px',
-                    fontWeight: 'bold',
+                    color: '#94a3b8',
                     cursor: 'pointer',
-                    marginTop: '8px',
-                    boxShadow: '0 4px 10px rgba(37, 99, 235, 0.25)'
+                    padding: '4px',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: 'rgba(148, 163, 184, 0.05)'
                   }}
                 >
-                  Connect Account
+                  <X size={18} />
                 </button>
+
+                <h2 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '16px', color: '#f1f5f9' }}>
+                  📁 Account Management
+                </h2>
+
+                {/* List existing accounts */}
+                <div style={{ marginBottom: '24px', maxHeight: '200px', overflowY: 'auto' }}>
+                  <h3 style={{ fontSize: '12px', fontWeight: 'bold', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '8px' }}>
+                    Connected Accounts
+                  </h3>
+                  {accounts.length === 0 ? (
+                    <div style={{ color: '#64748b', fontSize: '12px', padding: '8px 0' }}>No accounts connected yet.</div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {accounts.map((acc) => (
+                        <div
+                          key={acc.account_id}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            backgroundColor: '#1e293b',
+                            borderRadius: '8px',
+                            padding: '8px 12px',
+                            border: acc.is_active ? '1px solid #3b82f6' : '1px solid transparent'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{
+                              fontWeight: 'bold',
+                              color: acc.broker_type === 'ctrader' ? '#f59e0b' : '#3b82f6',
+                              fontSize: '10px',
+                              textTransform: 'uppercase',
+                              backgroundColor: acc.broker_type === 'ctrader' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(59, 130, 246, 0.15)',
+                              padding: '2px 6px',
+                              borderRadius: '4px'
+                            }}>
+                              {acc.broker_type === 'ctrader' ? 'cTrader' : 'MT5'}
+                            </span>
+                            <span style={{ fontSize: '13px', fontWeight: 'bold' }}>{acc.name}</span>
+                            <span style={{ fontSize: '11px', color: '#64748b' }}>({acc.account_id})</span>
+                            {acc.is_active === 1 && <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 'bold' }}> ● Active</span>}
+                          </div>
+                          <div style={{ display: 'flex', gap: '12px' }}>
+                            {acc.is_active !== 1 && (
+                              <button
+                                onClick={() => handleSwitchAccount(acc.account_id)}
+                                style={{
+                                  backgroundColor: 'transparent',
+                                  border: 'none',
+                                  color: '#3b82f6',
+                                  cursor: 'pointer',
+                                  fontSize: '12px',
+                                  fontWeight: 'bold'
+                                }}
+                              >
+                                Activate
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleDeleteAccount(acc.account_id)}
+                              style={{
+                                backgroundColor: 'transparent',
+                                border: 'none',
+                                color: '#ef4444',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                fontWeight: 'bold'
+                              }}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Add new account form */}
+                <form onSubmit={handleAddAccount} style={{ borderTop: '1px solid #1e293b', paddingTop: '16px' }}>
+                  <h3 style={{ fontSize: '12px', fontWeight: 'bold', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '12px' }}>
+                    Add New Trading Account
+                  </h3>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Account Name Label</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. My FTMO Live"
+                        value={newAccName}
+                        onChange={(e) => setNewAccName(e.target.value)}
+                        style={{
+                          width: '100%',
+                          backgroundColor: '#1e293b',
+                          border: '1px solid #334155',
+                          borderRadius: '6px',
+                          padding: '8px 12px',
+                          color: '#f8fafc',
+                          fontSize: '13px',
+                          outline: 'none'
+                        }}
+                      />
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Broker Platform</label>
+                        <select
+                          value={newAccBroker}
+                          onChange={(e) => setNewAccBroker(e.target.value as 'ctrader' | 'metatrader')}
+                          style={{
+                            width: '100%',
+                            backgroundColor: '#1e293b',
+                            border: '1px solid #334155',
+                            borderRadius: '6px',
+                            padding: '8px 12px',
+                            color: '#f8fafc',
+                            fontSize: '13px',
+                            outline: 'none',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <option value="ctrader">cTrader</option>
+                          <option value="metatrader">MetaTrader 5</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Account Login / ID</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. 17151091"
+                          value={newAccId}
+                          onChange={(e) => setNewAccId(e.target.value)}
+                          style={{
+                            width: '100%',
+                            backgroundColor: '#1e293b',
+                            border: '1px solid #334155',
+                            borderRadius: '6px',
+                            padding: '8px 12px',
+                            color: '#f8fafc',
+                            fontSize: '13px',
+                            outline: 'none'
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>
+                        {newAccBroker === 'ctrader' ? 'Access Token / OAuth Token' : 'Password'}
+                      </label>
+                      <input
+                        type="password"
+                        placeholder={newAccBroker === 'ctrader' ? 'Paste oauth token' : 'Account password'}
+                        value={newAccPassword}
+                        onChange={(e) => setNewAccPassword(e.target.value)}
+                        style={{
+                          width: '100%',
+                          backgroundColor: '#1e293b',
+                          border: '1px solid #334155',
+                          borderRadius: '6px',
+                          padding: '8px 12px',
+                          color: '#f8fafc',
+                          fontSize: '13px',
+                          outline: 'none'
+                        }}
+                      />
+                    </div>
+
+                    {newAccBroker === 'metatrader' && (
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Server Name (MT5 Only)</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. JustMarkets-Demo"
+                          value={newAccServer}
+                          onChange={(e) => setNewAccServer(e.target.value)}
+                          style={{
+                            width: '100%',
+                            backgroundColor: '#1e293b',
+                            border: '1px solid #334155',
+                            borderRadius: '6px',
+                            padding: '8px 12px',
+                            color: '#f8fafc',
+                            fontSize: '13px',
+                            outline: 'none'
+                          }}
+                        />
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      style={{
+                        backgroundColor: '#2563eb',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        padding: '10px',
+                        fontSize: '13px',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        marginTop: '8px',
+                        boxShadow: '0 4px 10px rgba(37, 99, 235, 0.25)'
+                      }}
+                    >
+                      Connect Account
+                    </button>
+                  </div>
+                </form>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+            </div>
+          )}
         </>
       )}
 
