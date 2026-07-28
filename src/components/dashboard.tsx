@@ -298,6 +298,62 @@ export default function Dashboard() {
 
   const [view, setView] = useState<'dashboard' | 'mappings' | 'trades' | 'computers'>('dashboard');
   const [connectionMode, setConnectionMode] = useState<'openapi' | 'fix'>('fix');
+
+  const [terminalLogs, setTerminalLogs] = useState<string[]>([]);
+  const [showTerminal, setShowTerminal] = useState<boolean>(true);
+  const [terminalConnectionStatus, setTerminalConnectionStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
+  const terminalEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let eventSource: EventSource | null = null;
+    let reconnectTimeout: any = null;
+
+    const connectSSE = () => {
+      setTerminalConnectionStatus('connecting');
+      eventSource = new EventSource(`${API_BASE_URL}/api/terminal/stream`);
+
+      eventSource.onopen = () => {
+        setTerminalConnectionStatus('connected');
+      };
+
+      eventSource.onmessage = (event) => {
+        if (!event.data) return;
+        setTerminalLogs((prev) => {
+          const updated = [...prev, event.data];
+          if (updated.length > 2000) {
+            return updated.slice(updated.length - 2000);
+          }
+          return updated;
+        });
+      };
+
+      eventSource.onerror = (err) => {
+        console.error("Terminal stream EventSource failed, reconnecting in 5s...", err);
+        setTerminalConnectionStatus('error');
+        if (eventSource) {
+          eventSource.close();
+        }
+        reconnectTimeout = setTimeout(connectSSE, 5000);
+      };
+    };
+
+    connectSSE();
+
+    return () => {
+      if (eventSource) {
+        eventSource.close();
+      }
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (showTerminal && terminalEndRef.current) {
+      terminalEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [terminalLogs, showTerminal]);
   const [isConnectedOpenAPI] = useState(true);
   const [isConnectedFIX] = useState(true);
   const [isLiveFeed, setIsLiveFeed] = useState<boolean>(() => localStorage.getItem('wyckoff_is_live_feed') === 'true');
@@ -3251,6 +3307,117 @@ export default function Dashboard() {
           })}
         </div>
       )}
+      {/* Terminal Streaming Component */}
+      <div style={{
+        width: '100%',
+        backgroundColor: '#090d16',
+        border: '1px solid #1f2937',
+        borderRadius: '12px',
+        overflow: 'hidden',
+        marginTop: '24px',
+        display: 'flex',
+        flexDirection: 'column',
+        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)',
+      }}>
+        {/* Terminal Header */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          backgroundColor: '#111827',
+          padding: '10px 16px',
+          borderBottom: '1px solid #1f2937',
+          fontSize: '12px',
+          fontWeight: 'bold',
+          color: '#f3f4f6',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span>💻 Terminal Logs Stream</span>
+            <span style={{
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              backgroundColor: terminalConnectionStatus === 'connected' ? '#10b981' : terminalConnectionStatus === 'connecting' ? '#f59e0b' : '#ef4444',
+              boxShadow: `0 0 8px ${terminalConnectionStatus === 'connected' ? '#10b981' : terminalConnectionStatus === 'connecting' ? '#f59e0b' : '#ef4444'}`,
+              display: 'inline-block',
+            }} title={`Connection Status: ${terminalConnectionStatus}`} />
+          </div>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button
+              onClick={() => setTerminalLogs([])}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#9ca3af',
+                cursor: 'pointer',
+                fontSize: '11px',
+                fontWeight: 'bold',
+                outline: 'none',
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.color = '#ffffff'}
+              onMouseLeave={(e) => e.currentTarget.style.color = '#9ca3af'}
+            >
+              Clear Logs
+            </button>
+            <button
+              onClick={() => setShowTerminal(!showTerminal)}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#3b82f6',
+                cursor: 'pointer',
+                fontSize: '11px',
+                fontWeight: 'bold',
+                outline: 'none',
+              }}
+            >
+              {showTerminal ? 'Hide' : 'Show'}
+            </button>
+          </div>
+        </div>
+
+        {/* Terminal logs content */}
+        {showTerminal && (
+          <div style={{
+            height: '240px',
+            overflowY: 'auto',
+            padding: '16px',
+            backgroundColor: '#05070c',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '2px',
+          }}>
+            {terminalLogs.length === 0 ? (
+              <div style={{ color: '#4b5563', fontFamily: 'monospace', fontSize: '12px', fontStyle: 'italic' }}>
+                Waiting for logs...
+              </div>
+            ) : (
+              terminalLogs.map((line, idx) => {
+                let color = '#f8fafc'; // default white
+                const lower = line.toLowerCase();
+                if (lower.includes('error') || lower.includes('exception') || lower.includes('failed')) {
+                  color = '#ef4444'; // Red
+                } else if (lower.includes('warning') || lower.includes('warn')) {
+                  color = '#eab308'; // Yellow
+                } else if (lower.includes('success') || lower.includes('online') || lower.includes('started') || lower.includes('recovery')) {
+                  color = '#10b981'; // Green
+                } else if (lower.includes('[api log]') || lower.includes('request')) {
+                  color = '#38bdf8'; // Blue/Cyan
+                } else if (lower.includes('debug')) {
+                  color = '#a855f7'; // Purple
+                }
+                
+                return (
+                  <div key={idx} style={{ color, fontFamily: 'monospace', fontSize: '11px', whiteSpace: 'pre-wrap', lineHeight: '1.4' }}>
+                    {line}
+                  </div>
+                );
+              })
+            )}
+            <div ref={terminalEndRef} />
+          </div>
+        )}
+      </div>
 
       </main>
 

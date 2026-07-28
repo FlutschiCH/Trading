@@ -11,6 +11,9 @@ load_dotenv()
 # Ensure the backend directory is in python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
+from terminal_handler import TerminalHandler
+TerminalHandler.init()
+
 from sql_handler import SQLHandler
 import threading
 threading.Thread(target=SQLHandler.init_pool, daemon=True).start()
