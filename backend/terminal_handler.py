@@ -24,7 +24,10 @@ class TerminalHandler:
             self.original_stream.write(data)
             self.original_stream.flush()
             if data:
-                TerminalHandler.add_log(data)
+                # Clean carriage return prefixes/updates for SSE compatibility
+                clean_data = data.replace('\r\n', '\n').replace('\r', '\n')
+                if clean_data.strip('\n'):
+                    TerminalHandler.add_log(clean_data)
 
         def flush(self):
             self.original_stream.flush()
