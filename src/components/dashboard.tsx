@@ -351,11 +351,7 @@ export default function Dashboard() {
     };
   }, []);
 
-  useEffect(() => {
-    if (showTerminal && terminalEndRef.current) {
-      terminalEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [terminalLogs, showTerminal]);
+
   const [isConnectedOpenAPI] = useState(true);
   const [isConnectedFIX] = useState(true);
   const [isLiveFeed, setIsLiveFeed] = useState<boolean>(() => localStorage.getItem('wyckoff_is_live_feed') === 'true');
