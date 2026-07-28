@@ -1,10 +1,9 @@
 # /backend/terminal_handler.py
 import sys
-import threading
-from gevent.queue import Queue
+from gevent.lock import RLock
 
 class TerminalHandler:
-    _lock = threading.Lock()
+    _lock = RLock()
     _logs = []  # Keep last 1000 lines
     _max_logs = 1000
     _queues = []
