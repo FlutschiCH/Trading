@@ -171,11 +171,21 @@ if __name__ == '__main__':
     ssl_args = get_ssl_config()
     
     import ssl
+    import gevent
     class QuietWSGIServer(WSGIServer):
         def handle_error(self, context, value, tb):
             if isinstance(value, ssl.SSLError) or (isinstance(value, tuple) and len(value) > 0 and isinstance(value[0], ssl.SSLError)):
                 return
             super().handle_error(context, value, tb)
+
+    # Suppress greenlet-level SSL error tracebacks on the Hub
+    hub = gevent.get_hub()
+    orig_handle_error = hub.handle_error
+    def custom_hub_handle_error(context, type, value, tb):
+        if issubclass(type, ssl.SSLError) or (value and "SSLError" in str(type)):
+            return
+        orig_handle_error(context, type, value, tb)
+    hub.handle_error = custom_hub_handle_error
 
     http_server = QuietWSGIServer(('0.0.0.0', port), app, log=CustomWSGILogger(), **ssl_args)
     
