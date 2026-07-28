@@ -2406,7 +2406,7 @@ export default function TVChart({
 
 
             {/* Wyckoff Oversold (Spring) Highlight Shading & Boundary Ticks */}
-            {!isMobile && chartSettings.showTrLines && oversoldCoords.map((coord, idx) => {
+            {chartSettings.showTrLines && oversoldCoords.map((coord, idx) => {
               const rightScaleWidth = chartRef.current ? chartRef.current.priceScale('right').width() : 55;
               const plotWidth = chartContainerRef.current ? chartContainerRef.current.clientWidth - rightScaleWidth : 0;
               const plotHeight = chartHeight - 26;
@@ -2436,26 +2436,12 @@ export default function TVChart({
                     stroke="#fbbf24"
                     strokeWidth={2}
                   />
-                  <text
-                    x={renderX}
-                    y={Math.max(renderY1, renderY2) + 12}
-                    fill="#3b82f6"
-                    fontSize="9px"
-                    fontWeight="bold"
-                    textAnchor="middle"
-                    style={{
-                      pointerEvents: 'none',
-                      textShadow: '0 1px 2px rgba(0,0,0,0.9)'
-                    }}
-                  >
-                    Oversold
-                  </text>
                 </g>
               );
             })}
 
             {/* Wyckoff Overbought (Upthrust) Highlight Shading & Boundary Ticks */}
-            {!isMobile && chartSettings.showTrLines && overboughtCoords.map((coord, idx) => {
+            {chartSettings.showTrLines && overboughtCoords.map((coord, idx) => {
               const rightScaleWidth = chartRef.current ? chartRef.current.priceScale('right').width() : 55;
               const plotWidth = chartContainerRef.current ? chartContainerRef.current.clientWidth - rightScaleWidth : 0;
               const plotHeight = chartHeight - 26;
@@ -2485,20 +2471,6 @@ export default function TVChart({
                     stroke="#fbbf24"
                     strokeWidth={2}
                   />
-                  <text
-                    x={renderX}
-                    y={Math.min(renderY1, renderY2) - 6}
-                    fill="#f59e0b"
-                    fontSize="9px"
-                    fontWeight="bold"
-                    textAnchor="middle"
-                    style={{
-                      pointerEvents: 'none',
-                      textShadow: '0 1px 2px rgba(0,0,0,0.9)'
-                    }}
-                  >
-                    Overbought
-                  </text>
                 </g>
               );
             })}
