@@ -421,6 +421,60 @@ export default function Dashboard() {
   } | null>(null);
   const [selectedTrade, setSelectedTrade] = useState<any>(null);
   const [showModal, setShowModal] = useState<boolean>(false);
+
+  const [executingModalOrder, setExecutingModalOrder] = useState(false);
+  const [modalOrderResult, setModalOrderResult] = useState<{ status: 'success' | 'error'; message: string } | null>(null);
+  const [modalOrderBroker, setModalOrderBroker] = useState<string>('metatrader');
+  const [modalOrderVolume, setModalOrderVolume] = useState<number>(0.01);
+
+  useEffect(() => {
+    if (selectedTrade) {
+      const vol = selectedTrade.qty || selectedTrade.volume || selectedTrade.size || 0.01;
+      setModalOrderVolume(Number(vol));
+      setModalOrderResult(null);
+    }
+  }, [selectedTrade]);
+
+  const handleExecuteTradeAgain = async () => {
+    if (!selectedTrade) return;
+    setExecutingModalOrder(true);
+    setModalOrderResult(null);
+
+    const isBuy = (selectedTrade.type || selectedTrade.side || 'BUY').toUpperCase() === 'BUY';
+    const side = isBuy ? 'buy' : 'sell';
+
+    const slVal = selectedTrade.slPrice ?? selectedTrade.sl ?? selectedTrade.stopLoss;
+    const tpVal = selectedTrade.tpPrice ?? selectedTrade.tp ?? selectedTrade.takeProfit;
+
+    const payload: any = {
+      broker: modalOrderBroker,
+      symbol: symbol,
+      side: side,
+      order_type: side,
+      volume: modalOrderVolume,
+    };
+    if (slVal && Number(slVal) > 0) payload.stop_loss = Number(slVal);
+    if (tpVal && Number(tpVal) > 0) payload.take_profit = Number(tpVal);
+
+    try {
+      const res = await fetch('/api/trade/order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.status === 'error') {
+        setModalOrderResult({ status: 'error', message: data.message || 'Execution failed' });
+      } else {
+        setModalOrderResult({ status: 'success', message: `Order executed! Ticket/ID: ${data.order_id || data.ticket || data.position_id || 'Success'}` });
+        fetchCandles(candleSource, false, true);
+      }
+    } catch (err: any) {
+      setModalOrderResult({ status: 'error', message: err.message || 'Network error' });
+    } finally {
+      setExecutingModalOrder(false);
+    }
+  };
   const [backtestTab, setBacktestTab] = useState<'trades' | 'weekly' | 'monthly' | 'hourly' | 'favourites'>('trades');
   const [tradeFilter, setTradeFilter] = useState<'all' | 'wins' | 'losses'>('all');
   const [selectedCandle, setSelectedCandle] = useState<Candle | null>(null);
@@ -3380,6 +3434,91 @@ export default function Dashboard() {
                       {selectedTrade.exitReason || 'Unknown'}
                     </span>
                   </div>
+                  <div style={{ borderTop: '1px solid #1e293b', paddingTop: '12px', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#cbd5e1', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      🚀 Re-Execute Trade (Real / Broker Order)
+                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ display: 'block', fontSize: '10px', color: '#94a3b8', marginBottom: '2px' }}>Volume (Lots)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0.01"
+                          value={modalOrderVolume}
+                          onChange={(e) => setModalOrderVolume(parseFloat(e.target.value) || 0.01)}
+                          style={{
+                            width: '100%',
+                            backgroundColor: '#1e293b',
+                            border: '1px solid #334155',
+                            borderRadius: '6px',
+                            padding: '6px 10px',
+                            color: '#f8fafc',
+                            fontSize: '12px',
+                            outline: 'none'
+                          }}
+                        />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ display: 'block', fontSize: '10px', color: '#94a3b8', marginBottom: '2px' }}>Broker Platform</label>
+                        <select
+                          value={modalOrderBroker}
+                          onChange={(e) => setModalOrderBroker(e.target.value)}
+                          style={{
+                            width: '100%',
+                            backgroundColor: '#1e293b',
+                            border: '1px solid #334155',
+                            borderRadius: '6px',
+                            padding: '6px 10px',
+                            color: '#f8fafc',
+                            fontSize: '12px',
+                            outline: 'none',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <option value="metatrader">MetaTrader 5</option>
+                          <option value="ctrader">cTrader</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={handleExecuteTradeAgain}
+                      disabled={executingModalOrder}
+                      style={{
+                        backgroundColor: '#16a34a',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        padding: '10px',
+                        fontSize: '12px',
+                        fontWeight: 'bold',
+                        cursor: executingModalOrder ? 'not-allowed' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        boxShadow: '0 4px 12px rgba(22, 163, 74, 0.3)',
+                        opacity: executingModalOrder ? 0.7 : 1
+                      }}
+                    >
+                      {executingModalOrder ? 'Placing Order...' : `⚡ Run ${(selectedTrade.type || 'BUY').toUpperCase()} Trade Again (With SL & TP)`}
+                    </button>
+
+                    {modalOrderResult && (
+                      <div style={{
+                        padding: '8px 10px',
+                        borderRadius: '6px',
+                        fontSize: '11px',
+                        backgroundColor: modalOrderResult.status === 'success' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                        color: modalOrderResult.status === 'success' ? '#34d399' : '#f87171',
+                        border: `1px solid ${modalOrderResult.status === 'success' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+                      }}>
+                        {modalOrderResult.message}
+                      </div>
+                    )}
+                  </div>
+
                   {selectedTrade.entryTimestamp && (
                     <button
                       onClick={() => {
