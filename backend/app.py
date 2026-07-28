@@ -170,7 +170,14 @@ if __name__ == '__main__':
     from ssl_config import get_ssl_config
     ssl_args = get_ssl_config()
     
-    http_server = WSGIServer(('0.0.0.0', port), app, log=CustomWSGILogger(), **ssl_args)
+    import ssl
+    class QuietWSGIServer(WSGIServer):
+        def handle_error(self, context, value, tb):
+            if isinstance(value, ssl.SSLError) or (isinstance(value, tuple) and len(value) > 0 and isinstance(value[0], ssl.SSLError)):
+                return
+            super().handle_error(context, value, tb)
+
+    http_server = QuietWSGIServer(('0.0.0.0', port), app, log=CustomWSGILogger(), **ssl_args)
     
     # Play startup sound once local server is ready
     try:
