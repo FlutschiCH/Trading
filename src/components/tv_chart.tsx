@@ -1413,8 +1413,8 @@ export default function TVChart({
         }
       });
 
-      supportLineSeriesRef.current.setData(supportData);
-      resistanceLineSeriesRef.current.setData(resistanceData);
+      supportLineSeriesRef.current.setData(chartSettings.showTrLines ? supportData : []);
+      resistanceLineSeriesRef.current.setData(chartSettings.showTrLines ? resistanceData : []);
       smaLineSeriesRef.current.setData(smaData);
     }
 
