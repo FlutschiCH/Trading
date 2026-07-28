@@ -1782,10 +1782,22 @@ export default function Dashboard() {
     localStorage.setItem('wyckoff_auto_poll_trades', autoPollTrades.toString());
   }, [autoPollTrades]);
 
-  // Fetch other account/positions data once candles have initially loaded, and set up polling.
+  // Fetch account/positions/history data on initial load and setup interval polling when autoPollTrades is enabled.
   useEffect(() => {
-    // Automatic fetching and polling of trades, positions, and account info has been removed to reduce request count on load/refresh.
-  }, [initialCandlesLoaded, symbol, candleSource, autoPollTrades]);
+    fetchAccountData();
+    fetchPositionData();
+    fetchHistoryTrades();
+
+    if (!autoPollTrades) return;
+
+    const interval = setInterval(() => {
+      fetchAccountData();
+      fetchPositionData();
+      fetchHistoryTrades();
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [candleSource, autoPollTrades]);
 
   // Live Feed auto-update polling
   useEffect(() => {
