@@ -342,6 +342,32 @@ class MetaTraderHandler(BaseBrokerHandler):
         return {"status": "success", "message": f"Position {position_id} closed."}
 
     @staticmethod
+    def modify_position(position_id: int, stop_loss: float = None, take_profit: float = None, symbol: str = "EURUSD", login: int = 2002061314, password: str = "Godzilla_12", server: str = "JustMarkets-Demo", **kwargs) -> dict:
+        login, password, server = MetaTraderHandler._resolve_credentials(login, password, server, **kwargs)
+        if not MT5_AVAILABLE:
+            return {"status": "error", "message": "MT5 unavailable"}
+            
+        if not MetaTraderHandler._initialize_mt5(login, password, server):
+            return {"status": "error", "message": "Failed to initialize MT5"}
+            
+        request_dict = {
+            "action": mt5.TRADE_ACTION_SLTP,
+            "position": int(position_id),
+            "symbol": symbol,
+            "sl": float(stop_loss) if stop_loss is not None else 0.0,
+            "tp": float(take_profit) if take_profit is not None else 0.0,
+        }
+        result = mt5.order_send(request_dict)
+        from notification_handler import NotificationHandler
+        if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
+            comment = result.comment if result else "None"
+            retcode = result.retcode if result else -1
+            NotificationHandler.play_sound("error")
+            return {"status": "error", "message": f"MT5 modify failed: {comment} (retcode: {retcode})"}
+        NotificationHandler.play_sound("alert")
+        return {"status": "success", "message": f"Position {position_id} modified successfully."}
+
+    @staticmethod
     def get_symbols(login: int = 2002061314, password: str = "Godzilla_12", server: str = "JustMarkets-Demo", **kwargs) -> list:
         """
         Gets list of symbols from MT5 terminal.

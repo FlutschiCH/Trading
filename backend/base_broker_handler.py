@@ -33,5 +33,10 @@ class BaseBrokerHandler(ABC):
 
     @staticmethod
     @abstractmethod
+    def modify_position(position_id: int, stop_loss: float = None, take_profit: float = None, symbol: str = "EURUSD", **kwargs) -> dict:
+        pass
+
+    @staticmethod
+    @abstractmethod
     def get_symbols(**kwargs) -> dict:
         pass

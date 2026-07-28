@@ -1734,6 +1734,84 @@ export default function TVChart({
     });
   }, [openPositions, chartSettings.showPositions, activeCandles, symbol]);
 
+  const [dragPosState, setDragPosState] = useState<{
+    position_id: number;
+    type: 'SL' | 'TP';
+    currentPrice: number;
+    symbol: string;
+  } | null>(null);
+
+  const handleStartDragPosition = (pos: any, type: 'SL' | 'TP', initialPrice: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setDragPosState({
+      position_id: pos.position_id,
+      type,
+      currentPrice: initialPrice,
+      symbol: pos.symbol,
+    });
+  };
+
+  useEffect(() => {
+    if (!dragPosState) return;
+
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      if (!chartContainerRef.current || !candlestickSeriesRef.current) return;
+      const rect = chartContainerRef.current.getBoundingClientRect();
+      const y = e.clientY - rect.top;
+      const price = candlestickSeriesRef.current.coordinateToPrice(y);
+      if (price && price > 0) {
+        setDragPosState((prev) => prev ? { ...prev, currentPrice: price } : null);
+      }
+    };
+
+    const handleGlobalMouseUp = async () => {
+      if (!dragPosState) return;
+      const targetState = dragPosState;
+      setDragPosState(null);
+
+      try {
+        let positionsList: any[] = [];
+        if (Array.isArray(openPositions) && openPositions.length > 0) {
+          positionsList = openPositions;
+        } else {
+          const stored = localStorage.getItem('wyckoff_active_positions');
+          if (stored) positionsList = JSON.parse(stored);
+        }
+        const posObj = positionsList.find((p) => p.position_id === targetState.position_id);
+
+        const updatedSL = targetState.type === 'SL' ? targetState.currentPrice : (posObj?.stop_loss || posObj?.sl || 0);
+        const updatedTP = targetState.type === 'TP' ? targetState.currentPrice : (posObj?.take_profit || posObj?.tp || 0);
+
+        const API_BASE_URL = localStorage.getItem('wyckoff_api_target') || `http://${window.location.hostname}:8751`;
+        const res = await fetch(`${API_BASE_URL}/api/trade/modify_position`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            broker: candleSource,
+            position_id: targetState.position_id,
+            symbol: targetState.symbol,
+            stop_loss: updatedSL,
+            take_profit: updatedTP
+          })
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+          onRefresh();
+        }
+      } catch (err) {
+        console.error("Failed to modify position:", err);
+      }
+    };
+
+    window.addEventListener('mousemove', handleGlobalMouseMove);
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleGlobalMouseMove);
+      window.removeEventListener('mouseup', handleGlobalMouseUp);
+    };
+  }, [dragPosState, openPositions, candleSource, onRefresh]);
+
   const handleSVGMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
     if (activeTool === 'none' || activeTool === 'delete') return;
     if (!chartRef.current || !candlestickSeriesRef.current) return;
@@ -2262,6 +2340,188 @@ export default function TVChart({
             }}
           >
 
+
+            {/* Active Position Draggable Handles for SL & TP */}
+            {chartSettings.showPositions && (() => {
+              let positionsList: any[] = [];
+              if (Array.isArray(openPositions) && openPositions.length > 0) {
+                positionsList = openPositions;
+              } else {
+                try {
+                  const stored = localStorage.getItem('wyckoff_active_positions');
+                  if (stored) positionsList = JSON.parse(stored);
+                } catch (e) {}
+              }
+
+              if (!Array.isArray(positionsList) || positionsList.length === 0 || !candlestickSeriesRef.current) return null;
+
+              const currentSymbolClean = (symbol || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+              const matchingPositions = positionsList.filter((p) => {
+                if (!p || !p.symbol) return false;
+                const posSymbolClean = String(p.symbol).replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+                return posSymbolClean.includes(currentSymbolClean) || currentSymbolClean.includes(posSymbolClean);
+              });
+
+              const rightScaleWidth = chartRef.current ? chartRef.current.priceScale('right').width() : 55;
+              const plotWidth = chartContainerRef.current ? chartContainerRef.current.clientWidth - rightScaleWidth : 0;
+
+              return matchingPositions.map((pos) => {
+                const isBuy = (pos.trade_side || 'BUY').toUpperCase() === 'BUY';
+                const entryPrice = parseFloat(pos.entry_price ?? pos.entryPrice);
+                const slPrice = (dragPosState && dragPosState.position_id === pos.position_id && dragPosState.type === 'SL')
+                  ? dragPosState.currentPrice
+                  : parseFloat(pos.stop_loss ?? pos.sl ?? 0);
+                const tpPrice = (dragPosState && dragPosState.position_id === pos.position_id && dragPosState.type === 'TP')
+                  ? dragPosState.currentPrice
+                  : parseFloat(pos.take_profit ?? pos.tp ?? 0);
+
+                const entryY = entryPrice > 0 ? candlestickSeriesRef.current.priceToCoordinate(entryPrice) : null;
+                const slY = slPrice > 0 ? candlestickSeriesRef.current.priceToCoordinate(slPrice) : null;
+                const tpY = tpPrice > 0 ? candlestickSeriesRef.current.priceToCoordinate(tpPrice) : null;
+
+                return (
+                  <g key={`svg-pos-drag-${pos.position_id}`}>
+                    {/* SL Draggable Badge */}
+                    {slY !== null && slY > 0 && slY < chartHeight - 30 && (
+                      <g
+                        style={{ cursor: 'ns-resize', pointerEvents: 'all' }}
+                        onMouseDown={(e) => handleStartDragPosition(pos, 'SL', slPrice, e)}
+                      >
+                        <line
+                          x1={0}
+                          y1={slY}
+                          x2={plotWidth}
+                          y2={slY}
+                          stroke="#ef4444"
+                          strokeWidth={dragPosState?.position_id === pos.position_id && dragPosState?.type === 'SL' ? 3 : 2}
+                          strokeDasharray="4 4"
+                        />
+                        <rect
+                          x={plotWidth - 115}
+                          y={slY - 11}
+                          width={110}
+                          height={22}
+                          rx={4}
+                          fill="#ef4444"
+                          stroke="#ffffff"
+                          strokeWidth={1}
+                        />
+                        <text
+                          x={plotWidth - 60}
+                          y={slY + 4}
+                          fill="#ffffff"
+                          fontSize="10"
+                          fontWeight="bold"
+                          textAnchor="middle"
+                        >
+                          ↔ SL: {slPrice.toFixed(5)}
+                        </text>
+                      </g>
+                    )}
+
+                    {/* TP Draggable Badge */}
+                    {tpY !== null && tpY > 0 && tpY < chartHeight - 30 && (
+                      <g
+                        style={{ cursor: 'ns-resize', pointerEvents: 'all' }}
+                        onMouseDown={(e) => handleStartDragPosition(pos, 'TP', tpPrice, e)}
+                      >
+                        <line
+                          x1={0}
+                          y1={tpY}
+                          x2={plotWidth}
+                          y2={tpY}
+                          stroke="#10b981"
+                          strokeWidth={dragPosState?.position_id === pos.position_id && dragPosState?.type === 'TP' ? 3 : 2}
+                          strokeDasharray="4 4"
+                        />
+                        <rect
+                          x={plotWidth - 115}
+                          y={tpY - 11}
+                          width={110}
+                          height={22}
+                          rx={4}
+                          fill="#10b981"
+                          stroke="#ffffff"
+                          strokeWidth={1}
+                        />
+                        <text
+                          x={plotWidth - 60}
+                          y={tpY + 4}
+                          fill="#ffffff"
+                          fontSize="10"
+                          fontWeight="bold"
+                          textAnchor="middle"
+                        >
+                          ↔ TP: {tpPrice.toFixed(5)}
+                        </text>
+                      </g>
+                    )}
+
+                    {/* If SL is unset, show pill next to entry to drag & set SL */}
+                    {(!slPrice || slPrice === 0) && entryY !== null && entryY > 0 && (
+                      <g
+                        style={{ cursor: 'pointer', pointerEvents: 'all' }}
+                        onClick={(e) => {
+                          const defaultSL = isBuy ? entryPrice * 0.995 : entryPrice * 1.005;
+                          handleStartDragPosition(pos, 'SL', defaultSL, e);
+                        }}
+                      >
+                        <rect
+                          x={plotWidth - 95}
+                          y={entryY + (isBuy ? 14 : -28)}
+                          width={90}
+                          height={18}
+                          rx={3}
+                          fill="rgba(239, 68, 68, 0.85)"
+                          stroke="#ef4444"
+                        />
+                        <text
+                          x={plotWidth - 50}
+                          y={entryY + (isBuy ? 26 : -16)}
+                          fill="#ffffff"
+                          fontSize="9"
+                          fontWeight="bold"
+                          textAnchor="middle"
+                        >
+                          + Drag to Set SL
+                        </text>
+                      </g>
+                    )}
+
+                    {/* If TP is unset, show pill next to entry to drag & set TP */}
+                    {(!tpPrice || tpPrice === 0) && entryY !== null && entryY > 0 && (
+                      <g
+                        style={{ cursor: 'pointer', pointerEvents: 'all' }}
+                        onClick={(e) => {
+                          const defaultTP = isBuy ? entryPrice * 1.01 : entryPrice * 0.99;
+                          handleStartDragPosition(pos, 'TP', defaultTP, e);
+                        }}
+                      >
+                        <rect
+                          x={plotWidth - 95}
+                          y={entryY + (isBuy ? -28 : 14)}
+                          width={90}
+                          height={18}
+                          rx={3}
+                          fill="rgba(16, 185, 129, 0.85)"
+                          stroke="#10b981"
+                        />
+                        <text
+                          x={plotWidth - 50}
+                          y={entryY + (isBuy ? -16 : 26)}
+                          fill="#ffffff"
+                          fontSize="9"
+                          fontWeight="bold"
+                          textAnchor="middle"
+                        >
+                          + Drag to Set TP
+                        </text>
+                      </g>
+                    )}
+                  </g>
+                );
+              });
+            })()}
 
             {chartSettings.showTrades && selectedTradeCoords && (
               <rect

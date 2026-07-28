@@ -382,6 +382,35 @@ class CTraderHandler(BaseBrokerHandler):
         except Exception as e:
             return {"status": "error", "message": f"Failed to close position via OpenAPI: {str(e)}"}
 
+    @staticmethod
+    def modify_position(position_id: int, stop_loss: float = None, take_profit: float = None, symbol: str = "EURUSD", **kwargs) -> dict:
+        try:
+            account_id = kwargs.get("account_id")
+            token = kwargs.get("token") or kwargs.get("password")
+            payload = {
+                "positionId": int(position_id)
+            }
+            if stop_loss is not None and stop_loss > 0:
+                payload["stopLoss"] = float(stop_loss)
+            if take_profit is not None and take_profit > 0:
+                payload["takeProfit"] = float(take_profit)
+
+            # ProtoOAMendPositionSLTPReq payloadType = 2172
+            res = CTraderHandler._send_and_receive(2172, payload, account_id=account_id, token=token)
+            from notification_handler import NotificationHandler
+            p_type = res.get("payloadType")
+            if p_type in (2130, 2173):
+                NotificationHandler.play_sound("alert")
+                return {"status": "success", "message": f"Position {position_id} modified via cTrader OpenAPI."}
+            elif p_type == 2142:
+                err = res.get("payload", {})
+                NotificationHandler.play_sound("error")
+                return {"status": "error", "message": f"cTrader Modify Error {err.get('errorCode')}: {err.get('description')}"}
+            NotificationHandler.play_sound("alert")
+            return {"status": "success", "message": f"Modify position request sent for {position_id}."}
+        except Exception as e:
+            return {"status": "error", "message": f"Failed to modify position via OpenAPI: {str(e)}"}
+
 if __name__ == '__main__':
     # Load dotenv from the script's directory explicitly
     import os
