@@ -43,19 +43,19 @@ class SQLHandler:
         try:
             from mysql.connector.pooling import MySQLConnectionPool
             cls._pool = MySQLConnectionPool(
-                pool_name="trading_pool",
-                pool_size=1,
+                pool_name=f"trading_pool_{int(time.time())}",
+                pool_size=32,
                 pool_reset_session=True,
                 host=DB_HOST,
                 port=DB_PORT,
                 user=DB_USER,
                 password=DB_PASSWORD,
                 database=DB_NAME,
-                connect_timeout=1
+                connect_timeout=3
             )
             cls._remote_db_offline = False
             duration = time.time() - start_time
-            print(f"Successfully initialized remote MySQL connection pool in {duration:.4f} seconds.", flush=True)
+            print(f"Successfully initialized remote MySQL connection pool (size=32) in {duration:.4f} seconds.", flush=True)
             return True
         except Exception as e:
             cls._remote_db_offline = True
@@ -104,23 +104,22 @@ class SQLHandler:
     @classmethod
     def execute_query(cls, query: str, params: tuple = None) -> list:
         """
-        Executes a query with thread-safety and connection retries.
+        Executes a query with thread-safety, connection cleanup, and fallback to SQLite on failure.
         """
         if params is None:
             params = ()
 
         cls._lock.acquire()
         try:
-            max_retries = 3
-            retry_delay = 0.5
-            last_err = None
+            # Check if remote DB is marked offline recently
+            if cls._remote_db_offline and (time.time() - cls._last_db_check < 30):
+                return cls._execute_sqlite(query, params)
 
+            max_retries = 2
             for attempt in range(max_retries):
+                conn = None
+                cursor = None
                 try:
-                    # Try to reset the pool if we are retrying to ensure a fresh connection is made
-                    if attempt > 0:
-                        cls._pool = None
-
                     conn = cls.get_mysql_connection()
                     cursor = conn.cursor(dictionary=True)
                     cursor.execute(query, params)
@@ -129,26 +128,40 @@ class SQLHandler:
                     else:
                         conn.commit()
                         result = [{"rowcount": cursor.rowcount, "lastrowid": cursor.lastrowid}]
-                    cursor.close()
-                    conn.close()
                     return result
                 except Exception as err:
-                    # Check if the error is a lost connection or connection error
-                    # System error 10054, 2055, or mysql connection/operational/interface errors
                     err_msg = str(err)
-                    is_conn_err = any(x in err_msg for x in ["2055", "Lost connection", "10054", "Connection refused", "is closed", "not connected"])
-                    
+                    is_conn_err = any(x in err_msg for x in ["pool exhausted", "PoolError", "2055", "Lost connection", "10054", "Connection refused", "is closed", "not connected", "Failed getting connection"])
                     if is_conn_err:
-                        last_err = err
-                        print(f"Remote database connection lost/failed (attempt {attempt + 1}/{max_retries}): {err}. Retrying in {retry_delay:.2f}s...", flush=True)
-                        time.sleep(retry_delay)
+                        print(f"[SQLHandler] MySQL connection issue (attempt {attempt + 1}/{max_retries}): {err_msg}", flush=True)
+                        cls._pool = None  # Re-initialize pool on retry
+                        if attempt < max_retries - 1:
+                            time.sleep(0.2)
+                            continue
                     else:
-                        # Genuine SQL/Programming error (e.g. no such column, syntax error), raise it immediately
-                        raise err
+                        # Non-connection error (e.g. syntax error or table missing in MySQL), attempt SQLite fallback
+                        print(f"[SQLHandler] MySQL query error: {err_msg}. Attempting SQLite fallback...", flush=True)
+                        try:
+                            return cls._execute_sqlite(query, params)
+                        except Exception:
+                            raise err
+                finally:
+                    if cursor:
+                        try:
+                            cursor.close()
+                        except Exception:
+                            pass
+                    if conn:
+                        try:
+                            conn.close()
+                        except Exception:
+                            pass
 
-            if last_err:
-                raise last_err
-            raise RuntimeError("Failed to execute query after retries.")
+            # Fallback to local SQLite if MySQL failed retries
+            print("[SQLHandler] MySQL unavailable/exhausted after retries. Falling back to local SQLite.", flush=True)
+            cls._remote_db_offline = True
+            cls._last_db_check = time.time()
+            return cls._execute_sqlite(query, params)
         finally:
             cls._lock.release()
 
