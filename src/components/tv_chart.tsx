@@ -341,7 +341,15 @@ export default function TVChart({
   };
 
   const activeFavSymbols = favoriteSymbols.filter(s => availableSymbols.includes(s));
-  const activeFavTimeframes = favoriteTimeframes.filter(t => availableTimeframes.includes(t));
+  const sortedTimeframes = [...availableTimeframes].sort((a, b) => {
+    const aFav = favoriteTimeframes.includes(a);
+    const bFav = favoriteTimeframes.includes(b);
+    if (aFav && !bFav) return -1;
+    if (!aFav && bFav) return 1;
+    return 0;
+  });
+
+  const [showTimeframeDropdown, setShowTimeframeDropdown] = useState(false);
 
   const filteredSymbols = [...availableSymbols]
     .filter(s => s.toLowerCase().includes(symbolSearch.toLowerCase()))
@@ -1859,18 +1867,94 @@ export default function TVChart({
             </div>
           </div>
 
-          {/* Timeframe */}
-          <div style={styles.pairGroup}>
+          {/* Timeframe Custom Dropdown */}
+          <div style={{ ...styles.pairGroup, position: 'relative' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <select
-                value={timeframe}
-                onChange={(e) => onTimeframeChange(e.target.value)}
-                style={styles.pairSelect}
-              >
-                {availableTimeframes.map(tf => (
-                  <option key={tf} value={tf}>{tf}</option>
-                ))}
-              </select>
+              <div style={{ position: 'relative' }}>
+                <button
+                  onClick={() => setShowTimeframeDropdown(!showTimeframeDropdown)}
+                  style={{
+                    ...styles.pairSelect,
+                    backgroundColor: '#1e293b',
+                    color: '#ffffff',
+                    border: '1px solid #334155',
+                    padding: '4px 8px',
+                    fontSize: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '6px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <span>{timeframe}</span>
+                  <span style={{ fontSize: '10px', color: '#94a3b8' }}>▼</span>
+                </button>
+                {showTimeframeDropdown && (
+                  <>
+                    <div
+                      onClick={() => setShowTimeframeDropdown(false)}
+                      style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        zIndex: 999
+                      }}
+                    />
+                    <div style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      backgroundColor: '#0f172a',
+                      border: '1px solid #334155',
+                      borderRadius: '6px',
+                      maxHeight: '200px',
+                      overflowY: 'auto',
+                      zIndex: 1000,
+                      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)',
+                      minWidth: '100px'
+                    }}>
+                      {sortedTimeframes.map((tf) => (
+                        <div
+                          key={tf}
+                          onClick={() => {
+                            onTimeframeChange(tf);
+                            setShowTimeframeDropdown(false);
+                          }}
+                          style={{
+                            padding: '6px 10px',
+                            cursor: 'pointer',
+                            fontSize: '12px',
+                            color: '#ffffff',
+                            backgroundColor: timeframe === tf ? 'rgba(37, 99, 235, 0.3)' : 'transparent',
+                            transition: 'background-color 0.15s',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            gap: '12px'
+                          }}
+                        >
+                          <span>{tf}</span>
+                          <span
+                            onClick={(e) => toggleFavoriteTimeframe(tf, e)}
+                            style={{
+                              color: favoriteTimeframes.includes(tf) ? '#f59e0b' : '#4b5563',
+                              fontSize: '14px',
+                              padding: '2px 4px',
+                              cursor: 'pointer',
+                              transition: 'color 0.15s'
+                            }}
+                          >
+                            ★
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 
