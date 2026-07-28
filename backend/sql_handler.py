@@ -40,11 +40,12 @@ class SQLHandler:
         if cls._pool is not None:
             return True
         start_time = time.time()
+        pool_size = int(os.getenv("DB_POOL_SIZE", "3"))
         try:
             from mysql.connector.pooling import MySQLConnectionPool
             cls._pool = MySQLConnectionPool(
-                pool_name=f"trading_pool_{int(time.time())}",
-                pool_size=32,
+                pool_name="trading_pool",
+                pool_size=pool_size,
                 pool_reset_session=True,
                 host=DB_HOST,
                 port=DB_PORT,
@@ -55,13 +56,13 @@ class SQLHandler:
             )
             cls._remote_db_offline = False
             duration = time.time() - start_time
-            print(f"Successfully initialized remote MySQL connection pool (size=32) in {duration:.4f} seconds.", flush=True)
+            print(f"Successfully initialized remote MySQL connection pool (size={pool_size}) in {duration:.4f} seconds.", flush=True)
             return True
         except Exception as e:
             cls._remote_db_offline = True
             cls._last_db_check = time.time()
             duration = time.time() - start_time
-            print(f"Failed to initialize remote MySQL connection pool after {duration:.4f} seconds: {e}. Falling back to SQLite.", flush=True)
+            print(f"Failed to initialize remote MySQL connection pool after {duration:.4f} seconds: {e}.", flush=True)
             return False
 
     @classmethod
