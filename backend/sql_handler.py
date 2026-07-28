@@ -104,18 +104,15 @@ class SQLHandler:
     @classmethod
     def execute_query(cls, query: str, params: tuple = None) -> list:
         """
-        Executes a query with thread-safety, connection cleanup, and fallback to SQLite on failure.
+        Executes a query with thread-safety and connection cleanup using MySQL.
         """
         if params is None:
             params = ()
 
         cls._lock.acquire()
         try:
-            # Check if remote DB is marked offline recently
-            if cls._remote_db_offline and (time.time() - cls._last_db_check < 30):
-                return cls._execute_sqlite(query, params)
-
-            max_retries = 2
+            max_retries = 3
+            last_err = None
             for attempt in range(max_retries):
                 conn = None
                 cursor = None
@@ -130,6 +127,7 @@ class SQLHandler:
                         result = [{"rowcount": cursor.rowcount, "lastrowid": cursor.lastrowid}]
                     return result
                 except Exception as err:
+                    last_err = err
                     err_msg = str(err)
                     is_conn_err = any(x in err_msg for x in ["pool exhausted", "PoolError", "2055", "Lost connection", "10054", "Connection refused", "is closed", "not connected", "Failed getting connection"])
                     if is_conn_err:
@@ -139,12 +137,7 @@ class SQLHandler:
                             time.sleep(0.2)
                             continue
                     else:
-                        # Non-connection error (e.g. syntax error or table missing in MySQL), attempt SQLite fallback
-                        print(f"[SQLHandler] MySQL query error: {err_msg}. Attempting SQLite fallback...", flush=True)
-                        try:
-                            return cls._execute_sqlite(query, params)
-                        except Exception:
-                            raise err
+                        raise err
                 finally:
                     if cursor:
                         try:
@@ -157,11 +150,9 @@ class SQLHandler:
                         except Exception:
                             pass
 
-            # Fallback to local SQLite if MySQL failed retries
-            print("[SQLHandler] MySQL unavailable/exhausted after retries. Falling back to local SQLite.", flush=True)
-            cls._remote_db_offline = True
-            cls._last_db_check = time.time()
-            return cls._execute_sqlite(query, params)
+            if last_err:
+                raise last_err
+            raise RuntimeError("Failed to execute MySQL query.")
         finally:
             cls._lock.release()
 
