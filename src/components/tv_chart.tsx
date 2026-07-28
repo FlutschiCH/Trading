@@ -1273,20 +1273,7 @@ export default function TVChart({
 
       const entryMarkers = activeCandles
         .map((c) => {
-          // 1. Check Wyckoff signal (Spring / Upthrust)
-          if (c.wyckoff_signal && chartSettings.showTrLines) {
-            const isSpring = c.wyckoff_signal.includes('Spring');
-            return {
-              time: c.time,
-              position: (isSpring ? 'belowBar' : 'aboveBar') as any,
-              color: isSpring ? '#10b981' : '#ef4444',
-              shape: (isSpring ? 'arrowUp' : 'arrowDown') as any,
-              text: c.wyckoff_signal,
-              size: 1.5,
-            };
-          }
-
-          // 2. Check Backtest Trade Signal
+          // 1. Check Backtest Trade Signal
           if (chartSettings.showTrades && c.backtest_signal) {
             const isBullish = c.backtest_signal === 'BUY';
             const trade = (visibleTrades || []).find(t => Number(t.entryTimestamp) === Number(c.time));
