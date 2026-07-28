@@ -1856,24 +1856,6 @@ export default function TVChart({
                   </>
                 )}
               </div>
-              <button
-                onClick={() => toggleFavoriteSymbol(symbol)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: favoriteSymbols.includes(symbol) ? '#f59e0b' : '#4b5563',
-                  cursor: 'pointer',
-                  fontSize: '16px',
-                  padding: '2px 4px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  transition: 'color 0.15s'
-                }}
-                title={favoriteSymbols.includes(symbol) ? "Remove from Favorites" : "Add to Favorites"}
-              >
-                ★
-              </button>
             </div>
           </div>
 
@@ -1889,24 +1871,6 @@ export default function TVChart({
                   <option key={tf} value={tf}>{tf}</option>
                 ))}
               </select>
-              <button
-                onClick={() => toggleFavoriteTimeframe(timeframe)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: favoriteTimeframes.includes(timeframe) ? '#f59e0b' : '#4b5563',
-                  cursor: 'pointer',
-                  fontSize: '16px',
-                  padding: '2px 4px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  transition: 'color 0.15s'
-                }}
-                title={favoriteTimeframes.includes(timeframe) ? "Remove from Favorites" : "Add to Favorites"}
-              >
-                ★
-              </button>
             </div>
           </div>
 
