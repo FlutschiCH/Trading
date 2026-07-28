@@ -1664,11 +1664,11 @@ export default function TVChart({
       justifyContent: 'space-between',
       alignItems: 'center',
       borderBottom: '1px solid #1f2937',
-      paddingBottom: '12px',
+      paddingBottom: isMobile ? '6px' : '12px',
     },
     toolsGroup: {
       display: 'flex',
-      gap: '8px',
+      gap: isMobile ? '6px' : '8px',
       alignItems: 'center',
     },
     symbolBadge: {
@@ -1711,7 +1711,7 @@ export default function TVChart({
       color: '#9ca3af',
       backgroundColor: '#1f2937',
       border: 'none',
-      padding: '8px',
+      padding: isMobile ? '6px' : '8px',
       borderRadius: '8px',
       cursor: 'pointer',
       display: 'flex',
@@ -1746,12 +1746,12 @@ export default function TVChart({
   };
 
   return (
-    <div id={isFullscreen ? "tv-chart-fullscreen-container" : undefined} style={{ ...styles.container, ...(isFullscreen ? { position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 99999, backgroundColor: '#0b0f19', display: 'flex', flexDirection: 'column', padding: '16px', boxSizing: 'border-box', overflowY: 'auto' } : {}) }}>
+    <div id={isFullscreen ? "tv-chart-fullscreen-container" : undefined} style={{ ...styles.container, ...(isFullscreen ? { position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 99999, backgroundColor: '#0b0f19', display: 'flex', flexDirection: 'column', padding: isMobile ? '8px' : '16px', boxSizing: 'border-box', overflowY: 'auto' } : {}), ...(isMobile ? { padding: '8px', gap: '8px' } : {}) }}>
       <div style={styles.toolbar}>
-        <div style={{ ...styles.toolsGroup, flexWrap: 'wrap', gap: '12px' }}>
+        <div style={{ ...styles.toolsGroup, flexWrap: 'wrap', gap: isMobile ? '6px' : '12px' }}>
           {/* Symbol Search Input */}
           <div style={{ ...styles.pairGroup, position: 'relative' }}>
-            <span style={{ color: '#9ca3af', fontSize: '10px' }}>Symbol</span>
+            {!isMobile && <span style={{ color: '#9ca3af', fontSize: '10px' }}>Symbol</span>}
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
               <div style={{ position: 'relative' }}>
                 <input
@@ -1896,7 +1896,7 @@ export default function TVChart({
 
           {/* Timeframe */}
           <div style={styles.pairGroup}>
-            <span style={{ color: '#9ca3af', fontSize: '10px' }}>Timeframe</span>
+            {!isMobile && <span style={{ color: '#9ca3af', fontSize: '10px' }}>Timeframe</span>}
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
               <select
                 value={timeframe}
@@ -1954,20 +1954,20 @@ export default function TVChart({
 
           {/* Trades Filter */}
           <div style={styles.pairGroup}>
-            <span style={{ color: '#9ca3af', fontSize: '10px' }}>Trades</span>
+            {!isMobile && <span style={{ color: '#9ca3af', fontSize: '10px' }}>Trades</span>}
             <select
               value={actualFilter}
               onChange={(e) => setActualFilter(e.target.value as 'all' | 'wins' | 'losses')}
               style={styles.pairSelect}
             >
-              <option value="all">Both (Winners & Losers)</option>
-              <option value="wins">Winners Only</option>
-              <option value="losses">Losers Only</option>
+              <option value="all">{isMobile ? 'Both' : 'Both (Winners & Losers)'}</option>
+              <option value="wins">{isMobile ? 'Wins' : 'Winners Only'}</option>
+              <option value="losses">{isMobile ? 'Losses' : 'Losers Only'}</option>
             </select>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '4px' : '8px' }}>
 
           {onLiveFeedChange && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1984,13 +1984,13 @@ export default function TVChart({
                   color: '#ffffff',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '6px',
-                  padding: '6px 12px',
-                  fontSize: '12px',
+                  gap: '4px',
+                  padding: isMobile ? '4px 8px' : '6px 12px',
+                  fontSize: '11px',
                   fontWeight: 'bold',
                   boxShadow: isLiveFeed ? '0 0 10px rgba(16, 185, 129, 0.4)' : 'none'
                 }}
-                title="Toggle Live Feed (forces cache-updates from backend live runner)"
+                title="Toggle Live Feed"
               >
                 <span style={{
                   width: '6px',
@@ -2000,7 +2000,7 @@ export default function TVChart({
                   display: 'inline-block',
                   animation: isLiveFeed ? 'pulse 1.5s infinite' : 'none'
                 }}></span>
-                Live Feed
+                {isMobile ? 'LIVE' : 'Live Feed'}
               </button>
             </div>
           )}
@@ -2009,7 +2009,7 @@ export default function TVChart({
             style={styles.refreshBtn}
             title="Refresh chart data"
           >
-            <RefreshCw size={16} className={loadingStrategy ? 'animate-spin' : ''} />
+            <RefreshCw size={14} className={loadingStrategy ? 'animate-spin' : ''} />
           </button>
           <button
             onClick={() => {
@@ -2028,15 +2028,15 @@ export default function TVChart({
               color: replayToolActive ? '#ffffff' : '#9ca3af',
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
-              padding: '6px 12px',
-              fontSize: '12px',
+              gap: '4px',
+              padding: isMobile ? '4px 8px' : '6px 12px',
+              fontSize: '11px',
               fontWeight: 'bold',
             }}
-            title="Toggle Replay Tool. When active, click a candle to start replay from that point."
+            title="Toggle Replay Tool"
           >
-            <Play size={14} fill={replayToolActive ? "#ffffff" : "none"} />
-            Replay
+            <Play size={12} fill={replayToolActive ? "#ffffff" : "none"} />
+            {isMobile ? 'Replay' : 'Replay'}
           </button>
           <div style={{ position: 'relative' }}>
             <button
