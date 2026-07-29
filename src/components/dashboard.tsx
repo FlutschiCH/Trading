@@ -3299,81 +3299,100 @@ export default function Dashboard() {
                 </button>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-                  <span style={{
-                    fontSize: '11px',
-                    fontWeight: 'bold',
-                    textTransform: 'uppercase',
-                    letterSpacing: '1px',
-                    padding: '3px 8px',
-                    borderRadius: '6px',
-                    backgroundColor: selectedTrade.type === 'BUY' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                    color: selectedTrade.type === 'BUY' ? '#10b981' : '#ef4444'
-                  }}>
-                    {selectedTrade.type}
-                  </span>
-                  <h2 style={{ fontSize: '18px', fontWeight: 'bold', margin: 0, color: '#f1f5f9' }}>
-                    Trade Performance Details
-                  </h2>
-                </div>
+                {(() => {
+                const pnl = Number(selectedTrade.pnl ?? selectedTrade.profit ?? selectedTrade.unrealized_profit ?? 0);
+                const side = (selectedTrade.type || selectedTrade.trade_side || selectedTrade.side || 'BUY').toUpperCase();
+                const qtyVal = Number(selectedTrade.qty ?? selectedTrade.volume ?? selectedTrade.size ?? 0);
+                const entryVal = selectedTrade.entryPrice ?? selectedTrade.entry_price ?? selectedTrade.price_open;
+                const exitVal = selectedTrade.exitPrice ?? selectedTrade.price_current ?? selectedTrade.current_price;
+                const slVal = selectedTrade.slPrice ?? selectedTrade.stop_loss ?? selectedTrade.sl;
+                const tpVal = selectedTrade.tpPrice ?? selectedTrade.take_profit ?? selectedTrade.tp;
+                const outcomeStr = selectedTrade.outcome || (pnl >= 0 ? 'PROFIT' : 'LOSS');
 
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  backgroundColor: selectedTrade.pnl >= 0 ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
-                  border: `1px solid ${selectedTrade.pnl >= 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)'}`,
-                  borderRadius: '10px',
-                  padding: '12px 16px',
-                  marginBottom: '20px'
-                }}>
-                  <div>
-                    <span style={{ fontSize: '11px', color: '#94a3b8', display: 'block' }}>Net Profit/Loss</span>
-                    <span style={{ fontSize: '20px', fontWeight: 'bold', color: selectedTrade.pnl >= 0 ? '#10b981' : '#ef4444' }}>
-                      {selectedTrade.pnl >= 0 ? '+' : ''}${selectedTrade.pnl.toFixed(2)}
-                    </span>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <span style={{ fontSize: '11px', color: '#94a3b8', display: 'block' }}>Outcome</span>
-                    <span style={{
-                      fontSize: '13px',
-                      fontWeight: 'bold',
-                      color: selectedTrade.pnl >= 0 ? '#10b981' : '#ef4444',
-                      display: 'inline-flex',
+                return (
+                  <>
+                    <div style={{
+                      display: 'flex',
                       alignItems: 'center',
-                      gap: '4px'
+                      gap: '8px',
+                      marginBottom: '16px'
                     }}>
-                      {selectedTrade.pnl >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-                      {selectedTrade.outcome}
-                    </span>
-                  </div>
-                </div>
+                      <span style={{
+                        backgroundColor: side === 'BUY' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                        color: side === 'BUY' ? '#10b981' : '#ef4444',
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        fontSize: '12px',
+                        fontWeight: 'bold'
+                      }}>
+                        {side}
+                      </span>
+                      <h2 style={{ fontSize: '18px', fontWeight: 'bold', margin: 0, color: '#f1f5f9' }}>
+                        Trade Performance Details
+                      </h2>
+                    </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 24px', fontSize: '13px', marginBottom: '20px' }}>
-                  <div>
-                    <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Entry Price</span>
-                    <span style={{ color: '#cbd5e1', fontWeight: '500' }}>${formatPrice(selectedTrade.entryPrice, symbol)}</span>
-                  </div>
-                  <div>
-                    <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Exit Price</span>
-                    <span style={{ color: '#cbd5e1', fontWeight: '500' }}>${formatPrice(selectedTrade.exitPrice, symbol)}</span>
-                  </div>
-                  <div>
-                    <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Stop Loss</span>
-                    <span style={{ color: '#ef4444', fontWeight: '500' }}>${formatPrice(selectedTrade.slPrice, symbol)}</span>
-                  </div>
-                  <div>
-                    <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Take Profit</span>
-                    <span style={{ color: '#10b981', fontWeight: '500' }}>${formatPrice(selectedTrade.tpPrice, symbol)}</span>
-                  </div>
-                  <div>
-                    <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Quantity Size</span>
-                    <span style={{ color: '#cbd5e1', fontWeight: '500' }}>{selectedTrade.qty.toFixed(4)}</span>
-                  </div>
-                  <div>
-                    <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Time Closed</span>
-                    <span style={{ color: '#cbd5e1', fontWeight: '500' }}>{selectedTrade.time}</span>
-                  </div>
-                </div>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      backgroundColor: pnl >= 0 ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
+                      border: `1px solid ${pnl >= 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)'}`,
+                      borderRadius: '10px',
+                      padding: '12px 16px',
+                      marginBottom: '20px'
+                    }}>
+                      <div>
+                        <span style={{ fontSize: '11px', color: '#94a3b8', display: 'block' }}>Net Profit/Loss</span>
+                        <span style={{ fontSize: '20px', fontWeight: 'bold', color: pnl >= 0 ? '#10b981' : '#ef4444' }}>
+                          {pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}
+                        </span>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <span style={{ fontSize: '11px', color: '#94a3b8', display: 'block' }}>Outcome</span>
+                        <span style={{
+                          fontSize: '13px',
+                          fontWeight: 'bold',
+                          color: pnl >= 0 ? '#10b981' : '#ef4444',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}>
+                          {pnl >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                          {outcomeStr}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 24px', fontSize: '13px', marginBottom: '20px' }}>
+                      <div>
+                        <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Entry Price</span>
+                        <span style={{ color: '#cbd5e1', fontWeight: '500' }}>${formatPrice(entryVal, symbol)}</span>
+                      </div>
+                      <div>
+                        <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Exit / Current Price</span>
+                        <span style={{ color: '#cbd5e1', fontWeight: '500' }}>${formatPrice(exitVal, symbol)}</span>
+                      </div>
+                      <div>
+                        <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Stop Loss</span>
+                        <span style={{ color: '#ef4444', fontWeight: '500' }}>${formatPrice(slVal, symbol)}</span>
+                      </div>
+                      <div>
+                        <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Take Profit</span>
+                        <span style={{ color: '#10b981', fontWeight: '500' }}>${formatPrice(tpVal, symbol)}</span>
+                      </div>
+                      <div>
+                        <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Quantity Size</span>
+                        <span style={{ color: '#cbd5e1', fontWeight: '500' }}>{qtyVal.toFixed(4)}</span>
+                      </div>
+                      <div>
+                        <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Time Closed / Active</span>
+                        <span style={{ color: '#cbd5e1', fontWeight: '500' }}>{selectedTrade.time || 'OPEN'}</span>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
 
                 {selectedTrade.triggerReason && (
                   <div style={{
