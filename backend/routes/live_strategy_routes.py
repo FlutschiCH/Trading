@@ -1,4 +1,7 @@
 import time
+import json
+import socket
+import threading
 from flask import Blueprint, request, jsonify
 from live_strategy_handler import LiveStrategyHandler
 
@@ -72,7 +75,7 @@ def delete_strategy(strategy_id):
     else:
         return jsonify({"status": "error", "message": "Failed to delete strategy"}), 500
 
-# Keep the original route /live/strategy as a fallback/compatibility GET endpoint
+# Fallback/compatibility GET endpoint
 @live_strategy_routes.route('/live/strategy', methods=['GET'])
 def live_strategy_compat():
     strategy = LiveStrategyHandler.get_strategy()
@@ -82,10 +85,9 @@ def live_strategy_compat():
 def get_strategy_cache(strategy_id):
     """
     Retrieve cached annotated candles for a specific live strategy.
+    Non-blocking: offloads warm-up evaluation to background thread if cache is not yet ready.
     """
     from live_runner_handler import LiveRunner
-    import json
-    import socket
     
     strategy = LiveStrategyHandler.get_strategy(strategy_id)
     if not strategy:
@@ -101,16 +103,12 @@ def get_strategy_cache(strategy_id):
 
     cache = LiveRunner._candles_cache.get(strategy_id, [])
     trades = LiveRunner._trades_cache.get(strategy_id, [])
-    
+
     if not cache:
         if is_targeted_here:
-            try:
-                print(f"[Cache Endpoint] Cache miss for strategy {strategy_id}. Forcing synchronous warm-up evaluation...", flush=True)
-                LiveRunner._evaluate_strategy(strategy)
-                cache = LiveRunner._candles_cache.get(strategy_id, [])
-                trades = LiveRunner._trades_cache.get(strategy_id, [])
-            except Exception as e:
-                print(f"Error forcing synchronous warm-up: {e}", flush=True)
+            print(f"[Cache Endpoint] Cache miss for strategy {strategy_id}. Spawning background warm-up evaluation...", flush=True)
+            threading.Thread(target=LiveRunner._evaluate_strategy, args=(strategy,), daemon=True).start()
+            return jsonify({"status": "pending", "message": "Strategy warm-up calculation in progress", "candles": [], "trades": []}), 202
         else:
             # Read from DB live_state when strategy runs on another machine (e.g. laptop)
             if strategy.get("live_state"):
