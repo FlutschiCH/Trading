@@ -77,7 +77,22 @@ class SQLHandler:
 
     @classmethod
     def get_sqlite_connection(cls):
-        return sqlite3.connect(LOCAL_DB_PATH)
+        conn = sqlite3.connect(LOCAL_DB_PATH)
+        # Ensure schema tables exist on local SQLite DB instance
+        try:
+            from account_handler import AccountHandler
+            from live_strategy_handler import LiveStrategyHandler
+            from symbol_mapping_handler import SymbolMappingHandler
+            from favourites_handler import FavouritesHandler
+            from backtest_settings_handler import BacktestSettingsHandler
+            AccountHandler.init_db()
+            LiveStrategyHandler.init_db()
+            SymbolMappingHandler.init_db()
+            FavouritesHandler.init_db()
+            BacktestSettingsHandler.init_db()
+        except Exception:
+            pass
+        return conn
 
     @classmethod
     def _execute_sqlite(cls, query: str, params: tuple) -> list:
