@@ -1,0 +1,3 @@
+# Rules
+- Never use fallbacks for data or reading (e.g. mock data fallback, alternative API/broker fallbacks like YFinance).
+- If a data fetch or reading operation fails, raise an error or fail immediately instead of silently falling back to alternatives.

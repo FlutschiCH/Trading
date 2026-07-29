@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Activity, X, TrendingUp, TrendingDown, Clock, HelpCircle, RefreshCw, Menu, ChevronDown, Sun, Moon } from 'lucide-react';
+import { Activity, X, TrendingUp, TrendingDown, Clock, HelpCircle, RefreshCw, Menu, ChevronDown, Sun, Moon, Settings, ShieldAlert } from 'lucide-react';
 import TVChart from './tv_chart';
 import WyckoffBacktester from './wyckoff_backtester';
 import HowToPage from './how_to_page';
@@ -7,9 +7,12 @@ import LiveTradesPanel from './live_trades_panel';
 import LiveOverviewPanel from './live_overview_panel';
 import SymbolMappingsView from './symbol_mappings_view';
 import ComputerManager from './computer_manager';
-import NotificationSettingsView from './notification_settings_view';
+import HeaderBar from './header_bar';
+import MobileTabNav from './mobile_tab_nav';
 import { API_BASE_URL } from '../api';
-
+import { isLocalTarget } from './target_switcher';
+import * as apiService from '../services/apiService';
+import NotificationSettingsView from './notification_settings_view';
 import '../App.css';
 
 interface Candle {
@@ -89,12 +92,12 @@ export const getPrecisionForSymbol = (symbol: string) => {
 export const formatPrice = (price: number | undefined | null, symbol: string) => {
   if (price === undefined || price === null) return '';
   return price.toFixed(getPrecisionForSymbol(symbol));
-};export const getWeekStart = (now: Date) => {
+}; export const getWeekStart = (now: Date) => {
   const day = now.getDay();
   const hours = now.getHours();
   const start = new Date(now);
   start.setHours(20, 0, 0, 0);
-  
+
   if (day === 0) { // Sunday
     if (hours < 20) {
       start.setDate(start.getDate() - 7);
@@ -107,11 +110,11 @@ export const formatPrice = (price: number | undefined | null, symbol: string) =>
 
 export const calculateDateBounds = (option: string, customFrom?: string, customTo?: string): { date_from?: number; date_to?: number } => {
   const now = new Date();
-  
+
   if (option === 'last_candles') {
     return {};
   }
-  
+
   if (option === 'this_week') {
     const start = getWeekStart(now);
     return {
@@ -119,7 +122,7 @@ export const calculateDateBounds = (option: string, customFrom?: string, customT
       date_to: Math.floor(now.getTime() / 1000)
     };
   }
-  
+
   if (option === 'last_week') {
     const end = getWeekStart(now);
     const start = new Date(end);
@@ -129,7 +132,7 @@ export const calculateDateBounds = (option: string, customFrom?: string, customT
       date_to: Math.floor(end.getTime() / 1000)
     };
   }
-  
+
   if (option === 'this_month') {
     const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
     return {
@@ -137,7 +140,7 @@ export const calculateDateBounds = (option: string, customFrom?: string, customT
       date_to: Math.floor(now.getTime() / 1000)
     };
   }
-  
+
   if (option === 'last_month') {
     const start = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0);
     const end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
@@ -146,7 +149,7 @@ export const calculateDateBounds = (option: string, customFrom?: string, customT
       date_to: Math.floor(end.getTime() / 1000)
     };
   }
-  
+
   if (option === 'custom' && customFrom && customTo) {
     const start = new Date(customFrom);
     const end = new Date(customTo);
@@ -155,14 +158,14 @@ export const calculateDateBounds = (option: string, customFrom?: string, customT
       date_to: Math.floor(end.getTime() / 1000)
     };
   }
-  
+
   if (option === 'from_start_date' && customFrom) {
     const start = new Date(customFrom);
     return {
       date_from: Math.floor(start.getTime() / 1000)
     };
   }
-  
+
   return {};
 };
 
@@ -232,7 +235,7 @@ export default function Dashboard() {
   };
 
   const [availableSymbols, setAvailableSymbols] = useState<string[]>([
-    'BTCUSD', 'ETHUSD', 'EURUSD', 'GBPUSD', 'USDJPY', 
+    'BTCUSD', 'ETHUSD', 'EURUSD', 'GBPUSD', 'USDJPY',
     'AUDUSD', 'USDCAD', 'XAUUSD', 'US30', 'GER40'
   ]);
   const [availableTimeframes, setAvailableTimeframes] = useState<string[]>([
@@ -299,15 +302,86 @@ export default function Dashboard() {
 
   const [view, setView] = useState<'dashboard' | 'mappings' | 'trades' | 'computers' | 'notifications'>('dashboard');
   const [connectionMode, setConnectionMode] = useState<'openapi' | 'fix'>('fix');
+  const [showMobileNav, setShowMobileNav] = useState<boolean>(false);
+
+  const [terminalLogs, setTerminalLogs] = useState<string[]>([]);
+  const [showTerminal, setShowTerminal] = useState<boolean>(true);
+  const [terminalConnectionStatus, setTerminalConnectionStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
+  const terminalEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let eventSource: EventSource | null = null;
+    let reconnectTimeout: any = null;
+
+    const connectSSE = () => {
+      setTerminalConnectionStatus('connecting');
+      eventSource = new EventSource(`${API_BASE_URL}/api/terminal/stream`);
+
+      eventSource.onopen = () => {
+        setTerminalConnectionStatus('connected');
+      };
+
+      eventSource.onmessage = (event) => {
+        if (!event.data) return;
+        setTerminalLogs((prev) => {
+          const updated = [...prev, event.data];
+          if (updated.length > 2000) {
+            return updated.slice(updated.length - 2000);
+          }
+          return updated;
+        });
+      };
+
+      eventSource.onerror = (err) => {
+        console.error("Terminal stream EventSource failed, reconnecting in 5s...", err);
+        setTerminalConnectionStatus('error');
+        if (eventSource) {
+          eventSource.close();
+        }
+        reconnectTimeout = setTimeout(connectSSE, 5000);
+      };
+    };
+
+    connectSSE();
+
+    return () => {
+      if (eventSource) {
+        eventSource.close();
+      }
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
+    };
+  }, []);
+
+
   const [isConnectedOpenAPI] = useState(true);
   const [isConnectedFIX] = useState(true);
-  const [isLiveFeed, setIsLiveFeed] = useState<boolean>(() => {
-    return localStorage.getItem('wyckoff_is_live_feed') === 'true';
+  const [isLiveFeed, setIsLiveFeed] = useState<boolean>(() => localStorage.getItem('wyckoff_is_live_feed') === 'true');
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_is_live_feed', isLiveFeed.toString());
+  }, [isLiveFeed]);
+  const [autoPollTrades, setAutoPollTrades] = useState<boolean>(() => {
+    const val = localStorage.getItem('wyckoff_auto_poll_trades');
+    return val === null ? true : val === 'true';
   });
+  const [tradesPollInterval, setTradesPollInterval] = useState<number>(() => {
+    const val = localStorage.getItem('wyckoff_trades_poll_interval');
+    return val ? parseInt(val, 10) : 10;
+  });
+  const [showTradesSettings, setShowTradesSettings] = useState<boolean>(false);
 
   // Account & Positions
   const [accountInfo, setAccountInfo] = useState<AccountInfo | null>(null);
-  const [openPositions, setOpenPositions] = useState<Position[]>([]);
+  const [openPositions, setOpenPositions] = useState<Position[]>(() => {
+    try {
+      const saved = localStorage.getItem('wyckoff_active_positions');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
 
   // Backtester states
   const [backtestSL, setBacktestSL] = useState(() => localStorage.getItem('wyckoff_backtest_sl') || '20');
@@ -349,6 +423,60 @@ export default function Dashboard() {
   } | null>(null);
   const [selectedTrade, setSelectedTrade] = useState<any>(null);
   const [showModal, setShowModal] = useState<boolean>(false);
+
+  const [executingModalOrder, setExecutingModalOrder] = useState(false);
+  const [modalOrderResult, setModalOrderResult] = useState<{ status: 'success' | 'error'; message: string } | null>(null);
+  const [modalOrderBroker, setModalOrderBroker] = useState<string>('metatrader');
+  const [modalOrderVolume, setModalOrderVolume] = useState<number>(0.01);
+
+  useEffect(() => {
+    if (selectedTrade) {
+      const vol = selectedTrade.qty || selectedTrade.volume || selectedTrade.size || 0.01;
+      setModalOrderVolume(Number(vol));
+      setModalOrderResult(null);
+    }
+  }, [selectedTrade]);
+
+  const handleExecuteTradeAgain = async () => {
+    if (!selectedTrade) return;
+    setExecutingModalOrder(true);
+    setModalOrderResult(null);
+
+    const isBuy = (selectedTrade.type || selectedTrade.side || 'BUY').toUpperCase() === 'BUY';
+    const side = isBuy ? 'buy' : 'sell';
+
+    const slVal = selectedTrade.slPrice ?? selectedTrade.sl ?? selectedTrade.stopLoss;
+    const tpVal = selectedTrade.tpPrice ?? selectedTrade.tp ?? selectedTrade.takeProfit;
+
+    const payload: any = {
+      broker: modalOrderBroker,
+      symbol: symbol,
+      side: side,
+      order_type: side,
+      volume: modalOrderVolume,
+    };
+    if (slVal && Number(slVal) > 0) payload.stop_loss = Number(slVal);
+    if (tpVal && Number(tpVal) > 0) payload.take_profit = Number(tpVal);
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/trade/order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.status === 'error') {
+        setModalOrderResult({ status: 'error', message: data.message || 'Execution failed' });
+      } else {
+        setModalOrderResult({ status: 'success', message: `Order executed! Ticket/ID: ${data.order_id || data.ticket || data.position_id || 'Success'}` });
+        fetchCandles(candleSource, false, true);
+      }
+    } catch (err: any) {
+      setModalOrderResult({ status: 'error', message: err.message || 'Network error' });
+    } finally {
+      setExecutingModalOrder(false);
+    }
+  };
   const [backtestTab, setBacktestTab] = useState<'trades' | 'weekly' | 'monthly' | 'hourly' | 'favourites'>('trades');
   const [tradeFilter, setTradeFilter] = useState<'all' | 'wins' | 'losses'>('all');
   const [selectedCandle, setSelectedCandle] = useState<Candle | null>(null);
@@ -356,7 +484,7 @@ export default function Dashboard() {
   const [favNotesInput, setFavNotesInput] = useState<string>('');
   const [locateTimestamp, setLocateTimestamp] = useState<number | null>(null);
   const [hiddenStages, setHiddenStages] = useState<string[]>([]);
-  
+
   const [historyTrades, setHistoryTrades] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [historyError, setHistoryError] = useState('');
@@ -365,14 +493,14 @@ export default function Dashboard() {
 
   // Sessions & Auto-Close Safeguards
   const [sessionsTimezone, setSessionsTimezone] = useState<'UTC' | 'Local'>(() => (localStorage.getItem('wyckoff_sessions_timezone') as 'UTC' | 'Local') || 'UTC');
-  
+
   // Optimization States
   const [isOptimizeMode, setIsOptimizeMode] = useState<boolean>(() => localStorage.getItem('wyckoff_optimize_mode') === 'true');
   const [rrStart, setRRStart] = useState<string>(() => localStorage.getItem('wyckoff_rr_start') || '1.0');
   const [rrEnd, setRREnd] = useState<string>(() => localStorage.getItem('wyckoff_rr_end') || '5.0');
   const [rrStep, setRRStep] = useState<string>(() => localStorage.getItem('wyckoff_rr_step') || '0.5');
   const [optimizationResults, setOptimizationResults] = useState<any[] | null>(null);
-  
+
   const [tradingSessions, setTradingSessions] = useState<any[]>(() => {
     try {
       const val = localStorage.getItem('wyckoff_trading_sessions');
@@ -382,7 +510,7 @@ export default function Dashboard() {
           return parsed;
         }
       }
-      
+
       const defaults = [
         { id: 'london', start: '08:00', end: '16:00', closeOnEnd: false, weekdays: [1, 2, 3, 4, 5], color: '#3b82f6' },
         { id: 'newyork', start: '13:00', end: '21:00', closeOnEnd: false, weekdays: [1, 2, 3, 4, 5], color: '#10b981' }
@@ -409,7 +537,7 @@ export default function Dashboard() {
         }
         return [...parsed, 'trades', 'live_overview'];
       }
-    } catch {}
+    } catch { }
     return ['chart', 'backtester', 'trades', 'live_overview'];
   });
   const [dragOverId, setDragOverId] = useState<string | null>(null);
@@ -428,15 +556,17 @@ export default function Dashboard() {
   }, []);
 
   const handleRestartServer = async () => {
-    if (!window.confirm("Are you sure you want to update and restart the backend server?")) return;
+    if (!window.confirm("Are you sure you want to update and restart the backend server on the Laptop?")) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/api/system/restart`, {
+      const laptopUrl = 'https://flugrok-production.up.railway.app';
+      console.log(`[Dashboard] Sending update & restart request to laptop server: ${laptopUrl}/api/system/restart`);
+      const res = await fetch(`${laptopUrl}/api/system/restart`, {
         method: 'POST'
       });
       const data = await res.json();
-      alert(data.message || "Restart command sent. The server should be back in a few seconds.");
+      alert(data.message || "Restart command sent. The laptop server should be back in a few seconds.");
     } catch (e) {
-      alert("Error sending restart command. Please verify the server is running.");
+      alert("Error sending restart command. Please verify the laptop server is running and reachable.");
     }
   };
 
@@ -622,11 +752,8 @@ export default function Dashboard() {
 
   const cancelBacktest = () => {
     if (activeBacktestIdRef.current) {
-      fetch(`${API_BASE_URL}/api/backtest/cancel`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ backtestId: activeBacktestIdRef.current })
-      }).catch(err => console.error("Failed to send cancel request to backend:", err));
+      apiService.cancelBacktest(activeBacktestIdRef.current)
+        .catch(err => console.error("Failed to send cancel request to backend:", err));
     }
     if (backtestAbortControllerRef.current) {
       backtestAbortControllerRef.current.abort();
@@ -657,11 +784,11 @@ export default function Dashboard() {
     const target = e.target as HTMLElement;
     // Don't drag if clicking buttons/inputs/selects
     if (
-      target.tagName === 'INPUT' || 
-      target.tagName === 'BUTTON' || 
-      target.tagName === 'SELECT' || 
-      target.closest('button') || 
-      target.closest('input') || 
+      target.tagName === 'INPUT' ||
+      target.tagName === 'BUTTON' ||
+      target.tagName === 'SELECT' ||
+      target.closest('button') ||
+      target.closest('input') ||
       target.closest('select') ||
       target.closest('.no-drag')
     ) {
@@ -702,19 +829,25 @@ export default function Dashboard() {
     const saved = localStorage.getItem('wyckoff_desk_card_widths');
     return saved ? JSON.parse(saved) : {};
   });
+  const [cardHeights, setCardHeights] = useState<{ [key: string]: number }>(() => {
+    const saved = localStorage.getItem('wyckoff_desk_card_heights');
+    return saved ? JSON.parse(saved) : {};
+  });
   const [activeResize, setActiveResize] = useState<{
     id: string;
-    startX: number;
-    startWidth: number;
+    direction: 'horizontal' | 'vertical';
+    startPos: number;
+    startSize: number;
   } | null>(null);
 
-  const handleResizeMouseDown = (e: React.MouseEvent, id: string, currentWidth: number) => {
+  const handleResizeMouseDown = (e: React.MouseEvent, id: string, direction: 'horizontal' | 'vertical', currentSize: number) => {
     e.preventDefault();
     e.stopPropagation();
     setActiveResize({
       id,
-      startX: e.clientX,
-      startWidth: currentWidth,
+      direction,
+      startPos: direction === 'horizontal' ? e.clientX : e.clientY,
+      startSize: currentSize,
     });
   };
 
@@ -722,16 +855,29 @@ export default function Dashboard() {
     if (!activeResize) return;
 
     const handleMouseMove = (e: MouseEvent) => {
-      const dx = e.clientX - activeResize.startX;
-      const newWidth = Math.max(280, activeResize.startWidth + dx);
-      setCardWidths(prev => {
-        const next = {
-          ...prev,
-          [activeResize.id]: newWidth,
-        };
-        localStorage.setItem('wyckoff_desk_card_widths', JSON.stringify(next));
-        return next;
-      });
+      if (activeResize.direction === 'horizontal') {
+        const dx = e.clientX - activeResize.startPos;
+        const newWidth = Math.max(280, activeResize.startSize + dx);
+        setCardWidths(prev => {
+          const next = {
+            ...prev,
+            [activeResize.id]: newWidth,
+          };
+          localStorage.setItem('wyckoff_desk_card_widths', JSON.stringify(next));
+          return next;
+        });
+      } else {
+        const dy = e.clientY - activeResize.startPos;
+        const newHeight = Math.min(800, Math.max(200, activeResize.startSize + dy));
+        setCardHeights(prev => {
+          const next = {
+            ...prev,
+            [activeResize.id]: newHeight,
+          };
+          localStorage.setItem('wyckoff_desk_card_heights', JSON.stringify(next));
+          return next;
+        });
+      }
     };
 
     const handleMouseUp = () => {
@@ -747,32 +893,62 @@ export default function Dashboard() {
   }, [activeResize]);
 
   const renderResizeHandle = (id: string) => (
-    <div
-      onMouseDown={(e) => {
-        const rect = e.currentTarget.parentElement?.getBoundingClientRect();
-        const currentWidth = rect ? rect.width : 400;
-        handleResizeMouseDown(e, id, currentWidth);
-      }}
-      style={{
-        position: 'absolute',
-        top: 0,
-        right: 0,
-        width: '6px',
-        height: '100%',
-        cursor: 'col-resize',
-        backgroundColor: activeResize?.id === id ? '#3b82f6' : 'transparent',
-        transition: 'background-color 0.2s',
-        zIndex: 100,
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.4)';
-      }}
-      onMouseLeave={(e) => {
-        if (activeResize?.id !== id) {
-          e.currentTarget.style.backgroundColor = 'transparent';
-        }
-      }}
-    />
+    <>
+      {/* Right border width resize handle */}
+      <div
+        onMouseDown={(e) => {
+          const rect = e.currentTarget.parentElement?.getBoundingClientRect();
+          const currentWidth = rect ? rect.width : 400;
+          handleResizeMouseDown(e, id, 'horizontal', currentWidth);
+        }}
+        style={{
+          position: 'absolute',
+          top: 0,
+          right: 0,
+          width: '6px',
+          height: '100%',
+          cursor: 'col-resize',
+          backgroundColor: activeResize?.id === id && activeResize?.direction === 'horizontal' ? '#3b82f6' : 'transparent',
+          transition: 'background-color 0.2s',
+          zIndex: 100,
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.4)';
+        }}
+        onMouseLeave={(e) => {
+          if (!(activeResize?.id === id && activeResize?.direction === 'horizontal')) {
+            e.currentTarget.style.backgroundColor = 'transparent';
+          }
+        }}
+      />
+      {/* Bottom border height resize handle */}
+      <div
+        onMouseDown={(e) => {
+          const rect = e.currentTarget.parentElement?.getBoundingClientRect();
+          const currentHeight = rect ? rect.height : 400;
+          handleResizeMouseDown(e, id, 'vertical', currentHeight);
+        }}
+        style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          width: '100%',
+          height: '6px',
+          cursor: 'row-resize',
+          backgroundColor: activeResize?.id === id && activeResize?.direction === 'vertical' ? '#3b82f6' : 'transparent',
+          transition: 'background-color 0.2s',
+          zIndex: 100,
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.4)';
+        }}
+        onMouseLeave={(e) => {
+          if (!(activeResize?.id === id && activeResize?.direction === 'vertical')) {
+            e.currentTarget.style.backgroundColor = 'transparent';
+          }
+        }}
+      />
+    </>
   );
 
   const runBacktest = async () => {
@@ -781,16 +957,16 @@ export default function Dashboard() {
       return;
     }
     if (!symbol) return;
-    
+
     if (backtestAbortControllerRef.current) {
       backtestAbortControllerRef.current.abort();
     }
-    
+
     const controller = new AbortController();
     backtestAbortControllerRef.current = controller;
     const backtestId = Date.now().toString();
     activeBacktestIdRef.current = backtestId;
-    
+
     setLoadingBacktest(true);
     try {
       setBacktestProgress(0);
@@ -846,7 +1022,7 @@ export default function Dashboard() {
           buffer += decoder.decode(value, { stream: !done });
           const lines = buffer.split("\n");
           buffer = lines.pop() || "";
-          
+
           for (const line of lines) {
             if (line.trim()) {
               try {
@@ -907,16 +1083,16 @@ export default function Dashboard() {
       return;
     }
     if (!symbol) return;
-    
+
     if (backtestAbortControllerRef.current) {
       backtestAbortControllerRef.current.abort();
     }
-    
+
     const controller = new AbortController();
     backtestAbortControllerRef.current = controller;
     const backtestId = Date.now().toString();
     activeBacktestIdRef.current = backtestId;
-    
+
     setLoadingBacktest(true);
     try {
       setBacktestProgress(0);
@@ -975,7 +1151,7 @@ export default function Dashboard() {
           buffer += decoder.decode(value, { stream: !done });
           const lines = buffer.split("\n");
           buffer = lines.pop() || "";
-          
+
           for (const line of lines) {
             if (line.trim()) {
               try {
@@ -1020,36 +1196,33 @@ export default function Dashboard() {
     const targetBroker = candleSource === 'ctrader' ? 'ctrader' : 'metatrader';
     setIsDeploying(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/live/strategy`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name,
-          symbol,
-          timeframe,
-          slVal: parseFloat(backtestSL) || 1.0,
-          slType: backtestSLType,
-          rr: parseFloat(backtestRR) || 2.0,
-          size: parseFloat(backtestSize) || 1.0,
-          useRiskSizing,
-          riskPct: parseFloat(backtestRiskPct) || 1.0,
-          useBreakEven,
-          beTriggerR: parseFloat(backtestBE) || 1.0,
-          lookbackWindow: parseInt(lookbackWindow) || 20,
-          status: 'active',
-          timezone: sessionsTimezone,
-          sessions: tradingSessions,
-          useGlobalClose,
-          globalCloseTime,
-          entryStabilityRule,
-          broker: targetBroker,
-          target_computer: targetComputer,
-          targets: targets
-        }),
+      const result = await apiService.deployLiveStrategy({
+        name,
+        symbol,
+        timeframe,
+        slVal: parseFloat(backtestSL) || 1.0,
+        slType: backtestSLType,
+        rr: parseFloat(backtestRR) || 2.0,
+        size: parseFloat(backtestSize) || 1.0,
+        useRiskSizing,
+        riskPct: parseFloat(backtestRiskPct) || 1.0,
+        useBreakEven,
+        beTriggerR: parseFloat(backtestBE) || 1.0,
+        lookbackWindow: parseInt(lookbackWindow) || 20,
+        status: 'active',
+        timezone: sessionsTimezone,
+        sessions: tradingSessions,
+        useGlobalClose,
+        globalCloseTime,
+        entryStabilityRule,
+        broker: targetBroker,
+        target_computer: targetComputer,
+        targets: targets,
+        dateRangeOption,
+        customFrom,
+        customTo,
+        candleLimit: candleLimit || 1000,
       });
-      const result = await response.json();
       if (result.status === 'success') {
         setLiveStrategy(result.strategy);
         const brokerTitle = targetBroker === 'ctrader' ? 'cTrader' : 'MetaTrader 5';
@@ -1184,8 +1357,7 @@ export default function Dashboard() {
     const loadMetadata = async () => {
       const sourcePath = candleSource === 'yfinance' ? 'yfinance' : (candleSource === 'metatrader' ? 'metatrader' : 'ctrader');
       try {
-        const symRes = await fetch(`${API_BASE_URL}/api/${sourcePath}/symbols`);
-        const symData = await symRes.json();
+        const symData = await apiService.fetchMetadataSymbols(sourcePath);
         if (symData.status === 'success' && symData.data) {
           setAvailableSymbols(symData.data);
           if (symData.data.length > 0 && !symData.data.includes(symbol)) {
@@ -1197,8 +1369,7 @@ export default function Dashboard() {
       }
 
       try {
-        const tfRes = await fetch(`${API_BASE_URL}/api/${sourcePath}/timeframes`);
-        const tfData = await tfRes.json();
+        const tfData = await apiService.fetchMetadataTimeframes(sourcePath);
         if (tfData.status === 'success' && tfData.data) {
           setAvailableTimeframes(tfData.data);
         }
@@ -1211,55 +1382,51 @@ export default function Dashboard() {
 
   useEffect(() => {
     const loadLiveStrategyAndPerms = async () => {
-      try {
-        const stratRes = await fetch(`${API_BASE_URL}/api/live/strategies`);
-        const stratData = await stratRes.json();
-        if (stratData.status === 'success' && Array.isArray(stratData.strategies)) {
-          setLiveStrategies(stratData.strategies);
-          // If no selectedStrategyId is saved yet, fallback to the first active strategy
-          if (!selectedStrategyId && stratData.strategies.length > 0) {
-            setSelectedStrategyId(stratData.strategies[0].id);
-            localStorage.setItem('wyckoff_selected_live_strategy_id', stratData.strategies[0].id);
-          }
-        }
-      } catch (e) {
-        console.error('Failed to load live strategies:', e);
-      }
-
-      try {
-        const stratRes = await fetch(`${API_BASE_URL}/api/live/strategy`);
-        const stratData = await stratRes.json();
-        if (stratData.status === 'success' && stratData.strategy) {
-          setLiveStrategy(stratData.strategy);
-        }
-      } catch (e) {
-        console.error('Failed to load live strategy:', e);
-      }
-
       if ('Notification' in window && Notification.permission === 'default') {
         Notification.requestPermission();
       }
       fetchFavourites();
+      try {
+        const data = await apiService.fetchLiveStrategies();
+        if (data.status === 'success' && Array.isArray(data.strategies)) {
+          setLiveStrategies(data.strategies);
+        }
+      } catch (err) {
+        console.error("Failed to fetch live strategies on startup:", err);
+      }
     };
     loadLiveStrategyAndPerms();
   }, []);
 
   // Fetch candle data and analyze on Flask backend
-  const fetchCandles = async (overrideBroker?: string, isBackground: boolean = false) => {
+  const fetchCandles = async (overrideBroker?: string, isBackground: boolean = false, forceFullRefresh: boolean = false) => {
     if (!isBackground) {
       setLoading(true);
     }
     setLoadingStrategy(true);
+
+    if (forceFullRefresh) {
+      setCandles([]);
+      setLiveSimulatedTrades([]);
+    }
+
+    const isIncremental = !forceFullRefresh && candles.length >= 100;
+    const reqLimit = isIncremental ? 2 : candleLimit;
+
     try {
       let rawCandles: Candle[] = [];
-      
+
       if (isLiveFeed && selectedStrategyId) {
         try {
-          const response = await fetch(`${API_BASE_URL}/api/live/strategy/cache/${selectedStrategyId}`);
-          const result = await response.json();
+          const result = await apiService.fetchLiveStrategyCache(selectedStrategyId, isIncremental ? 2 : undefined);
           if (result && result.status === 'success' && Array.isArray(result.candles)) {
             rawCandles = result.candles.sort((a: Candle, b: Candle) => a.time - b.time);
-            setLiveSimulatedTrades([]);
+            setLiveSimulatedTrades(result.trades || []);
+          } else if (result && result.status === 'not_found') {
+            console.warn(`Live strategy ${selectedStrategyId} not found in DB. Clearing from localStorage.`);
+            localStorage.removeItem('wyckoff_selected_live_strategy_id');
+            setSelectedStrategyId('');
+            setIsLiveFeed(false);
           }
         } catch (err) {
           console.error("Failed to fetch live feed cache:", err);
@@ -1268,18 +1435,13 @@ export default function Dashboard() {
 
       if (rawCandles.length === 0 && !isLiveFeed) {
         try {
-          const response = await fetch(`${API_BASE_URL}/api/trade/candles`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              broker: overrideBroker || candleSource,
-              symbol: symbol,
-              interval: timeframe,
-              limit: candleLimit,
-              lookback: parseInt(lookbackWindow) || 20,
-            }),
+          const result = await apiService.fetchTradeCandles({
+            broker: overrideBroker || candleSource,
+            symbol: symbol,
+            interval: timeframe,
+            limit: reqLimit,
+            lookback: parseInt(lookbackWindow) || 20,
           });
-          const result = await response.json();
           if (result && result.status === 'success' && Array.isArray(result.candles)) {
             rawCandles = result.candles.sort((a: Candle, b: Candle) => a.time - b.time);
             setLiveSimulatedTrades(result.trades || []);
@@ -1288,13 +1450,27 @@ export default function Dashboard() {
             setLiveSimulatedTrades([]);
           }
         } catch (err) {
-          console.warn("Using local historical mock generation fallback.");
+          console.error("Error fetching trade candles:", err);
         }
       }
 
       if (rawCandles.length > 0) {
-        // Set raw candles immediately and stop initial loading to show chart instantly
-        setCandles(rawCandles);
+        if (isIncremental) {
+          setCandles(prev => {
+            const merged = [...prev];
+            rawCandles.forEach((newCandle) => {
+              const idx = merged.findIndex(c => c.time === newCandle.time);
+              if (idx !== -1) {
+                merged[idx] = newCandle;
+              } else {
+                merged.push(newCandle);
+              }
+            });
+            return merged.sort((a, b) => a.time - b.time);
+          });
+        } else {
+          setCandles(rawCandles);
+        }
         setLoading(false);
         setInitialCandlesLoaded(true);
       }
@@ -1333,7 +1509,15 @@ export default function Dashboard() {
       });
       const result = await response.json();
       if (result.status === 'success') {
-        setOpenPositions(result.data);
+        const positions = Array.isArray(result.data) ? result.data : [];
+        setOpenPositions(positions);
+        try {
+          if (positions.length > 0) {
+            localStorage.setItem('wyckoff_active_positions', JSON.stringify(positions));
+          } else {
+            localStorage.removeItem('wyckoff_active_positions');
+          }
+        } catch (e) {}
       }
     } catch (error) {
       console.error('Positions data error:', error);
@@ -1527,9 +1711,9 @@ export default function Dashboard() {
     let daily = 0;
     let weekly = 0;
     const now = new Date();
-    
+
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() / 1000;
-    
+
     const tempNow = new Date();
     const day = tempNow.getDay();
     const diff = tempNow.getDate() - day + (day === 0 ? -6 : 1);
@@ -1553,8 +1737,7 @@ export default function Dashboard() {
 
   const fetchFavourites = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/favourites/list`);
-      const result = await response.json();
+      const result = await apiService.fetchFavouritesList();
       if (result.status === 'success' && result.data) {
         setFavouriteCandles(result.data);
       }
@@ -1569,24 +1752,19 @@ export default function Dashboard() {
       return;
     }
     try {
-      const response = await fetch(`${API_BASE_URL}/api/favourites/save`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          symbol: symbol,
-          timeframe: timeframe,
-          time: candle.time,
-          open: candle.open,
-          high: candle.high,
-          low: candle.low,
-          close: candle.close,
-          volume: candle.volume,
-          vsa_patterns: candle.vsa_patterns,
-          weis_wave_volume: candle.weis_wave_volume,
-          notes: notes
-        }),
+      const result = await apiService.saveFavourite({
+        symbol: symbol,
+        timeframe: timeframe,
+        time: candle.time,
+        open: candle.open,
+        high: candle.high,
+        low: candle.low,
+        close: candle.close,
+        volume: candle.volume,
+        vsa_patterns: candle.vsa_patterns,
+        weis_wave_volume: candle.weis_wave_volume,
+        notes: notes
       });
-      const result = await response.json();
       if (result.status === 'success') {
         alert('Candle successfully added to favourites!');
         setSelectedCandle(null);
@@ -1606,12 +1784,7 @@ export default function Dashboard() {
       return;
     }
     try {
-      const response = await fetch(`${API_BASE_URL}/api/favourites/delete`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: favId }),
-      });
-      const result = await response.json();
+      const result = await apiService.deleteFavourite({ id: favId });
       if (result.status === 'success') {
         fetchFavourites();
       } else {
@@ -1628,12 +1801,7 @@ export default function Dashboard() {
       return;
     }
     try {
-      const response = await fetch(`${API_BASE_URL}/api/favourites/update-notes`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: favId, notes }),
-      });
-      const result = await response.json();
+      const result = await apiService.updateFavouriteNotes({ id: favId, notes });
       if (result.status === 'success') {
         alert('Notes updated!');
         fetchFavourites();
@@ -1693,29 +1861,39 @@ export default function Dashboard() {
     setLoadingStrategy(false);
   }, [symbol, timeframe, candleLimit, candleSource]);
 
-  // Fetch other account/positions data once candles have initially loaded, and set up polling.
+  // Save autoPollTrades & tradesPollInterval to localStorage
   useEffect(() => {
-    if (!initialCandlesLoaded) return;
+    localStorage.setItem('wyckoff_auto_poll_trades', autoPollTrades.toString());
+  }, [autoPollTrades]);
 
+  useEffect(() => {
+    localStorage.setItem('wyckoff_trades_poll_interval', tradesPollInterval.toString());
+  }, [tradesPollInterval]);
+
+  // Fetch account/positions data on initial load and setup interval polling when autoPollTrades is enabled.
+  useEffect(() => {
     fetchAccountData();
     fetchPositionData();
-    fetchHistoryTrades(); // Initial load only
 
-    // Poll account and positions every 10s (skip history)
+    if (!autoPollTrades) return;
+
+    const ms = Math.max(1, tradesPollInterval) * 1000;
     const interval = setInterval(() => {
       fetchAccountData();
       fetchPositionData();
-    }, 10000);
+    }, ms);
+
     return () => clearInterval(interval);
-  }, [initialCandlesLoaded, symbol, candleSource]);
+  }, [candleSource, autoPollTrades, tradesPollInterval]);
 
   // Live Feed auto-update polling
   useEffect(() => {
     if (!isLiveFeed) return;
-    fetchCandles(undefined, true);
+    fetchCandles(undefined, true, true);
+    const pollIntervalMs = isLocalTarget() ? 5000 : 10000;
     const interval = setInterval(() => {
-      fetchCandles(undefined, true);
-    }, 2000);
+      fetchCandles(undefined, true, false);
+    }, pollIntervalMs);
     return () => clearInterval(interval);
   }, [isLiveFeed, symbol, timeframe, selectedStrategyId]);
 
@@ -1740,6 +1918,9 @@ export default function Dashboard() {
       alignItems: 'center',
       gap: '16px',
       flexWrap: 'wrap' as const,
+      position: 'sticky' as const,
+      top: 0,
+      zIndex: 100,
     },
     logoSection: {
       display: 'flex',
@@ -1974,19 +2155,19 @@ export default function Dashboard() {
     const symUpper = sym.toUpperCase();
     if (symUpper.includes('JPY')) return 0.01;
     if (symUpper.includes('XAU') || symUpper.includes('GOLD') || symUpper.includes('XAG')) return 0.1;
-    
+
     const isCrypto = ['BTC', 'ETH', 'SOL', 'LTC', 'XRP', 'ADA', 'DOT', 'DOGE', 'LINK', 'UNI', 'PEPE', 'SHIB'].some(c => symUpper.includes(c));
     if (isCrypto) {
       if (price > 1000) return 1.0;
       if (price > 10) return 0.1;
       return 0.001;
     }
-    
+
     const forexCurrencies = ['EUR', 'GBP', 'AUD', 'NZD', 'USD', 'CAD', 'CHF', 'SEK', 'NOK', 'SGD', 'HKD', 'ZAR', 'MXN'];
     if (forexCurrencies.some(curr => symUpper.includes(curr))) {
       return 0.0001;
     }
-    
+
     if (price > 1000) return 1.0;
     if (price > 100) return 0.1;
     if (price > 1) return 0.01;
@@ -2012,13 +2193,13 @@ export default function Dashboard() {
   const liveTrades = openPositions.map((pos: any) => {
     let slPrice = pos.stop_loss;
     let tpPrice = pos.take_profit;
-    
+
     if (!slPrice && liveStrategy && liveStrategy.symbol === pos.symbol) {
       const slVal = parseFloat(liveStrategy.slVal) || 1.0;
       const rr = parseFloat(liveStrategy.rr) || 2.0;
       const isBuy = pos.trade_side === 'BUY';
       const entry = pos.entry_price;
-      
+
       if (liveStrategy.slType === 'price') {
         const pipSize = getPipSize(pos.symbol, entry);
         slPrice = isBuy ? entry - slVal * pipSize : entry + slVal * pipSize;
@@ -2030,17 +2211,17 @@ export default function Dashboard() {
       } else {
         slPrice = isBuy ? entry * (1 - slVal / 100) : entry * (1 + slVal / 100);
       }
-      
+
       const slDistancePrice = Math.abs(entry - slPrice);
       tpPrice = isBuy ? entry + slDistancePrice * rr : entry - slDistancePrice * rr;
     }
-    
+
     let entryTimestamp = pos.entry_timestamp;
     if (!entryTimestamp && candles.length > 0) {
       const matchedCandle = candles.find((c) => pos.entry_price >= c.low && pos.entry_price <= c.high);
       entryTimestamp = matchedCandle ? matchedCandle.time : candles[candles.length - 1].time;
     }
-    
+
     return {
       id: pos.position_id,
       symbol: pos.symbol,
@@ -2056,394 +2237,23 @@ export default function Dashboard() {
 
   return (
     <div style={styles.container}>
-      
+
       {/* Upper Navigation Desk Bar */}
-      <header style={{
-        ...styles.header,
-        ...(isMobile ? { padding: '12px 16px' } : {})
-      }}>
-        <div style={styles.logoSection}>
-          <Activity size={28} style={{ color: '#3b82f6' }} />
-          <span style={styles.logoText}>WYCKOFF</span>
-          <span 
-            title={`cTrader ${connectionMode.toUpperCase()}: ${currentConnected ? 'ONLINE' : 'OFFLINE'}`}
-            style={{
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              backgroundColor: currentConnected ? '#10b981' : '#ef4444',
-              boxShadow: `0 0 8px ${currentConnected ? '#10b981' : '#ef4444'}`,
-              display: 'inline-block',
-              marginLeft: '4px',
-              flexShrink: 0,
-            }}
-          />
-          <div style={{ position: 'relative', display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <button 
-              onClick={toggleTheme}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: 'var(--app-panel-header-bg)',
-                border: '1px solid var(--app-card-border)',
-                cursor: 'pointer',
-                borderRadius: '6px',
-                padding: '6px',
-                color: 'var(--app-text)',
-                outline: 'none',
-                transition: 'all 0.2s',
-              }}
-              title={theme === 'dark' ? "Switch to Light Mode" : "Switch to Dark Mode"}
-            >
-              {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
-            </button>
-            <button 
-              onClick={() => setShowMenu(!showMenu)} 
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                backgroundColor: 'var(--app-panel-header-bg)',
-                border: '1px solid var(--app-card-border)',
-                cursor: 'pointer',
-                borderRadius: '6px',
-                padding: '6px 12px',
-                color: 'var(--app-text)',
-                fontWeight: 'bold',
-                fontSize: '11px',
-                outline: 'none',
-                transition: 'all 0.2s',
-              }}
-            >
-              <Menu size={12} /> Links & Resources <ChevronDown size={12} />
-            </button>
-            {showMenu && (
-              <>
-                <div 
-                  onClick={() => setShowMenu(false)}
-                  style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    zIndex: 999,
-                    backgroundColor: 'transparent',
-                  }}
-                />
-                <div style={{
-                  position: 'absolute',
-                  top: 'calc(100% + 8px)',
-                  left: 0,
-                  backgroundColor: '#0f172a',
-                  border: '1px solid #334155',
-                  borderRadius: '8px',
-                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 20px rgba(59, 130, 246, 0.1)',
-                  padding: '6px 0',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  minWidth: '220px',
-                  zIndex: 1000,
-                }}>
-                  <a href="https://openapi.ctrader.com/apps" target="_blank" rel="noopener noreferrer" className="menu-item" onClick={() => setShowMenu(false)}>
-                    cTrader Apps
-                  </a>
-                  <a href="https://gemini.google.com/app/71d33e33a84aa328" target="_blank" rel="noopener noreferrer" className="menu-item" onClick={() => setShowMenu(false)}>
-                    Wyckoff Prompt
-                  </a>
-                  <a href="https://trader.ftmo.com/accounts-overview" target="_blank" rel="noopener noreferrer" className="menu-item" onClick={() => setShowMenu(false)}>
-                    FTMO Overview
-                  </a>
-                  <a href="https://saphir.metanet.ch:8443/phpMyAdmin/index.php?db=aa_wyckoff_trading" target="_blank" rel="noopener noreferrer" className="menu-item" onClick={() => setShowMenu(false)}>
-                    Database (phpMyAdmin)
-                  </a>
-                  <a href="https://railway.com/project/aa01f500-c3df-4d47-b60a-821237699d0d/service/05376c29-94f0-44f3-acc2-93d5d104019f/settings?environmentId=7a63d6ae-f3e6-452d-b527-6311f6f9b551" target="_blank" rel="noopener noreferrer" className="menu-item" onClick={() => setShowMenu(false)}>
-                    Railway Settings
-                  </a>
-                   <a 
-                    href="#symbol-mappings" 
-                    className="menu-item" 
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setView('mappings');
-                      setShowMenu(false);
-                    }}
-                  >
-                    🔗 Symbol Mappings
-                  </a>
-                  <a 
-                    href="#live-trades" 
-                    className="menu-item" 
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setView('trades');
-                      setShowMenu(false);
-                    }}
-                  >
-                    📈 Live Trades & History
-                  </a>
-                  <a 
-                    href="#computers" 
-                    className="menu-item" 
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setView('computers');
-                      setShowMenu(false);
-                    }}
-                  >
-                    💻 Computer Manager
-                  </a>
-                  <a 
-                    href="#notifications" 
-                    className="menu-item" 
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setView('notifications');
-                      setShowMenu(false);
-                    }}
-                  >
-                    🔔 Notification Settings
-                  </a>
-                  <button 
-                    onClick={() => {
-                      setShowMenu(false);
-                      triggerPWAEventNotification("Sound Check", "Local audio sound test completed successfully!", "trade_open");
-                    }}
-                    className="menu-item"
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      textAlign: 'left',
-                      width: '100%',
-                      cursor: 'pointer',
-                      display: 'block',
-                      fontFamily: 'inherit',
-                      padding: '8px 16px',
-                      color: '#94a3b8'
-                    }}
-                  >
-                    🔔 Test Local Sound
-                  </button>
-                  <button 
-                    onClick={() => {
-                      setShowMenu(false);
-                      handleRestartServer();
-                    }}
-                    className="menu-item"
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      textAlign: 'left',
-                      width: '100%',
-                      cursor: 'pointer',
-                      display: 'block',
-                      fontFamily: 'inherit',
-                      padding: '8px 16px',
-                      color: '#ef4444',
-                      fontWeight: 'bold'
-                    }}
-                  >
-                    🔄 Update & Restart Server
-                  </button>
-                  <a href="/how-to" className="menu-item" style={{ borderTop: '1px solid #1e293b', paddingTop: '8px', marginTop: '4px' }} onClick={() => setShowMenu(false)}>
-                    📖 How It Works
-                  </a>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Centered Account Selector */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          justifyContent: 'center',
-          flex: 1,
-          margin: '0 20px',
-          backgroundColor: 'rgba(15, 23, 42, 0.4)',
-          border: '1px solid var(--app-card-border)',
-          borderRadius: '8px',
-          padding: '4px 12px',
-          maxWidth: '650px'
-        }}>
-          {activeAccount ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
-              <span style={{
-                fontWeight: 'bold',
-                color: activeAccount.broker_type === 'ctrader' ? '#f59e0b' : '#3b82f6',
-                textTransform: 'uppercase',
-                fontSize: '10px',
-                backgroundColor: activeAccount.broker_type === 'ctrader' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(59, 130, 246, 0.15)',
-                padding: '2px 6px',
-                borderRadius: '4px'
-              }}>
-                {activeAccount.broker_type === 'ctrader' ? 'cTrader' : 'MT5'}
-              </span>
-              <span style={{ color: 'var(--app-text)', fontWeight: 'bold' }}>{activeAccount.name}</span>
-              <span style={{ color: 'var(--app-text-muted)', fontSize: '11px' }}>({activeAccount.account_id})</span>
-              {accountInfo ? (
-                <span style={{ 
-                  color: '#10b981', 
-                  fontWeight: 'bold', 
-                  fontSize: '11px',
-                  backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                  padding: '2px 6px',
-                  borderRadius: '4px',
-                  border: '1px solid rgba(16, 185, 129, 0.2)',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}>
-                  <span style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: '#10b981', display: 'inline-block' }}></span>
-                  {accountInfo.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {accountInfo.currency || 'USD'}
-                </span>
-              ) : (
-                <span style={{ color: 'var(--app-text-muted)', fontSize: '11px', fontStyle: 'italic' }}>
-                  (Loading balance...)
-                </span>
-              )}
-            </div>
-          ) : (
-            <span style={{ color: 'var(--app-text-muted)', fontSize: '12px' }}>No Active Account</span>
-          )}
-
-          <select
-            value={activeAccount?.account_id || ''}
-            onChange={(e) => handleSwitchAccount(e.target.value)}
-            style={{
-              backgroundColor: 'var(--app-panel-header-bg)',
-              border: '1px solid var(--app-card-border)',
-              color: 'var(--app-text)',
-              fontSize: '12px',
-              padding: '4px 8px',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              outline: 'none',
-            }}
-          >
-            <option value="" disabled>Switch account...</option>
-            {accounts.map((acc) => (
-              <option key={acc.account_id} value={acc.account_id}>
-                {acc.name} ({acc.broker_type === 'ctrader' ? 'cTrader' : 'MT5'})
-              </option>
-            ))}
-          </select>
-
-          <button
-            onClick={() => setShowAccountModal(true)}
-            style={{
-              backgroundColor: '#1e293b',
-              border: '1px solid #334155',
-              color: '#f8fafc',
-              padding: '4px 10px',
-              borderRadius: '6px',
-              fontSize: '11px',
-              fontWeight: 'bold',
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-            }}
-          >
-            ⚙️ Manage
-          </button>
-        </div>
-
-        {view !== 'mappings' && (
-          <div style={{
-            ...styles.controlsSection,
-            ...(isMobile ? {
-              flexDirection: 'column',
-              width: '100%',
-              gap: '12px',
-              marginTop: '12px',
-              alignItems: 'stretch',
-            } : {})
-          }}>
-            <div style={{
-              color: candleSource === 'metatrader' ? '#3b82f6' : '#f59e0b',
-              fontWeight: 'bold',
-              fontSize: '12px',
-              backgroundColor: candleSource === 'metatrader' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(245, 158, 11, 0.1)',
-              border: `1px solid ${candleSource === 'metatrader' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(245, 158, 11, 0.2)'}`,
-              padding: '6px 12px',
-              borderRadius: '6px',
-              textAlign: 'center',
-              ...(isMobile ? { width: '100%' } : {})
-            }}>
-              {activeAccount ? `${activeAccount.name} Active` : 'No Active Account'}
-            </div>
-            {(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname === '89.217.138.51') && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '6px', padding: '4px 8px' }}>
-                <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 'bold' }}>Target API:</span>
-                <select
-                  value={localStorage.getItem('wyckoff_api_target') || `http://${window.location.hostname}:8751`}
-                  onChange={(e) => {
-                    localStorage.setItem('wyckoff_api_target', e.target.value);
-                    window.location.reload();
-                  }}
-                  style={{
-                    backgroundColor: '#1e293b',
-                    border: 'none',
-                    color: '#ffffff',
-                    fontSize: '11px',
-                    fontWeight: 'bold',
-                    cursor: 'pointer',
-                    outline: 'none',
-                    padding: '2px 4px'
-                  }}
-                >
-                  <option style={{ backgroundColor: '#1e293b', color: '#ffffff' }} value={`http://${window.location.hostname}:8751`}>Local Host (8751)</option>
-                  <option style={{ backgroundColor: '#1e293b', color: '#ffffff' }} value="http://89.217.138.51:8751">Laptop Server (89.217.138.51)</option>
-                  <option style={{ backgroundColor: '#1e293b', color: '#ffffff' }} value="https://trading-production-cb87.up.railway.app">Railway Live Container</option>
-                </select>
-              </div>
-            )}
-            {(window.location.hostname === 'localhost' || 
-              window.location.hostname === '127.0.0.1' ||
-              window.location.hostname === '89.217.138.51') && (
-              <button
-                onClick={async () => {
-                  try {
-                    const response = await fetch('https://trading-production-cb87.up.railway.app/api/ctrader/order', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ symbol: 'EURUSD', order_type: 'buy', volume: 0.01 })
-                    });
-                    const data = await response.json();
-                    if (data.status === 'success') {
-                      alert(`Test Order Placed successfully!\nDetails: ${data.message || JSON.stringify(data)}`);
-                    } else {
-                      alert(`Test Order Error:\n${data.message || JSON.stringify(data)}`);
-                    }
-                  } catch (err: any) {
-                    alert(`Failed to trigger order: ${err.message}`);
-                  }
-                }}
-                style={{
-                  color: '#ffffff',
-                  fontWeight: 'bold',
-                  fontSize: '12px',
-                  backgroundColor: '#ef4444',
-                  border: 'none',
-                  padding: '6px 12px',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  textAlign: 'center',
-                  marginLeft: '8px',
-                  transition: 'background-color 0.2s',
-                  ...(isMobile ? { width: '100%', marginLeft: 0 } : {})
-                }}
-                onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#dc2626')}
-                onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#ef4444')}
-              >
-                🚀 Test cTrader Order
-              </button>
-            )}
-          </div>
-        )}
-      </header>
+      <HeaderBar
+        isMobile={isMobile}
+        theme={theme}
+        toggleTheme={toggleTheme}
+        connectionMode={connectionMode}
+        currentConnected={currentConnected}
+        activeAccount={activeAccount}
+        accountInfo={accountInfo}
+        accounts={accounts}
+        handleSwitchAccount={handleSwitchAccount}
+        setShowAccountModal={setShowAccountModal}
+        handleRestartServer={handleRestartServer}
+        setView={(v: string) => setView(v as "trades" | "dashboard" | "mappings" | "computers" | "notifications")}
+        styles={styles}
+      />
 
       {window.location.pathname === '/how-to' ? (
         <HowToPage />
@@ -2464,399 +2274,141 @@ export default function Dashboard() {
         />
       ) : (
         <>
-      {/* Main Grid View */}
-      <main style={styles.mainLayout}>
-        {selectedCandle && (
-          <div style={{
-            backgroundColor: '#0f172a',
-            border: '1.5px solid #eab308',
-            boxShadow: '0 0 15px rgba(234, 179, 8, 0.15)',
-            borderRadius: '12px',
-            padding: '16px',
-            display: 'flex',
-            flexDirection: isMobile ? 'column' : 'row',
-            justifyContent: 'space-between',
-            alignItems: isMobile ? 'stretch' : 'center',
-            gap: '16px',
-            position: 'relative'
-          }}>
-            <button 
-              onClick={() => setSelectedCandle(null)}
-              style={{
-                position: 'absolute',
-                top: '12px',
-                right: '12px',
-                background: 'none',
-                border: 'none',
-                color: '#94a3b8',
-                cursor: 'pointer'
-              }}
-            >
-              <X size={16} />
-            </button>
+          {/* Main Grid View */}
+          <main style={styles.mainLayout}>
+            {selectedCandle && (
+              <div style={{
+                backgroundColor: '#0f172a',
+                border: '1.5px solid #eab308',
+                boxShadow: '0 0 15px rgba(234, 179, 8, 0.15)',
+                borderRadius: '12px',
+                padding: '16px',
+                display: 'flex',
+                flexDirection: isMobile ? 'column' : 'row',
+                justifyContent: 'space-between',
+                alignItems: isMobile ? 'stretch' : 'center',
+                gap: '16px',
+                position: 'relative'
+              }}>
+                <button
+                  onClick={() => setSelectedCandle(null)}
+                  style={{
+                    position: 'absolute',
+                    top: '12px',
+                    right: '12px',
+                    background: 'none',
+                    border: 'none',
+                    color: '#94a3b8',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <X size={16} />
+                </button>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#f1f5f9' }}>
-                  🔍 Selected Candle Details
-                </span>
-                <span style={{
-                  fontSize: '9px',
-                  fontWeight: 'bold',
-                  backgroundColor: timeframe === '1m' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                  color: timeframe === '1m' ? '#10b981' : '#ef4444',
-                  padding: '2px 6px',
-                  borderRadius: '4px'
-                }}>
-                  {timeframe === '1m' ? '1m Candle Supported' : '1m Only (Read Only)'}
-                </span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#f1f5f9' }}>
+                      🔍 Selected Candle Details
+                    </span>
+                    <span style={{
+                      fontSize: '9px',
+                      fontWeight: 'bold',
+                      backgroundColor: timeframe === '1m' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                      color: timeframe === '1m' ? '#10b981' : '#ef4444',
+                      padding: '2px 6px',
+                      borderRadius: '4px'
+                    }}>
+                      {timeframe === '1m' ? '1m Candle Supported' : '1m Only (Read Only)'}
+                    </span>
+                  </div>
+                  <span style={{ fontSize: '11px', color: '#94a3b8' }}>
+                    Time: {formatDateTime(selectedCandle.time)} | Open: {formatPrice(selectedCandle.open, symbol)} | High: {formatPrice(selectedCandle.high, symbol)} | Low: {formatPrice(selectedCandle.low, symbol)} | Close: {formatPrice(selectedCandle.close, symbol)} | Vol: {selectedCandle.volume.toFixed(1)}
+                  </span>
+                  {selectedCandle.vsa_patterns && selectedCandle.vsa_patterns.length > 0 && (
+                    <span style={{ fontSize: '11px', color: '#f59e0b', fontWeight: '500' }}>
+                      VSA Patterns: {selectedCandle.vsa_patterns.join(', ')}
+                    </span>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                  {timeframe === '1m' ? (
+                    <>
+                      <input
+                        type="text"
+                        placeholder="Add custom notes..."
+                        value={favNotesInput}
+                        onChange={(e) => setFavNotesInput(e.target.value)}
+                        style={{
+                          backgroundColor: '#1e293b',
+                          border: '1px solid #334155',
+                          borderRadius: '6px',
+                          padding: '6px 12px',
+                          color: '#f8fafc',
+                          fontSize: '12px',
+                          minWidth: '220px',
+                          outline: 'none'
+                        }}
+                      />
+                      <button
+                        onClick={() => handleSaveFavourite(selectedCandle, favNotesInput)}
+                        style={{
+                          backgroundColor: '#eab308',
+                          color: '#0b0f19',
+                          border: 'none',
+                          borderRadius: '6px',
+                          padding: '6px 16px',
+                          fontSize: '12px',
+                          fontWeight: 'bold',
+                          cursor: 'pointer',
+                          boxShadow: '0 4px 10px rgba(234, 179, 8, 0.2)',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        ⭐ Favourite Candle
+                      </button>
+                    </>
+                  ) : (
+                    <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: 'bold' }}>
+                      ⚠️ Save to Favourites is only available for 1m timeframe candles
+                    </span>
+                  )}
+                </div>
               </div>
-              <span style={{ fontSize: '11px', color: '#94a3b8' }}>
-                Time: {formatDateTime(selectedCandle.time)} | Open: {formatPrice(selectedCandle.open, symbol)} | High: {formatPrice(selectedCandle.high, symbol)} | Low: {formatPrice(selectedCandle.low, symbol)} | Close: {formatPrice(selectedCandle.close, symbol)} | Vol: {selectedCandle.volume.toFixed(1)}
-              </span>
-              {selectedCandle.vsa_patterns && selectedCandle.vsa_patterns.length > 0 && (
-                <span style={{ fontSize: '11px', color: '#f59e0b', fontWeight: '500' }}>
-                  VSA Patterns: {selectedCandle.vsa_patterns.join(', ')}
-                </span>
-              )}
-            </div>
+            )}
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-              {timeframe === '1m' ? (
-                <>
-                  <input 
-                    type="text"
-                    placeholder="Add custom notes..."
-                    value={favNotesInput}
-                    onChange={(e) => setFavNotesInput(e.target.value)}
-                    style={{
-                      backgroundColor: '#1e293b',
-                      border: '1px solid #334155',
-                      borderRadius: '6px',
-                      padding: '6px 12px',
-                      color: '#f8fafc',
-                      fontSize: '12px',
-                      minWidth: '220px',
-                      outline: 'none'
-                    }}
-                  />
-                  <button
-                    onClick={() => handleSaveFavourite(selectedCandle, favNotesInput)}
-                    style={{
-                      backgroundColor: '#eab308',
-                      color: '#0b0f19',
-                      border: 'none',
-                      borderRadius: '6px',
-                      padding: '6px 16px',
+            {isMobile && (
+              <MobileTabNav activeTab={mobileTab} onTabChange={setMobileTab} />
+            )}
+
+            {isMobile ? (
+              <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {mobileTab === 'chart' ? (
+                  <div style={{
+                    width: '100%',
+                    backgroundColor: 'var(--app-card-bg)',
+                    border: '1px solid var(--app-card-border)',
+                    borderRadius: '12px',
+                    overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column'
+                  }}>
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      backgroundColor: 'var(--app-panel-header-bg)',
+                      padding: '10px 16px',
+                      borderBottom: '1px solid var(--app-card-border)',
                       fontSize: '12px',
                       fontWeight: 'bold',
-                      cursor: 'pointer',
-                      boxShadow: '0 4px 10px rgba(234, 179, 8, 0.2)',
-                      transition: 'all 0.2s'
-                    }}
-                  >
-                    ⭐ Favourite Candle
-                  </button>
-                </>
-              ) : (
-                <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: 'bold' }}>
-                  ⚠️ Save to Favourites is only available for 1m timeframe candles
-                </span>
-              )}
-            </div>
-          </div>
-        )}
-
-        {isMobile && (
-          <div style={{
-            display: 'flex',
-            backgroundColor: '#0f172a',
-            border: '1px solid #1e293b',
-            borderRadius: '8px',
-            padding: '4px',
-            marginBottom: '16px',
-            gap: '4px',
-          }}>
-            <button
-              onClick={() => setMobileTab('chart')}
-              style={{
-                flex: 1,
-                padding: '8px 12px',
-                borderRadius: '6px',
-                border: 'none',
-                backgroundColor: mobileTab === 'chart' ? '#2563eb' : 'transparent',
-                color: '#ffffff',
-                fontWeight: 'bold',
-                fontSize: '12px',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-              }}
-            >
-              📊 Chart View
-            </button>
-            <button
-              onClick={() => setMobileTab('backtester')}
-              style={{
-                flex: 1,
-                padding: '8px 12px',
-                borderRadius: '6px',
-                border: 'none',
-                backgroundColor: mobileTab === 'backtester' ? '#2563eb' : 'transparent',
-                color: '#ffffff',
-                fontWeight: 'bold',
-                fontSize: '12px',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-              }}
-            >
-              ⚙️ Backtester
-            </button>
-            <button
-              onClick={() => setMobileTab('trades')}
-              style={{
-                flex: 1,
-                padding: '8px 12px',
-                borderRadius: '6px',
-                border: 'none',
-                backgroundColor: mobileTab === 'trades' ? '#2563eb' : 'transparent',
-                color: '#ffffff',
-                fontWeight: 'bold',
-                fontSize: '12px',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-              }}
-            >
-              📈 Trades
-            </button>
-            <button
-              onClick={() => setMobileTab('live_overview')}
-              style={{
-                flex: 1,
-                padding: '8px 12px',
-                borderRadius: '6px',
-                border: 'none',
-                backgroundColor: mobileTab === 'live_overview' ? '#2563eb' : 'transparent',
-                color: '#ffffff',
-                fontWeight: 'bold',
-                fontSize: '12px',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-              }}
-            >
-              ⚡ Live Overview
-            </button>
-          </div>
-        )}
-
-        {isMobile ? (
-          <div style={{
-            width: '100%',
-            backgroundColor: '#0f172a',
-            border: '1px solid #1e293b',
-            borderRadius: '12px',
-            overflow: 'hidden',
-            padding: mobileTab === 'chart' ? '0' : '16px',
-          }}>
-            {mobileTab === 'chart' ? (
-              <TVChart 
-                symbol={symbol} 
-                onSymbolChange={setSymbol}
-                timeframe={timeframe}
-                onTimeframeChange={setTimeframe}
-                candleSource={candleSource}
-                onCandleSourceChange={setCandleSource}
-                availableSymbols={availableSymbols}
-                availableTimeframes={availableTimeframes}
-                candles={backtestResults?.candles || candles} 
-                loading={loading} 
-                loadingStrategy={loadingStrategy} 
-                onRefresh={fetchCandles} 
-                entryPrice={selectedTrade?.entryPrice}
-                slPrice={selectedTrade?.slPrice}
-                tpPrice={selectedTrade?.tpPrice}
-                trades={backtestResults ? backtestResults.trades : (liveSimulatedTrades.length > 0 ? liveSimulatedTrades : liveTrades)}
-                selectedTrade={selectedTrade}
-                onSelectTrade={(trade) => {
-                  setSelectedTrade(trade);
-                  setShowModal(true);
-                }}
-                dateRangeOption={dateRangeOption}
-                customFrom={customFrom}
-                customTo={customTo}
-                onSelectCandle={setSelectedCandle}
-                locateTimestamp={locateTimestamp}
-                tradeFilter={tradeFilter}
-                onTradeFilterChange={setTradeFilter}
-                sessions={tradingSessions}
-                sessionsTimezone={sessionsTimezone}
-                selectedCandle={selectedCandle}
-                hiddenStages={hiddenStages}
-                isLiveFeed={isLiveFeed}
-                onLiveFeedChange={setIsLiveFeed}
-              />
-            ) : mobileTab === 'backtester' ? (
-              <WyckoffBacktester
-                isReadOnly={isProdHost && !isAuthenticated}
-                symbol={symbol}
-                timeframe={timeframe}
-                broker={candleSource}
-                liveStrategy={liveStrategy}
-                isDeploying={isDeploying}
-                deployLiveStrategy={deployLiveStrategy}
-                backtestBalance={backtestBalance}
-                setBacktestBalance={setBacktestBalance}
-                useRiskSizing={useRiskSizing}
-                setUseRiskSizing={setUseRiskSizing}
-                backtestRiskPct={backtestRiskPct}
-                setBacktestRiskPct={setBacktestRiskPct}
-                backtestSize={backtestSize}
-                setBacktestSize={setBacktestSize}
-                backtestSL={backtestSL}
-                setBacktestSL={setBacktestSL}
-                backtestSLType={backtestSLType}
-                setBacktestSLType={setBacktestSLType}
-                backtestRR={backtestRR}
-                setBacktestRR={setBacktestRR}
-                useBreakEven={useBreakEven}
-                setUseBreakEven={setUseBreakEven}
-                backtestBE={backtestBE}
-                setBacktestBE={setBacktestBE}
-                lookbackWindow={lookbackWindow}
-                setLookbackWindow={setLookbackWindow}
-                backtestResults={backtestResults}
-                backtestTab={backtestTab}
-                setBacktestTab={setBacktestTab}
-                tradeFilter={tradeFilter}
-                setTradeFilter={setTradeFilter}
-                selectedTrade={selectedTrade}
-                setSelectedTrade={setSelectedTrade}
-                setShowModal={setShowModal}
-                backtestFees={backtestFees}
-                setBacktestFees={setBacktestFees}
-                enabledIndicators={enabledIndicators}
-                setEnabledIndicators={setEnabledIndicators}
-                dateRangeOption={dateRangeOption}
-                setDateRangeOption={setDateRangeOption}
-                customFrom={customFrom}
-                setCustomFrom={setCustomFrom}
-                customTo={customTo}
-                setCustomTo={setCustomTo}
-                entryStabilityRule={entryStabilityRule}
-                setEntryStabilityRule={setEntryStabilityRule}
-                candleLimit={candleLimit}
-                setCandleLimit={setCandleLimit}
-                favouriteCandles={favouriteCandles}
-                onDeleteFavourite={handleDeleteFavourite}
-                onUpdateNotes={handleUpdateFavouriteNotes}
-                onLocateCandle={handleLocateCandle}
-                styles={styles}
-                onRunBacktest={runBacktest}
-                loadingBacktest={loadingBacktest}
-                backtestProgress={backtestProgress}
-                dailyRetryLimit={dailyRetryLimit}
-                setDailyRetryLimit={setDailyRetryLimit}
-                allowOppositeClose={allowOppositeClose}
-                setAllowOppositeClose={setAllowOppositeClose}
-                onCancelBacktest={cancelBacktest}
-                sessionsTimezone={sessionsTimezone}
-                setSessionsTimezone={setSessionsTimezone}
-                tradingSessions={tradingSessions}
-                setTradingSessions={setTradingSessions}
-                useGlobalClose={useGlobalClose}
-                setUseGlobalClose={setUseGlobalClose}
-                globalCloseTime={globalCloseTime}
-                setGlobalCloseTime={setGlobalCloseTime}
-                hiddenStages={hiddenStages}
-                setHiddenStages={setHiddenStages}
-                isOptimizeMode={isOptimizeMode}
-                setIsOptimizeMode={setIsOptimizeMode}
-                rrStart={rrStart}
-                setRRStart={setRRStart}
-                rrEnd={rrEnd}
-                setRREnd={setRREnd}
-                rrStep={rrStep}
-                setRRStep={setRRStep}
-                optimizationResults={optimizationResults}
-                setOptimizationResults={setOptimizationResults}
-                onRunOptimization={runOptimization}
-                onSaveSettings={saveBacktestSettings}
-              />
-            ) : mobileTab === 'trades' ? (
-              <LiveTradesPanel
-                dailyPnl={dailyPnl}
-                weeklyPnl={weeklyPnl}
-                openPositions={openPositions}
-                historyTrades={historyTrades}
-                loadingHistory={loadingHistory}
-                historyError={historyError}
-                handleClosePosition={handleClosePosition}
-                isMobileLayout={true}
-              />
-            ) : (
-              <LiveOverviewPanel isMobileLayout={true} />
-            )}
-          </div>
-        ) : (
-          <div style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: '24px',
-            width: '100%',
-          }}>
-            {panelOrder.map((panelId) => {
-              const isDragOver = dragOverId === panelId;
-              const defaultWidth = panelId === 'chart' ? 'calc(50% - 16px)' : 'calc(25% - 16px)';
-              const dragStyles = {
-                width: cardWidths[panelId] ? `${cardWidths[panelId]}px` : defaultWidth,
-              flexGrow: cardWidths[panelId] ? 0 : 1,
-              flexShrink: 1,
-              minWidth: '280px',
-              border: isDragOver ? '2px dashed #3b82f6' : '1px solid var(--app-card-border)',
-              borderRadius: '12px',
-              backgroundColor: 'var(--app-card-bg)',
-              transition: activeResize ? 'none' : 'border 0.2s, opacity 0.2s',
-              opacity: isDragOver ? 0.75 : 1,
-              position: 'relative' as const,
-              overflow: 'hidden',
-            };
- 
-            const headerStyle = {
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              backgroundColor: 'var(--app-panel-header-bg)',
-              padding: '10px 16px',
-              cursor: 'grab',
-              userSelect: 'none' as const,
-              borderBottom: '1px solid var(--app-card-border)',
-              fontSize: '12px',
-              fontWeight: 'bold',
-              color: 'var(--app-text)',
-            };
-
-            const contentStyle = {
-              padding: '16px',
-            };
-
-            if (panelId === 'chart') {
-              return (
-                <div
-                  key="chart"
-                  onDragOver={(e) => handleDragOver(e, 'chart')}
-                  onDrop={(e) => handleDrop(e, 'chart')}
-                  style={dragStyles}
-                >
-                  <div 
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, 'chart')}
-                    style={headerStyle}
-                  >
-                    <span>📊 Candlestick & Weis Wave Analysis Chart</span>
-                    <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header to Move</span>
-                  </div>
-                  <div className="no-drag" style={{ padding: '0px' }}>
-                    <TVChart 
-                      symbol={symbol} 
+                      color: 'var(--app-text)',
+                    }}>
+                      <span>📊 Candlestick & Weis Wave Analysis Chart</span>
+                    </div>
+                    <TVChart
+                      symbol={symbol}
+                      openPositions={openPositions}
                       onSymbolChange={setSymbol}
                       timeframe={timeframe}
                       onTimeframeChange={setTimeframe}
@@ -2864,14 +2416,14 @@ export default function Dashboard() {
                       onCandleSourceChange={setCandleSource}
                       availableSymbols={availableSymbols}
                       availableTimeframes={availableTimeframes}
-                      candles={isLiveFeed ? candles : (backtestResults?.candles || candles)} 
-                      loading={loading} 
-                      loadingStrategy={loadingStrategy} 
-                      onRefresh={fetchCandles} 
+                      candles={backtestResults?.candles || candles}
+                      loading={loading}
+                      loadingStrategy={loadingStrategy}
+                      onRefresh={(broker, isBg) => fetchCandles(broker, isBg, true)}
                       entryPrice={selectedTrade?.entryPrice}
                       slPrice={selectedTrade?.slPrice}
                       tpPrice={selectedTrade?.tpPrice}
-                      trades={isLiveFeed ? (liveSimulatedTrades.length > 0 ? liveSimulatedTrades : liveTrades) : (backtestResults ? backtestResults.trades : (liveSimulatedTrades.length > 0 ? liveSimulatedTrades : liveTrades))}
+                      trades={backtestResults ? backtestResults.trades : (liveSimulatedTrades.length > 0 ? liveSimulatedTrades : liveTrades)}
                       selectedTrade={selectedTrade}
                       onSelectTrade={(trade) => {
                         setSelectedTrade(trade);
@@ -2882,8 +2434,6 @@ export default function Dashboard() {
                       customTo={customTo}
                       onSelectCandle={setSelectedCandle}
                       locateTimestamp={locateTimestamp}
-                      enabledIndicators={enabledIndicators}
-                      fvgs={fvgs}
                       tradeFilter={tradeFilter}
                       onTradeFilterChange={setTradeFilter}
                       sessions={tradingSessions}
@@ -2892,726 +2442,1418 @@ export default function Dashboard() {
                       hiddenStages={hiddenStages}
                       isLiveFeed={isLiveFeed}
                       onLiveFeedChange={setIsLiveFeed}
+                      isMobile={true}
                     />
                   </div>
-                  {renderResizeHandle('chart')}
-                </div>
-              );
-            }
-
-            if (panelId === 'backtester') {
-              return (
-                <div
-                  key="backtester"
-                  onDragOver={(e) => handleDragOver(e, 'backtester')}
-                  onDrop={(e) => handleDrop(e, 'backtester')}
-                  style={dragStyles}
-                >
-                  <div 
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, 'backtester')}
-                    style={headerStyle}
-                  >
-                    <span>
-                      ⚙️ Wyckoff Backtester
-                      {liveStrategy && liveStrategy.symbol === symbol && liveStrategy.timeframe === timeframe ? (
-                        <span style={{
-                          marginLeft: '8px',
-                          fontSize: '9px',
-                          color: '#10b981',
-                          backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                          border: '1px solid #10b981',
-                          padding: '2px 6px',
-                          borderRadius: '4px',
-                          fontWeight: 'bold',
-                          verticalAlign: 'middle',
-                        }}>
-                          ● LIVE RUNNING
-                        </span>
-                      ) : (
-                        <span style={{
-                          marginLeft: '8px',
-                          fontSize: '9px',
-                          color: '#9ca3af',
-                          backgroundColor: 'rgba(156, 163, 175, 0.15)',
-                          border: '1px solid #9ca3af',
-                          padding: '2px 6px',
-                          borderRadius: '4px',
-                          fontWeight: 'bold',
-                          verticalAlign: 'middle',
-                        }}>
-                          NOT DEPLOYED
-                        </span>
-                      )}
-                    </span>
-                    <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header to Move</span>
+                ) : mobileTab === 'backtester' ? (
+                  <div style={{
+                    width: '100%',
+                    backgroundColor: 'var(--app-card-bg)',
+                    border: '1px solid var(--app-card-border)',
+                    borderRadius: '12px',
+                    overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column'
+                  }}>
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      backgroundColor: 'var(--app-panel-header-bg)',
+                      padding: '10px 16px',
+                      borderBottom: '1px solid var(--app-card-border)',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                      color: 'var(--app-text)',
+                    }}>
+                      <span>⚙️ Wyckoff Backtester</span>
+                    </div>
+                    <div style={{ padding: '16px', overflowY: 'auto' }}>
+                      <WyckoffBacktester
+                        isReadOnly={isProdHost && !isAuthenticated}
+                        symbol={symbol}
+                        timeframe={timeframe}
+                        broker={candleSource}
+                        liveStrategy={liveStrategy}
+                        isDeploying={isDeploying}
+                        deployLiveStrategy={deployLiveStrategy}
+                        backtestBalance={backtestBalance}
+                        setBacktestBalance={setBacktestBalance}
+                        useRiskSizing={useRiskSizing}
+                        setUseRiskSizing={setUseRiskSizing}
+                        backtestRiskPct={backtestRiskPct}
+                        setBacktestRiskPct={setBacktestRiskPct}
+                        backtestSize={backtestSize}
+                        setBacktestSize={setBacktestSize}
+                        backtestSL={backtestSL}
+                        setBacktestSL={setBacktestSL}
+                        backtestSLType={backtestSLType}
+                        setBacktestSLType={setBacktestSLType}
+                        backtestRR={backtestRR}
+                        setBacktestRR={setBacktestRR}
+                        useBreakEven={useBreakEven}
+                        setUseBreakEven={setUseBreakEven}
+                        backtestBE={backtestBE}
+                        setBacktestBE={setBacktestBE}
+                        lookbackWindow={lookbackWindow}
+                        setLookbackWindow={setLookbackWindow}
+                        backtestResults={backtestResults}
+                        backtestTab={backtestTab}
+                        setBacktestTab={setBacktestTab}
+                        tradeFilter={tradeFilter}
+                        setTradeFilter={setTradeFilter}
+                        selectedTrade={selectedTrade}
+                        setSelectedTrade={setSelectedTrade}
+                        setShowModal={setShowModal}
+                        backtestFees={backtestFees}
+                        setBacktestFees={setBacktestFees}
+                        enabledIndicators={enabledIndicators}
+                        setEnabledIndicators={setEnabledIndicators}
+                        dateRangeOption={dateRangeOption}
+                        setDateRangeOption={setDateRangeOption}
+                        customFrom={customFrom}
+                        setCustomFrom={setCustomFrom}
+                        customTo={customTo}
+                        setCustomTo={setCustomTo}
+                        entryStabilityRule={entryStabilityRule}
+                        setEntryStabilityRule={setEntryStabilityRule}
+                        candleLimit={candleLimit}
+                        setCandleLimit={setCandleLimit}
+                        favouriteCandles={favouriteCandles}
+                        onDeleteFavourite={handleDeleteFavourite}
+                        onUpdateNotes={handleUpdateFavouriteNotes}
+                        onLocateCandle={handleLocateCandle}
+                        styles={styles}
+                        onRunBacktest={runBacktest}
+                        loadingBacktest={loadingBacktest}
+                        backtestProgress={backtestProgress}
+                        dailyRetryLimit={dailyRetryLimit}
+                        setDailyRetryLimit={setDailyRetryLimit}
+                        allowOppositeClose={allowOppositeClose}
+                        setAllowOppositeClose={setAllowOppositeClose}
+                        onCancelBacktest={cancelBacktest}
+                        sessionsTimezone={sessionsTimezone}
+                        setSessionsTimezone={setSessionsTimezone}
+                        tradingSessions={tradingSessions}
+                        setTradingSessions={setTradingSessions}
+                        useGlobalClose={useGlobalClose}
+                        setUseGlobalClose={setUseGlobalClose}
+                        globalCloseTime={globalCloseTime}
+                        setGlobalCloseTime={setGlobalCloseTime}
+                        hiddenStages={hiddenStages}
+                        setHiddenStages={setHiddenStages}
+                        isOptimizeMode={isOptimizeMode}
+                        setIsOptimizeMode={setIsOptimizeMode}
+                        rrStart={rrStart}
+                        setRRStart={setRRStart}
+                        rrEnd={rrEnd}
+                        setRREnd={setRREnd}
+                        rrStep={rrStep}
+                        setRRStep={setRRStep}
+                        optimizationResults={optimizationResults}
+                        setOptimizationResults={setOptimizationResults}
+                        onRunOptimization={runOptimization}
+                        onSaveSettings={saveBacktestSettings}
+                      />
+                    </div>
                   </div>
-                  <div className="no-drag" style={contentStyle}>
-                    <WyckoffBacktester
-                      isReadOnly={isProdHost && !isAuthenticated}
-                      symbol={symbol}
-                      timeframe={timeframe}
-                      broker={candleSource}
-                      liveStrategy={liveStrategy}
-                      isDeploying={isDeploying}
-                      deployLiveStrategy={deployLiveStrategy}
-                      backtestBalance={backtestBalance}
-                      setBacktestBalance={setBacktestBalance}
-                      useRiskSizing={useRiskSizing}
-                      setUseRiskSizing={setUseRiskSizing}
-                      backtestRiskPct={backtestRiskPct}
-                      setBacktestRiskPct={setBacktestRiskPct}
-                      backtestSize={backtestSize}
-                      setBacktestSize={setBacktestSize}
-                      backtestSL={backtestSL}
-                      setBacktestSL={setBacktestSL}
-                      backtestSLType={backtestSLType}
-                      setBacktestSLType={setBacktestSLType}
-                      backtestRR={backtestRR}
-                      setBacktestRR={setBacktestRR}
-                      useBreakEven={useBreakEven}
-                      setUseBreakEven={setUseBreakEven}
-                      backtestBE={backtestBE}
-                      setBacktestBE={setBacktestBE}
-                      lookbackWindow={lookbackWindow}
-                      setLookbackWindow={setLookbackWindow}
-                      backtestResults={backtestResults}
-                      backtestTab={backtestTab}
-                      setBacktestTab={setBacktestTab}
-                      tradeFilter={tradeFilter}
-                      setTradeFilter={setTradeFilter}
-                      selectedTrade={selectedTrade}
-                      setSelectedTrade={setSelectedTrade}
-                      setShowModal={setShowModal}
-                      backtestFees={backtestFees}
-                      setBacktestFees={setBacktestFees}
-                      enabledIndicators={enabledIndicators}
-                      setEnabledIndicators={setEnabledIndicators}
-                      dateRangeOption={dateRangeOption}
-                      setDateRangeOption={setDateRangeOption}
-                      customFrom={customFrom}
-                      setCustomFrom={setCustomFrom}
-                      customTo={customTo}
-                      setCustomTo={setCustomTo}
-                      entryStabilityRule={entryStabilityRule}
-                      setEntryStabilityRule={setEntryStabilityRule}
-                      candleLimit={candleLimit}
-                      setCandleLimit={setCandleLimit}
-                      favouriteCandles={favouriteCandles}
-                      onDeleteFavourite={handleDeleteFavourite}
-                      onUpdateNotes={handleUpdateFavouriteNotes}
-                      onLocateCandle={handleLocateCandle}
-                      styles={styles}
-                      onRunBacktest={runBacktest}
-                      loadingBacktest={loadingBacktest}
-                      backtestProgress={backtestProgress}
-                      dailyRetryLimit={dailyRetryLimit}
-                      setDailyRetryLimit={setDailyRetryLimit}
-                      allowOppositeClose={allowOppositeClose}
-                      setAllowOppositeClose={setAllowOppositeClose}
-                      onCancelBacktest={cancelBacktest}
-                      sessionsTimezone={sessionsTimezone}
-                      setSessionsTimezone={setSessionsTimezone}
-                      tradingSessions={tradingSessions}
-                      setTradingSessions={setTradingSessions}
-                      useGlobalClose={useGlobalClose}
-                      setUseGlobalClose={setUseGlobalClose}
-                      globalCloseTime={globalCloseTime}
-                      setGlobalCloseTime={setGlobalCloseTime}
-                      hiddenStages={hiddenStages}
-                      setHiddenStages={setHiddenStages}
-                      
-                      isOptimizeMode={isOptimizeMode}
-                      setIsOptimizeMode={setIsOptimizeMode}
-                      rrStart={rrStart}
-                      setRRStart={setRRStart}
-                      rrEnd={rrEnd}
-                      setRREnd={setRREnd}
-                      rrStep={rrStep}
-                      setRRStep={setRRStep}
-                      optimizationResults={optimizationResults}
-                      setOptimizationResults={setOptimizationResults}
-                      onRunOptimization={runOptimization}
-                      onSaveSettings={saveBacktestSettings}
-                    />
+                ) : mobileTab === 'trades' ? (
+                  <div style={{
+                    width: '100%',
+                    backgroundColor: 'var(--app-card-bg)',
+                    border: '1px solid var(--app-card-border)',
+                    borderRadius: '12px',
+                    overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column'
+                  }}>
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      backgroundColor: 'var(--app-panel-header-bg)',
+                      padding: '10px 16px',
+                      borderBottom: '1px solid var(--app-card-border)',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                      color: 'var(--app-text)',
+                    }}>
+                      <span>📈 Live Trades & P&L</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', position: 'relative' }}>
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setShowTradesSettings(!showTradesSettings);
+                          }}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#9ca3af',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            padding: '4px',
+                            borderRadius: '4px',
+                            transition: 'background-color 0.2s',
+                          }}
+                          title="Trades Panel Settings"
+                        >
+                          <Settings size={14} />
+                        </button>
+                        {showTradesSettings && (
+                          <>
+                            <div
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setShowTradesSettings(false);
+                              }}
+                              style={{
+                                position: 'fixed',
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                                zIndex: 999
+                              }}
+                            />
+                            <div
+                              onClick={(e) => e.stopPropagation()}
+                              style={{
+                                position: 'absolute',
+                                top: '100%',
+                                right: 0,
+                                marginTop: '6px',
+                                backgroundColor: '#0f172a',
+                                border: '1px solid #1f2937',
+                                borderRadius: '8px',
+                                padding: '12px',
+                                zIndex: 1000,
+                                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)',
+                                minWidth: '170px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '8px',
+                              }}
+                            >
+                              <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#9ca3af', borderBottom: '1px solid #1f2937', paddingBottom: '6px', marginBottom: '4px', textAlign: 'left' }}>
+                                Trades Configuration
+                              </div>
+                              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '11px', color: '#ffffff', userSelect: 'none' }}>
+                                <input
+                                  type="checkbox"
+                                  checked={autoPollTrades}
+                                  onChange={(e) => setAutoPollTrades(e.target.checked)}
+                                  style={{ cursor: 'pointer' }}
+                                />
+                                🔄 Live Auto-Polling
+                              </label>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#9ca3af' }}>
+                                <span>Interval (s):</span>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max="300"
+                                  value={tradesPollInterval}
+                                  onChange={(e) => setTradesPollInterval(Math.max(1, parseInt(e.target.value) || 1))}
+                                  style={{
+                                    width: '50px',
+                                    backgroundColor: '#1e293b',
+                                    border: '1px solid #334155',
+                                    borderRadius: '4px',
+                                    color: '#ffffff',
+                                    fontSize: '11px',
+                                    padding: '2px 4px',
+                                    outline: 'none',
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ padding: '16px', overflowY: 'auto' }}>
+                      <LiveTradesPanel
+                        dailyPnl={dailyPnl}
+                        weeklyPnl={weeklyPnl}
+                        openPositions={openPositions}
+                        handleClosePosition={handleClosePosition}
+                        isMobileLayout={true}
+                      />
+                    </div>
                   </div>
-                  {renderResizeHandle('backtester')}
-                </div>
-              );
-            }
-
-            if (panelId === 'trades') {
-              return (
-                <div
-                  key="trades"
-                  onDragOver={(e) => handleDragOver(e, 'trades')}
-                  onDrop={(e) => handleDrop(e, 'trades')}
-                  style={dragStyles}
-                >
-                  <div 
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, 'trades')}
-                    style={headerStyle}
-                  >
-                    <span>📈 Live Trades & P&L</span>
-                    <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header to Move</span>
+                ) : (
+                  <div style={{
+                    width: '100%',
+                    backgroundColor: 'var(--app-card-bg)',
+                    border: '1px solid var(--app-card-border)',
+                    borderRadius: '12px',
+                    overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column'
+                  }}>
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      backgroundColor: 'var(--app-panel-header-bg)',
+                      padding: '10px 16px',
+                      borderBottom: '1px solid var(--app-card-border)',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                      color: 'var(--app-text)',
+                    }}>
+                      <span>⚡ Live Strategies Overview</span>
+                    </div>
+                    <div style={{ padding: '16px', overflowY: 'auto' }}>
+                      <LiveOverviewPanel
+                        isMobileLayout={true}
+                        selectedStrategyId={selectedStrategyId}
+                        isLiveFeed={isLiveFeed}
+                        onSelectStrategy={(id) => {
+                          setSelectedStrategyId(id);
+                          localStorage.setItem('wyckoff_selected_live_strategy_id', id);
+                          setIsLiveFeed(true);
+                          localStorage.setItem('wyckoff_is_live_feed', 'true');
+                          setMobileTab('chart');
+                          setTimeout(() => fetchCandles(), 50);
+                        }}
+                      />
+                    </div>
                   </div>
-                  <div className="no-drag" style={contentStyle}>
-                    <LiveTradesPanel
-                      dailyPnl={dailyPnl}
-                      weeklyPnl={weeklyPnl}
-                      openPositions={openPositions}
-                      historyTrades={historyTrades}
-                      loadingHistory={loadingHistory}
-                      historyError={historyError}
-                      handleClosePosition={handleClosePosition}
-                      isMobileLayout={false}
-                    />
-                  </div>
-                  {renderResizeHandle('trades')}
-                </div>
-              );
-            }
-
-            if (panelId === 'live_overview') {
-              return (
-                <div
-                  key="live_overview"
-                  onDragOver={(e) => handleDragOver(e, 'live_overview')}
-                  onDrop={(e) => handleDrop(e, 'live_overview')}
-                  style={dragStyles}
-                >
-                  <div 
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, 'live_overview')}
-                    style={headerStyle}
-                  >
-                    <span>⚡ Live Strategies Overview</span>
-                    <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header to Move</span>
-                  </div>
-                  <div className="no-drag" style={contentStyle}>
-                    <LiveOverviewPanel 
-                      isMobileLayout={false} 
-                      selectedStrategyId={selectedStrategyId}
-                      isLiveFeed={isLiveFeed}
-                      onSelectStrategy={(id) => {
-                        setSelectedStrategyId(id);
-                        localStorage.setItem('wyckoff_selected_live_strategy_id', id);
-                        setIsLiveFeed(true);
-                        localStorage.setItem('wyckoff_is_live_feed', 'true');
-                        // Trigger candle fetch on active display update
-                        setTimeout(() => fetchCandles(), 50);
-                      }}
-                    />
-                  </div>
-                  {renderResizeHandle('live_overview')}
-                </div>
-              );
-            }
-
-            return null;
-          })}
-        </div>
-      )}
-
-      </main>
-
-      {/* Trade Performance Detail Overlay */}
-      {showModal && selectedTrade && (
-        <div 
-          onClick={() => setShowModal(false)}
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(5, 7, 12, 0.85)',
-            backdropFilter: 'blur(8px)',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            zIndex: 9999,
-          }}
-        >
-          <div 
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              backgroundColor: '#0f172a',
-            border: `2px solid ${selectedTrade.pnl >= 0 ? '#10b981' : '#ef4444'}`,
-            boxShadow: `0 0 25px ${selectedTrade.pnl >= 0 ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)'}`,
-            borderRadius: '16px',
-            width: '90%',
-            maxWidth: '480px',
-            padding: '24px',
-            position: 'relative',
-            color: '#f8fafc',
-          }}>
-            <button 
-              onClick={() => setShowModal(false)}
-              style={{
-                position: 'absolute',
-                top: '16px',
-                right: '16px',
-                background: 'none',
-                border: 'none',
-                color: '#94a3b8',
-                cursor: 'pointer',
-                padding: '4px',
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: 'rgba(148, 163, 184, 0.05)'
-              }}
-            >
-              <X size={18} />
-            </button>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-              <span style={{
-                fontSize: '11px',
-                fontWeight: 'bold',
-                textTransform: 'uppercase',
-                letterSpacing: '1px',
-                padding: '3px 8px',
-                borderRadius: '6px',
-                backgroundColor: selectedTrade.type === 'BUY' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                color: selectedTrade.type === 'BUY' ? '#10b981' : '#ef4444'
-              }}>
-                {selectedTrade.type}
-              </span>
-              <h2 style={{ fontSize: '18px', fontWeight: 'bold', margin: 0, color: '#f1f5f9' }}>
-                Trade Performance Details
-              </h2>
-            </div>
-
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              backgroundColor: selectedTrade.pnl >= 0 ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
-              border: `1px solid ${selectedTrade.pnl >= 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)'}`,
-              borderRadius: '10px',
-              padding: '12px 16px',
-              marginBottom: '20px'
-            }}>
-              <div>
-                <span style={{ fontSize: '11px', color: '#94a3b8', display: 'block' }}>Net Profit/Loss</span>
-                <span style={{ fontSize: '20px', fontWeight: 'bold', color: selectedTrade.pnl >= 0 ? '#10b981' : '#ef4444' }}>
-                  {selectedTrade.pnl >= 0 ? '+' : ''}${selectedTrade.pnl.toFixed(2)}
-                </span>
+                )}
               </div>
-              <div style={{ textAlign: 'right' }}>
-                <span style={{ fontSize: '11px', color: '#94a3b8', display: 'block' }}>Outcome</span>
-                <span style={{
-                  fontSize: '13px',
-                  fontWeight: 'bold',
-                  color: selectedTrade.pnl >= 0 ? '#10b981' : '#ef4444',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}>
-                  {selectedTrade.pnl >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-                  {selectedTrade.outcome}
-                </span>
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 24px', fontSize: '13px', marginBottom: '20px' }}>
-              <div>
-                <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Entry Price</span>
-                <span style={{ color: '#cbd5e1', fontWeight: '500' }}>${formatPrice(selectedTrade.entryPrice, symbol)}</span>
-              </div>
-              <div>
-                <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Exit Price</span>
-                <span style={{ color: '#cbd5e1', fontWeight: '500' }}>${formatPrice(selectedTrade.exitPrice, symbol)}</span>
-              </div>
-              <div>
-                <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Stop Loss</span>
-                <span style={{ color: '#ef4444', fontWeight: '500' }}>${formatPrice(selectedTrade.slPrice, symbol)}</span>
-              </div>
-              <div>
-                <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Take Profit</span>
-                <span style={{ color: '#10b981', fontWeight: '500' }}>${formatPrice(selectedTrade.tpPrice, symbol)}</span>
-              </div>
-              <div>
-                <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Quantity Size</span>
-                <span style={{ color: '#cbd5e1', fontWeight: '500' }}>{selectedTrade.qty.toFixed(4)}</span>
-              </div>
-              <div>
-                <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Time Closed</span>
-                <span style={{ color: '#cbd5e1', fontWeight: '500' }}>{selectedTrade.time}</span>
-              </div>
-            </div>
-
-            {selectedTrade.triggerReason && (
+            ) : (
               <div style={{
-                borderTop: '1px solid #1e293b',
-                paddingTop: '16px',
-                marginTop: '12px',
                 display: 'flex',
-                flexDirection: 'column',
-                gap: '8px',
-                fontSize: '12px'
+                flexWrap: 'wrap',
+                gap: '24px',
+                width: '100%',
               }}>
-                <span style={{ color: '#cbd5e1', fontWeight: 'bold', display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Entry Trigger State (VSA & Structural Sweep)
-                </span>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '8px', backgroundColor: 'rgba(30, 41, 59, 0.3)', padding: '10px', borderRadius: '8px' }}>
-                  <div>
-                    <span style={{ color: '#64748b', display: 'block', fontSize: '10px' }}>Active VSA Patterns</span>
-                    <span style={{ color: '#f1f5f9', fontWeight: '500' }}>{selectedTrade.triggerReason.vsa_patterns}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid rgba(148, 163, 184, 0.1)', paddingTop: '6px' }}>
-                    <div>
-                      <span style={{ color: '#64748b', display: 'block', fontSize: '10px' }}>Swept Structural Level</span>
-                      <span style={{ color: '#f1f5f9', fontWeight: '500' }}>
-                        {selectedTrade.triggerReason.sweep_level ? `$${formatPrice(selectedTrade.triggerReason.sweep_level, symbol)}` : 'None'}
-                      </span>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <span style={{ color: '#64748b', display: 'block', fontSize: '10px' }}>Weis Wave Volume</span>
-                      <span style={{ color: '#f1f5f9', fontWeight: '500' }}>
-                        {selectedTrade.triggerReason.weis_wave_volume ? selectedTrade.triggerReason.weis_wave_volume.toFixed(1) : '0.0'}
-                      </span>
-                    </div>
-                  </div>
-                  {selectedTrade.triggerReason.entry_candle && (
-                    <div style={{ borderTop: '1px solid rgba(148, 163, 184, 0.1)', paddingTop: '6px' }}>
-                      <span style={{ color: '#64748b', display: 'block', fontSize: '10px', marginBottom: '2px' }}>Entry Candle OHLC</span>
-                      <span style={{ color: '#94a3b8', fontFamily: 'monospace' }}>
-                        O:{formatPrice(selectedTrade.triggerReason.entry_candle.open, symbol)} H:{formatPrice(selectedTrade.triggerReason.entry_candle.high, symbol)} L:{formatPrice(selectedTrade.triggerReason.entry_candle.low, symbol)} C:{formatPrice(selectedTrade.triggerReason.entry_candle.close, symbol)}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
+                {panelOrder.map((panelId) => {
+                  const isDragOver = dragOverId === panelId;
+                  const defaultWidth = panelId === 'chart' ? 'calc(50% - 16px)' : 'calc(25% - 16px)';
+                  const dragStyles = {
+                    width: cardWidths[panelId] ? `${cardWidths[panelId]}px` : defaultWidth,
+                    height: cardHeights[panelId] ? `${cardHeights[panelId]}px` : undefined,
+                    maxHeight: '800px',
+                    display: 'flex',
+                    flexDirection: 'column' as const,
+                    flexGrow: cardWidths[panelId] ? 0 : 1,
+                    flexShrink: 1,
+                    minWidth: '280px',
+                    border: isDragOver ? '2px dashed #3b82f6' : '1px solid var(--app-card-border)',
+                    borderRadius: '12px',
+                    backgroundColor: 'var(--app-card-bg)',
+                    transition: activeResize ? 'none' : 'border 0.2s, opacity 0.2s',
+                    opacity: isDragOver ? 0.75 : 1,
+                    position: 'relative' as const,
+                    overflow: 'hidden',
+                  };
 
-            <div style={{ borderTop: '1px solid #1e293b', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px' }}>
-                <span style={{ color: '#64748b', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                  <Clock size={13} /> Duration
-                </span>
-                <span style={{ color: '#f1f5f9', fontWeight: '500' }}>
-                  {selectedTrade.duration} bars / candles
-                </span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px' }}>
-                <span style={{ color: '#64748b', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                  <HelpCircle size={13} /> Exit Reason
-                </span>
-                <span style={{
-                  color: selectedTrade.exitReason?.includes('Stop Loss') ? '#ef4444' : selectedTrade.exitReason?.includes('Take Profit') ? '#10b981' : '#f1f5f9',
-                  fontWeight: 'bold'
-                }}>
-                  {selectedTrade.exitReason || 'Unknown'}
-                </span>
-              </div>
-              {selectedTrade.entryTimestamp && (
-                <button
-                  onClick={() => {
-                    handleLocateCandle({
-                      symbol: symbol,
-                      timeframe: timeframe,
-                      candle_time: selectedTrade.entryTimestamp
-                    });
-                    setShowModal(false);
-                  }}
-                  style={{
-                    marginTop: '8px',
-                    backgroundColor: '#2563eb',
-                    color: '#ffffff',
-                    border: 'none',
-                    borderRadius: '6px',
-                    padding: '8px',
+                  const headerStyle = {
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    backgroundColor: 'var(--app-panel-header-bg)',
+                    padding: '10px 16px',
+                    cursor: 'grab',
+                    userSelect: 'none' as const,
+                    borderBottom: '1px solid var(--app-card-border)',
                     fontSize: '12px',
                     fontWeight: 'bold',
+                    color: 'var(--app-text)',
+                  };
+
+                  const contentStyle = {
+                    padding: '16px',
+                    flex: 1,
+                    overflowY: 'auto' as const,
+                  };
+
+                  if (panelId === 'chart') {
+                    return (
+                      <div
+                        key="chart"
+                        onDragOver={(e) => handleDragOver(e, 'chart')}
+                        onDrop={(e) => handleDrop(e, 'chart')}
+                        style={dragStyles}
+                      >
+                        <div
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, 'chart')}
+                          style={headerStyle}
+                        >
+                          <span>📊 Candlestick & Weis Wave Analysis Chart</span>
+                          <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header to Move</span>
+                        </div>
+                        <div className="no-drag" style={{ padding: '0px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                          <TVChart
+                            symbol={symbol}
+                            openPositions={openPositions}
+                            onSymbolChange={setSymbol}
+                            timeframe={timeframe}
+                            onTimeframeChange={setTimeframe}
+                            candleSource={candleSource}
+                            onCandleSourceChange={setCandleSource}
+                            availableSymbols={availableSymbols}
+                            availableTimeframes={availableTimeframes}
+                            candles={isLiveFeed ? candles : (backtestResults?.candles || candles)}
+                            loading={loading}
+                            loadingStrategy={loadingStrategy}
+                            onRefresh={(broker, isBg) => fetchCandles(broker, isBg, true)}
+                            entryPrice={selectedTrade?.entryPrice}
+                            slPrice={selectedTrade?.slPrice}
+                            tpPrice={selectedTrade?.tpPrice}
+                            trades={isLiveFeed ? (liveSimulatedTrades.length > 0 ? liveSimulatedTrades : liveTrades) : (backtestResults ? backtestResults.trades : (liveSimulatedTrades.length > 0 ? liveSimulatedTrades : liveTrades))}
+                            selectedTrade={selectedTrade}
+                            onSelectTrade={(trade) => {
+                              setSelectedTrade(trade);
+                              setShowModal(true);
+                            }}
+                            dateRangeOption={dateRangeOption}
+                            customFrom={customFrom}
+                            customTo={customTo}
+                            onSelectCandle={setSelectedCandle}
+                            locateTimestamp={locateTimestamp}
+                            enabledIndicators={enabledIndicators}
+                            fvgs={fvgs}
+                            tradeFilter={tradeFilter}
+                            onTradeFilterChange={setTradeFilter}
+                            sessions={tradingSessions}
+                            sessionsTimezone={sessionsTimezone}
+                            selectedCandle={selectedCandle}
+                            hiddenStages={hiddenStages}
+                            isLiveFeed={isLiveFeed}
+                            onLiveFeedChange={setIsLiveFeed}
+                          />
+                        </div>
+                        {renderResizeHandle('chart')}
+                      </div>
+                    );
+                  }
+
+                  if (panelId === 'backtester') {
+                    return (
+                      <div
+                        key="backtester"
+                        onDragOver={(e) => handleDragOver(e, 'backtester')}
+                        onDrop={(e) => handleDrop(e, 'backtester')}
+                        style={dragStyles}
+                      >
+                        <div
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, 'backtester')}
+                          style={headerStyle}
+                        >
+                          <span>
+                            ⚙️ Wyckoff Backtester
+                            {liveStrategy && liveStrategy.symbol === symbol && liveStrategy.timeframe === timeframe ? (
+                              <span style={{
+                                marginLeft: '8px',
+                                fontSize: '9px',
+                                color: '#10b981',
+                                backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                                border: '1px solid #10b981',
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                fontWeight: 'bold',
+                                verticalAlign: 'middle',
+                              }}>
+                                ● LIVE RUNNING
+                              </span>
+                            ) : (
+                              <span style={{
+                                marginLeft: '8px',
+                                fontSize: '9px',
+                                color: '#9ca3af',
+                                backgroundColor: 'rgba(156, 163, 175, 0.15)',
+                                border: '1px solid #9ca3af',
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                fontWeight: 'bold',
+                                verticalAlign: 'middle',
+                              }}>
+                                NOT DEPLOYED
+                              </span>
+                            )}
+                          </span>
+                          <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header to Move</span>
+                        </div>
+                        <div className="no-drag" style={contentStyle}>
+                          <WyckoffBacktester
+                            isReadOnly={isProdHost && !isAuthenticated}
+                            symbol={symbol}
+                            timeframe={timeframe}
+                            broker={candleSource}
+                            liveStrategy={liveStrategy}
+                            isDeploying={isDeploying}
+                            deployLiveStrategy={deployLiveStrategy}
+                            backtestBalance={backtestBalance}
+                            setBacktestBalance={setBacktestBalance}
+                            useRiskSizing={useRiskSizing}
+                            setUseRiskSizing={setUseRiskSizing}
+                            backtestRiskPct={backtestRiskPct}
+                            setBacktestRiskPct={setBacktestRiskPct}
+                            backtestSize={backtestSize}
+                            setBacktestSize={setBacktestSize}
+                            backtestSL={backtestSL}
+                            setBacktestSL={setBacktestSL}
+                            backtestSLType={backtestSLType}
+                            setBacktestSLType={setBacktestSLType}
+                            backtestRR={backtestRR}
+                            setBacktestRR={setBacktestRR}
+                            useBreakEven={useBreakEven}
+                            setUseBreakEven={setUseBreakEven}
+                            backtestBE={backtestBE}
+                            setBacktestBE={setBacktestBE}
+                            lookbackWindow={lookbackWindow}
+                            setLookbackWindow={setLookbackWindow}
+                            backtestResults={backtestResults}
+                            backtestTab={backtestTab}
+                            setBacktestTab={setBacktestTab}
+                            tradeFilter={tradeFilter}
+                            setTradeFilter={setTradeFilter}
+                            selectedTrade={selectedTrade}
+                            setSelectedTrade={setSelectedTrade}
+                            setShowModal={setShowModal}
+                            backtestFees={backtestFees}
+                            setBacktestFees={setBacktestFees}
+                            enabledIndicators={enabledIndicators}
+                            setEnabledIndicators={setEnabledIndicators}
+                            dateRangeOption={dateRangeOption}
+                            setDateRangeOption={setDateRangeOption}
+                            customFrom={customFrom}
+                            setCustomFrom={setCustomFrom}
+                            customTo={customTo}
+                            setCustomTo={setCustomTo}
+                            entryStabilityRule={entryStabilityRule}
+                            setEntryStabilityRule={setEntryStabilityRule}
+                            candleLimit={candleLimit}
+                            setCandleLimit={setCandleLimit}
+                            favouriteCandles={favouriteCandles}
+                            onDeleteFavourite={handleDeleteFavourite}
+                            onUpdateNotes={handleUpdateFavouriteNotes}
+                            onLocateCandle={handleLocateCandle}
+                            styles={styles}
+                            onRunBacktest={runBacktest}
+                            loadingBacktest={loadingBacktest}
+                            backtestProgress={backtestProgress}
+                            dailyRetryLimit={dailyRetryLimit}
+                            setDailyRetryLimit={setDailyRetryLimit}
+                            allowOppositeClose={allowOppositeClose}
+                            setAllowOppositeClose={setAllowOppositeClose}
+                            onCancelBacktest={cancelBacktest}
+                            sessionsTimezone={sessionsTimezone}
+                            setSessionsTimezone={setSessionsTimezone}
+                            tradingSessions={tradingSessions}
+                            setTradingSessions={setTradingSessions}
+                            useGlobalClose={useGlobalClose}
+                            setUseGlobalClose={setUseGlobalClose}
+                            globalCloseTime={globalCloseTime}
+                            setGlobalCloseTime={setGlobalCloseTime}
+                            hiddenStages={hiddenStages}
+                            setHiddenStages={setHiddenStages}
+
+                            isOptimizeMode={isOptimizeMode}
+                            setIsOptimizeMode={setIsOptimizeMode}
+                            rrStart={rrStart}
+                            setRRStart={setRRStart}
+                            rrEnd={rrEnd}
+                            setRREnd={setRREnd}
+                            rrStep={rrStep}
+                            setRRStep={setRRStep}
+                            optimizationResults={optimizationResults}
+                            setOptimizationResults={setOptimizationResults}
+                            onRunOptimization={runOptimization}
+                            onSaveSettings={saveBacktestSettings}
+                          />
+                        </div>
+                        {renderResizeHandle('backtester')}
+                      </div>
+                    );
+                  }
+
+                  if (panelId === 'trades') {
+                    return (
+                      <div
+                        key="trades"
+                        onDragOver={(e) => handleDragOver(e, 'trades')}
+                        onDrop={(e) => handleDrop(e, 'trades')}
+                        style={dragStyles}
+                      >
+                        <div
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, 'trades')}
+                          style={headerStyle}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', justifyContent: 'space-between' }}>
+                            <span>📈 Live Trades & P&L</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', position: 'relative' }}>
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setShowTradesSettings(!showTradesSettings);
+                                }}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  color: '#9ca3af',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  padding: '4px',
+                                  borderRadius: '4px',
+                                  transition: 'background-color 0.2s',
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--app-hover-bg)'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                title="Trades Panel Settings"
+                              >
+                                <Settings size={14} />
+                              </button>
+                              {showTradesSettings && (
+                                <>
+                                  <div
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      setShowTradesSettings(false);
+                                    }}
+                                    style={{
+                                      position: 'fixed',
+                                      top: 0,
+                                      left: 0,
+                                      right: 0,
+                                      bottom: 0,
+                                      zIndex: 999
+                                    }}
+                                  />
+                                  <div
+                                    onClick={(e) => e.stopPropagation()}
+                                    style={{
+                                      position: 'absolute',
+                                      top: '100%',
+                                      right: 0,
+                                      marginTop: '6px',
+                                      backgroundColor: '#0f172a',
+                                      border: '1px solid #1f2937',
+                                      borderRadius: '8px',
+                                      padding: '12px',
+                                      zIndex: 1000,
+                                      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)',
+                                      minWidth: '170px',
+                                      display: 'flex',
+                                      flexDirection: 'column',
+                                      gap: '8px',
+                                    }}
+                                  >
+                                    <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#9ca3af', borderBottom: '1px solid #1f2937', paddingBottom: '6px', marginBottom: '4px', textAlign: 'left' }}>
+                                      Trades Configuration
+                                    </div>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '11px', color: '#ffffff', userSelect: 'none' }}>
+                                      <input
+                                        type="checkbox"
+                                        checked={autoPollTrades}
+                                        onChange={(e) => setAutoPollTrades(e.target.checked)}
+                                        style={{ cursor: 'pointer' }}
+                                      />
+                                      🔄 Live Auto-Polling
+                                    </label>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#9ca3af' }}>
+                                      <span>Interval (s):</span>
+                                      <input
+                                        type="number"
+                                        min="1"
+                                        max="300"
+                                        value={tradesPollInterval}
+                                        onChange={(e) => setTradesPollInterval(Math.max(1, parseInt(e.target.value) || 1))}
+                                        style={{
+                                          width: '50px',
+                                          backgroundColor: '#1e293b',
+                                          border: '1px solid #334155',
+                                          borderRadius: '4px',
+                                          color: '#ffffff',
+                                          fontSize: '11px',
+                                          padding: '2px 4px',
+                                          outline: 'none',
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+                                </>
+                              )}
+                              <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="no-drag" style={contentStyle}>
+                          <LiveTradesPanel
+                            dailyPnl={dailyPnl}
+                            weeklyPnl={weeklyPnl}
+                            openPositions={openPositions}
+                            handleClosePosition={handleClosePosition}
+                            isMobileLayout={false}
+                          />
+                        </div>
+                        {renderResizeHandle('trades')}
+                      </div>
+                    );
+                  }
+
+                  if (panelId === 'live_overview') {
+                    return (
+                      <div
+                        key="live_overview"
+                        onDragOver={(e) => handleDragOver(e, 'live_overview')}
+                        onDrop={(e) => handleDrop(e, 'live_overview')}
+                        style={dragStyles}
+                      >
+                        <div
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, 'live_overview')}
+                          style={headerStyle}
+                        >
+                          <span>⚡ Live Strategies Overview</span>
+                          <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header to Move</span>
+                        </div>
+                        <div className="no-drag" style={contentStyle}>
+                          <LiveOverviewPanel
+                            isMobileLayout={false}
+                            selectedStrategyId={selectedStrategyId}
+                            isLiveFeed={isLiveFeed}
+                            onSelectStrategy={(id) => {
+                              setSelectedStrategyId(id);
+                              localStorage.setItem('wyckoff_selected_live_strategy_id', id);
+                              setIsLiveFeed(true);
+                              localStorage.setItem('wyckoff_is_live_feed', 'true');
+                              // Trigger candle fetch on active display update
+                              setTimeout(() => fetchCandles(), 50);
+                            }}
+                          />
+                        </div>
+                        {renderResizeHandle('live_overview')}
+                      </div>
+                    );
+                  }
+
+                  return null;
+                })}
+              </div>
+            )}
+            {/* Terminal Streaming Component */}
+            <div style={{
+              width: '100%',
+              backgroundColor: '#090d16',
+              border: '1px solid #1f2937',
+              borderRadius: '12px',
+              overflow: 'hidden',
+              marginTop: '24px',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)',
+            }}>
+              {/* Terminal Header */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                backgroundColor: '#111827',
+                padding: '10px 16px',
+                borderBottom: '1px solid #1f2937',
+                fontSize: '12px',
+                fontWeight: 'bold',
+                color: '#f3f4f6',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>💻 Terminal Logs Stream</span>
+                  <span style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    backgroundColor: terminalConnectionStatus === 'connected' ? '#10b981' : terminalConnectionStatus === 'connecting' ? '#f59e0b' : '#ef4444',
+                    boxShadow: `0 0 8px ${terminalConnectionStatus === 'connected' ? '#10b981' : terminalConnectionStatus === 'connecting' ? '#f59e0b' : '#ef4444'}`,
+                    display: 'inline-block',
+                  }} title={`Connection Status: ${terminalConnectionStatus}`} />
+                </div>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <button
+                    onClick={() => setTerminalLogs([])}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#9ca3af',
+                      cursor: 'pointer',
+                      fontSize: '11px',
+                      fontWeight: 'bold',
+                      outline: 'none',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.color = '#ffffff'}
+                    onMouseLeave={(e) => e.currentTarget.style.color = '#9ca3af'}
+                  >
+                    Clear Logs
+                  </button>
+                  <button
+                    onClick={() => setShowTerminal(!showTerminal)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#3b82f6',
+                      cursor: 'pointer',
+                      fontSize: '11px',
+                      fontWeight: 'bold',
+                      outline: 'none',
+                    }}
+                  >
+                    {showTerminal ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Terminal logs content */}
+              {showTerminal && (
+                <div style={{
+                  height: '240px',
+                  overflowY: 'auto',
+                  padding: '16px',
+                  backgroundColor: '#05070c',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '2px',
+                }}>
+                  {terminalLogs.length === 0 ? (
+                    <div style={{ color: '#4b5563', fontFamily: 'monospace', fontSize: '12px', fontStyle: 'italic' }}>
+                      Waiting for logs...
+                    </div>
+                  ) : (
+                    terminalLogs.map((line, idx) => {
+                      let color = '#f8fafc'; // default white
+                      const lower = line.toLowerCase();
+                      if (lower.includes('error') || lower.includes('exception') || lower.includes('failed')) {
+                        color = '#ef4444'; // Red
+                      } else if (lower.includes('warning') || lower.includes('warn')) {
+                        color = '#eab308'; // Yellow
+                      } else if (lower.includes('success') || lower.includes('online') || lower.includes('started') || lower.includes('recovery')) {
+                        color = '#10b981'; // Green
+                      } else if (lower.includes('[api log]') || lower.includes('request')) {
+                        color = '#38bdf8'; // Blue/Cyan
+                      } else if (lower.includes('debug')) {
+                        color = '#a855f7'; // Purple
+                      }
+
+                      return (
+                        <div key={idx} style={{ color, fontFamily: 'monospace', fontSize: '11px', whiteSpace: 'pre-wrap', lineHeight: '1.4' }}>
+                          {line}
+                        </div>
+                      );
+                    })
+                  )}
+                  <div ref={terminalEndRef} />
+                </div>
+              )}
+            </div>
+
+          </main>
+
+          {/* Trade Performance Detail Overlay */}
+          {showModal && selectedTrade && (
+            <div
+              onClick={() => setShowModal(false)}
+              style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: 'rgba(5, 7, 12, 0.85)',
+                backdropFilter: 'blur(8px)',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                zIndex: 9999,
+              }}
+            >
+              <div
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  backgroundColor: '#0f172a',
+                  border: `2px solid ${selectedTrade.pnl >= 0 ? '#10b981' : '#ef4444'}`,
+                  boxShadow: `0 0 25px ${selectedTrade.pnl >= 0 ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)'}`,
+                  borderRadius: '16px',
+                  width: '90%',
+                  maxWidth: '480px',
+                  padding: '24px',
+                  position: 'relative',
+                  color: '#f8fafc',
+                }}>
+                <button
+                  onClick={() => setShowModal(false)}
+                  style={{
+                    position: 'absolute',
+                    top: '16px',
+                    right: '16px',
+                    background: 'none',
+                    border: 'none',
+                    color: '#94a3b8',
                     cursor: 'pointer',
+                    padding: '4px',
+                    borderRadius: '50%',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '6px'
+                    backgroundColor: 'rgba(148, 163, 184, 0.05)'
                   }}
                 >
-                  📍 Go to Trade
+                  <X size={18} />
                 </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
-      {showAccountModal && (
-        <div
-          onClick={() => setShowAccountModal(false)}
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            zIndex: 9999,
-            backgroundColor: 'rgba(15, 23, 42, 0.75)',
-            backdropFilter: 'blur(4px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              backgroundColor: '#0f172a',
-              border: '1px solid #334155',
-              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
-              borderRadius: '16px',
-              width: '90%',
-              maxWidth: '520px',
-              padding: '24px',
-              position: 'relative',
-              color: '#f8fafc',
-            }}
-          >
-            <button
-              onClick={() => setShowAccountModal(false)}
-              style={{
-                position: 'absolute',
-                top: '16px',
-                right: '16px',
-                background: 'none',
-                border: 'none',
-                color: '#94a3b8',
-                cursor: 'pointer',
-                padding: '4px',
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: 'rgba(148, 163, 184, 0.05)'
-              }}
-            >
-              <X size={18} />
-            </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+                  <span style={{
+                    fontSize: '11px',
+                    fontWeight: 'bold',
+                    textTransform: 'uppercase',
+                    letterSpacing: '1px',
+                    padding: '3px 8px',
+                    borderRadius: '6px',
+                    backgroundColor: (selectedTrade.type || selectedTrade.trade_side || 'BUY').toUpperCase() === 'BUY' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                    color: (selectedTrade.type || selectedTrade.trade_side || 'BUY').toUpperCase() === 'BUY' ? '#10b981' : '#ef4444'
+                  }}>
+                    {(selectedTrade.type || selectedTrade.trade_side || 'BUY').toUpperCase()}
+                  </span>
+                  <h2 style={{ fontSize: '18px', fontWeight: 'bold', margin: 0, color: '#f1f5f9' }}>
+                    Trade Performance Details
+                  </h2>
+                </div>
 
-            <h2 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '16px', color: '#f1f5f9' }}>
-              📁 Account Management
-            </h2>
+                {(() => {
+                  const pnl = Number(selectedTrade.pnl ?? selectedTrade.profit ?? selectedTrade.unrealized_profit ?? 0);
+                  const side = (selectedTrade.type || selectedTrade.trade_side || selectedTrade.side || 'BUY').toUpperCase();
+                  const qtyVal = Number(selectedTrade.qty ?? selectedTrade.volume ?? selectedTrade.size ?? 0);
+                  const entryVal = selectedTrade.entryPrice ?? selectedTrade.entry_price ?? selectedTrade.price_open;
+                  const exitVal = selectedTrade.exitPrice ?? selectedTrade.price_current ?? selectedTrade.current_price;
+                  const slVal = selectedTrade.slPrice ?? selectedTrade.stop_loss ?? selectedTrade.sl;
+                  const tpVal = selectedTrade.tpPrice ?? selectedTrade.take_profit ?? selectedTrade.tp;
+                  const outcomeStr = selectedTrade.outcome || (pnl >= 0 ? 'PROFIT' : 'LOSS');
 
-            {/* List existing accounts */}
-            <div style={{ marginBottom: '24px', maxHeight: '200px', overflowY: 'auto' }}>
-              <h3 style={{ fontSize: '12px', fontWeight: 'bold', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '8px' }}>
-                Connected Accounts
-              </h3>
-              {accounts.length === 0 ? (
-                <div style={{ color: '#64748b', fontSize: '12px', padding: '8px 0' }}>No accounts connected yet.</div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {accounts.map((acc) => (
-                    <div
-                      key={acc.account_id}
-                      style={{
+                  return (
+                    <>
+                      <div style={{
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        backgroundColor: '#1e293b',
-                        borderRadius: '8px',
-                        padding: '8px 12px',
-                        border: acc.is_active ? '1px solid #3b82f6' : '1px solid transparent'
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{
-                          fontWeight: 'bold',
-                          color: acc.broker_type === 'ctrader' ? '#f59e0b' : '#3b82f6',
-                          fontSize: '10px',
-                          textTransform: 'uppercase',
-                          backgroundColor: acc.broker_type === 'ctrader' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(59, 130, 246, 0.15)',
-                          padding: '2px 6px',
-                          borderRadius: '4px'
-                        }}>
-                          {acc.broker_type === 'ctrader' ? 'cTrader' : 'MT5'}
-                        </span>
-                        <span style={{ fontSize: '13px', fontWeight: 'bold' }}>{acc.name}</span>
-                        <span style={{ fontSize: '11px', color: '#64748b' }}>({acc.account_id})</span>
-                        {acc.is_active === 1 && <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 'bold' }}> ● Active</span>}
+                        backgroundColor: pnl >= 0 ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
+                        border: `1px solid ${pnl >= 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)'}`,
+                        borderRadius: '10px',
+                        padding: '12px 16px',
+                        marginBottom: '20px'
+                      }}>
+                        <div>
+                          <span style={{ fontSize: '11px', color: '#94a3b8', display: 'block' }}>Net Profit/Loss</span>
+                          <span style={{ fontSize: '20px', fontWeight: 'bold', color: pnl >= 0 ? '#10b981' : '#ef4444' }}>
+                            {pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}
+                          </span>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <span style={{ fontSize: '11px', color: '#94a3b8', display: 'block' }}>Outcome</span>
+                          <span style={{
+                            fontSize: '13px',
+                            fontWeight: 'bold',
+                            color: pnl >= 0 ? '#10b981' : '#ef4444',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}>
+                            {pnl >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                            {outcomeStr}
+                          </span>
+                        </div>
                       </div>
-                      <div style={{ display: 'flex', gap: '12px' }}>
-                        {acc.is_active !== 1 && (
-                          <button
-                            onClick={() => handleSwitchAccount(acc.account_id)}
-                            style={{
-                              backgroundColor: 'transparent',
-                              border: 'none',
-                              color: '#3b82f6',
-                              cursor: 'pointer',
-                              fontSize: '12px',
-                              fontWeight: 'bold'
-                            }}
-                          >
-                            Activate
-                          </button>
-                        )}
-                        <button
-                          onClick={() => handleDeleteAccount(acc.account_id)}
-                          style={{
-                            backgroundColor: 'transparent',
-                            border: 'none',
-                            color: '#ef4444',
-                            cursor: 'pointer',
-                            fontSize: '12px',
-                            fontWeight: 'bold'
-                          }}
-                        >
-                          Delete
-                        </button>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 24px', fontSize: '13px', marginBottom: '20px' }}>
+                        <div>
+                          <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Entry Price</span>
+                          <span style={{ color: '#cbd5e1', fontWeight: '500' }}>${formatPrice(entryVal, symbol)}</span>
+                        </div>
+                        <div>
+                          <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Exit / Current Price</span>
+                          <span style={{ color: '#cbd5e1', fontWeight: '500' }}>${formatPrice(exitVal, symbol)}</span>
+                        </div>
+                        <div>
+                          <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Stop Loss</span>
+                          <span style={{ color: '#ef4444', fontWeight: '500' }}>${formatPrice(slVal, symbol)}</span>
+                        </div>
+                        <div>
+                          <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Take Profit</span>
+                          <span style={{ color: '#10b981', fontWeight: '500' }}>${formatPrice(tpVal, symbol)}</span>
+                        </div>
+                        <div>
+                          <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Quantity Size</span>
+                          <span style={{ color: '#cbd5e1', fontWeight: '500' }}>{qtyVal.toFixed(4)}</span>
+                        </div>
+                        <div>
+                          <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Time Closed / Active</span>
+                          <span style={{ color: '#cbd5e1', fontWeight: '500' }}>{selectedTrade.time || 'OPEN'}</span>
+                        </div>
                       </div>
+                    </>
+                  );
+                })()}
+
+                {selectedTrade.triggerReason && (
+                  <div style={{
+                    borderTop: '1px solid #1e293b',
+                    paddingTop: '16px',
+                    marginTop: '12px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px',
+                    fontSize: '12px'
+                  }}>
+                    <span style={{ color: '#cbd5e1', fontWeight: 'bold', display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Entry Trigger State (VSA & Structural Sweep)
+                    </span>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '8px', backgroundColor: 'rgba(30, 41, 59, 0.3)', padding: '10px', borderRadius: '8px' }}>
+                      <div>
+                        <span style={{ color: '#64748b', display: 'block', fontSize: '10px' }}>Active VSA Patterns</span>
+                        <span style={{ color: '#f1f5f9', fontWeight: '500' }}>{selectedTrade.triggerReason.vsa_patterns}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid rgba(148, 163, 184, 0.1)', paddingTop: '6px' }}>
+                        <div>
+                          <span style={{ color: '#64748b', display: 'block', fontSize: '10px' }}>Swept Structural Level</span>
+                          <span style={{ color: '#f1f5f9', fontWeight: '500' }}>
+                            {selectedTrade.triggerReason.sweep_level ? `$${formatPrice(selectedTrade.triggerReason.sweep_level, symbol)}` : 'None'}
+                          </span>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <span style={{ color: '#64748b', display: 'block', fontSize: '10px' }}>Weis Wave Volume</span>
+                          <span style={{ color: '#f1f5f9', fontWeight: '500' }}>
+                            {selectedTrade.triggerReason.weis_wave_volume ? selectedTrade.triggerReason.weis_wave_volume.toFixed(1) : '0.0'}
+                          </span>
+                        </div>
+                      </div>
+                      {selectedTrade.triggerReason.entry_candle && (
+                        <div style={{ borderTop: '1px solid rgba(148, 163, 184, 0.1)', paddingTop: '6px' }}>
+                          <span style={{ color: '#64748b', display: 'block', fontSize: '10px', marginBottom: '2px' }}>Entry Candle OHLC</span>
+                          <span style={{ color: '#94a3b8', fontFamily: 'monospace' }}>
+                            O:{formatPrice(selectedTrade.triggerReason.entry_candle.open, symbol)} H:{formatPrice(selectedTrade.triggerReason.entry_candle.high, symbol)} L:{formatPrice(selectedTrade.triggerReason.entry_candle.low, symbol)} C:{formatPrice(selectedTrade.triggerReason.entry_candle.close, symbol)}
+                          </span>
+                        </div>
+                      )}
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Add new account form */}
-            <form onSubmit={handleAddAccount} style={{ borderTop: '1px solid #1e293b', paddingTop: '16px' }}>
-              <h3 style={{ fontSize: '12px', fontWeight: 'bold', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '12px' }}>
-                Add New Trading Account
-              </h3>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Account Name Label</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. My FTMO Live"
-                    value={newAccName}
-                    onChange={(e) => setNewAccName(e.target.value)}
-                    style={{
-                      width: '100%',
-                      backgroundColor: '#1e293b',
-                      border: '1px solid #334155',
-                      borderRadius: '6px',
-                      padding: '8px 12px',
-                      color: '#f8fafc',
-                      fontSize: '13px',
-                      outline: 'none'
-                    }}
-                  />
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Broker Platform</label>
-                    <select
-                      value={newAccBroker}
-                      onChange={(e) => setNewAccBroker(e.target.value as 'ctrader' | 'metatrader')}
-                      style={{
-                        width: '100%',
-                        backgroundColor: '#1e293b',
-                        border: '1px solid #334155',
-                        borderRadius: '6px',
-                        padding: '8px 12px',
-                        color: '#f8fafc',
-                        fontSize: '13px',
-                        outline: 'none',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      <option value="ctrader">cTrader</option>
-                      <option value="metatrader">MetaTrader 5</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Account Login / ID</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. 17151091"
-                      value={newAccId}
-                      onChange={(e) => setNewAccId(e.target.value)}
-                      style={{
-                        width: '100%',
-                        backgroundColor: '#1e293b',
-                        border: '1px solid #334155',
-                        borderRadius: '6px',
-                        padding: '8px 12px',
-                        color: '#f8fafc',
-                        fontSize: '13px',
-                        outline: 'none'
-                      }}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>
-                    {newAccBroker === 'ctrader' ? 'Access Token / OAuth Token' : 'Password'}
-                  </label>
-                  <input
-                    type="password"
-                    placeholder={newAccBroker === 'ctrader' ? 'Paste oauth token' : 'Account password'}
-                    value={newAccPassword}
-                    onChange={(e) => setNewAccPassword(e.target.value)}
-                    style={{
-                      width: '100%',
-                      backgroundColor: '#1e293b',
-                      border: '1px solid #334155',
-                      borderRadius: '6px',
-                      padding: '8px 12px',
-                      color: '#f8fafc',
-                      fontSize: '13px',
-                      outline: 'none'
-                    }}
-                  />
-                </div>
-
-                {newAccBroker === 'metatrader' && (
-                  <div>
-                    <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Server Name (MT5 Only)</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. JustMarkets-Demo"
-                      value={newAccServer}
-                      onChange={(e) => setNewAccServer(e.target.value)}
-                      style={{
-                        width: '100%',
-                        backgroundColor: '#1e293b',
-                        border: '1px solid #334155',
-                        borderRadius: '6px',
-                        padding: '8px 12px',
-                        color: '#f8fafc',
-                        fontSize: '13px',
-                        outline: 'none'
-                      }}
-                    />
                   </div>
                 )}
 
+                <div style={{ borderTop: '1px solid #1e293b', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px' }}>
+                    <span style={{ color: '#64748b', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      <Clock size={13} /> Duration
+                    </span>
+                    <span style={{ color: '#f1f5f9', fontWeight: '500' }}>
+                      {selectedTrade.duration} bars / candles
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px' }}>
+                    <span style={{ color: '#64748b', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      <HelpCircle size={13} /> Exit Reason
+                    </span>
+                    <span style={{
+                      color: selectedTrade.exitReason?.includes('Stop Loss') ? '#ef4444' : selectedTrade.exitReason?.includes('Take Profit') ? '#10b981' : '#f1f5f9',
+                      fontWeight: 'bold'
+                    }}>
+                      {selectedTrade.exitReason || 'Unknown'}
+                    </span>
+                  </div>
+                  <div style={{ borderTop: '1px solid #1e293b', paddingTop: '12px', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#cbd5e1', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      🚀 Re-Execute Trade (Real / Broker Order)
+                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ display: 'block', fontSize: '10px', color: '#94a3b8', marginBottom: '2px' }}>Volume (Lots)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0.01"
+                          value={modalOrderVolume}
+                          onChange={(e) => setModalOrderVolume(parseFloat(e.target.value) || 0.01)}
+                          style={{
+                            width: '100%',
+                            backgroundColor: '#1e293b',
+                            border: '1px solid #334155',
+                            borderRadius: '6px',
+                            padding: '6px 10px',
+                            color: '#f8fafc',
+                            fontSize: '12px',
+                            outline: 'none'
+                          }}
+                        />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ display: 'block', fontSize: '10px', color: '#94a3b8', marginBottom: '2px' }}>Broker Platform</label>
+                        <select
+                          value={modalOrderBroker}
+                          onChange={(e) => setModalOrderBroker(e.target.value)}
+                          style={{
+                            width: '100%',
+                            backgroundColor: '#1e293b',
+                            border: '1px solid #334155',
+                            borderRadius: '6px',
+                            padding: '6px 10px',
+                            color: '#f8fafc',
+                            fontSize: '12px',
+                            outline: 'none',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <option value="metatrader">MetaTrader 5</option>
+                          <option value="ctrader">cTrader</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={handleExecuteTradeAgain}
+                      disabled={executingModalOrder}
+                      style={{
+                        backgroundColor: '#16a34a',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        padding: '10px',
+                        fontSize: '12px',
+                        fontWeight: 'bold',
+                        cursor: executingModalOrder ? 'not-allowed' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        boxShadow: '0 4px 12px rgba(22, 163, 74, 0.3)',
+                        opacity: executingModalOrder ? 0.7 : 1
+                      }}
+                    >
+                      {executingModalOrder ? 'Placing Order...' : `⚡ Run ${(selectedTrade.type || 'BUY').toUpperCase()} Trade Again (With SL & TP)`}
+                    </button>
+
+                    {modalOrderResult && (
+                      <div style={{
+                        padding: '8px 10px',
+                        borderRadius: '6px',
+                        fontSize: '11px',
+                        backgroundColor: modalOrderResult.status === 'success' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                        color: modalOrderResult.status === 'success' ? '#34d399' : '#f87171',
+                        border: `1px solid ${modalOrderResult.status === 'success' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+                      }}>
+                        {modalOrderResult.message}
+                      </div>
+                    )}
+                  </div>
+
+                  {selectedTrade.entryTimestamp && (
+                    <button
+                      onClick={() => {
+                        handleLocateCandle({
+                          symbol: symbol,
+                          timeframe: timeframe,
+                          candle_time: selectedTrade.entryTimestamp
+                        });
+                        setShowModal(false);
+                      }}
+                      style={{
+                        marginTop: '8px',
+                        backgroundColor: '#2563eb',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        padding: '8px',
+                        fontSize: '12px',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      📍 Go to Trade
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {showAccountModal && (
+            <div
+              onClick={() => setShowAccountModal(false)}
+              style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                zIndex: 9999,
+                backgroundColor: 'rgba(15, 23, 42, 0.75)',
+                backdropFilter: 'blur(4px)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <div
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  backgroundColor: '#0f172a',
+                  border: '1px solid #334155',
+                  boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
+                  borderRadius: '16px',
+                  width: '90%',
+                  maxWidth: '520px',
+                  padding: '24px',
+                  position: 'relative',
+                  color: '#f8fafc',
+                }}
+              >
                 <button
-                  type="submit"
+                  onClick={() => setShowAccountModal(false)}
                   style={{
-                    backgroundColor: '#2563eb',
-                    color: '#ffffff',
+                    position: 'absolute',
+                    top: '16px',
+                    right: '16px',
+                    background: 'none',
                     border: 'none',
-                    borderRadius: '6px',
-                    padding: '10px',
-                    fontSize: '13px',
-                    fontWeight: 'bold',
+                    color: '#94a3b8',
                     cursor: 'pointer',
-                    marginTop: '8px',
-                    boxShadow: '0 4px 10px rgba(37, 99, 235, 0.25)'
+                    padding: '4px',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: 'rgba(148, 163, 184, 0.05)'
                   }}
                 >
-                  Connect Account
+                  <X size={18} />
                 </button>
+
+                <h2 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '16px', color: '#f1f5f9' }}>
+                  📁 Account Management
+                </h2>
+
+                {/* List existing accounts */}
+                <div style={{ marginBottom: '24px', maxHeight: '200px', overflowY: 'auto' }}>
+                  <h3 style={{ fontSize: '12px', fontWeight: 'bold', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '8px' }}>
+                    Connected Accounts
+                  </h3>
+                  {accounts.length === 0 ? (
+                    <div style={{ color: '#64748b', fontSize: '12px', padding: '8px 0' }}>No accounts connected yet.</div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {accounts.map((acc) => (
+                        <div
+                          key={acc.account_id}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            backgroundColor: '#1e293b',
+                            borderRadius: '8px',
+                            padding: '8px 12px',
+                            border: acc.is_active ? '1px solid #3b82f6' : '1px solid transparent'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{
+                              fontWeight: 'bold',
+                              color: acc.broker_type === 'ctrader' ? '#f59e0b' : '#3b82f6',
+                              fontSize: '10px',
+                              textTransform: 'uppercase',
+                              backgroundColor: acc.broker_type === 'ctrader' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(59, 130, 246, 0.15)',
+                              padding: '2px 6px',
+                              borderRadius: '4px'
+                            }}>
+                              {acc.broker_type === 'ctrader' ? 'cTrader' : 'MT5'}
+                            </span>
+                            <span style={{ fontSize: '13px', fontWeight: 'bold' }}>{acc.name}</span>
+                            <span style={{ fontSize: '11px', color: '#64748b' }}>({acc.account_id})</span>
+                            {acc.is_active === 1 && <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 'bold' }}> ● Active</span>}
+                          </div>
+                          <div style={{ display: 'flex', gap: '12px' }}>
+                            {acc.is_active !== 1 && (
+                              <button
+                                onClick={() => handleSwitchAccount(acc.account_id)}
+                                style={{
+                                  backgroundColor: 'transparent',
+                                  border: 'none',
+                                  color: '#3b82f6',
+                                  cursor: 'pointer',
+                                  fontSize: '12px',
+                                  fontWeight: 'bold'
+                                }}
+                              >
+                                Activate
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleDeleteAccount(acc.account_id)}
+                              style={{
+                                backgroundColor: 'transparent',
+                                border: 'none',
+                                color: '#ef4444',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                fontWeight: 'bold'
+                              }}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Add new account form */}
+                <form onSubmit={handleAddAccount} style={{ borderTop: '1px solid #1e293b', paddingTop: '16px' }}>
+                  <h3 style={{ fontSize: '12px', fontWeight: 'bold', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '12px' }}>
+                    Add New Trading Account
+                  </h3>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Account Name Label</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. My FTMO Live"
+                        value={newAccName}
+                        onChange={(e) => setNewAccName(e.target.value)}
+                        style={{
+                          width: '100%',
+                          backgroundColor: '#1e293b',
+                          border: '1px solid #334155',
+                          borderRadius: '6px',
+                          padding: '8px 12px',
+                          color: '#f8fafc',
+                          fontSize: '13px',
+                          outline: 'none'
+                        }}
+                      />
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Broker Platform</label>
+                        <select
+                          value={newAccBroker}
+                          onChange={(e) => setNewAccBroker(e.target.value as 'ctrader' | 'metatrader')}
+                          style={{
+                            width: '100%',
+                            backgroundColor: '#1e293b',
+                            border: '1px solid #334155',
+                            borderRadius: '6px',
+                            padding: '8px 12px',
+                            color: '#f8fafc',
+                            fontSize: '13px',
+                            outline: 'none',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <option value="ctrader">cTrader</option>
+                          <option value="metatrader">MetaTrader 5</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Account Login / ID</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. 17151091"
+                          value={newAccId}
+                          onChange={(e) => setNewAccId(e.target.value)}
+                          style={{
+                            width: '100%',
+                            backgroundColor: '#1e293b',
+                            border: '1px solid #334155',
+                            borderRadius: '6px',
+                            padding: '8px 12px',
+                            color: '#f8fafc',
+                            fontSize: '13px',
+                            outline: 'none'
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>
+                        {newAccBroker === 'ctrader' ? 'Access Token / OAuth Token' : 'Password'}
+                      </label>
+                      <input
+                        type="password"
+                        placeholder={newAccBroker === 'ctrader' ? 'Paste oauth token' : 'Account password'}
+                        value={newAccPassword}
+                        onChange={(e) => setNewAccPassword(e.target.value)}
+                        style={{
+                          width: '100%',
+                          backgroundColor: '#1e293b',
+                          border: '1px solid #334155',
+                          borderRadius: '6px',
+                          padding: '8px 12px',
+                          color: '#f8fafc',
+                          fontSize: '13px',
+                          outline: 'none'
+                        }}
+                      />
+                    </div>
+
+                    {newAccBroker === 'metatrader' && (
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Server Name (MT5 Only)</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. JustMarkets-Demo"
+                          value={newAccServer}
+                          onChange={(e) => setNewAccServer(e.target.value)}
+                          style={{
+                            width: '100%',
+                            backgroundColor: '#1e293b',
+                            border: '1px solid #334155',
+                            borderRadius: '6px',
+                            padding: '8px 12px',
+                            color: '#f8fafc',
+                            fontSize: '13px',
+                            outline: 'none'
+                          }}
+                        />
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      style={{
+                        backgroundColor: '#2563eb',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        padding: '10px',
+                        fontSize: '13px',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        marginTop: '8px',
+                        boxShadow: '0 4px 10px rgba(37, 99, 235, 0.25)'
+                      }}
+                    >
+                      Connect Account
+                    </button>
+                  </div>
+                </form>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+            </div>
+          )}
         </>
       )}
 

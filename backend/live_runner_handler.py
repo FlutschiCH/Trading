@@ -8,6 +8,69 @@ from trading_handler import TradingHandler
 from wyckoff_handler import WyckoffHandler
 from backtest_helpers import get_pip_size, get_lot_size, is_datetime_in_sessions
 
+def calculate_date_bounds(option: str, custom_from: str = None, custom_to: str = None):
+    from datetime import datetime, timedelta, timezone
+    now = datetime.now(timezone.utc)
+    
+    if option == 'last_candles':
+        return None, None
+        
+    if option == 'this_week':
+        start = now - timedelta(days=now.weekday())
+        start = start.replace(hour=0, minute=0, second=0, microsecond=0)
+        return int(start.timestamp()), int(now.timestamp())
+        
+    if option == 'last_week':
+        this_week_start = now - timedelta(days=now.weekday())
+        this_week_start = this_week_start.replace(hour=0, minute=0, second=0, microsecond=0)
+        start = this_week_start - timedelta(days=7)
+        return int(start.timestamp()), int(this_week_start.timestamp())
+        
+    if option == 'this_month':
+        start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        return int(start.timestamp()), int(now.timestamp())
+        
+    if option == 'last_month':
+        first_day_this_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        last_day_last_month = first_day_this_month - timedelta(seconds=1)
+        start = last_day_last_month.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        return int(start.timestamp()), int(last_day_last_month.timestamp())
+        
+    if option == 'custom' and custom_from and custom_to:
+        try:
+            def parse_dt(s):
+                s = s.replace('Z', '').split('.')[0]
+                for fmt in ('%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d'):
+                    try:
+                        dt = datetime.strptime(s, fmt)
+                        return dt.replace(tzinfo=timezone.utc)
+                    except ValueError:
+                        continue
+                raise ValueError(f"Unknown format: {s}")
+            start = parse_dt(custom_from)
+            end = parse_dt(custom_to)
+            return int(start.timestamp()), int(end.timestamp())
+        except Exception as e:
+            print(f"Error parsing custom dates: {e}", flush=True)
+            
+    if option == 'from_start_date' and custom_from:
+        try:
+            def parse_dt(s):
+                s = s.replace('Z', '').split('.')[0]
+                for fmt in ('%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d'):
+                    try:
+                        dt = datetime.strptime(s, fmt)
+                        return dt.replace(tzinfo=timezone.utc)
+                    except ValueError:
+                        continue
+                raise ValueError(f"Unknown format: {s}")
+            start = parse_dt(custom_from)
+            return int(start.timestamp()), None
+        except Exception as e:
+            print(f"Error parsing custom from date: {e}", flush=True)
+            
+    return None, None
+
 class LiveRunner:
     _thread = None
     _stop_event = threading.Event()
@@ -15,6 +78,8 @@ class LiveRunner:
     _last_processed = {} 
     # In-memory cache to store full candle history per strategy
     _candles_cache = {}
+    # In-memory cache to store simulated trades per strategy
+    _trades_cache = {}
 
     @classmethod
     def start(cls):
@@ -78,21 +143,22 @@ class LiveRunner:
         from live_strategy_handler import LiveStrategyHandler
         from broker_handler import BrokerHandler
         handler = BrokerHandler.get_handler(broker_name)
-        print(f"[Live Runner DEBUG] Resolved handler for broker '{broker_name}': {handler.__name__ if handler else 'None'}", flush=True)
+        # print(f"[Live Runner DEBUG] Resolved handler for broker '{broker_name}': {handler.__name__ if handler else 'None'}", flush=True)
 
         cached_candles = cls._candles_cache.get(strategy_id, [])
         
+        opt = strategy.get("dateRangeOption", "last_candles")
+        custom_from = strategy.get("customFrom") or ""
+        custom_to = strategy.get("customTo") or ""
+        limit = strategy.get("candleLimit", 5000)
+
         # If cache exists, verify configuration hasn't changed.
         if cached_candles:
             # Check if any config parameter changed compared to what is currently cached
-            first_candle = cached_candles[0]
-            # If the lookback window or other parameters changed, clear cache to force warm-up
-            # We can check a class level metadata dict or simply verify lookback
-            # Let's save a config metadata dict for validation
             if not hasattr(cls, '_cache_configs'):
                 cls._cache_configs = {}
             prev_config = cls._cache_configs.get(strategy_id)
-            curr_config = (symbol, timeframe, lookback, broker_name)
+            curr_config = (symbol, timeframe, lookback, broker_name, opt, custom_from, custom_to, limit)
             if prev_config != curr_config:
                 print(f"[Live Runner] Strategy {strategy_id} configuration changed from {prev_config} to {curr_config}. Clearing cache.", flush=True)
                 cached_candles = []
@@ -101,30 +167,68 @@ class LiveRunner:
         else:
             if not hasattr(cls, '_cache_configs'):
                 cls._cache_configs = {}
-            cls._cache_configs[strategy_id] = (symbol, timeframe, lookback, broker_name)
+            cls._cache_configs[strategy_id] = (symbol, timeframe, lookback, broker_name, opt, custom_from, custom_to, limit)
 
         if not cached_candles:
-            # First fetch: warm up with 5000 candles
-            print(f"[Live Runner] Warm-up: Fetching 5000 candles for strategy {strategy_id} ({symbol} {timeframe})", flush=True)
+            # First fetch: warm up using backtest settings saved in strategy configuration
+            opt = strategy.get("dateRangeOption", "last_candles")
+            custom_from = strategy.get("customFrom")
+            custom_to = strategy.get("customTo")
+            limit = strategy.get("candleLimit", 5000)
+
+            date_from, date_to = calculate_date_bounds(opt, custom_from, custom_to)
+            
+            print(f"[Live Runner] Warm-up: Fetching candles for strategy {strategy_id} ({symbol} {timeframe}) using backtest settings: opt={opt}, limit={limit}, date_from={date_from}, date_to={date_to}", flush=True)
             candles = handler.fetch_candles(
                 symbol=symbol,
                 timeframe=timeframe,
-                limit=5000
+                limit=limit,
+                date_from=date_from,
+                date_to=date_to
             )
+            print(f"[Live Runner DEBUG] Warm-up: Fetch returned {len(candles) if candles else 0} candles for strategy {strategy_id}", flush=True)
             if candles:
-                # Run Wyckoff Analysis on all fetched candles to warm up the cache
-                annotated_candles = WyckoffHandler.analyze_wyckoff_structure(candles, lookback=lookback)
+                # Run backtest logic to initialize candles and trades cache
+                from strategy_handler import StrategyHandler
+                backtest_res = StrategyHandler.run_backtest(
+                    candles=candles,
+                    symbol=symbol,
+                    sl_val=strategy["slVal"],
+                    sl_type=strategy["slType"],
+                    rr=strategy["rr"],
+                    size=strategy["size"],
+                    initial_balance=10000.0,
+                    use_risk_sizing=strategy["useRiskSizing"],
+                    risk_pct=strategy["riskPct"],
+                    use_break_even=strategy.get("useBreakEven", False),
+                    be_trigger_r=strategy.get("beTriggerR", 1.0),
+                    lookback_window=lookback,
+                    fees_percent=0.0,
+                    daily_retry_limit=0,
+                    allow_opposite_close=True,
+                    date_from=date_from,
+                    date_to=date_to,
+                    timezone=strategy.get("timezone", "Local"),
+                    sessions=strategy.get("sessions", []),
+                    use_global_close=strategy.get("useGlobalClose", False),
+                    global_close_time=strategy.get("globalCloseTime", ""),
+                    entry_stability_rule=strategy.get("entryStabilityRule", "default"),
+                    broker=broker_name
+                )
+                annotated_candles = backtest_res.get("candles", [])
                 cls._candles_cache[strategy_id] = annotated_candles
+                cls._trades_cache[strategy_id] = backtest_res.get("trades", [])
             else:
                 annotated_candles = []
         else:
             # Incremental fetch: fetch only the last 10 candles
-            print(f"[Live Runner] Incremental: Fetching 10 candles for strategy {strategy_id} ({symbol} {timeframe})", flush=True)
+            # print(f"[Live Runner] Incremental: Fetching 10 candles for strategy {strategy_id} ({symbol} {timeframe})", flush=True)
             new_candles = handler.fetch_candles(
                 symbol=symbol,
                 timeframe=timeframe,
                 limit=10
             )
+            # print(f"[Live Runner DEBUG] Incremental: Fetch returned {len(new_candles) if new_candles else 0} candles for strategy {strategy_id}", flush=True)
             if new_candles:
                 # Convert cached annotated candles to raw candles for the lookback window to calculate accurate Wyckoff indicators on the transition boundary
                 # We need at least lookback * 2 historical candles for stable indicator calculations on the new candles
@@ -169,8 +273,8 @@ class LiveRunner:
         # Run trade evaluation logic to determine signals on the last completed candle
         should_buy, should_sell, state_info = cls._evaluate_signals(annotated_candles, strategy)
 
-        # Keep a history of the last 50 annotated candles to store in live_state in DB
-        recent_candles = annotated_candles[-50:] if len(annotated_candles) > 50 else annotated_candles
+        # Keep a history of the last 5000 annotated candles to store in live_state in DB
+        recent_candles = annotated_candles[-5000:] if len(annotated_candles) > 5000 else annotated_candles
         state_info["candles"] = recent_candles
 
         # Persist the latest live state to the database
@@ -200,6 +304,19 @@ class LiveRunner:
             )
             send_discord_message(discord_msg)
             cls._execute_trade(strategy, should_buy, should_sell, last_completed_candle)
+            
+            # Append new simulated trade to cache
+            new_trade = {
+                "id": len(cls._trades_cache.get(strategy_id, [])) + 1,
+                "type": direction,
+                "entry_time": last_completed_candle["time"],
+                "entry_price": last_completed_candle.get("close", 0.0),
+                "status": "OPEN",
+                "profit": 0.0
+            }
+            if strategy_id not in cls._trades_cache:
+                cls._trades_cache[strategy_id] = []
+            cls._trades_cache[strategy_id].append(new_trade)
 
         # Mark as processed
         cls._last_processed[strategy_id] = candle_time
@@ -378,7 +495,8 @@ class LiveRunner:
             "pending_sell_age": pending_sell_age,
             "status_message": status_message,
             "last_candle_time": datetime.fromtimestamp(last_c.get('time')).strftime("%Y-%m-%d %H:%M:%S") if last_c.get('time') else None,
-            "last_checked": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            "last_checked": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "trades": cls._trades_cache.get(strategy["id"], [])
         }
 
         return should_buy, should_sell, state_info
@@ -469,7 +587,7 @@ class LiveRunner:
                 print(f"[Live Runner] Triggering {direction} order for target {target_acc_id} on {symbol}. Params: {params}", flush=True)
 
                 # 4. Dispatch Order
-                handler.create_order(
+                order_res = handler.create_order(
                     symbol=symbol,
                     side=direction,
                     volume=params["qty"],
@@ -479,5 +597,34 @@ class LiveRunner:
                     magic=magic,
                     **target_kwargs
                 )
+
+                from discord_handler import send_discord_message
+                if isinstance(order_res, dict) and order_res.get("status") in ("error", "failed"):
+                    err_msg = order_res.get("message", "Unknown error")
+                    print(f"[Live Runner] Order execution failed for target {target_acc_id} on {symbol}: {err_msg}", flush=True)
+                    send_discord_message(
+                        f"❌ **Broker Order Execution Failed!**\n"
+                        f"🎛️ **Strategy ID:** `{strategy_id}`\n"
+                        f"🏦 **Broker:** `{target_broker}` (Acc: `{target_acc_id}`)\n"
+                        f"📊 **Symbol:** `{symbol}` | ➡️ **Side:** `{direction}`\n"
+                        f"⚠️ **Error:** `{err_msg}`"
+                    )
+                else:
+                    print(f"[Live Runner] Order successfully executed for target {target_acc_id} on {symbol}.", flush=True)
+                    send_discord_message(
+                        f"✅ **Real Trade Executed Successfully!**\n"
+                        f"🎛️ **Strategy ID:** `{strategy_id}`\n"
+                        f"🏦 **Broker:** `{target_broker}` (Acc: `{target_acc_id}`)\n"
+                        f"📊 **Symbol:** `{symbol}` | ➡️ **Side:** `{direction}`\n"
+                        f"📦 **Volume:** `{params['qty']}` | 💵 **Entry:** `{params['entry_price']:.5f}`\n"
+                        f"🛑 **SL:** `{params['sl_price']:.5f}` | 🎯 **TP:** `{params['tp_price']:.5f}`"
+                    )
             except Exception as target_err:
                 print(f"[Live Runner] Error executing trade for target {target.get('account_id')}: {target_err}", flush=True)
+                from discord_handler import send_discord_message
+                send_discord_message(
+                    f"❌ **Broker Order Exception!**\n"
+                    f"🎛️ **Strategy ID:** `{strategy_id}`\n"
+                    f"🏦 **Target Account:** `{target.get('account_id')}`\n"
+                    f"⚠️ **Exception:** `{str(target_err)}`"
+                )

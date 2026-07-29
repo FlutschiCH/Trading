@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { X, Server, ShieldAlert, Check, RefreshCw } from 'lucide-react';
 import { API_BASE_URL } from '../api';
+import { TARGET_OPTIONS } from './target_switcher';
 
 interface HostStatus {
   name: string;
@@ -24,8 +25,20 @@ interface DeployModalProps {
   initialTargetComputer?: string;
   initialTargets?: Array<{ broker: string; account_id: string }>;
   initialName?: string;
+  initialDateRangeOption?: string;
+  initialCustomFrom?: string;
+  initialCustomTo?: string;
+  initialCandleLimit?: number;
   onClose: () => void;
-  onConfirm: (targetComputer: string, targets: Array<{ broker: string; account_id: string }>, name: string) => void;
+  onConfirm: (
+    targetComputer: string,
+    targets: Array<{ broker: string; account_id: string }>,
+    name: string,
+    dateRangeOption: string,
+    customFrom: string,
+    customTo: string,
+    candleLimit: number
+  ) => void;
 }
 
 export default function DeployModal({
@@ -40,14 +53,22 @@ export default function DeployModal({
   initialTargetComputer = 'All',
   initialTargets = [],
   initialName = '',
+  initialDateRangeOption = 'last_candles',
+  initialCustomFrom = '',
+  initialCustomTo = '',
+  initialCandleLimit = 1000,
   onClose,
   onConfirm,
 }: DeployModalProps) {
-  const [hosts, setHosts] = useState<HostStatus[]>([
-    { name: 'Local Dev Machine', url: 'http://localhost:8751', type: 'local', online: false, loading: true },
-    { name: 'Laptop Server (Remote)', url: 'http://89.217.138.51:8751', type: 'laptop', online: false, loading: true },
-    { name: 'Railway Cloud Container', url: 'https://trading-production-cb87.up.railway.app', type: 'railway', online: false, loading: true },
-  ]);
+  const [hosts, setHosts] = useState<HostStatus[]>(() =>
+    TARGET_OPTIONS.map((opt, idx) => ({
+      name: opt.label,
+      url: opt.url,
+      type: idx === 0 ? 'local' : 'laptop',
+      online: false,
+      loading: true,
+    }))
+  );
 
   const [strategyName, setStrategyName] = useState<string>(initialName);
 
@@ -63,6 +84,11 @@ export default function DeployModal({
     }
     return '';
   });
+
+  const [dateRangeOption, setDateRangeOption] = useState<string>(initialDateRangeOption);
+  const [customFrom, setCustomFrom] = useState<string>(initialCustomFrom);
+  const [customTo, setCustomTo] = useState<string>(initialCustomTo);
+  const [candleLimit, setCandleLimit] = useState<number>(initialCandleLimit);
 
   const [accounts, setAccounts] = useState<any[]>([]);
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>(() => {
@@ -86,7 +112,7 @@ export default function DeployModal({
       if (saved) {
         cachedList = JSON.parse(saved);
         setAccounts(cachedList);
-        
+
         // Auto select active account or first account if we don't have initialTargets
         if (!initialTargets || initialTargets.length === 0) {
           const active = cachedList.find((a: any) => a.is_active || a.active);
@@ -197,8 +223,8 @@ export default function DeployModal({
         };
       });
 
-      console.log('Calling onConfirm with:', { finalTarget, targets, name: strategyName.trim() });
-      onConfirm(finalTarget, targets, strategyName.trim());
+      console.log('Calling onConfirm with:', { finalTarget, targets, name: strategyName.trim(), dateRangeOption, customFrom, customTo, candleLimit });
+      onConfirm(finalTarget, targets, strategyName.trim(), dateRangeOption, customFrom, customTo, candleLimit);
     } catch (err) {
       console.error('Error inside handleConfirmDeploy:', err);
       alert('Error confirming deployment: ' + err);
@@ -501,6 +527,100 @@ export default function DeployModal({
           </div>
         </div>
 
+        {/* Backtest / History Setup (Warm-up Settings) */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '10px' }}>
+          <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            Backtest Date Range (Live Warm-up Setup)
+          </label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <span style={{ fontSize: '10px', color: '#64748b' }}>Date Range</span>
+              <select
+                value={dateRangeOption}
+                onChange={(e) => setDateRangeOption(e.target.value)}
+                style={{
+                  backgroundColor: '#1e293b',
+                  border: '1px solid #334155',
+                  borderRadius: '6px',
+                  color: '#f8fafc',
+                  fontSize: '12px',
+                  padding: '6px 10px',
+                  cursor: 'pointer',
+                  outline: 'none'
+                }}
+              >
+                <option value="last_candles">Last N Candles Only</option>
+                <option value="this_week">This Week</option>
+                <option value="last_week">Last Week</option>
+                <option value="this_month">This Month</option>
+                <option value="last_month">Last Month</option>
+                <option value="custom">Custom Range</option>
+                <option value="from_start_date">From Start Date</option>
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <span style={{ fontSize: '10px', color: '#64748b' }}>Candle Limit</span>
+              <input
+                type="number"
+                value={candleLimit}
+                onChange={(e) => setCandleLimit(parseInt(e.target.value) || 1000)}
+                style={{
+                  backgroundColor: '#1e293b',
+                  border: '1px solid #334155',
+                  borderRadius: '6px',
+                  color: '#f8fafc',
+                  fontSize: '12px',
+                  padding: '6px 10px',
+                  outline: 'none'
+                }}
+              />
+            </div>
+          </div>
+
+          {(dateRangeOption === 'custom' || dateRangeOption === 'from_start_date') && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '4px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontSize: '10px', color: '#64748b' }}>From</span>
+                <input
+                  type="datetime-local"
+                  value={customFrom}
+                  onChange={(e) => setCustomFrom(e.target.value)}
+                  style={{
+                    backgroundColor: '#1e293b',
+                    border: '1px solid #334155',
+                    borderRadius: '6px',
+                    color: '#f8fafc',
+                    fontSize: '12px',
+                    padding: '6px 10px',
+                    outline: 'none'
+                  }}
+                />
+              </div>
+
+              {dateRangeOption === 'custom' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <span style={{ fontSize: '10px', color: '#64748b' }}>To</span>
+                  <input
+                    type="datetime-local"
+                    value={customTo}
+                    onChange={(e) => setCustomTo(e.target.value)}
+                    style={{
+                      backgroundColor: '#1e293b',
+                      border: '1px solid #334155',
+                      borderRadius: '6px',
+                      color: '#f8fafc',
+                      fontSize: '12px',
+                      padding: '6px 10px',
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Actions */}
         <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
           <button
@@ -519,7 +639,7 @@ export default function DeployModal({
           >
             Cancel
           </button>
-          
+
           <button
             onClick={handleConfirmDeploy}
             style={{

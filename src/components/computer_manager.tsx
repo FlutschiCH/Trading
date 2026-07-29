@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Server, RefreshCw, ArrowLeft, Activity, ShieldAlert, Cpu } from 'lucide-react';
+import { TARGET_OPTIONS } from './target_switcher';
 
 interface HostStatus {
   name: string;
@@ -18,37 +19,23 @@ interface ComputerManagerProps {
 }
 
 export default function ComputerManager({ setView }: ComputerManagerProps) {
-  const [hosts, setHosts] = useState<HostStatus[]>([
-    {
-      name: 'Local Dev Machine',
-      url: 'http://localhost:8751',
-      type: 'local',
+  const [hosts, setHosts] = useState<HostStatus[]>(() =>
+    TARGET_OPTIONS.map((opt, idx) => ({
+      name: opt.label,
+      url: opt.url,
+      type: idx === 0 ? 'local' : 'laptop',
       online: false,
       loading: true,
-    },
-    {
-      name: 'Laptop Server (Remote)',
-      url: 'http://89.217.138.51:8751',
-      type: 'laptop',
-      online: false,
-      loading: true,
-    },
-    {
-      name: 'Railway Cloud Container',
-      url: 'https://trading-production-cb87.up.railway.app',
-      type: 'railway',
-      online: false,
-      loading: true,
-    },
-  ]);
+    }))
+  );
 
   const checkHostStatus = async (hostIndex: number) => {
     const host = hosts[hostIndex];
     setHosts(prev => prev.map((h, i) => i === hostIndex ? { ...h, loading: true } : h));
     
     const startTime = performance.now();
+    console.log(`[ComputerManager] Pinging host: ${host.name} (${host.type}) - URL: ${host.url}/api/system/status`);
     try {
-      // Add a cache-buster to prevent browser caching
       const response = await fetch(`${host.url}/api/system/status?_cb=${Date.now()}`, {
         method: 'GET',
         headers: { 'Accept': 'application/json' },
@@ -111,6 +98,7 @@ export default function ComputerManager({ setView }: ComputerManagerProps) {
       return;
     }
     
+    console.log(`[ComputerManager] Sending restart request to host: ${host.name} (${host.type}) - URL: ${host.url}/api/system/restart`);
     try {
       const response = await fetch(`${host.url}/api/system/restart`, {
         method: 'POST',

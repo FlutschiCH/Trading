@@ -204,7 +204,7 @@ class WyckoffStructure:
                 except Exception:
                     recent_time_str = str(last_change_time)
             
-            print(f"[Wyckoff Analysis] Found {stage_changes} wyckoff stage changes. Most recent change was at: {recent_time_str}", flush=True)
+            # print(f"[Wyckoff Analysis] Found {stage_changes} wyckoff stage changes. Most recent change was at: {recent_time_str}", flush=True)
 
         # Format the output fields to match the expected format
         df['support_level'] = df['rolling_low']

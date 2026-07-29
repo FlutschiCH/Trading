@@ -59,28 +59,14 @@ class MetaTraderHandler(BaseBrokerHandler):
             login, password, server = MetaTraderHandler._resolve_credentials(login, password, server, **kwargs)
         except Exception as e:
             if not MT5_AVAILABLE:
-                # If MT5 package is not available (Linux / Railway / development testing environment), fallback to local mock
-                pass
-            else:
-                raise e
+                raise ImportError("MetaTrader 5 library is not available on this platform.")
+            raise e
+
         if not MT5_AVAILABLE:
-            import time
-            print("MetaTrader 5 skipped (non-Windows platform). Using local mock candles fallback.", flush=True)
-            curr = int(time.time())
-            mock_candles = []
-            for i in range(limit):
-                mock_candles.append({
-                    "time": curr - (limit - i) * 900,
-                    "open": 50000.0,
-                    "high": 50100.0,
-                    "low": 49900.0,
-                    "close": 50000.0,
-                    "volume": 10.0
-                })
-            return mock_candles
+            raise ImportError("MetaTrader 5 library is not available on this platform.")
 
         if not MetaTraderHandler._initialize_mt5(login, password, server):
-            return []
+            raise RuntimeError("Failed to initialize MetaTrader 5 connection.")
 
         # Map timeframe string to MT5 timeframe constants
         tf_map = {
@@ -283,17 +269,38 @@ class MetaTraderHandler(BaseBrokerHandler):
                 return {"status": "error", "message": f"Failed to get current price tick for {matched_symbol}"}
             price = tick.ask if is_buy else tick.bid
         
+        symbol_info = mt5.symbol_info(matched_symbol)
+        filling_mode = mt5.ORDER_FILLING_IOC
+        if symbol_info is not None and hasattr(symbol_info, "filling_mode"):
+          modes = symbol_info.filling_mode
+          # checking bits: 1 = FOK (ORDER_FILLING_FOK), 2 = IOC (ORDER_FILLING_IOC)
+          if modes & 2:
+            filling_mode = mt5.ORDER_FILLING_IOC
+          elif modes & 1:
+            filling_mode = mt5.ORDER_FILLING_FOK
+          else:
+            filling_mode = mt5.ORDER_FILLING_RETURN
+
+        vol = round(float(volume), 2)
+        if symbol_info is not None:
+          vol_min = getattr(symbol_info, "volume_min", 0.01)
+          vol_max = getattr(symbol_info, "volume_max", 100.0)
+          vol_step = getattr(symbol_info, "volume_step", 0.01)
+          if vol_step > 0:
+            vol = round(round(vol / vol_step) * vol_step, 2)
+          vol = max(vol_min, min(vol_max, vol))
+
         request_dict = {
             "action": mt5.TRADE_ACTION_DEAL,
             "symbol": matched_symbol,
-            "volume": float(volume),
+            "volume": float(vol),
             "type": action_type,
             "price": float(price),
             "deviation": 20,
-            "magic": int(magic),
+            "magic": int(magic) if magic is not None else 123456,
             "comment": "Wyckoff MT5 Order",
             "type_time": mt5.ORDER_TIME_GTC,
-            "type_filling": mt5.ORDER_FILLING_IOC,
+            "type_filling": filling_mode,
         }
         
         if stop_loss is not None:
@@ -332,10 +339,30 @@ class MetaTraderHandler(BaseBrokerHandler):
             return {"status": "error", "message": f"Failed to get price tick for {symbol}"}
         price = tick.bid if is_buy else tick.ask
         
+        symbol_info = mt5.symbol_info(symbol)
+        filling_mode = mt5.ORDER_FILLING_IOC
+        if symbol_info is not None and hasattr(symbol_info, "filling_mode"):
+          modes = symbol_info.filling_mode
+          if modes & 2:
+            filling_mode = mt5.ORDER_FILLING_IOC
+          elif modes & 1:
+            filling_mode = mt5.ORDER_FILLING_FOK
+          else:
+            filling_mode = mt5.ORDER_FILLING_RETURN
+
+        vol = round(float(volume), 2)
+        if symbol_info is not None:
+          vol_min = getattr(symbol_info, "volume_min", 0.01)
+          vol_max = getattr(symbol_info, "volume_max", 100.0)
+          vol_step = getattr(symbol_info, "volume_step", 0.01)
+          if vol_step > 0:
+            vol = round(round(vol / vol_step) * vol_step, 2)
+          vol = max(vol_min, min(vol_max, vol))
+
         request_dict = {
             "action": mt5.TRADE_ACTION_DEAL,
             "symbol": symbol,
-            "volume": float(volume),
+            "volume": float(vol),
             "type": action_type,
             "position": int(position_id),
             "price": float(price),
@@ -343,7 +370,7 @@ class MetaTraderHandler(BaseBrokerHandler):
             "magic": 234000,
             "comment": "Auto-Close Session Position",
             "type_time": mt5.ORDER_TIME_GTC,
-            "type_filling": mt5.ORDER_FILLING_IOC,
+            "type_filling": filling_mode,
         }
         result = mt5.order_send(request_dict)
         from notification_handler import NotificationHandler
@@ -354,6 +381,32 @@ class MetaTraderHandler(BaseBrokerHandler):
             return {"status": "error", "message": f"MT5 close failed: {comment} (retcode: {retcode})"}
         NotificationHandler.play_sound("trade_close")
         return {"status": "success", "message": f"Position {position_id} closed."}
+
+    @staticmethod
+    def modify_position(position_id: int, stop_loss: float = None, take_profit: float = None, symbol: str = "EURUSD", login: int = 2002061314, password: str = "Godzilla_12", server: str = "JustMarkets-Demo", **kwargs) -> dict:
+        login, password, server = MetaTraderHandler._resolve_credentials(login, password, server, **kwargs)
+        if not MT5_AVAILABLE:
+            return {"status": "error", "message": "MT5 unavailable"}
+            
+        if not MetaTraderHandler._initialize_mt5(login, password, server):
+            return {"status": "error", "message": "Failed to initialize MT5"}
+            
+        request_dict = {
+            "action": mt5.TRADE_ACTION_SLTP,
+            "position": int(position_id),
+            "symbol": symbol,
+            "sl": float(stop_loss) if stop_loss is not None else 0.0,
+            "tp": float(take_profit) if take_profit is not None else 0.0,
+        }
+        result = mt5.order_send(request_dict)
+        from notification_handler import NotificationHandler
+        if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
+            comment = result.comment if result else "None"
+            retcode = result.retcode if result else -1
+            NotificationHandler.play_sound("error")
+            return {"status": "error", "message": f"MT5 modify failed: {comment} (retcode: {retcode})"}
+        NotificationHandler.play_sound("alert")
+        return {"status": "success", "message": f"Position {position_id} modified successfully."}
 
     @staticmethod
     def get_symbols(login: int = 2002061314, password: str = "Godzilla_12", server: str = "JustMarkets-Demo", **kwargs) -> list:

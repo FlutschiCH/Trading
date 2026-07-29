@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Play, Pause, Trash2, Clock, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Play, Pause, Trash2, Clock, CheckCircle2, AlertTriangle, RefreshCw } from 'lucide-react';
 import { API_BASE_URL } from '../api';
 import DeployModal from './deploy_modal';
 
 interface LiveStrategy {
   id: string;
   symbol: string;
+  name?: string;
   status: 'active' | 'paused';
   timeframe: string;
   slVal: number;
@@ -63,14 +64,18 @@ export default function LiveOverviewPanel({
 
   const fetchStrategies = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/live/strategies`);
+      const url = `${API_BASE_URL}/api/live/strategies`;
+      console.log(`[HTTP Request] Calling live strategies endpoint: ${url}`);
+      const res = await fetch(url);
       const data = await res.json();
+      console.log(`[HTTP Response] Reply from live strategies endpoint:`, data);
       if (data.status === 'success') {
         setStrategies(data.strategies || []);
       } else {
         setError(data.message || 'Failed to fetch strategies');
       }
     } catch (err: any) {
+      console.error(`[HTTP Error] Failed to fetch live strategies:`, err);
       setError(err.message || 'Error connecting to backend');
     } finally {
       setLoading(false);
@@ -86,7 +91,6 @@ export default function LiveOverviewPanel({
     const timer = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
-          fetchStrategies();
           return 15;
         }
         return prev - 1;
@@ -95,6 +99,8 @@ export default function LiveOverviewPanel({
 
     return () => clearInterval(timer);
   }, []);
+
+
 
   const handleToggleStatus = async (strategy: LiveStrategy) => {
     const nextStatus = strategy.status === 'active' ? 'paused' : 'active';
@@ -137,16 +143,66 @@ export default function LiveOverviewPanel({
   }
 
   if (error && strategies.length === 0) {
-    return <div style={{ color: '#ef4444', fontSize: '12px', padding: '12px' }}>Error: {error}</div>;
+    return (
+      <div style={{ color: '#ef4444', fontSize: '12px', padding: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', backgroundColor: '#0b0f19', border: '1px solid #7f1d1d', borderRadius: '8px' }}>
+        <span>⚠️ Error: {error}</span>
+        <button
+          onClick={() => {
+            setError(null);
+            setLoading(true);
+            fetchStrategies();
+          }}
+          style={{
+            backgroundColor: '#2563eb',
+            color: '#ffffff',
+            border: 'none',
+            borderRadius: '6px',
+            padding: '6px 16px',
+            fontSize: '12px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            boxShadow: '0 2px 8px rgba(37, 99, 235, 0.3)',
+            transition: 'all 0.2s'
+          }}
+        >
+          <RefreshCw size={14} /> Retry Connection
+        </button>
+      </div>
+    );
   }
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      {/* Header section with Timer */}
+      {/* Header section with Timer & Refresh */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', borderBottom: '1px solid #1f2937', paddingBottom: '8px' }}>
-        <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 'bold' }}>
-          LIVE STRATEGIES ({strategies.length})
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 'bold' }}>
+            LIVE STRATEGIES ({strategies.length})
+          </span>
+          <button
+            onClick={fetchStrategies}
+            title="Refresh Strategies"
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#94a3b8',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '2px',
+              borderRadius: '4px',
+              transition: 'color 0.2s',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = '#3b82f6')}
+            onMouseLeave={(e) => (e.currentTarget.style.color = '#94a3b8')}
+          >
+            <RefreshCw size={12} />
+          </button>
+        </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', padding: '3px 8px', borderRadius: '12px' }}>
           <Clock size={12} />
           <span>Next check in {countdown}s</span>
@@ -178,34 +234,45 @@ export default function LiveOverviewPanel({
                 }}
               >
                 {/* Symbol, Timeframe, Actions */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <div style={{
+                  display: 'flex',
+                  flexDirection: isMobileLayout ? 'column' : 'row',
+                  justifyContent: 'space-between',
+                  alignItems: isMobileLayout ? 'flex-start' : 'center',
+                  gap: isMobileLayout ? '8px' : '0',
+                  marginBottom: '10px'
+                }}>
                   <div>
                     {strategy.name && (
                       <div style={{ fontSize: '10px', color: '#3b82f6', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '2px' }}>
                         {strategy.name}
                       </div>
                     )}
-                    <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#f8fafc', marginRight: '6px' }}>
-                      {strategy.symbol}
-                    </span>
-                    <span style={{ fontSize: '10px', backgroundColor: '#1e293b', color: '#94a3b8', padding: '2px 6px', borderRadius: '4px' }}>
-                      {strategy.timeframe}
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#f8fafc' }}>
+                        {strategy.symbol}
+                      </span>
+                      <span style={{ fontSize: '10px', backgroundColor: '#1e293b', color: '#94a3b8', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
+                        {strategy.timeframe}
+                      </span>
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap', width: isMobileLayout ? '100%' : 'auto' }}>
                     {onSelectStrategy && (
                       <button
                         onClick={() => onSelectStrategy(strategy.id)}
                         style={{
+                          flex: isMobileLayout ? 1 : 'none',
                           backgroundColor: selectedStrategyId === strategy.id && isLiveFeed ? 'rgba(16, 185, 129, 0.15)' : '#1e293b',
                           color: selectedStrategyId === strategy.id && isLiveFeed ? '#10b981' : '#d1d5db',
                           border: `1px solid ${selectedStrategyId === strategy.id && isLiveFeed ? '#10b981' : '#334155'}`,
-                          borderRadius: '4px',
-                          padding: '4px 8px',
+                          borderRadius: '6px',
+                          padding: '6px 10px',
                           cursor: 'pointer',
-                          fontSize: '10px',
+                          fontSize: '11px',
                           fontWeight: 'bold',
-                          transition: 'all 0.2s'
+                          transition: 'all 0.2s',
+                          whiteSpace: 'nowrap'
                         }}
                       >
                         {selectedStrategyId === strategy.id && isLiveFeed ? '📺 Displaying' : '📊 Display on Chart'}
@@ -217,10 +284,10 @@ export default function LiveOverviewPanel({
                         backgroundColor: '#1e293b',
                         color: '#d1d5db',
                         border: '1px solid #334155',
-                        borderRadius: '4px',
-                        padding: '4px 8px',
+                        borderRadius: '6px',
+                        padding: '6px 10px',
                         cursor: 'pointer',
-                        fontSize: '10px',
+                        fontSize: '11px',
                         fontWeight: 'bold'
                       }}
                     >
@@ -232,17 +299,18 @@ export default function LiveOverviewPanel({
                       style={{
                         backgroundColor: isPaused ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)',
                         color: isPaused ? '#10b981' : '#f59e0b',
-                        border: 'none',
-                        borderRadius: '4px',
-                        padding: '4px 8px',
+                        border: '1px solid ' + (isPaused ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)'),
+                        borderRadius: '6px',
+                        padding: '6px 10px',
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
                         gap: '4px',
-                        fontSize: '10px'
+                        fontSize: '11px',
+                        fontWeight: 'bold'
                       }}
                     >
-                      {isPaused ? <Play size={10} /> : <Pause size={10} />}
+                      {isPaused ? <Play size={12} /> : <Pause size={12} />}
                       {isPaused ? 'Resume' : 'Pause'}
                     </button>
                     <button
@@ -251,13 +319,13 @@ export default function LiveOverviewPanel({
                       style={{
                         backgroundColor: 'rgba(239, 68, 68, 0.1)',
                         color: '#ef4444',
-                        border: 'none',
-                        borderRadius: '4px',
-                        padding: '4px 6px',
+                        border: '1px solid rgba(239, 68, 68, 0.2)',
+                        borderRadius: '6px',
+                        padding: '6px 8px',
                         cursor: 'pointer'
                       }}
                     >
-                      <Trash2 size={10} />
+                      <Trash2 size={12} />
                     </button>
                   </div>
                 </div>
@@ -362,9 +430,13 @@ export default function LiveOverviewPanel({
           initialTargetComputer={editingStrategy.target_computer || 'All'}
           initialTargets={editingStrategy.targets || [{ broker: editingStrategy.broker, account_id: editingStrategy.account_id }]}
           initialName={editingStrategy.name || ''}
+          initialDateRangeOption={editingStrategy.dateRangeOption || 'last_candles'}
+          initialCustomFrom={editingStrategy.customFrom || ''}
+          initialCustomTo={editingStrategy.customTo || ''}
+          initialCandleLimit={editingStrategy.candleLimit || 1000}
           onClose={() => setEditingStrategy(null)}
-          onConfirm={async (targetComputer, targets, name) => {
-            console.log('onConfirm handler inside LiveOverviewPanel called', { targetComputer, targets, name });
+          onConfirm={async (targetComputer, targets, name, dateRangeOption, customFrom, customTo, candleLimit) => {
+            console.log('onConfirm handler inside LiveOverviewPanel called', { targetComputer, targets, name, dateRangeOption, customFrom, customTo, candleLimit });
             const strategyToUpdate = editingStrategy;
             setEditingStrategy(null); // Close the modal instantly
             try {
@@ -373,6 +445,10 @@ export default function LiveOverviewPanel({
                 name: name,
                 target_computer: targetComputer,
                 targets: targets,
+                dateRangeOption,
+                customFrom,
+                customTo,
+                candleLimit,
                 // also fallback main account_id & broker for backwards-compatibility compatibility
                 account_id: targets.length > 0 ? targets[0].account_id : strategyToUpdate.account_id,
                 broker: targets.length > 0 ? targets[0].broker : strategyToUpdate.broker

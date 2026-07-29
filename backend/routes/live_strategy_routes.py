@@ -1,4 +1,7 @@
 import time
+import json
+import socket
+import threading
 from flask import Blueprint, request, jsonify
 from live_strategy_handler import LiveStrategyHandler
 
@@ -41,7 +44,11 @@ def save_strategy():
         "entryStabilityRule": payload.get("entryStabilityRule", "default"),
         "broker": payload.get("broker", "metatrader"),
         "target_computer": payload.get("target_computer", "All"),
-        "targets": payload.get("targets", [])
+        "targets": payload.get("targets", []),
+        "dateRangeOption": payload.get("dateRangeOption") or "last_candles",
+        "customFrom": payload.get("customFrom") or "",
+        "customTo": payload.get("customTo") or "",
+        "candleLimit": int(payload.get("candleLimit") or 1000)
     }
     
     success = LiveStrategyHandler.save_strategy(strategy_config)
@@ -68,7 +75,7 @@ def delete_strategy(strategy_id):
     else:
         return jsonify({"status": "error", "message": "Failed to delete strategy"}), 500
 
-# Keep the original route /live/strategy as a fallback/compatibility GET endpoint
+# Fallback/compatibility GET endpoint
 @live_strategy_routes.route('/live/strategy', methods=['GET'])
 def live_strategy_compat():
     strategy = LiveStrategyHandler.get_strategy()
@@ -78,19 +85,48 @@ def live_strategy_compat():
 def get_strategy_cache(strategy_id):
     """
     Retrieve cached annotated candles for a specific live strategy.
+    Non-blocking: offloads warm-up evaluation to background thread if cache is not yet ready.
     """
     from live_runner_handler import LiveRunner
-    cache = LiveRunner._candles_cache.get(strategy_id, [])
     
-    # Fall back to database stored candles if the in-memory cache is empty (e.g. on dev machine)
-    if not cache:
-        try:
-            strategy = LiveStrategyHandler.get_strategy(strategy_id)
-            if strategy and strategy.get("live_state"):
-                live_state = json.loads(strategy["live_state"])
-                if isinstance(live_state, dict) and "candles" in live_state:
-                    cache = live_state["candles"]
-        except Exception as e:
-            print(f"Error loading candles from db fallback for strategy {strategy_id}: {e}", flush=True)
+    strategy = LiveStrategyHandler.get_strategy(strategy_id)
+    if not strategy:
+        return jsonify({"status": "not_found", "message": "Strategy not found", "strategy_id": strategy_id, "candles": [], "trades": []}), 200
 
-    return jsonify({"status": "success", "strategy_id": strategy_id, "candles": cache})
+    try:
+        current_comp = socket.gethostname()
+    except:
+        current_comp = "Unknown"
+
+    target_comp = strategy.get("target_computer", "All")
+    is_targeted_here = (target_comp == 'All' or target_comp.lower() == current_comp.lower())
+
+    cache = LiveRunner._candles_cache.get(strategy_id, [])
+    trades = LiveRunner._trades_cache.get(strategy_id, [])
+
+    if not cache:
+        if is_targeted_here:
+            print(f"[Cache Endpoint] Cache miss for strategy {strategy_id}. Spawning background warm-up evaluation...", flush=True)
+            threading.Thread(target=LiveRunner._evaluate_strategy, args=(strategy,), daemon=True).start()
+            return jsonify({"status": "pending", "message": "Strategy warm-up calculation in progress", "strategy_id": strategy_id, "candles": [], "trades": []}), 200
+        else:
+            # Read from DB live_state when strategy runs on another machine (e.g. laptop)
+            if strategy.get("live_state"):
+                live_state = strategy["live_state"]
+                if isinstance(live_state, str):
+                    try:
+                        live_state = json.loads(live_state)
+                    except Exception:
+                        pass
+                if isinstance(live_state, dict):
+                    cache = live_state.get("candles", [])
+                    trades = live_state.get("trades", [])
+
+    if not cache:
+        return jsonify({"status": "pending", "message": "Strategy candles warming up", "strategy_id": strategy_id, "candles": [], "trades": []}), 200
+
+    limit = request.args.get('limit', type=int)
+    if limit and cache:
+        cache = cache[-limit:]
+
+    return jsonify({"status": "success", "strategy_id": strategy_id, "candles": cache, "trades": trades})

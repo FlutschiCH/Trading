@@ -8,7 +8,7 @@ interface WyckoffBacktesterProps {
   timeframe: string;
   liveStrategy: any;
   isDeploying: boolean;
-  deployLiveStrategy: (targetComputer: string, targets: Array<{ broker: string; account_id: string }>) => void;
+  deployLiveStrategy: (targetComputer: string, targets: Array<{ broker: string; account_id: string }>, name?: string) => void;
   backtestBalance: string;
   setBacktestBalance: (val: string) => void;
   useRiskSizing: boolean;

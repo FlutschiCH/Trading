@@ -1,7 +1,97 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType, CandlestickSeries, HistogramSeries, LineSeries, createSeriesMarkers } from 'lightweight-charts';
+import type { ISeriesPrimitive, IPrimitivePaneView as SeriesPrimitivePaneView, IPrimitivePaneRenderer as SeriesPrimitivePaneRenderer } from 'lightweight-charts';
 import { Square, PenTool, Trash2, XCircle, RefreshCw, Maximize2, Minimize2, Settings, Play, Pause, SkipBack, SkipForward, X } from 'lucide-react';
 import { calculateDateBounds } from '../App';
+import { API_BASE_URL } from '../api';
+
+class SessionBoxRenderer implements SeriesPrimitivePaneRenderer {
+  private _sessionCoords: any[];
+
+  constructor(sessionCoords: any[]) {
+    this._sessionCoords = sessionCoords;
+  }
+
+  draw(target: any) {
+    target.useMediaCoordinateSpace((scope: any) => {
+      const ctx = scope.context;
+      ctx.save();
+      this._sessionCoords.forEach(session => {
+        const x1 = session.x1;
+        const x2 = session.x2;
+        const y1 = session.y1;
+        const y2 = session.y2;
+        const width = Math.max(1, x2 - x1);
+        const height = Math.max(1, y2 - y1);
+
+        if (width <= 0 || height <= 0) return;
+
+        const colorHex = session.color || '#3b82f6';
+        let r = 59, g = 130, b = 246;
+        if (colorHex.startsWith('#')) {
+          const hexVal = colorHex.replace('#', '');
+          if (hexVal.length === 3) {
+            r = parseInt(hexVal[0] + hexVal[0], 16);
+            g = parseInt(hexVal[1] + hexVal[1], 16);
+            b = parseInt(hexVal[2] + hexVal[2], 16);
+          } else if (hexVal.length === 6) {
+            r = parseInt(hexVal.substring(0, 2), 16);
+            g = parseInt(hexVal.substring(2, 4), 16);
+            b = parseInt(hexVal.substring(4, 6), 16);
+          }
+        }
+
+        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.08)`;
+        ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, 0.4)`;
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([2, 2]);
+
+        ctx.fillRect(x1, y1, width, height);
+        ctx.strokeRect(x1, y1, width, height);
+
+        if (width > 40) {
+          ctx.fillStyle = colorHex;
+          ctx.font = 'bold 9px sans-serif';
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'top';
+          ctx.globalAlpha = 0.8;
+          ctx.fillText(session.label || '', x1 + 6, y1 + 6);
+          ctx.globalAlpha = 1.0;
+        }
+      });
+      ctx.restore();
+    });
+  }
+}
+
+class SessionBoxPrimitive implements ISeriesPrimitive {
+  private _sessionCoords: any[];
+
+  private _requestUpdate?: () => void;
+
+  constructor(sessionCoords: any[]) {
+    this._sessionCoords = sessionCoords;
+  }
+
+  updateSessionCoords(sessionCoords: any[]) {
+    this._sessionCoords = sessionCoords;
+    if (this._requestUpdate) {
+      this._requestUpdate();
+    }
+  }
+
+  update(requestUpdate: () => void) {
+    this._requestUpdate = requestUpdate;
+  }
+
+  paneViews(): readonly SeriesPrimitivePaneView[] {
+    return [
+      {
+        renderer: () => new SessionBoxRenderer(this._sessionCoords)
+      }
+    ];
+  }
+}
 
 const isLocal = typeof window !== 'undefined' &&
   (window.location.hostname === 'localhost' ||
@@ -58,15 +148,18 @@ interface TVChartProps {
   tradeFilter?: 'all' | 'wins' | 'losses';
   onTradeFilterChange?: (filter: 'all' | 'wins' | 'losses') => void;
   sessions?: any[];
+  openPositions?: any[];
   sessionsTimezone?: 'UTC' | 'Local';
   locateTimestamp?: number | null;
   hiddenStages?: string[];
   isLiveFeed?: boolean;
   onLiveFeedChange?: (active: boolean) => void;
+  isMobile?: boolean;
 }
 
 export default function TVChart({
   symbol,
+  openPositions = [],
   onSymbolChange,
   timeframe,
   onTimeframeChange,
@@ -98,7 +191,8 @@ export default function TVChart({
   locateTimestamp = null,
   hiddenStages = [],
   isLiveFeed = false,
-  onLiveFeedChange
+  onLiveFeedChange,
+  isMobile = false
 }: TVChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const weisContainerRef = useRef<HTMLDivElement>(null);
@@ -111,6 +205,75 @@ export default function TVChart({
   const [replayToolActive, setReplayToolActive] = useState(false);
 
   const replayToolActiveRef = useRef(replayToolActive);
+
+  const [executingOrder, setExecutingOrder] = useState(false);
+  const [tradeOrderResult, setTradeOrderResult] = useState<{ status: 'success' | 'error'; message: string } | null>(null);
+  const [tradeVolumeInput, setTradeVolumeInput] = useState<number>(0.01);
+  const [selectedOrderBroker, setSelectedOrderBroker] = useState<string>(candleSource || 'metatrader');
+
+  useEffect(() => {
+    if (selectedTrade) {
+      const vol = selectedTrade.volume || selectedTrade.size || selectedTrade.qty || 0.01;
+      setTradeVolumeInput(Number(vol));
+      setTradeOrderResult(null);
+    }
+  }, [selectedTrade]);
+
+  const handleReRunTrade = async () => {
+    if (!selectedTrade) return;
+    setExecutingOrder(true);
+    setTradeOrderResult(null);
+
+    const isBuy = (selectedTrade.type || selectedTrade.side || selectedTrade.direction || 'BUY').toUpperCase() === 'BUY';
+    const side = isBuy ? 'buy' : 'sell';
+
+    const slVal = selectedTrade.slPrice ?? selectedTrade.sl ?? selectedTrade.stopLoss;
+    const tpVal = selectedTrade.tpPrice ?? selectedTrade.tp ?? selectedTrade.takeProfit;
+
+    const payload: any = {
+      broker: selectedOrderBroker,
+      symbol: symbol,
+      side: side,
+      order_type: side,
+      volume: tradeVolumeInput,
+    };
+    if (slVal && Number(slVal) > 0) payload.stop_loss = Number(slVal);
+    if (tpVal && Number(tpVal) > 0) payload.take_profit = Number(tpVal);
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/trade/order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.status === 'error') {
+        setTradeOrderResult({ status: 'error', message: data.message || 'Broker execution failed' });
+      } else {
+        setTradeOrderResult({ status: 'success', message: `Order sent! ID/Ticket: ${data.order_id || data.ticket || data.position_id || 'Success'}` });
+        if (onRefresh) onRefresh();
+      }
+    } catch (err: any) {
+      setTradeOrderResult({ status: 'error', message: err.message || 'Network error' });
+    } finally {
+      setExecutingOrder(false);
+    }
+  };
+
+  const handleJumpToTrade = () => {
+    if (!selectedTrade || !chartRef.current || !activeCandles || activeCandles.length === 0) return;
+    const ts = selectedTrade.entryTimestamp || selectedTrade.timestamp || selectedTrade.time;
+    if (!ts) return;
+    const idx = activeCandles.findIndex(c => Number(c.time) === Number(ts));
+    if (idx !== -1) {
+      try {
+        chartRef.current.timeScale().setVisibleLogicalRange({
+          from: idx - 30,
+          to: idx + 30
+        });
+      } catch (e) {}
+    }
+  };
   useEffect(() => {
     replayToolActiveRef.current = replayToolActive;
   }, [replayToolActive]);
@@ -250,9 +413,25 @@ export default function TVChart({
   };
 
   const activeFavSymbols = favoriteSymbols.filter(s => availableSymbols.includes(s));
-  const activeFavTimeframes = favoriteTimeframes.filter(t => availableTimeframes.includes(t));
+  const sortedTimeframes = [...availableTimeframes].sort((a, b) => {
+    const aFav = favoriteTimeframes.includes(a);
+    const bFav = favoriteTimeframes.includes(b);
+    if (aFav && !bFav) return -1;
+    if (!aFav && bFav) return 1;
+    return 0;
+  });
 
-  const filteredSymbols = availableSymbols.filter(s => s.toLowerCase().includes(symbolSearch.toLowerCase()));
+  const [showTimeframeDropdown, setShowTimeframeDropdown] = useState(false);
+
+  const filteredSymbols = [...availableSymbols]
+    .filter(s => s.toLowerCase().includes(symbolSearch.toLowerCase()))
+    .sort((a, b) => {
+      const aFav = favoriteSymbols.includes(a);
+      const bFav = favoriteSymbols.includes(b);
+      if (aFav && !bFav) return -1;
+      if (!aFav && bFav) return 1;
+      return a.localeCompare(b);
+    });
 
   useEffect(() => {
     setHighlightedIndex(0);
@@ -298,6 +477,10 @@ export default function TVChart({
   const beLineRef = useRef<any>(null);
   const wyckoffSupportLineRef = useRef<any>(null);
   const wyckoffResistanceLineRef = useRef<any>(null);
+  const supportLineSeriesRef = useRef<any>(null);
+  const resistanceLineSeriesRef = useRef<any>(null);
+  const smaLineSeriesRef = useRef<any>(null);
+  const sessionBoxPrimitiveRef = useRef<any>(null);
 
   // Drawing Tools State
   const [activeTool, setActiveTool] = useState<'none' | 'trendline' | 'rectangle' | 'delete'>('none');
@@ -321,6 +504,7 @@ export default function TVChart({
 
   // References to dynamically generated trade level LineSeries
   const dynamicLineSeriesRef = useRef<any[]>([]);
+  const activePositionsRef = useRef<any[]>([]);
   const selectedTradePathSeriesRef = useRef<any>(null);
 
   useEffect(() => {
@@ -390,31 +574,39 @@ export default function TVChart({
   const [fvgCoords, setFvgCoords] = useState<any[]>([]);
   const [sessionCoords, setSessionCoords] = useState<any[]>([]);
   const [wyckoffZones, setWyckoffZones] = useState<any[]>([]);
-  const [supportLineSegments, setSupportLineSegments] = useState<any[]>([]);
-  const [resistanceLineSegments, setResistanceLineSegments] = useState<any[]>([]);
   const [oversoldCoords, setOversoldCoords] = useState<any[]>([]);
   const [overboughtCoords, setOverboughtCoords] = useState<any[]>([]);
-  const [trendLineSegments, setTrendLineSegments] = useState<any[]>([]);
   const selectedTradeRef = useRef(selectedTrade);
 
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
   const [chartSettings, setChartSettings] = useState(() => {
     try {
       const saved = localStorage.getItem('tv_chart_settings');
-      return saved ? JSON.parse(saved) : {
-        showFvg: true,
-        showSessions: true,
-        showTrades: true,
-        showTrLines: true,
-        showLiveRunnerOverlay: false,
+      const parsed = saved ? JSON.parse(saved) : {};
+      return {
+        showFvg: parsed.showFvg ?? true,
+        showSessions: parsed.showSessions ?? true,
+        showTrades: parsed.showTrades ?? true,
+        showPositions: parsed.showPositions ?? true,
+        showPositionsEntry: parsed.showPositionsEntry ?? true,
+        showPositionsSlTp: parsed.showPositionsSlTp ?? true,
+        showPositionsSvg: parsed.showPositionsSvg ?? true,
+        showTrLines: parsed.showTrLines ?? true,
+        autoRefreshCandles: parsed.autoRefreshCandles ?? true,
+        autoRefreshSeconds: parsed.autoRefreshSeconds ?? 5,
       };
     } catch {
       return {
         showFvg: true,
         showSessions: true,
         showTrades: true,
+        showPositions: true,
+        showPositionsEntry: true,
+        showPositionsSlTp: true,
+        showPositionsSvg: true,
         showTrLines: true,
-        showLiveRunnerOverlay: false,
+        autoRefreshCandles: true,
+        autoRefreshSeconds: 5,
       };
     }
   });
@@ -424,43 +616,35 @@ export default function TVChart({
   }, [chartSettings]);
 
   useEffect(() => {
-    if (!chartSettings.showLiveRunnerOverlay) {
-      setLiveStrategyState(null);
-      return;
-    }
+    // Polling of live strategies endpoint disabled
+    setLiveStrategyState(null);
+  }, [symbol, timeframe]);
 
-    const fetchLiveState = async () => {
-      try {
-        const { API_BASE_URL } = await import('../api');
-        const res = await fetch(`${API_BASE_URL}/api/live/strategies`);
-        const data = await res.json();
-        if (data.status === 'success' && data.strategies) {
-          const matched = data.strategies.find((s: any) => 
-            s.symbol === symbol && 
-            s.timeframe === timeframe && 
-            s.status === 'active'
-          );
-          setLiveStrategyState(matched ? matched.live_state : null);
-        }
-      } catch (err) {
-        console.error("Failed to fetch live strategies:", err);
-      }
-
-      try {
-        onRefresh(undefined, true);
-      } catch (err) {
-        console.error("Failed to refresh candles in live overlay polling:", err);
-      }
-    };
-
-    fetchLiveState();
-    const interval = setInterval(fetchLiveState, 2000);
+  // Live fetching of candles if enabled
+  useEffect(() => {
+    if (!chartSettings.autoRefreshCandles || replayTime !== null) return;
+    const intervalMs = Math.max(1, chartSettings.autoRefreshSeconds || 5) * 1000;
+    const interval = setInterval(() => {
+      onRefresh(undefined, true); // background refresh call
+    }, intervalMs);
     return () => clearInterval(interval);
-  }, [chartSettings.showLiveRunnerOverlay, symbol, timeframe, onRefresh]);
+  }, [chartSettings.autoRefreshCandles, chartSettings.autoRefreshSeconds, replayTime, onRefresh]);
   const [chartHeight, setChartHeight] = useState(window.innerWidth < 768 ? 380 : 680);
   const [weisHeight, setWeisHeight] = useState(window.innerWidth < 768 ? 100 : 140);
   const chartHeightRef = useRef(chartHeight);
   const weisHeightRef = useRef(weisHeight);
+
+  // Drag state for interactive SL / TP position badges
+  const [draggingBadge, setDraggingBadge] = useState<{
+    position: any;
+    type: 'sl' | 'tp';
+    originalPrice: number;
+    currentPrice: number;
+  } | null>(null);
+  const draggingBadgeRef = useRef(draggingBadge);
+  useEffect(() => {
+    draggingBadgeRef.current = draggingBadge;
+  }, [draggingBadge]);
 
   useEffect(() => {
     chartHeightRef.current = chartHeight;
@@ -572,7 +756,7 @@ export default function TVChart({
       updateDrawingCoordinates();
     }, 50);
     return () => clearTimeout(timer);
-  }, [dateRangeOption, customFrom, customTo, activeCandles, enabledIndicators, visibleFvgs, sessions, sessionsTimezone]);
+  }, [dateRangeOption, customFrom, customTo, activeCandles, enabledIndicators, visibleFvgs, sessions, sessionsTimezone, chartSettings]);
 
   useEffect(() => {
     selectedTradeRef.current = selectedTrade;
@@ -699,6 +883,7 @@ export default function TVChart({
       setDateRangeCoords(null);
     }
 
+    const visibleRange = timeScale.getVisibleLogicalRange();
     const currentFvgs = fvgsRef.current;
     if (currentFvgs && currentFvgs.length > 0 && candlesRef.current) {
       const getCoordinateForTime = (time: number) => {
@@ -709,7 +894,18 @@ export default function TVChart({
         return timeScale.timeToCoordinate(time as any);
       };
 
-      const coords = currentFvgs.map(fvg => {
+      const filteredFvgs = visibleRange
+        ? currentFvgs.filter(fvg => {
+          const idxStart = candlesRef.current.findIndex(c => Number(c.time) === Number(fvg.timeStart));
+          const idxEnd = candlesRef.current.findIndex(c => Number(c.time) === Number(fvg.timeEnd));
+          if (idxStart === -1 && idxEnd === -1) return false;
+          const startLogical = idxStart !== -1 ? idxStart : idxEnd;
+          const endLogical = idxEnd !== -1 ? idxEnd : idxStart;
+          return startLogical <= visibleRange.to && endLogical >= visibleRange.from;
+        })
+        : currentFvgs;
+
+      const coords = filteredFvgs.map(fvg => {
         const x1 = getCoordinateForTime(fvg.timeStart);
         const x2 = getCoordinateForTime(fvg.timeEnd);
         const y1 = series.priceToCoordinate(fvg.priceMax);
@@ -721,8 +917,10 @@ export default function TVChart({
       setFvgCoords([]);
     }
 
-    if (currentSessions && currentSessions.length > 0 && candlesRef.current && candlesRef.current.length > 0) {
+    if (chartSettings.showSessions && currentSessions && currentSessions.length > 0 && candlesRef.current && candlesRef.current.length > 0) {
       const activeCoords: any[] = [];
+      const startIdxLimit = visibleRange ? Math.max(0, Math.floor(visibleRange.from) - 5) : 0;
+      const endIdxLimit = visibleRange ? Math.min(candlesRef.current.length - 1, Math.ceil(visibleRange.to) + 5) : candlesRef.current.length - 1;
 
       currentSessions.forEach(session => {
         const [startH, startM] = session.start.split(':').map(Number);
@@ -751,7 +949,7 @@ export default function TVChart({
           return day === 0 ? 7 : day;
         };
 
-        for (let i = 0; i < candlesRef.current.length; i++) {
+        for (let i = startIdxLimit; i <= endIdxLimit; i++) {
           const candle = candlesRef.current[i];
           const minutes = getSessionMinutes(candle.time);
           const weekday = getSessionWeekday(candle.time);
@@ -762,7 +960,6 @@ export default function TVChart({
             if (startVal <= endVal) {
               isInSession = minutes >= startVal && minutes < endVal;
             } else {
-              // Over-night sessions (e.g. 22:00 to 02:00)
               isInSession = minutes >= startVal || minutes < endVal;
             }
           }
@@ -778,7 +975,7 @@ export default function TVChart({
             }
           }
 
-          const isLastCandle = i === candlesRef.current.length - 1;
+          const isLastCandle = i === endIdxLimit;
           const willCloseSession = !isInSession || isLastCandle;
 
           if (willCloseSession && sessionActiveStartIdx !== null) {
@@ -809,17 +1006,26 @@ export default function TVChart({
         }
       });
 
+      if (sessionBoxPrimitiveRef.current) {
+        sessionBoxPrimitiveRef.current.updateSessionCoords(activeCoords);
+      }
       setSessionCoords(activeCoords);
     } else {
+      if (sessionBoxPrimitiveRef.current) {
+        sessionBoxPrimitiveRef.current.updateSessionCoords([]);
+      }
       setSessionCoords([]);
     }
 
     const currentCandles = candlesRef.current;
     if (currentCandles && currentCandles.length > 0) {
+      const startIdxLimit = visibleRange ? Math.max(0, Math.floor(visibleRange.from) - 5) : 0;
+      const endIdxLimit = visibleRange ? Math.min(currentCandles.length - 1, Math.ceil(visibleRange.to) + 5) : currentCandles.length - 1;
+
       const zones: any[] = [];
       let currentZone: any = null;
 
-      for (let i = 0; i < currentCandles.length; i++) {
+      for (let i = startIdxLimit; i <= endIdxLimit; i++) {
         const c = currentCandles[i];
         const stage = c.wyckoff_stage || 'TRANSITION';
 
@@ -846,43 +1052,10 @@ export default function TVChart({
 
       setWyckoffZones(zoneCoords);
 
-      const supSegs: any[] = [];
-      const resSegs: any[] = [];
-
-      for (let i = 1; i < currentCandles.length; i++) {
-        const cPrev = currentCandles[i - 1];
-        const cCurr = currentCandles[i];
-
-        if (cPrev.support_level !== undefined && cCurr.support_level !== undefined) {
-          const x1 = timeScale.timeToCoordinate(cPrev.time);
-          const x2 = timeScale.timeToCoordinate(cCurr.time);
-          const y1 = series.priceToCoordinate(cPrev.support_level);
-          const y2 = series.priceToCoordinate(cCurr.support_level);
-
-          if (x1 !== null && x2 !== null && y1 !== null && y2 !== null) {
-            supSegs.push({ x1, x2, y1, y2, stage: cCurr.wyckoff_stage });
-          }
-        }
-
-        if (cPrev.resistance_level !== undefined && cCurr.resistance_level !== undefined) {
-          const x1 = timeScale.timeToCoordinate(cPrev.time);
-          const x2 = timeScale.timeToCoordinate(cCurr.time);
-          const y1 = series.priceToCoordinate(cPrev.resistance_level);
-          const y2 = series.priceToCoordinate(cCurr.resistance_level);
-
-          if (x1 !== null && x2 !== null && y1 !== null && y2 !== null) {
-            resSegs.push({ x1, x2, y1, y2, stage: cCurr.wyckoff_stage });
-          }
-        }
-      }
-
-      setSupportLineSegments(supSegs);
-      setResistanceLineSegments(resSegs);
-
       const oversold: any[] = [];
       const overbought: any[] = [];
 
-      for (let i = 0; i < currentCandles.length; i++) {
+      for (let i = startIdxLimit; i <= endIdxLimit; i++) {
         const c = currentCandles[i];
         if (c.support_level !== undefined && c.low < c.support_level) {
           const x = timeScale.timeToCoordinate(c.time);
@@ -906,42 +1079,10 @@ export default function TVChart({
       }
       setOversoldCoords(oversold);
       setOverboughtCoords(overbought);
-
-      const trendSegs: any[] = [];
-      for (let i = 1; i < currentCandles.length; i++) {
-        const cPrev = currentCandles[i - 1];
-        const cCurr = currentCandles[i];
-
-        const smaPrev = cPrev.sma_20;
-        const smaCurr = cCurr.sma_20;
-
-        if (smaPrev === undefined || smaPrev === null || smaCurr === undefined || smaCurr === null) {
-          continue;
-        }
-
-        const x1 = timeScale.timeToCoordinate(cPrev.time);
-        const x2 = timeScale.timeToCoordinate(cCurr.time);
-        const y1 = series.priceToCoordinate(smaPrev);
-        const y2 = series.priceToCoordinate(smaCurr);
-
-        if (x1 !== null && x2 !== null && y1 !== null && y2 !== null) {
-          trendSegs.push({
-            x1,
-            x2,
-            y1,
-            y2,
-            stage: cCurr.wyckoff_stage || 'TRANSITION'
-          });
-        }
-      }
-      setTrendLineSegments(trendSegs);
     } else {
       setWyckoffZones([]);
-      setSupportLineSegments([]);
-      setResistanceLineSegments([]);
       setOversoldCoords([]);
       setOverboughtCoords([]);
-      setTrendLineSegments([]);
     }
   };
 
@@ -1000,14 +1141,39 @@ export default function TVChart({
       color: '#f59e0b',
       lineWidth: 2,
       lineStyle: 1, // Dashed
-      title: 'TR High',
+      lastValueVisible: false,
+      priceLineVisible: false,
     });
 
     const trLowSeries = mainChart.addSeries(LineSeries, {
       color: '#f59e0b',
       lineWidth: 2,
       lineStyle: 1, // Dashed
-      title: 'TR Low',
+      lastValueVisible: false,
+      priceLineVisible: false,
+    });
+
+    const supportLineSeries = mainChart.addSeries(LineSeries, {
+      color: '#3b82f6',
+      lineWidth: 1 as any,
+      lineStyle: 1, // Dashed
+      lastValueVisible: false,
+      priceLineVisible: false,
+    });
+
+    const resistanceLineSeries = mainChart.addSeries(LineSeries, {
+      color: '#f59e0b',
+      lineWidth: 1 as any,
+      lineStyle: 1, // Dashed
+      lastValueVisible: false,
+      priceLineVisible: false,
+    });
+
+    const smaLineSeries = mainChart.addSeries(LineSeries, {
+      color: '#10b981',
+      lineWidth: 2,
+      lastValueVisible: false,
+      priceLineVisible: false,
     });
 
     const weisChart = createChart(weisContainerRef.current, {
@@ -1054,13 +1220,19 @@ export default function TVChart({
     });
 
     let isSyncing = false;
+    let animationFrameId: number | null = null;
     mainChart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
       if (isSyncing || !range) return;
       isSyncing = true;
       try {
         weisChart.timeScale().setVisibleLogicalRange(range);
       } catch (e) { }
-      updateDrawingCoordinates();
+      if (animationFrameId !== null) {
+        cancelAnimationFrame(animationFrameId);
+      }
+      animationFrameId = requestAnimationFrame(() => {
+        updateDrawingCoordinates();
+      });
       isSyncing = false;
     });
 
@@ -1080,6 +1252,13 @@ export default function TVChart({
     weisSeriesRef.current = weisSeries;
     trHighSeriesRef.current = trHighSeries;
     trLowSeriesRef.current = trLowSeries;
+    supportLineSeriesRef.current = supportLineSeries;
+    resistanceLineSeriesRef.current = resistanceLineSeries;
+    smaLineSeriesRef.current = smaLineSeries;
+
+    const sessionBoxPrimitive = new SessionBoxPrimitive([]);
+    candlestickSeries.attachPrimitive(sessionBoxPrimitive);
+    sessionBoxPrimitiveRef.current = sessionBoxPrimitive;
 
     const selectedTradePathSeries = mainChart.addSeries(LineSeries, {
       color: '#10b981',
@@ -1095,6 +1274,7 @@ export default function TVChart({
       if (!param.time) return;
       const clickTime = param.time as number;
 
+      let tradeFound = false;
       if (onSelectTradeRef.current && tradesRef.current && tradesRef.current.length > 0) {
         const foundTrade = tradesRef.current.find(t =>
           t.entryTimestamp === clickTime ||
@@ -1103,8 +1283,11 @@ export default function TVChart({
         );
         if (foundTrade) {
           onSelectTradeRef.current(foundTrade);
+          tradeFound = true;
         }
       }
+
+      if (tradeFound) return;
 
       if (onSelectCandleRef.current && fullCandlesRef.current) {
         const foundCandle = fullCandlesRef.current.find(c => Number(c.time) === clickTime);
@@ -1146,6 +1329,22 @@ export default function TVChart({
     const resizeObserver = new ResizeObserver((entries) => {
       if (!chartContainerRef.current || !mainChart) return;
       const width = chartContainerRef.current.clientWidth;
+
+      // Dynamically calculate chart and weis heights based on parent card height if defined
+      const parentCard = chartContainerRef.current.closest('.no-drag')?.parentElement;
+      if (parentCard) {
+        const parentHeight = parentCard.clientHeight;
+        if (parentHeight > 200) {
+          // Total space inside card minus header desk height (~48px)
+          const usableHeight = parentHeight - 55;
+          // Allocate 75% to main chart and 25% to Weis Wave volume
+          const newChartH = Math.max(120, Math.floor(usableHeight * 0.72));
+          const newWeisH = Math.max(60, Math.floor(usableHeight * 0.24));
+          setChartHeight(newChartH);
+          setWeisHeight(newWeisH);
+        }
+      }
+
       if (width > 0) {
         mainChart.resize(width, chartHeightRef.current);
         if (weisContainerRef.current && weisChart) {
@@ -1171,6 +1370,9 @@ export default function TVChart({
         } catch (e) { }
         selectedTradePathSeriesRef.current = null;
       }
+      if (animationFrameId !== null) {
+        cancelAnimationFrame(animationFrameId);
+      }
       mainChart.remove();
       weisChart.remove();
     };
@@ -1185,20 +1387,7 @@ export default function TVChart({
 
       const entryMarkers = activeCandles
         .map((c) => {
-          // 1. Check Wyckoff signal (Spring / Upthrust)
-          if (c.wyckoff_signal && chartSettings.showTrLines) {
-            const isSpring = c.wyckoff_signal.includes('Spring');
-            return {
-              time: c.time,
-              position: (isSpring ? 'belowBar' : 'aboveBar') as any,
-              color: isSpring ? '#10b981' : '#ef4444',
-              shape: (isSpring ? 'arrowUp' : 'arrowDown') as any,
-              text: c.wyckoff_signal,
-              size: 1.5,
-            };
-          }
-
-          // 2. Check Backtest Trade Signal
+          // 1. Check Backtest Trade Signal
           if (chartSettings.showTrades && c.backtest_signal) {
             const isBullish = c.backtest_signal === 'BUY';
             const trade = (visibleTrades || []).find(t => Number(t.entryTimestamp) === Number(c.time));
@@ -1295,6 +1484,36 @@ export default function TVChart({
         trHighSeriesRef.current.setData([]);
         trLowSeriesRef.current.setData([]);
       }
+    }
+
+    if (supportLineSeriesRef.current && resistanceLineSeriesRef.current && smaLineSeriesRef.current) {
+      const supportData: any[] = [];
+      const resistanceData: any[] = [];
+      const smaData: any[] = [];
+
+      activeCandles.forEach(c => {
+        let stageColor = '#cbd5e1';
+        if (c.wyckoff_stage === 'ACCUMULATION') stageColor = '#3b82f6';
+        else if (c.wyckoff_stage === 'MARKUP') stageColor = '#10b981';
+        else if (c.wyckoff_stage === 'DISTRIBUTION') stageColor = '#f59e0b';
+        else if (c.wyckoff_stage === 'MARKDOWN') stageColor = '#ef4444';
+
+        if (chartSettings.showTrLines) {
+          if (c.support_level !== undefined && c.support_level !== null) {
+            supportData.push({ time: c.time, value: c.support_level, color: stageColor });
+          }
+          if (c.resistance_level !== undefined && c.resistance_level !== null) {
+            resistanceData.push({ time: c.time, value: c.resistance_level, color: stageColor });
+          }
+        }
+        if (c.sma_20 !== undefined && c.sma_20 !== null) {
+          smaData.push({ time: c.time, value: c.sma_20, color: stageColor });
+        }
+      });
+
+      supportLineSeriesRef.current.setData(chartSettings.showTrLines ? supportData : []);
+      resistanceLineSeriesRef.current.setData(chartSettings.showTrLines ? resistanceData : []);
+      smaLineSeriesRef.current.setData(smaData);
     }
 
     if (weisSeriesRef.current) {
@@ -1411,6 +1630,9 @@ export default function TVChart({
     candlestickSeriesRef.current.applyOptions({ priceFormat });
     if (trHighSeriesRef.current) trHighSeriesRef.current.applyOptions({ priceFormat });
     if (trLowSeriesRef.current) trLowSeriesRef.current.applyOptions({ priceFormat });
+    if (supportLineSeriesRef.current) supportLineSeriesRef.current.applyOptions({ priceFormat });
+    if (resistanceLineSeriesRef.current) resistanceLineSeriesRef.current.applyOptions({ priceFormat });
+    if (smaLineSeriesRef.current) smaLineSeriesRef.current.applyOptions({ priceFormat });
   }, [symbol, activeCandles]);
 
 
@@ -1480,6 +1702,174 @@ export default function TVChart({
     }
   }, [entryPrice, slPrice, tpPrice, candles, chartSettings.showTrades]);
 
+  // Effect for rendering active live positions (Entry, SL, TP)
+  useEffect(() => {
+    let positionsList: any[] = [];
+    if (Array.isArray(openPositions) && openPositions.length > 0) {
+      positionsList = openPositions;
+    } else {
+      try {
+        const stored = localStorage.getItem('wyckoff_active_positions');
+        if (stored) {
+          positionsList = JSON.parse(stored);
+        }
+      } catch (e) {}
+    }
+
+    if (!Array.isArray(positionsList) || positionsList.length === 0) {
+      if (activePositionsRef.current.length > 0) {
+        activePositionsRef.current.forEach((item) => {
+          try {
+            if (item.type === 'priceLine' && candlestickSeriesRef.current) {
+              candlestickSeriesRef.current.removePriceLine(item.line);
+            } else if (item.type === 'lineSeries' && chartRef.current) {
+              chartRef.current.removeSeries(item.line);
+            }
+          } catch (e) {}
+        });
+        activePositionsRef.current = [];
+      }
+      return;
+    }
+
+    if (!candlestickSeriesRef.current || !chartRef.current || !activeCandles || activeCandles.length === 0) return;
+
+    if (activePositionsRef.current.length > 0) {
+      activePositionsRef.current.forEach((item) => {
+        try {
+          if (item.type === 'priceLine' && candlestickSeriesRef.current) {
+            candlestickSeriesRef.current.removePriceLine(item.line);
+          } else if (item.type === 'lineSeries' && chartRef.current) {
+            chartRef.current.removeSeries(item.line);
+          }
+        } catch (e) {}
+      });
+      activePositionsRef.current = [];
+    }
+
+    const currentSymbolClean = (symbol || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+    const matchingPositions = positionsList.filter((p) => {
+      if (!p || !p.symbol) return false;
+      const posSymbolClean = String(p.symbol).replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+      return posSymbolClean.includes(currentSymbolClean) || currentSymbolClean.includes(posSymbolClean);
+    });
+
+    if (matchingPositions.length === 0) return;
+
+    const sortedTimes = activeCandles.map((c) => Number(c.time)).sort((a, b) => a - b);
+
+    matchingPositions.forEach((pos) => {
+      const side = (pos.trade_side || 'BUY').toUpperCase();
+      const volume = pos.volume !== undefined ? pos.volume : '';
+      const entryPriceVal = parseFloat(pos.entry_price ?? pos.entryPrice);
+      const slVal = parseFloat(pos.stop_loss ?? pos.sl ?? 0);
+      const tpVal = parseFloat(pos.take_profit ?? pos.tp ?? 0);
+      const entryTs = pos.entry_timestamp ? Number(pos.entry_timestamp) : null;
+
+      if (isNaN(entryPriceVal) || entryPriceVal <= 0) return;
+
+      const isBuy = side === 'BUY';
+      const entryColor = isBuy ? '#3b82f6' : '#ec4899';
+      const slColor = '#ef4444';
+      const tpColor = '#10b981';
+
+      const pnlVal = parseFloat(pos.unrealized_profit ?? pos.pnl ?? pos.profit ?? pos.unrealized_pnl ?? 0);
+      const pnlStr = !isNaN(pnlVal) ? ` (P&L: ${pnlVal >= 0 ? '+' : ''}${pnlVal.toFixed(2)})` : '';
+
+      // Calculate Dollar SL loss / TP win estimate
+      const volNum = parseFloat(volume as any) || 0;
+      // standard contract multiplier approximation: forex / CFD contract size = 100,000 for 1 lot
+      const isJpy = (symbol || '').toUpperCase().includes('JPY');
+      const multiplier = isJpy ? 1000 : 100000;
+
+      let slLossStr = '';
+      if (slVal > 0 && volNum > 0) {
+        const slDiff = isBuy ? (entryPriceVal - slVal) : (slVal - entryPriceVal);
+        const estLoss = Math.abs(slDiff * volNum * multiplier);
+        slLossStr = ` (-$${estLoss.toFixed(2)})`;
+      }
+
+      let tpWinStr = '';
+      if (tpVal > 0 && volNum > 0) {
+        const tpDiff = isBuy ? (tpVal - entryPriceVal) : (entryPriceVal - tpVal);
+        const estWin = Math.abs(tpDiff * volNum * multiplier);
+        tpWinStr = ` (+$${estWin.toFixed(2)})`;
+      }
+
+      // 1. Full horizontal price lines across price scale
+      if (chartSettings.showPositionsEntry !== false) {
+        const entryPriceLine = candlestickSeriesRef.current.createPriceLine({
+          price: entryPriceVal,
+          color: entryColor,
+          lineWidth: 2,
+          lineStyle: 0,
+          axisLabelVisible: true,
+          title: '',
+        });
+        activePositionsRef.current.push({ type: 'priceLine', line: entryPriceLine });
+      }
+
+      if (chartSettings.showPositionsSlTp !== false) {
+        if (slVal > 0) {
+          const slPriceLine = candlestickSeriesRef.current.createPriceLine({
+            price: slVal,
+            color: slColor,
+            lineWidth: 1,
+            lineStyle: 2,
+            axisLabelVisible: true,
+            title: '',
+          });
+          activePositionsRef.current.push({ type: 'priceLine', line: slPriceLine });
+        }
+
+        if (tpVal > 0) {
+          const tpPriceLine = candlestickSeriesRef.current.createPriceLine({
+            price: tpVal,
+            color: tpColor,
+            lineWidth: 1,
+            lineStyle: 2,
+            axisLabelVisible: true,
+            title: '',
+          });
+          activePositionsRef.current.push({ type: 'priceLine', line: tpPriceLine });
+        }
+      }
+
+      // 2. Line segments starting from entry timestamp to current candle
+      if (entryTs) {
+        let startIdx = sortedTimes.findIndex((t) => t >= entryTs);
+        if (startIdx === -1) {
+          startIdx = 0;
+        }
+
+        const segmentTimes = sortedTimes.slice(startIdx);
+        if (segmentTimes.length > 0) {
+          const createSegmentSeries = (val: number, color: string, style: number = 0) => {
+            const lineSeries = chartRef.current.addSeries(LineSeries, {
+              color,
+              lineWidth: 2,
+              lineStyle: style,
+              lastValueVisible: false,
+              priceLineVisible: false,
+              crosshairMarkerVisible: false,
+            });
+            const lineData = segmentTimes.map((t) => ({ time: t, value: val }));
+            lineSeries.setData(lineData);
+            activePositionsRef.current.push({ type: 'lineSeries', line: lineSeries });
+          };
+
+          if (chartSettings.showPositionsEntry !== false) {
+            createSegmentSeries(entryPriceVal, entryColor, 0);
+          }
+          if (chartSettings.showPositionsSlTp !== false) {
+            if (slVal > 0) createSegmentSeries(slVal, slColor, 1);
+            if (tpVal > 0) createSegmentSeries(tpVal, tpColor, 1);
+          }
+        }
+      }
+    });
+  }, [openPositions, chartSettings.showPositions, chartSettings.showPositionsEntry, chartSettings.showPositionsSlTp, activeCandles, symbol]);
+
   const handleSVGMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
     if (activeTool === 'none' || activeTool === 'delete') return;
     if (!chartRef.current || !candlestickSeriesRef.current) return;
@@ -1501,6 +1891,19 @@ export default function TVChart({
   };
 
   const handleSVGMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (draggingBadgeRef.current && candlestickSeriesRef.current && chartContainerRef.current) {
+      const rect = chartContainerRef.current.getBoundingClientRect();
+      const y = e.clientY - rect.top;
+      const newPrice = candlestickSeriesRef.current.coordinateToPrice(y);
+      if (newPrice && !isNaN(newPrice)) {
+        setDraggingBadge({
+          ...draggingBadgeRef.current,
+          currentPrice: newPrice
+        });
+      }
+      return;
+    }
+
     if (!drawingPreview) return;
     if (!chartRef.current || !candlestickSeriesRef.current) return;
 
@@ -1520,10 +1923,86 @@ export default function TVChart({
   };
 
   const handleSVGMouseUp = () => {
+    if (draggingBadgeRef.current) {
+      const active = draggingBadgeRef.current;
+      setDraggingBadge(null);
+      const isSl = active.type === 'sl';
+      const label = isSl ? 'Stop Loss (SL)' : 'Take Profit (TP)';
+      const pos = active.position;
+      const confirmed = window.confirm(
+        `Are you sure you want to update ${label} for position #${pos.position_id} (${pos.symbol})?\n\n` +
+        `Old ${active.type.toUpperCase()}: ${active.originalPrice.toFixed(5)}\n` +
+        `New ${active.type.toUpperCase()}: ${active.currentPrice.toFixed(5)}`
+      );
+
+      if (confirmed) {
+        // Send position modification request to backend
+        const endpoint = isLocal ? 'http://localhost:8751/api/trade/modify_position' : `${API_BASE_URL}/api/trade/modify_position`;
+        const payload: any = {
+          position_id: pos.position_id,
+          symbol: pos.symbol
+        };
+        if (isSl) {
+          payload.stop_loss = active.currentPrice;
+          payload.take_profit = pos.tp;
+        } else {
+          payload.stop_loss = pos.sl;
+          payload.take_profit = active.currentPrice;
+        }
+
+        fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+          .then(res => res.json())
+          .then(data => {
+            if (data.status === 'success' || data.success) {
+              onRefresh();
+            } else {
+              alert(`Failed to update ${label}: ${data.message || 'Unknown error'}`);
+            }
+          })
+          .catch(err => {
+            console.error(`Error modifying ${label}:`, err);
+            alert(`Error modifying ${label}: ${err.message}`);
+          });
+      }
+      return;
+    }
+
     if (!drawingPreview) return;
     setDrawings([...drawings, drawingPreview]);
     setDrawingPreview(null);
   };
+
+  // Window-level mouse listener while dragging SL/TP badge
+  useEffect(() => {
+    if (!draggingBadge) return;
+
+    const onGlobalMouseMove = (e: MouseEvent) => {
+      if (candlestickSeriesRef.current && chartContainerRef.current) {
+        const rect = chartContainerRef.current.getBoundingClientRect();
+        const y = e.clientY - rect.top;
+        const newPrice = candlestickSeriesRef.current.coordinateToPrice(y);
+        if (newPrice && !isNaN(newPrice)) {
+          setDraggingBadge(prev => prev ? { ...prev, currentPrice: newPrice } : null);
+        }
+      }
+    };
+
+    const onGlobalMouseUp = () => {
+      handleSVGMouseUp();
+    };
+
+    window.addEventListener('mousemove', onGlobalMouseMove);
+    window.addEventListener('mouseup', onGlobalMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', onGlobalMouseMove);
+      window.removeEventListener('mouseup', onGlobalMouseUp);
+    };
+  }, [draggingBadge]);
 
   const styles = {
     container: {
@@ -1556,11 +2035,11 @@ export default function TVChart({
       justifyContent: 'space-between',
       alignItems: 'center',
       borderBottom: '1px solid #1f2937',
-      paddingBottom: '12px',
+      paddingBottom: isMobile ? '6px' : '12px',
     },
     toolsGroup: {
       display: 'flex',
-      gap: '8px',
+      gap: isMobile ? '6px' : '8px',
       alignItems: 'center',
     },
     symbolBadge: {
@@ -1603,7 +2082,7 @@ export default function TVChart({
       color: '#9ca3af',
       backgroundColor: '#1f2937',
       border: 'none',
-      padding: '8px',
+      padding: isMobile ? '6px' : '8px',
       borderRadius: '8px',
       cursor: 'pointer',
       display: 'flex',
@@ -1638,13 +2117,11 @@ export default function TVChart({
   };
 
   return (
-    <div id={isFullscreen ? "tv-chart-fullscreen-container" : undefined} style={{ ...styles.container, ...(isFullscreen ? { position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 99999, backgroundColor: '#0b0f19', display: 'flex', flexDirection: 'column', padding: '16px', boxSizing: 'border-box', overflowY: 'auto' } : {}) }}>
-      <div style={styles.toolbar}>
-        <div style={{ ...styles.toolsGroup, flexWrap: 'wrap', gap: '12px' }}>
-          {/* Symbol Search Input */}
-          <div style={{ ...styles.pairGroup, position: 'relative' }}>
-            <span style={{ color: '#9ca3af', fontSize: '10px' }}>Symbol</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+    <div id={isFullscreen ? "tv-chart-fullscreen-container" : undefined} style={{ ...styles.container, ...(isFullscreen ? { position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 99999, backgroundColor: '#0b0f19', display: 'flex', flexDirection: 'column', padding: isMobile ? '8px' : '16px', boxSizing: 'border-box', overflowY: 'auto' } : {}), ...(isMobile ? { padding: '8px', gap: '8px' } : {}) }}>
+      <div style={{ ...styles.toolbar, ...(isMobile ? { flexDirection: 'column', gap: '8px', alignItems: 'stretch' } : {}) }}>
+        {isMobile ? (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
               <div style={{ position: 'relative' }}>
                 <input
                   type="text"
@@ -1663,387 +2140,214 @@ export default function TVChart({
                     border: '1px solid #334155',
                     padding: '4px 8px',
                     fontSize: '12px',
-                    width: '120px'
+                    width: '110px'
                   }}
                 />
                 {showSymbolDropdown && (
                   <>
-                    <div
-                      onClick={() => setShowSymbolDropdown(false)}
-                      style={{
-                        position: 'fixed',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        zIndex: 999
-                      }}
-                    />
-                    <div style={{
-                      position: 'absolute',
-                      top: '100%',
-                      left: 0,
-                      right: 0,
-                      backgroundColor: '#0f172a',
-                      border: '1px solid #334155',
-                      borderRadius: '6px',
-                      maxHeight: '200px',
-                      overflowY: 'auto',
-                      zIndex: 1000,
-                      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)',
-                      minWidth: '160px'
-                    }}>
+                    <div onClick={() => setShowSymbolDropdown(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }} />
+                    <div style={{ position: 'absolute', top: '100%', left: 0, backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '6px', maxHeight: '200px', overflowY: 'auto', zIndex: 1000, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)', minWidth: '160px' }}>
                       {filteredSymbols.length > 0 ? (
-                        filteredSymbols
-                          .map((sym, idx) => (
-                            <div
-                              key={sym}
-                              onClick={() => {
-                                onSymbolChange(sym);
-                                setShowSymbolDropdown(false);
-                              }}
-                              style={{
-                                padding: '6px 10px',
-                                cursor: 'pointer',
-                                fontSize: '12px',
-                                color: '#ffffff',
-                                backgroundColor: idx === highlightedIndex ? '#2563eb' : (symbol === sym ? 'rgba(37, 99, 235, 0.3)' : 'transparent'),
-                                transition: 'background-color 0.15s',
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center'
-                              }}
-                              onMouseEnter={() => {
-                                setHighlightedIndex(idx);
-                              }}
-                            >
-                              <span>{sym}</span>
-                              <span
-                                onClick={(e) => toggleFavoriteSymbol(sym, e)}
-                                style={{
-                                  color: favoriteSymbols.includes(sym) ? '#f59e0b' : '#4b5563',
-                                  fontSize: '14px',
-                                  padding: '2px 4px',
-                                  cursor: 'pointer',
-                                  transition: 'color 0.15s'
-                                }}
-                              >
-                                ★
-                              </span>
-                            </div>
-                          ))
+                        filteredSymbols.map((sym, idx) => (
+                          <div key={sym} onClick={() => { onSymbolChange(sym); setShowSymbolDropdown(false); }} style={{ padding: '6px 10px', cursor: 'pointer', fontSize: '12px', color: '#ffffff', backgroundColor: idx === highlightedIndex ? '#2563eb' : (symbol === sym ? 'rgba(37, 99, 235, 0.3)' : 'transparent'), transition: 'background-color 0.15s', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} onMouseEnter={() => setHighlightedIndex(idx)}>
+                            <span>{sym}</span>
+                            <span onClick={(e) => toggleFavoriteSymbol(sym, e)} style={{ color: favoriteSymbols.includes(sym) ? '#f59e0b' : '#4b5563', fontSize: '14px', padding: '2px 4px', cursor: 'pointer', transition: 'color 0.15s' }}>★</span>
+                          </div>
+                        ))
                       ) : (
-                        <div style={{ padding: '6px 10px', fontSize: '11px', color: '#6b7280' }}>
-                          No results found
-                        </div>
+                        <div style={{ padding: '6px 10px', fontSize: '11px', color: '#6b7280' }}>No results found</div>
                       )}
                     </div>
                   </>
                 )}
               </div>
-              <button
-                onClick={() => toggleFavoriteSymbol(symbol)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: favoriteSymbols.includes(symbol) ? '#f59e0b' : '#4b5563',
-                  cursor: 'pointer',
-                  fontSize: '16px',
-                  padding: '2px 4px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  transition: 'color 0.15s'
-                }}
-                title={favoriteSymbols.includes(symbol) ? "Remove from Favorites" : "Add to Favorites"}
-              >
-                ★
-              </button>
-            </div>
-          </div>
-
-          {/* Quick Favorite Symbols Shortcuts */}
-          {activeFavSymbols.length > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
-              {activeFavSymbols.map(sym => (
+              <div style={{ position: 'relative' }}>
                 <button
-                  key={sym}
-                  onClick={() => onSymbolChange(sym)}
-                  style={{
-                    backgroundColor: symbol === sym ? 'rgba(59, 130, 246, 0.2)' : '#1e293b',
-                    border: `1px solid ${symbol === sym ? '#3b82f6' : '#334155'}`,
-                    color: symbol === sym ? '#3b82f6' : '#d1d5db',
-                    fontSize: '11px',
-                    padding: '3px 8px',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s'
-                  }}
+                  onClick={() => setShowTimeframeDropdown(!showTimeframeDropdown)}
+                  style={{ ...styles.pairSelect, backgroundColor: '#1e293b', color: '#ffffff', border: '1px solid #334155', padding: '4px 8px', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', cursor: 'pointer' }}
                 >
-                  {sym}
+                  <span>{timeframe}</span>
+                  <span style={{ fontSize: '10px', color: '#94a3b8' }}>▼</span>
                 </button>
-              ))}
+                {showTimeframeDropdown && (
+                  <>
+                    <div onClick={() => setShowTimeframeDropdown(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }} />
+                    <div style={{ position: 'absolute', top: '100%', right: 0, backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '6px', maxHeight: '200px', overflowY: 'auto', zIndex: 1000, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)', minWidth: '100px' }}>
+                      {sortedTimeframes.map((tf) => (
+                        <div key={tf} onClick={() => { onTimeframeChange(tf); setShowTimeframeDropdown(false); }} style={{ padding: '6px 10px', cursor: 'pointer', fontSize: '12px', color: '#ffffff', backgroundColor: timeframe === tf ? 'rgba(37, 99, 235, 0.3)' : 'transparent', transition: 'background-color 0.15s', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                          <span>{tf}</span>
+                          <span onClick={(e) => toggleFavoriteTimeframe(tf, e)} style={{ color: favoriteTimeframes.includes(tf) ? '#f59e0b' : '#4b5563', fontSize: '14px', padding: '2px 4px', cursor: 'pointer', transition: 'color 0.15s' }}>★</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
-          )}
-
-          {/* Timeframe */}
-          <div style={styles.pairGroup}>
-            <span style={{ color: '#9ca3af', fontSize: '10px' }}>Timeframe</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <select
-                value={timeframe}
-                onChange={(e) => onTimeframeChange(e.target.value)}
-                style={styles.pairSelect}
-              >
-                {availableTimeframes.map(tf => (
-                  <option key={tf} value={tf}>{tf}</option>
-                ))}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+              <select value={actualFilter} onChange={(e) => setActualFilter(e.target.value as 'all' | 'wins' | 'losses')} style={{ ...styles.pairSelect, backgroundColor: '#1e293b', border: '1px solid #334155' }}>
+                <option value="all">Both</option>
+                <option value="wins">Wins</option>
+                <option value="losses">Losses</option>
               </select>
-              <button
-                onClick={() => toggleFavoriteTimeframe(timeframe)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: favoriteTimeframes.includes(timeframe) ? '#f59e0b' : '#4b5563',
-                  cursor: 'pointer',
-                  fontSize: '16px',
-                  padding: '2px 4px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  transition: 'color 0.15s'
-                }}
-                title={favoriteTimeframes.includes(timeframe) ? "Remove from Favorites" : "Add to Favorites"}
-              >
-                ★
-              </button>
-            </div>
-          </div>
-
-          {/* Quick Favorite Timeframes Shortcuts */}
-          {activeFavTimeframes.length > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
-              {activeFavTimeframes.map(tf => (
-                <button
-                  key={tf}
-                  onClick={() => onTimeframeChange(tf)}
-                  style={{
-                    backgroundColor: timeframe === tf ? 'rgba(59, 130, 246, 0.2)' : '#1e293b',
-                    border: `1px solid ${timeframe === tf ? '#3b82f6' : '#334155'}`,
-                    color: timeframe === tf ? '#3b82f6' : '#d1d5db',
-                    fontSize: '11px',
-                    padding: '3px 8px',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s'
-                  }}
-                >
-                  {tf}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Trades Filter */}
-          <div style={styles.pairGroup}>
-            <span style={{ color: '#9ca3af', fontSize: '10px' }}>Trades</span>
-            <select
-              value={actualFilter}
-              onChange={(e) => setActualFilter(e.target.value as 'all' | 'wins' | 'losses')}
-              style={styles.pairSelect}
-            >
-              <option value="all">Both (Winners & Losers)</option>
-              <option value="wins">Winners Only</option>
-              <option value="losses">Losers Only</option>
-            </select>
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {candles && candles.length > 0 && (
-            <div style={{
-              fontSize: '10px',
-              color: '#9ca3af',
-              backgroundColor: '#111827',
-              border: '1px solid #1f2937',
-              borderRadius: '6px',
-              padding: '3px 6px',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'flex-start',
-              lineHeight: '1.2'
-            }}>
-              <div>Last Candle (Local): <span style={{ color: '#fff', fontWeight: 'bold' }}>{new Date(candles[candles.length - 1].time * 1000).toLocaleString()}</span></div>
-              <div>Last Candle (UTC): <span style={{ color: '#eab308', fontWeight: 'bold' }}>{new Date(candles[candles.length - 1].time * 1000).toISOString().replace('T', ' ').substring(0, 19)}</span></div>
-            </div>
-          )}
-
-          {onLiveFeedChange && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <button
-                onClick={() => {
-                  const nextVal = !isLiveFeed;
-                  localStorage.setItem('wyckoff_is_live_feed', String(nextVal));
-                  onLiveFeedChange(nextVal);
-                  setTimeout(() => onRefresh(), 50);
-                }}
-                style={{
-                  ...styles.refreshBtn,
-                  backgroundColor: isLiveFeed ? '#10b981' : '#1f2937',
-                  color: '#ffffff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '6px 12px',
-                  fontSize: '12px',
-                  fontWeight: 'bold',
-                  boxShadow: isLiveFeed ? '0 0 10px rgba(16, 185, 129, 0.4)' : 'none'
-                }}
-                title="Toggle Live Feed (forces cache-updates from backend live runner)"
-              >
-                <span style={{
-                  width: '6px',
-                  height: '6px',
-                  borderRadius: '50%',
-                  backgroundColor: isLiveFeed ? '#ffffff' : '#9ca3af',
-                  display: 'inline-block',
-                  animation: isLiveFeed ? 'pulse 1.5s infinite' : 'none'
-                }}></span>
-                Live Feed
-              </button>
-            </div>
-          )}
-          <button
-            onClick={onRefresh}
-            style={styles.refreshBtn}
-            title="Refresh chart data"
-          >
-            <RefreshCw size={16} className={loadingStrategy ? 'animate-spin' : ''} />
-          </button>
-          <button
-            onClick={() => {
-              if (replayToolActive) {
-                setReplayTime(null);
-                setIsPlaying(false);
-                if (onSelectCandleRef.current) {
-                  onSelectCandleRef.current(null);
-                }
-              }
-              setReplayToolActive(!replayToolActive);
-            }}
-            style={{
-              ...styles.refreshBtn,
-              backgroundColor: replayToolActive ? '#2563eb' : '#1f2937',
-              color: replayToolActive ? '#ffffff' : '#9ca3af',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 12px',
-              fontSize: '12px',
-              fontWeight: 'bold',
-            }}
-            title="Toggle Replay Tool. When active, click a candle to start replay from that point."
-          >
-            <Play size={14} fill={replayToolActive ? "#ffffff" : "none"} />
-            Replay
-          </button>
-          <div style={{ position: 'relative' }}>
-            <button
-              onClick={() => setShowSettingsDropdown(!showSettingsDropdown)}
-              style={styles.refreshBtn}
-              title="Chart Visibility Settings"
-            >
-              <Settings size={16} />
-            </button>
-            {showSettingsDropdown && (
-              <>
-                <div
-                  onClick={() => setShowSettingsDropdown(false)}
-                  style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    zIndex: 999
-                  }}
-                />
-                <div style={{
-                  position: 'absolute',
-                  top: '100%',
-                  right: 0,
-                  marginTop: '6px',
-                  backgroundColor: '#0f172a',
-                  border: '1px solid #1f2937',
-                  borderRadius: '8px',
-                  padding: '12px',
-                  zIndex: 1000,
-                  boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)',
-                  minWidth: '180px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '8px',
-                }}>
-                  <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#9ca3af', borderBottom: '1px solid #1f2937', paddingBottom: '6px', marginBottom: '4px' }}>
-                    Chart Visibility
-                  </div>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}>
-                    <input
-                      type="checkbox"
-                      checked={chartSettings.showFvg}
-                      onChange={(e) => setChartSettings({ ...chartSettings, showFvg: e.target.checked })}
-                      style={{ cursor: 'pointer' }}
-                    />
-                    Fair Value Gaps (FVG)
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}>
-                    <input
-                      type="checkbox"
-                      checked={chartSettings.showSessions}
-                      onChange={(e) => setChartSettings({ ...chartSettings, showSessions: e.target.checked })}
-                      style={{ cursor: 'pointer' }}
-                    />
-                    Trading Sessions
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}>
-                    <input
-                      type="checkbox"
-                      checked={chartSettings.showTrades}
-                      onChange={(e) => setChartSettings({ ...chartSettings, showTrades: e.target.checked })}
-                      style={{ cursor: 'pointer' }}
-                    />
-                    Trades & Order Levels
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}>
-                    <input
-                      type="checkbox"
-                      checked={chartSettings.showTrLines}
-                      onChange={(e) => setChartSettings({ ...chartSettings, showTrLines: e.target.checked })}
-                      style={{ cursor: 'pointer' }}
-                    />
-                    Trading Range (TR)
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}>
-                    <input
-                      type="checkbox"
-                      checked={chartSettings.showLiveRunnerOverlay || false}
-                      onChange={(e) => setChartSettings({ ...chartSettings, showLiveRunnerOverlay: e.target.checked })}
-                      style={{ cursor: 'pointer' }}
-                    />
-                    Live Analysis Overlay
-                  </label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {onLiveFeedChange && (
+                  <button
+                    onClick={() => { const nextVal = !isLiveFeed; localStorage.setItem('wyckoff_is_live_feed', String(nextVal)); onLiveFeedChange(nextVal); setTimeout(() => onRefresh(), 50); }}
+                    style={{ ...styles.refreshBtn, backgroundColor: isLiveFeed ? '#10b981' : '#1f2937', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', fontSize: '11px', fontWeight: 'bold', boxShadow: isLiveFeed ? '0 0 10px rgba(16, 185, 129, 0.4)' : 'none' }}
+                    title="Toggle Live Feed"
+                  >
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: isLiveFeed ? '#ffffff' : '#9ca3af', display: 'inline-block', animation: isLiveFeed ? 'pulse 1.5s infinite' : 'none' }}></span>
+                    LIVE
+                  </button>
+                )}
+                <button onClick={() => onRefresh()} style={styles.refreshBtn} title="Refresh chart data"><RefreshCw size={14} className={loadingStrategy ? 'animate-spin' : ''} /></button>
+                <div style={{ position: 'relative' }}>
+                  <button onClick={() => setShowSettingsDropdown(!showSettingsDropdown)} style={styles.refreshBtn} title="Chart Visibility Settings"><Settings size={14} /></button>
+                  {showSettingsDropdown && (
+                    <>
+                      <div onClick={() => setShowSettingsDropdown(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }} />
+                      <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '6px', backgroundColor: '#0f172a', border: '1px solid #1f2937', borderRadius: '8px', padding: '12px', zIndex: 1000, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)', minWidth: '180px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#9ca3af', borderBottom: '1px solid #1f2937', paddingBottom: '6px', marginBottom: '4px' }}>Chart Visibility</div>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}><input type="checkbox" checked={chartSettings.showFvg} onChange={(e) => setChartSettings({ ...chartSettings, showFvg: e.target.checked })} style={{ cursor: 'pointer' }} /> Fair Value Gaps (FVG)</label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}><input type="checkbox" checked={chartSettings.showSessions} onChange={(e) => setChartSettings({ ...chartSettings, showSessions: e.target.checked })} style={{ cursor: 'pointer' }} /> Trading Sessions</label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}><input type="checkbox" checked={chartSettings.showTrades} onChange={(e) => setChartSettings({ ...chartSettings, showTrades: e.target.checked })} style={{ cursor: 'pointer' }} /> Trades & Order Levels</label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}><input type="checkbox" checked={chartSettings.showPositions ?? true} onChange={(e) => setChartSettings({ ...chartSettings, showPositions: e.target.checked })} style={{ cursor: 'pointer' }} /> Active Positions</label>
+                        {chartSettings.showPositions && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginLeft: '16px', borderLeft: '2px solid #334155', paddingLeft: '8px', marginBottom: '2px' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px', color: '#cbd5e1' }}><input type="checkbox" checked={chartSettings.showPositionsEntry ?? true} onChange={(e) => setChartSettings({ ...chartSettings, showPositionsEntry: e.target.checked })} style={{ cursor: 'pointer' }} /> Show Entry Line</label>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px', color: '#cbd5e1' }}><input type="checkbox" checked={chartSettings.showPositionsSlTp ?? true} onChange={(e) => setChartSettings({ ...chartSettings, showPositionsSlTp: e.target.checked })} style={{ cursor: 'pointer' }} /> Show SL / TP Lines</label>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px', color: '#cbd5e1' }}><input type="checkbox" checked={chartSettings.showPositionsSvg ?? true} onChange={(e) => setChartSettings({ ...chartSettings, showPositionsSvg: e.target.checked })} style={{ cursor: 'pointer' }} /> Show Clickable Badges</label>
+                          </div>
+                        )}
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}><input type="checkbox" checked={chartSettings.showTrLines} onChange={(e) => setChartSettings({ ...chartSettings, showTrLines: e.target.checked })} style={{ cursor: 'pointer' }} /> Trading Range (TR)</label>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', borderTop: '1px solid #334155', paddingTop: '6px', marginTop: '4px' }}>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}><input type="checkbox" checked={chartSettings.autoRefreshCandles ?? true} onChange={(e) => setChartSettings({ ...chartSettings, autoRefreshCandles: e.target.checked })} style={{ cursor: 'pointer' }} /> ⚡ Auto-Refresh Candles</label>
+                          {chartSettings.autoRefreshCandles && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: '22px', fontSize: '11px', color: '#94a3b8' }}>
+                              <span>Interval:</span>
+                              <input type="number" min="1" max="3600" value={chartSettings.autoRefreshSeconds ?? 5} onChange={(e) => { const secs = Math.max(1, parseInt(e.target.value) || 1); setChartSettings({ ...chartSettings, autoRefreshSeconds: secs }); }} style={{ width: '50px', backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '4px', color: '#ffffff', padding: '2px 6px', fontSize: '11px', outline: 'none' }} />
+                              <span>secs</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
-              </>
-            )}
-          </div>
-          <button
-            onClick={toggleFullscreen}
-            style={styles.refreshBtn}
-            title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
-          >
-            {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-          </button>
-        </div>
+                <button onClick={toggleFullscreen} style={styles.refreshBtn} title="Toggle Fullscreen">{isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}</button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ ...styles.toolsGroup, flexWrap: 'wrap', gap: '12px' }}>
+              <div style={{ ...styles.pairGroup, position: 'relative' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <div style={{ position: 'relative' }}>
+                    <input type="text" placeholder="Search symbol..." value={showSymbolDropdown ? symbolSearch : symbol} onFocus={() => { setSymbolSearch(''); setShowSymbolDropdown(true); }} onChange={(e) => setSymbolSearch(e.target.value)} onKeyDown={handleKeyDown} style={{ ...styles.pairSelect, backgroundColor: '#1e293b', color: '#ffffff', border: '1px solid #334155', padding: '4px 8px', fontSize: '12px', width: '110px' }} />
+                    {showSymbolDropdown && (
+                      <>
+                        <div onClick={() => setShowSymbolDropdown(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }} />
+                        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '6px', maxHeight: '200px', overflowY: 'auto', zIndex: 1000, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)', minWidth: '160px' }}>
+                          {filteredSymbols.length > 0 ? (
+                            filteredSymbols.map((sym, idx) => (
+                              <div key={sym} onClick={() => { onSymbolChange(sym); setShowSymbolDropdown(false); }} style={{ padding: '6px 10px', cursor: 'pointer', fontSize: '12px', color: '#ffffff', backgroundColor: idx === highlightedIndex ? '#2563eb' : (symbol === sym ? 'rgba(37, 99, 235, 0.3)' : 'transparent'), transition: 'background-color 0.15s', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} onMouseEnter={() => setHighlightedIndex(idx)}>
+                                <span>{sym}</span>
+                                <span onClick={(e) => toggleFavoriteSymbol(sym, e)} style={{ color: favoriteSymbols.includes(sym) ? '#f59e0b' : '#4b5563', fontSize: '14px', padding: '2px 4px', cursor: 'pointer', transition: 'color 0.15s' }}>★</span>
+                              </div>
+                            ))
+                          ) : (
+                            <div style={{ padding: '6px 10px', fontSize: '11px', color: '#6b7280' }}>No results found</div>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div style={{ ...styles.pairGroup, position: 'relative' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <div style={{ position: 'relative' }}>
+                    <button onClick={() => setShowTimeframeDropdown(!showTimeframeDropdown)} style={{ ...styles.pairSelect, backgroundColor: '#1e293b', color: '#ffffff', border: '1px solid #334155', padding: '4px 8px', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', cursor: 'pointer' }}>
+                      <span>{timeframe}</span>
+                      <span style={{ fontSize: '10px', color: '#94a3b8' }}>▼</span>
+                    </button>
+                    {showTimeframeDropdown && (
+                      <>
+                        <div onClick={() => setShowTimeframeDropdown(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }} />
+                        <div style={{ position: 'absolute', top: '100%', left: 0, backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '6px', maxHeight: '200px', overflowY: 'auto', zIndex: 1000, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)', minWidth: '100px' }}>
+                          {sortedTimeframes.map((tf) => (
+                            <div key={tf} onClick={() => { onTimeframeChange(tf); setShowTimeframeDropdown(false); }} style={{ padding: '6px 10px', cursor: 'pointer', fontSize: '12px', color: '#ffffff', backgroundColor: timeframe === tf ? 'rgba(37, 99, 235, 0.3)' : 'transparent', transition: 'background-color 0.15s', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                              <span>{tf}</span>
+                              <span onClick={(e) => toggleFavoriteTimeframe(tf, e)} style={{ color: favoriteTimeframes.includes(tf) ? '#f59e0b' : '#4b5563', fontSize: '14px', padding: '2px 4px', cursor: 'pointer', transition: 'color 0.15s' }}>★</span>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div style={styles.pairGroup}>
+                <select value={actualFilter} onChange={(e) => setActualFilter(e.target.value as 'all' | 'wins' | 'losses')} style={styles.pairSelect}>
+                  <option value="all">Both (Winners & Losers)</option>
+                  <option value="wins">Winners Only</option>
+                  <option value="losses">Losers Only</option>
+                </select>
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {onLiveFeedChange && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <button onClick={() => { const nextVal = !isLiveFeed; localStorage.setItem('wyckoff_is_live_feed', String(nextVal)); onLiveFeedChange(nextVal); setTimeout(() => onRefresh(), 50); }} style={{ ...styles.refreshBtn, backgroundColor: isLiveFeed ? '#10b981' : '#1f2937', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '11px', fontWeight: 'bold', boxShadow: isLiveFeed ? '0 0 10px rgba(16, 185, 129, 0.4)' : 'none' }} title="Toggle Live Feed">
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: isLiveFeed ? '#ffffff' : '#9ca3af', display: 'inline-block', animation: isLiveFeed ? 'pulse 1.5s infinite' : 'none' }}></span>
+                    Live Feed
+                  </button>
+                </div>
+              )}
+              <button onClick={() => onRefresh()} style={styles.refreshBtn} title="Refresh chart data"><RefreshCw size={14} className={loadingStrategy ? 'animate-spin' : ''} /></button>
+              <button onClick={() => { if (replayToolActive) { setReplayTime(null); setIsPlaying(false); if (onSelectCandleRef.current) { onSelectCandleRef.current(null); } } setReplayToolActive(!replayToolActive); }} style={{ ...styles.refreshBtn, backgroundColor: replayToolActive ? '#2563eb' : '#1f2937', color: replayToolActive ? '#ffffff' : '#9ca3af', display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '11px', fontWeight: 'bold' }} title="Toggle Replay Tool">
+                <Play size={12} fill={replayToolActive ? "#ffffff" : "none"} />
+                Replay
+              </button>
+              <div style={{ position: 'relative' }}>
+                <button onClick={() => setShowSettingsDropdown(!showSettingsDropdown)} style={styles.refreshBtn} title="Chart Visibility Settings"><Settings size={16} /></button>
+                {showSettingsDropdown && (
+                  <>
+                    <div onClick={() => setShowSettingsDropdown(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }} />
+                    <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '6px', backgroundColor: '#0f172a', border: '1px solid #1f2937', borderRadius: '8px', padding: '12px', zIndex: 1000, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)', minWidth: '180px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#9ca3af', borderBottom: '1px solid #1f2937', paddingBottom: '6px', marginBottom: '4px' }}>Chart Visibility</div>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}><input type="checkbox" checked={chartSettings.showFvg} onChange={(e) => setChartSettings({ ...chartSettings, showFvg: e.target.checked })} style={{ cursor: 'pointer' }} /> Fair Value Gaps (FVG)</label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}><input type="checkbox" checked={chartSettings.showSessions} onChange={(e) => setChartSettings({ ...chartSettings, showSessions: e.target.checked })} style={{ cursor: 'pointer' }} /> Trading Sessions</label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}><input type="checkbox" checked={chartSettings.showTrades} onChange={(e) => setChartSettings({ ...chartSettings, showTrades: e.target.checked })} style={{ cursor: 'pointer' }} /> Trades & Order Levels</label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}><input type="checkbox" checked={chartSettings.showPositions ?? true} onChange={(e) => setChartSettings({ ...chartSettings, showPositions: e.target.checked })} style={{ cursor: 'pointer' }} /> Active Positions</label>
+                      {chartSettings.showPositions && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginLeft: '16px', borderLeft: '2px solid #334155', paddingLeft: '8px', marginBottom: '2px' }}>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px', color: '#cbd5e1' }}><input type="checkbox" checked={chartSettings.showPositionsEntry ?? true} onChange={(e) => setChartSettings({ ...chartSettings, showPositionsEntry: e.target.checked })} style={{ cursor: 'pointer' }} /> Show Entry Line</label>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px', color: '#cbd5e1' }}><input type="checkbox" checked={chartSettings.showPositionsSlTp ?? true} onChange={(e) => setChartSettings({ ...chartSettings, showPositionsSlTp: e.target.checked })} style={{ cursor: 'pointer' }} /> Show SL / TP Lines</label>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px', color: '#cbd5e1' }}><input type="checkbox" checked={chartSettings.showPositionsSvg ?? true} onChange={(e) => setChartSettings({ ...chartSettings, showPositionsSvg: e.target.checked })} style={{ cursor: 'pointer' }} /> Show Clickable Badges</label>
+                        </div>
+                      )}
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}><input type="checkbox" checked={chartSettings.showTrLines} onChange={(e) => setChartSettings({ ...chartSettings, showTrLines: e.target.checked })} style={{ cursor: 'pointer' }} /> Trading Range (TR)</label>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', borderTop: '1px solid #334155', paddingTop: '6px', marginTop: '4px' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}><input type="checkbox" checked={chartSettings.autoRefreshCandles ?? true} onChange={(e) => setChartSettings({ ...chartSettings, autoRefreshCandles: e.target.checked })} style={{ cursor: 'pointer' }} /> ⚡ Auto-Refresh Candles</label>
+                        {chartSettings.autoRefreshCandles && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: '22px', fontSize: '11px', color: '#94a3b8' }}>
+                            <span>Interval:</span>
+                            <input type="number" min="1" max="3600" value={chartSettings.autoRefreshSeconds ?? 5} onChange={(e) => { const secs = Math.max(1, parseInt(e.target.value) || 1); setChartSettings({ ...chartSettings, autoRefreshSeconds: secs }); }} style={{ width: '50px', backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '4px', color: '#ffffff', padding: '2px 6px', fontSize: '11px', outline: 'none' }} />
+                            <span>secs</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+              <button onClick={toggleFullscreen} style={styles.refreshBtn} title="Toggle Fullscreen">{isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}</button>
+            </div>
+          </>
+        )}
       </div>
 
       <div style={styles.chartWrapper}>
@@ -2055,79 +2359,6 @@ export default function TVChart({
 
         <div style={{ position: 'relative', height: chartHeight }}>
           <div ref={chartContainerRef} style={{ width: '100%', height: '100%', touchAction: 'none' }} />
-
-          {chartSettings.showLiveRunnerOverlay && liveStrategyState && (
-            <div style={{
-              position: 'absolute',
-              top: '12px',
-              left: '12px',
-              zIndex: 100,
-              backgroundColor: 'rgba(15, 23, 42, 0.85)',
-              backdropFilter: 'blur(8px)',
-              border: '1.5px solid #10b981',
-              boxShadow: '0 0 15px rgba(16, 185, 129, 0.15)',
-              borderRadius: '10px',
-              padding: '12px',
-              width: '260px',
-              color: '#f8fafc',
-              fontSize: '11px',
-              pointerEvents: 'auto',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '6px'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(148, 163, 184, 0.15)', paddingBottom: '6px' }}>
-                <span style={{ fontWeight: 'bold', color: '#10b981', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10b981', display: 'inline-block', boxShadow: '0 0 6px #10b981' }}></span>
-                  LIVE STRATEGY OVERVIEW
-                </span>
-                <span style={{ fontSize: '9px', color: '#94a3b8', textTransform: 'uppercase' }}>
-                  {symbol} {timeframe}
-                </span>
-              </div>
-              
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 12px' }}>
-                <div>
-                  <span style={{ color: '#64748b', display: 'block', fontSize: '9px' }}>Current Stage</span>
-                  <span style={{
-                    fontWeight: 'bold',
-                    color: liveStrategyState.stage === 'ACCUMULATION' ? '#3b82f6' : 
-                           liveStrategyState.stage === 'MARKUP' ? '#10b981' : 
-                           liveStrategyState.stage === 'DISTRIBUTION' ? '#f59e0b' : 
-                           liveStrategyState.stage === 'MARKDOWN' ? '#ef4444' : '#cbd5e1'
-                  }}>{liveStrategyState.stage || 'TRANSITION'}</span>
-                </div>
-                <div>
-                  <span style={{ color: '#64748b', display: 'block', fontSize: '9px' }}>Consecutive Bars</span>
-                  <span style={{ fontWeight: 'bold', color: '#cbd5e1' }}>{liveStrategyState.consec_bars || 0}</span>
-                </div>
-                {liveStrategyState.pending_buy && (
-                  <div style={{ gridColumn: 'span 2', backgroundColor: 'rgba(16, 185, 129, 0.1)', padding: '4px 8px', borderRadius: '4px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
-                    <span style={{ color: '#10b981', fontWeight: 'bold' }}>Spring Pending (Age: {liveStrategyState.pending_buy_age}/15)</span>
-                    <span style={{ display: 'block', fontSize: '9px', color: '#94a3b8' }}>Target High: {liveStrategyState.spring_high ? liveStrategyState.spring_high.toFixed(5) : 'N/A'}</span>
-                  </div>
-                )}
-                {liveStrategyState.pending_sell && (
-                  <div style={{ gridColumn: 'span 2', backgroundColor: 'rgba(239, 68, 68, 0.1)', padding: '4px 8px', borderRadius: '4px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
-                    <span style={{ color: '#ef4444', fontWeight: 'bold' }}>Upthrust Pending (Age: {liveStrategyState.pending_sell_age}/15)</span>
-                    <span style={{ display: 'block', fontSize: '9px', color: '#94a3b8' }}>Target Low: {liveStrategyState.upthrust_low ? liveStrategyState.upthrust_low.toFixed(5) : 'N/A'}</span>
-                  </div>
-                )}
-              </div>
-
-              <div style={{ borderTop: '1px solid rgba(148, 163, 184, 0.1)', paddingTop: '6px', marginTop: '2px' }}>
-                <span style={{ color: '#64748b', display: 'block', fontSize: '9px' }}>Status Message</span>
-                <span style={{ color: '#e2e8f0', display: 'block', lineHeight: '14px' }}>{liveStrategyState.status_message || 'Waiting for setup...'}</span>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: '#64748b', borderTop: '1px solid rgba(148, 163, 184, 0.1)', paddingTop: '6px', marginTop: '2px' }}>
-                <span>Candle: {liveStrategyState.last_candle_time ? liveStrategyState.last_candle_time.substring(11, 16) : 'N/A'}</span>
-                <span>Updated: {liveStrategyState.last_checked ? liveStrategyState.last_checked.substring(11, 19) : 'N/A'}</span>
-              </div>
-            </div>
-          )}
-
-
 
           {replayTime !== null && (
             <div style={{
@@ -2258,149 +2489,216 @@ export default function TVChart({
             </div>
           )}
 
-          {/* Wyckoff Quantitative Market Structure Overlay */}
-          {(() => {
-            const activeCandle = selectedCandle || (activeCandles && activeCandles.length > 0 ? activeCandles[activeCandles.length - 1] : null);
-            if (!activeCandle) return null;
-
-            return (
-              <div style={{
-                position: 'absolute',
-                top: '12px',
-                left: '12px',
-                zIndex: 10,
-                backgroundColor: 'rgba(15, 23, 42, 0.85)',
-                backdropFilter: 'blur(8px)',
-                border: '1px solid rgba(51, 65, 85, 0.6)',
-                borderRadius: '6px',
-                padding: '6px 10px',
-                fontSize: '11px',
-                color: '#cbd5e1',
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
-                pointerEvents: 'auto',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px',
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontWeight: 'bold', fontSize: '10px', color: '#9ca3af' }}>WYCKOFF:</span>
-                  <span style={{
-                    fontWeight: 'extrabold',
-                    color: activeCandle.wyckoff_stage === 'ACCUMULATION' ? '#3b82f6' :
-                      activeCandle.wyckoff_stage === 'MARKUP' ? '#10b981' :
-                        activeCandle.wyckoff_stage === 'DISTRIBUTION' ? '#f59e0b' :
-                          activeCandle.wyckoff_stage === 'MARKDOWN' ? '#ef4444' : '#cbd5e1',
-                  }}>
-                    {activeCandle.wyckoff_stage || 'TRANSITION'}
-                  </span>
-                  {(replayTime !== null || selectedCandle) ? (
-                    <button
-                      onClick={() => {
-                        setReplayTime(null);
-                        setIsPlaying(false);
-                        setReplayToolActive(false);
-                        if (onSelectCandle) onSelectCandle(null);
-                      }}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: '#3b82f6',
-                        fontSize: '9px',
-                        cursor: 'pointer',
-                        textDecoration: 'underline',
-                        padding: 0,
-                      }}
-                    >
-                      Reset
-                    </button>
-                  ) : (
-                    <span style={{ fontSize: '8px', color: '#10b981', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                      <span style={{ display: 'inline-block', width: '4px', height: '4px', backgroundColor: '#10b981', borderRadius: '50%' }}></span>
-                      LIVE
-                    </span>
-                  )}
-                </div>
-
-                <div style={{ display: 'flex', gap: '8px', color: '#9ca3af', fontSize: '10px', borderTop: '1px solid rgba(51, 65, 85, 0.4)', paddingTop: '4px' }}>
-                  <span>S: <strong style={{ color: '#ffffff' }}>{activeCandle.support_level ? `$${activeCandle.support_level.toFixed(2)}` : 'N/A'}</strong></span>
-                  <span>R: <strong style={{ color: '#ffffff' }}>{activeCandle.resistance_level ? `$${activeCandle.resistance_level.toFixed(2)}` : 'N/A'}</strong></span>
-                </div>
-
-                {activeCandle.wyckoff_signal && (
-                  <div style={{
-                    color: activeCandle.wyckoff_signal.includes('Spring') ? '#10b981' : '#ef4444',
-                    fontWeight: 'bold',
-                    fontSize: '9px',
-                    backgroundColor: activeCandle.wyckoff_signal.includes('Spring') ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                    border: '1px solid ' + (activeCandle.wyckoff_signal.includes('Spring') ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'),
-                    borderRadius: '4px',
-                    padding: '2px 4px',
-                    textAlign: 'center',
-                    marginTop: '2px',
-                  }}>
-                    ⚡ {activeCandle.wyckoff_signal}
-                  </div>
-                )}
-              </div>
-            );
-          })()}
-
+          {/* SVG Drawing Layer (Trendlines & Rectangles) */}
           <svg
+            onMouseDown={handleSVGMouseDown}
+            onMouseMove={handleSVGMouseMove}
+            onMouseUp={handleSVGMouseUp}
             style={{
               position: 'absolute',
               top: 0,
               left: 0,
               width: '100%',
-              height: '100%',
-              zIndex: 1,
-              pointerEvents: 'none',
+              height: `${chartHeight}px`,
+              pointerEvents: activeTool !== 'none' ? 'all' : 'none',
+              zIndex: 20,
+              cursor: activeTool === 'delete' ? 'pointer' : (activeTool !== 'none' ? 'crosshair' : 'default'),
             }}
           >
+            {/* Clickable Active Position Badges on the right side */}
+            {(chartSettings.showPositions !== false && chartSettings.showPositionsSvg !== false) && (() => {
+              let positionsList: any[] = [];
+              if (Array.isArray(openPositions) && openPositions.length > 0) {
+                positionsList = openPositions;
+              } else {
+                try {
+                  const stored = localStorage.getItem('wyckoff_active_positions');
+                  if (stored) positionsList = JSON.parse(stored);
+                } catch (e) {}
+              }
 
+              if (!Array.isArray(positionsList) || positionsList.length === 0 || !candlestickSeriesRef.current) return null;
 
-            {chartSettings.showTrLines && supportLineSegments.map((seg, idx) => {
-              let color = '#cbd5e1';
-              if (seg.stage === 'ACCUMULATION') color = '#3b82f6';
-              else if (seg.stage === 'MARKUP') color = '#10b981';
-              else if (seg.stage === 'DISTRIBUTION') color = '#f59e0b';
-              else if (seg.stage === 'MARKDOWN') color = '#ef4444';
+              const currentSymbolClean = (symbol || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+              const matchingPositions = positionsList.filter((p) => {
+                if (!p || !p.symbol) return false;
+                const posSymbolClean = String(p.symbol).replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+                return posSymbolClean.includes(currentSymbolClean) || currentSymbolClean.includes(posSymbolClean);
+              });
 
-              return (
-                <line
-                  key={`sup-seg-${idx}`}
-                  x1={seg.x1}
-                  y1={seg.y1}
-                  x2={seg.x2}
-                  y2={seg.y2}
-                  stroke={color}
-                  strokeWidth={2}
-                  strokeDasharray="4 2"
-                  style={{ pointerEvents: 'none', opacity: 0.8 }}
-                />
-              );
-            })}
+              const rightScaleWidth = chartRef.current ? chartRef.current.priceScale('right').width() : 55;
+              const plotWidth = chartContainerRef.current ? chartContainerRef.current.clientWidth - rightScaleWidth : 0;
 
-            {chartSettings.showTrLines && resistanceLineSegments.map((seg, idx) => {
-              let color = '#cbd5e1';
-              if (seg.stage === 'ACCUMULATION') color = '#3b82f6';
-              else if (seg.stage === 'MARKUP') color = '#10b981';
-              else if (seg.stage === 'DISTRIBUTION') color = '#f59e0b';
-              else if (seg.stage === 'MARKDOWN') color = '#ef4444';
+              return matchingPositions.map((pos) => {
+                const isBuy = (pos.trade_side || 'BUY').toUpperCase() === 'BUY';
+                const entryPrice = parseFloat(pos.entry_price ?? pos.entryPrice);
+                const slPrice = parseFloat(pos.stop_loss ?? pos.sl ?? 0);
+                const tpPrice = parseFloat(pos.take_profit ?? pos.tp ?? 0);
+                const volume = pos.volume !== undefined ? pos.volume : '';
+                const pnlVal = parseFloat(pos.unrealized_profit ?? pos.pnl ?? pos.profit ?? pos.unrealized_pnl ?? 0);
+                const pnlStr = !isNaN(pnlVal) ? ` (P&L: ${pnlVal >= 0 ? '+' : ''}${pnlVal.toFixed(2)})` : '';
 
-              return (
-                <line
-                  key={`res-seg-${idx}`}
-                  x1={seg.x1}
-                  y1={seg.y1}
-                  x2={seg.x2}
-                  y2={seg.y2}
-                  stroke={color}
-                  strokeWidth={2}
-                  strokeDasharray="4 2"
-                  style={{ pointerEvents: 'none', opacity: 0.8 }}
-                />
-              );
-            })}
+                const volNum = parseFloat(volume as any) || 0;
+                const isJpy = (symbol || '').toUpperCase().includes('JPY');
+                const multiplier = isJpy ? 1000 : 100000;
+
+                let slLossStr = '';
+                if (slPrice > 0 && volNum > 0) {
+                  const slDiff = isBuy ? (entryPrice - slPrice) : (slPrice - entryPrice);
+                  const estLoss = Math.abs(slDiff * volNum * multiplier);
+                  slLossStr = ` (-$${estLoss.toFixed(2)})`;
+                }
+
+                let tpWinStr = '';
+                if (tpPrice > 0 && volNum > 0) {
+                  const tpDiff = isBuy ? (tpPrice - entryPrice) : (entryPrice - tpPrice);
+                  const estWin = Math.abs(tpDiff * volNum * multiplier);
+                  tpWinStr = ` (+$${estWin.toFixed(2)})`;
+                }
+
+                const entryY = entryPrice > 0 ? candlestickSeriesRef.current.priceToCoordinate(entryPrice) : null;
+                const slY = slPrice > 0 ? candlestickSeriesRef.current.priceToCoordinate(slPrice) : null;
+                const tpY = tpPrice > 0 ? candlestickSeriesRef.current.priceToCoordinate(tpPrice) : null;
+
+                const handleEntryBadgeClick = (e: React.MouseEvent) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  if (onSelectTradeRef.current) {
+                    onSelectTradeRef.current(pos);
+                  }
+                };
+
+                const handleSlMouseDown = (e: React.MouseEvent) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  if (!candlestickSeriesRef.current) return;
+                  setDraggingBadge({
+                    position: pos,
+                    type: 'sl',
+                    originalPrice: slPrice,
+                    currentPrice: slPrice
+                  });
+                };
+
+                const handleTpMouseDown = (e: React.MouseEvent) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  if (!candlestickSeriesRef.current) return;
+                  setDraggingBadge({
+                    position: pos,
+                    type: 'tp',
+                    originalPrice: tpPrice,
+                    currentPrice: tpPrice
+                  });
+                };
+
+                const activeSlPrice = (draggingBadge?.position?.position_id === pos.position_id && draggingBadge?.type === 'sl')
+                  ? draggingBadge.currentPrice
+                  : slPrice;
+
+                const activeTpPrice = (draggingBadge?.position?.position_id === pos.position_id && draggingBadge?.type === 'tp')
+                  ? draggingBadge.currentPrice
+                  : tpPrice;
+
+                const activeSlY = activeSlPrice > 0 && candlestickSeriesRef.current ? candlestickSeriesRef.current.priceToCoordinate(activeSlPrice) : slY;
+                const activeTpY = activeTpPrice > 0 && candlestickSeriesRef.current ? candlestickSeriesRef.current.priceToCoordinate(activeTpPrice) : tpY;
+
+                return (
+                  <g key={`svg-pos-badge-${pos.position_id}`}>
+                    {/* Entry Badge - Opens Trade Info */}
+                    {(chartSettings.showPositionsEntry !== false) && entryY !== null && entryY > 0 && entryY < chartHeight - 26 && (
+                      <g
+                        style={{ cursor: 'pointer', pointerEvents: 'all' }}
+                        onClick={handleEntryBadgeClick}
+                      >
+                        <rect
+                          x={plotWidth - 185}
+                          y={entryY - 11}
+                          width={180}
+                          height={22}
+                          rx={4}
+                          fill={isBuy ? '#2563eb' : '#db2777'}
+                          stroke="#ffffff"
+                          strokeWidth={1}
+                        />
+                        <text
+                          x={plotWidth - 95}
+                          y={entryY + 4}
+                          fill="#ffffff"
+                          fontSize="10"
+                          fontWeight="bold"
+                          textAnchor="middle"
+                          style={{ userSelect: 'none', pointerEvents: 'none' }}
+                        >
+                          {isBuy ? 'BUY' : 'SELL'} {volume} @ {entryPrice.toFixed(5)}{pnlStr}
+                        </text>
+                      </g>
+                    )}
+
+                    {/* SL Badge - Drag & Drop New SL */}
+                    {(chartSettings.showPositionsSlTp !== false) && activeSlY !== null && activeSlY > 0 && activeSlY < chartHeight - 26 && (
+                      <g
+                        style={{ cursor: 'ns-resize', pointerEvents: 'all' }}
+                        onMouseDown={handleSlMouseDown}
+                      >
+                        <rect
+                          x={plotWidth - 145}
+                          y={activeSlY - 11}
+                          width={140}
+                          height={22}
+                          rx={4}
+                          fill="#dc2626"
+                          stroke={draggingBadge?.position?.position_id === pos.position_id && draggingBadge?.type === 'sl' ? '#fde047' : '#ffffff'}
+                          strokeWidth={draggingBadge?.position?.position_id === pos.position_id && draggingBadge?.type === 'sl' ? 2 : 1}
+                        />
+                        <text
+                          x={plotWidth - 75}
+                          y={activeSlY + 4}
+                          fill="#ffffff"
+                          fontSize="10"
+                          fontWeight="bold"
+                          textAnchor="middle"
+                          style={{ userSelect: 'none', pointerEvents: 'none' }}
+                        >
+                          SL @ {activeSlPrice.toFixed(5)}{slLossStr}
+                        </text>
+                      </g>
+                    )}
+
+                    {/* TP Badge - Drag & Drop New TP */}
+                    {(chartSettings.showPositionsSlTp !== false) && activeTpY !== null && activeTpY > 0 && activeTpY < chartHeight - 26 && (
+                      <g
+                        style={{ cursor: 'ns-resize', pointerEvents: 'all' }}
+                        onMouseDown={handleTpMouseDown}
+                      >
+                        <rect
+                          x={plotWidth - 145}
+                          y={activeTpY - 11}
+                          width={140}
+                          height={22}
+                          rx={4}
+                          fill="#059669"
+                          stroke={draggingBadge?.position?.position_id === pos.position_id && draggingBadge?.type === 'tp' ? '#fde047' : '#ffffff'}
+                          strokeWidth={draggingBadge?.position?.position_id === pos.position_id && draggingBadge?.type === 'tp' ? 2 : 1}
+                        />
+                        <text
+                          x={plotWidth - 75}
+                          y={activeTpY + 4}
+                          fill="#ffffff"
+                          fontSize="10"
+                          fontWeight="bold"
+                          textAnchor="middle"
+                          style={{ userSelect: 'none', pointerEvents: 'none' }}
+                        >
+                          TP @ {activeTpPrice.toFixed(5)}{tpWinStr}
+                        </text>
+                      </g>
+                    )}
+                  </g>
+                );
+              });
+            })()}
+
             {chartSettings.showTrades && selectedTradeCoords && (
               <rect
                 x={Math.min(selectedTradeCoords.x1, selectedTradeCoords.x2)}
@@ -2487,72 +2785,7 @@ export default function TVChart({
               );
             })}
 
-            {chartSettings.showSessions && sessionCoords.map((session, index) => {
-              const rightScaleWidth = chartRef.current ? chartRef.current.priceScale('right').width() : 55;
-              const plotWidth = chartContainerRef.current ? chartContainerRef.current.clientWidth - rightScaleWidth : 0;
-              const plotHeight = chartHeight - 26; // Subtracting bottom time axis height
 
-              // If completely outside the plot area, don't render
-              if (session.x1 > plotWidth || session.y1 > plotHeight) return null;
-
-              // Clip dimensions to plot boundary
-              const renderX1 = Math.max(0, Math.min(plotWidth, session.x1));
-              const renderX2 = Math.max(0, Math.min(plotWidth, session.x2));
-              const renderY1 = Math.max(0, Math.min(plotHeight, session.y1));
-              const renderY2 = Math.max(0, Math.min(plotHeight, session.y2));
-
-              const width = Math.max(1, renderX2 - renderX1);
-              const height = Math.max(1, renderY2 - renderY1);
-
-              if (width <= 0 || height <= 0) return null;
-
-              // 8% opacity fill, 40% stroke opacity
-              const colorHex = session.color || '#3b82f6';
-              // Convert hex to rgba to apply opacity
-              let r = 59, g = 130, b = 246;
-              if (colorHex.startsWith('#')) {
-                const hexVal = colorHex.replace('#', '');
-                if (hexVal.length === 3) {
-                  r = parseInt(hexVal[0] + hexVal[0], 16);
-                  g = parseInt(hexVal[1] + hexVal[1], 16);
-                  b = parseInt(hexVal[2] + hexVal[2], 16);
-                } else if (hexVal.length === 6) {
-                  r = parseInt(hexVal.substring(0, 2), 16);
-                  g = parseInt(hexVal.substring(2, 4), 16);
-                  b = parseInt(hexVal.substring(4, 6), 16);
-                }
-              }
-
-              const fill = `rgba(${r}, ${g}, ${b}, 0.08)`;
-              const stroke = `rgba(${r}, ${g}, ${b}, 0.4)`;
-
-              return (
-                <g key={`session-${index}`} style={{ pointerEvents: 'none' }}>
-                  <rect
-                    x={renderX1}
-                    y={renderY1}
-                    width={width}
-                    height={height}
-                    fill={fill}
-                    stroke={stroke}
-                    strokeWidth={1.5}
-                    strokeDasharray="2 2"
-                  />
-                  {width > 40 && (
-                    <text
-                      x={renderX1 + 6}
-                      y={renderY1 + 14}
-                      fill={colorHex}
-                      fontSize="9px"
-                      fontWeight="bold"
-                      style={{ opacity: 0.8 }}
-                    >
-                      {session.label}
-                    </text>
-                  )}
-                </g>
-              );
-            })}
 
             {/* Wyckoff Oversold (Spring) Highlight Shading & Boundary Ticks */}
             {chartSettings.showTrLines && oversoldCoords.map((coord, idx) => {
@@ -2585,20 +2818,6 @@ export default function TVChart({
                     stroke="#fbbf24"
                     strokeWidth={2}
                   />
-                  <text
-                    x={renderX}
-                    y={Math.max(renderY1, renderY2) + 12}
-                    fill="#3b82f6"
-                    fontSize="9px"
-                    fontWeight="bold"
-                    textAnchor="middle"
-                    style={{
-                      pointerEvents: 'none',
-                      textShadow: '0 1px 2px rgba(0,0,0,0.9)'
-                    }}
-                  >
-                    Oversold
-                  </text>
                 </g>
               );
             })}
@@ -2634,43 +2853,7 @@ export default function TVChart({
                     stroke="#fbbf24"
                     strokeWidth={2}
                   />
-                  <text
-                    x={renderX}
-                    y={Math.min(renderY1, renderY2) - 6}
-                    fill="#f59e0b"
-                    fontSize="9px"
-                    fontWeight="bold"
-                    textAnchor="middle"
-                    style={{
-                      pointerEvents: 'none',
-                      textShadow: '0 1px 2px rgba(0,0,0,0.9)'
-                    }}
-                  >
-                    Overbought
-                  </text>
                 </g>
-              );
-            })}
-            {/* Wyckoff Colored SMA Trend Line */}
-            {trendLineSegments.map((seg, idx) => {
-              if (hiddenStages.includes(seg.stage)) return null;
-              let color = '#cbd5e1';
-              if (seg.stage === 'ACCUMULATION') color = '#3b82f6';
-              else if (seg.stage === 'MARKUP') color = '#10b981';
-              else if (seg.stage === 'DISTRIBUTION') color = '#f59e0b';
-              else if (seg.stage === 'MARKDOWN') color = '#ef4444';
-
-              return (
-                <line
-                  key={`trend-line-seg-${idx}`}
-                  x1={seg.x1}
-                  y1={seg.y1}
-                  x2={seg.x2}
-                  y2={seg.y2}
-                  stroke={color}
-                  strokeWidth={2.5}
-                  style={{ pointerEvents: 'none', opacity: 0.95 }}
-                />
               );
             })}
           </svg>

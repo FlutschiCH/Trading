@@ -11,6 +11,24 @@ load_dotenv()
 # Ensure the backend directory is in python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
+def disable_quick_edit():
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            kernel32 = ctypes.windll.kernel32
+            h_input = kernel32.GetStdHandle(-10)
+            mode = ctypes.c_ulong()
+            if kernel32.GetConsoleMode(h_input, ctypes.byref(mode)):
+                new_mode = (mode.value & ~0x0040) | 0x0080
+                kernel32.SetConsoleMode(h_input, new_mode)
+        except Exception:
+            pass
+
+disable_quick_edit()
+
+from terminal_handler import TerminalHandler
+TerminalHandler.init()
+
 from sql_handler import SQLHandler
 import threading
 threading.Thread(target=SQLHandler.init_pool, daemon=True).start()
@@ -20,6 +38,10 @@ from flask_cors import CORS
 from gevent.pywsgi import WSGIServer
 from routes import api_blueprint  # Aggregated blueprint
 from live_strategy_handler import LiveStrategyHandler
+from position_manager import PositionManager
+
+PositionManager.start()
+
 
 app = Flask(__name__)
 CORS(app)
@@ -118,6 +140,27 @@ def run_auto_closer():
 
         time.sleep(15) # check every 15 seconds
 
+class CustomWSGILogger:
+    def __init__(self):
+        self.candle_request_count = 0
+
+    def write(self, msg):
+        if "/api/terminal/stream" in msg:
+            return
+        is_200 = " 200 " in msg
+        if is_200:
+            if "OPTIONS " in msg:
+                return
+            if "/api/trade/candles" in msg:
+                self.candle_request_count += 1
+                if self.candle_request_count % 20 != 0:
+                    return
+                print(f"[API Log] /api/trade/candles request processed (Show 1/20 | Total: {self.candle_request_count})", flush=True)
+                return
+        m = msg.strip()
+        if m:
+            print(m, flush=True)
+
 if __name__ == '__main__':
     import threading
     try:
@@ -143,8 +186,9 @@ if __name__ == '__main__':
 
     # Initialize high-performance WSGI Server
     port = int(os.environ.get("PORT", 8751))
-    print(f"Starting gevent WSGI Server on port {port}...", flush=True)
-    http_server = WSGIServer(('0.0.0.0', port), app)
+    print(f"Started! Port: {port}...", flush=True)
+    
+    http_server = WSGIServer(('0.0.0.0', port), app, log=CustomWSGILogger())
     
     # Play startup sound once local server is ready
     try:
