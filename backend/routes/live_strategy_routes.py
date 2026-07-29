@@ -91,7 +91,7 @@ def get_strategy_cache(strategy_id):
     
     strategy = LiveStrategyHandler.get_strategy(strategy_id)
     if not strategy:
-        return jsonify({"status": "error", "message": "Strategy not found"}), 404
+        return jsonify({"status": "not_found", "message": "Strategy not found", "strategy_id": strategy_id, "candles": [], "trades": []}), 200
 
     try:
         current_comp = socket.gethostname()
