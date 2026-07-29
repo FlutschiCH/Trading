@@ -1255,6 +1255,7 @@ export default function TVChart({
       if (!param.time) return;
       const clickTime = param.time as number;
 
+      let tradeFound = false;
       if (onSelectTradeRef.current && tradesRef.current && tradesRef.current.length > 0) {
         const foundTrade = tradesRef.current.find(t =>
           t.entryTimestamp === clickTime ||
@@ -1263,8 +1264,11 @@ export default function TVChart({
         );
         if (foundTrade) {
           onSelectTradeRef.current(foundTrade);
+          tradeFound = true;
         }
       }
+
+      if (tradeFound) return;
 
       if (onSelectCandleRef.current && fullCandlesRef.current) {
         const foundCandle = fullCandlesRef.current.find(c => Number(c.time) === clickTime);
