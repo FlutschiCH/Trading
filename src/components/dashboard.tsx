@@ -1443,7 +1443,7 @@ export default function Dashboard() {
             setLiveSimulatedTrades([]);
           }
         } catch (err) {
-          console.warn("Using local historical mock generation fallback.");
+          console.error("Error fetching trade candles:", err);
         }
       }
 
