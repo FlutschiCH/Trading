@@ -2844,7 +2844,10 @@ export default function Dashboard() {
                         key="backtester"
                         onDragOver={(e) => handleDragOver(e, 'backtester')}
                         onDrop={(e) => handleDrop(e, 'backtester')}
-                        style={dragStyles}
+                        style={{
+                          ...dragStyles,
+                          maxWidth: cardWidths['backtester'] ? undefined : '480px'
+                        }}
                       >
                         <div
                           draggable
