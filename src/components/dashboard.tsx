@@ -1498,8 +1498,6 @@ export default function Dashboard() {
         setLoading(false);
         setInitialCandlesLoaded(true);
       }
-        setInitialCandlesLoaded(true);
-      }
     } catch (error) {
       console.error('Error fetching candles:', error);
     } finally {
