@@ -24,11 +24,33 @@ export const CandleCollectorPanel: React.FC<CandleCollectorPanelProps> = ({ avai
   const [success, setSuccess] = useState<string | null>(null);
   const [countdown, setCountdown] = useState<number>(600); // 10 minutes in seconds
 
-  // Broker symbols dropdown states
+  // Broker symbols & TVChart-style dropdown states
   const [brokerSymbols, setBrokerSymbols] = useState<string[]>([]);
   const [loadingBrokerSymbols, setLoadingBrokerSymbols] = useState(false);
-  const [brokerSymbolSearch, setBrokerSymbolSearch] = useState('');
-  const [showBrokerSymbolDropdown, setShowBrokerSymbolDropdown] = useState(false);
+  const [symbolSearch, setSymbolSearch] = useState('');
+  const [showSymbolDropdown, setShowSymbolDropdown] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
+
+  // Favorites logic matching TVChart
+  const [favoriteSymbols, setFavoriteSymbols] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('wyckoff_fav_symbols');
+      return saved ? JSON.parse(saved) : ['BTCUSD', 'EURUSD', 'XAUUSD'];
+    } catch {
+      return ['BTCUSD', 'EURUSD', 'XAUUSD'];
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_fav_symbols', JSON.stringify(favoriteSymbols));
+  }, [favoriteSymbols]);
+
+  const toggleFavoriteSymbol = (sym: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setFavoriteSymbols((prev) =>
+      prev.includes(sym) ? prev.filter((s) => s !== sym) : [...prev, sym]
+    );
+  };
 
   const fetchBrokerSymbols = async () => {
     setLoadingBrokerSymbols(true);
@@ -47,7 +69,6 @@ export const CandleCollectorPanel: React.FC<CandleCollectorPanelProps> = ({ avai
       setLoadingBrokerSymbols(false);
     }
 
-    // Fallback to default symbols if MT5 endpoint returns empty
     const fallbackList = availableSymbols.length > 0
       ? availableSymbols
       : ['BTCUSD', 'ETHUSD', 'EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'XAUUSD', 'US30', 'GER40'];
@@ -82,13 +103,12 @@ export const CandleCollectorPanel: React.FC<CandleCollectorPanelProps> = ({ avai
     fetchStats();
   }, []);
 
-  // Visual countdown timer ticking down every second
   useEffect(() => {
     const timer = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
           fetchStats();
-          return 600; // Reset to 10 minutes
+          return 600;
         }
         return prev - 1;
       });
@@ -103,10 +123,38 @@ export const CandleCollectorPanel: React.FC<CandleCollectorPanelProps> = ({ avai
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleSelectBrokerSymbol = (sym: string) => {
+  const handleSelectSymbol = (sym: string) => {
     setNewSymbol(sym);
-    setBrokerSymbolSearch(sym);
-    setShowBrokerSymbolDropdown(false);
+    setSymbolSearch(sym);
+    setShowSymbolDropdown(false);
+  };
+
+  const filteredSymbols = [...brokerSymbols]
+    .filter((s) => s.toLowerCase().includes(symbolSearch.toLowerCase()))
+    .sort((a, b) => {
+      const aFav = favoriteSymbols.includes(a);
+      const bFav = favoriteSymbols.includes(b);
+      if (aFav && !bFav) return -1;
+      if (!aFav && bFav) return 1;
+      return a.localeCompare(b);
+    });
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!showSymbolDropdown) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightedIndex((prev) => (prev + 1) % Math.max(1, filteredSymbols.length));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightedIndex((prev) => (prev - 1 + filteredSymbols.length) % Math.max(1, filteredSymbols.length));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (filteredSymbols[highlightedIndex]) {
+        handleSelectSymbol(filteredSymbols[highlightedIndex]);
+      }
+    } else if (e.key === 'Escape') {
+      setShowSymbolDropdown(false);
+    }
   };
 
   const handleAddSymbol = async (e: React.FormEvent) => {
@@ -126,7 +174,7 @@ export const CandleCollectorPanel: React.FC<CandleCollectorPanelProps> = ({ avai
       if (res.ok && data.status === 'success') {
         setSuccess(data.message || `Added ${newSymbol}`);
         setNewSymbol('');
-        setBrokerSymbolSearch('');
+        setSymbolSearch('');
         fetchStats();
       } else {
         setError(data.message || 'Failed to add symbol');
@@ -175,7 +223,7 @@ export const CandleCollectorPanel: React.FC<CandleCollectorPanelProps> = ({ avai
       const data = await res.json();
       if (res.ok) {
         setSuccess('Manual sync completed successfully.');
-        setCountdown(600); // Reset timer
+        setCountdown(600);
         fetchStats();
       } else {
         setError(data.message || 'Sync failed');
@@ -187,310 +235,389 @@ export const CandleCollectorPanel: React.FC<CandleCollectorPanelProps> = ({ avai
     }
   };
 
-  const [showContent, setShowContent] = useState(true);
-
-  const filteredBrokerSymbols = brokerSymbols.filter((s) =>
-    s.toLowerCase().includes(brokerSymbolSearch.toLowerCase())
-  );
+  const activeFavSymbols = favoriteSymbols.filter((s) => brokerSymbols.includes(s));
 
   return (
     <div
       style={{
-        backgroundColor: 'var(--app-card-bg, #111827)',
-        border: '1px solid var(--app-card-border, #1f2937)',
-        borderRadius: '12px',
-        overflow: 'hidden',
-        marginTop: '24px',
+        backgroundColor: '#0b0f19',
+        border: '1px solid #1f2937',
+        borderRadius: '8px',
+        padding: '12px',
+        marginTop: '16px',
         display: 'flex',
         flexDirection: 'column',
-        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)',
+        gap: '10px',
       }}
     >
-      {/* Panel Header */}
+      {/* Header section matching Live Overview panel */}
       <div
         style={{
           display: 'flex',
           justify: 'space-between',
           alignItems: 'center',
-          backgroundColor: 'var(--app-panel-header-bg, #1e293b)',
-          padding: '10px 16px',
-          borderBottom: showContent ? '1px solid var(--app-card-border, #1f2937)' : 'none',
-          fontSize: '12px',
-          fontWeight: 'bold',
-          color: 'var(--app-text, #f3f4f6)',
+          borderBottom: '1px solid #1f2937',
+          paddingBottom: '8px',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Database className="w-4 h-4 text-emerald-400" />
-          <span>1M MetaTrader Candle Collector</span>
-          <span
+          <Database size={14} className="text-emerald-400" />
+          <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 'bold', textTransform: 'uppercase' }}>
+            1M CANDLE COLLECTOR ({symbols.length})
+          </span>
+          <button
+            onClick={fetchStats}
+            title="Refresh collector status"
             style={{
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              backgroundColor: '#10b981',
-              boxShadow: '0 0 8px #10b981',
-              display: 'inline-block',
+              background: 'none',
+              border: 'none',
+              color: '#94a3b8',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '2px',
+              borderRadius: '4px',
+              transition: 'color 0.2s',
             }}
-            title="Collector Service Active"
-          />
+            onMouseEnter={(e) => (e.currentTarget.style.color = '#3b82f6')}
+            onMouseLeave={(e) => (e.currentTarget.style.color = '#94a3b8')}
+          >
+            <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
+          </button>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          {/* Visual Countdown Badge */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-900/80 border border-slate-700/60 rounded text-[11px]">
-            <Clock className="w-3 h-3 text-cyan-400 animate-pulse" />
-            <span className="text-slate-400">Next Sync:</span>
-            <span className="font-mono font-bold text-cyan-400">{formatCountdown(countdown)}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '11px',
+              color: '#10b981',
+              backgroundColor: 'rgba(16, 185, 129, 0.1)',
+              padding: '3px 8px',
+              borderRadius: '12px',
+            }}
+          >
+            <Clock size={12} />
+            <span>Next sync in {formatCountdown(countdown)}</span>
           </div>
 
           <button
             onClick={handleManualSync}
             disabled={syncing}
             style={{
-              background: 'none',
+              backgroundColor: '#10b981',
+              color: '#ffffff',
               border: 'none',
-              color: '#10b981',
-              cursor: 'pointer',
+              borderRadius: '6px',
+              padding: '4px 10px',
               fontSize: '11px',
               fontWeight: 'bold',
-              outline: 'none',
+              cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               gap: '4px',
+              opacity: syncing ? 0.6 : 1,
+              transition: 'all 0.2s',
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = '#34d399')}
-            onMouseLeave={(e) => (e.currentTarget.style.color = '#10b981')}
           >
-            <RefreshCw className={`w-3 h-3 ${syncing ? 'animate-spin' : ''}`} />
+            <RefreshCw size={12} className={syncing ? 'animate-spin' : ''} />
             {syncing ? 'Syncing...' : 'Sync Now'}
-          </button>
-
-          <button
-            onClick={() => setShowContent(!showContent)}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: '#3b82f6',
-              cursor: 'pointer',
-              fontSize: '11px',
-              fontWeight: 'bold',
-              outline: 'none',
-            }}
-          >
-            {showContent ? 'Hide' : 'Show'}
           </button>
         </div>
       </div>
 
-      {/* Panel Content */}
-      {showContent && (
-        <div style={{ padding: '16px', backgroundColor: 'var(--app-card-bg, #111827)' }}>
-          {/* Metric Summary Bar */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-            <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-3 flex items-center justify-between">
-              <div>
-                <span className="text-[11px] text-slate-400 font-medium uppercase tracking-wider">Tracked Symbols</span>
-                <div className="text-lg font-bold text-white mt-0.5">{symbols.length}</div>
-              </div>
-              <div className="text-xs font-semibold px-2 py-0.5 bg-slate-800 text-slate-300 rounded">
-                {symbols.filter((s) => s.is_active).length} Active
-              </div>
-            </div>
-
-            <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-3 flex items-center justify-between">
-              <div>
-                <span className="text-[11px] text-slate-400 font-medium uppercase tracking-wider">Total Stored Candles</span>
-                <div className="text-lg font-bold text-emerald-400 font-mono mt-0.5">
-                  {symbols.reduce((acc, s) => acc + (s.candle_count || 0), 0).toLocaleString()}
-                </div>
-              </div>
-              <Database className="w-4 h-4 text-slate-500" />
-            </div>
-
-            <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-3 flex items-center justify-between">
-              <div>
-                <span className="text-[11px] text-slate-400 font-medium uppercase tracking-wider">Auto-Sync Frequency</span>
-                <div className="text-xs font-semibold text-cyan-300 mt-1">Every 10 Minutes</div>
-              </div>
-              <Clock className="w-4 h-4 text-slate-500" />
-            </div>
-          </div>
-
-          {/* Notifications */}
-          {error && (
-            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 text-red-400 text-xs rounded-lg flex items-center gap-2">
-              <XCircle className="w-4 h-4 shrink-0 text-red-400" />
-              <span>{error}</span>
-            </div>
-          )}
-          {success && (
-            <div className="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs rounded-lg flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
-              <span>{success}</span>
-            </div>
-          )}
-
-          {/* Add Symbol Searchable Dropdown Form */}
-          <form onSubmit={handleAddSymbol} className="flex gap-2 mb-4">
-            <div className="relative flex-1">
-              <input
-                type="text"
-                placeholder={loadingBrokerSymbols ? 'Loading symbols...' : 'Search/select MetaTrader symbol (e.g. EURUSD.ecn, BTCUSD)...'}
-                value={showBrokerSymbolDropdown ? brokerSymbolSearch : newSymbol}
-                onFocus={() => {
-                  setBrokerSymbolSearch('');
-                  setShowBrokerSymbolDropdown(true);
-                }}
-                onChange={(e) => {
-                  setBrokerSymbolSearch(e.target.value);
-                  setNewSymbol(e.target.value);
-                }}
-                style={{
-                  backgroundColor: 'var(--app-input-bg, #0b0f19)',
-                  borderColor: 'var(--app-input-border, #1f2937)',
-                  color: 'var(--app-input-text, #ffffff)',
-                }}
-                className="w-full border rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-emerald-500"
-              />
-
-              {showBrokerSymbolDropdown && (
-                <>
-                  <div
-                    onClick={() => setShowBrokerSymbolDropdown(false)}
-                    style={{
-                      position: 'fixed',
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      zIndex: 999,
-                    }}
-                  />
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: '100%',
-                      left: 0,
-                      right: 0,
-                      backgroundColor: '#0f172a',
-                      border: '1px solid #334155',
-                      borderRadius: '6px',
-                      maxHeight: '200px',
-                      overflowY: 'auto',
-                      zIndex: 1000,
-                      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)',
-                    }}
-                  >
-                    {filteredBrokerSymbols.length > 0 ? (
-                      filteredBrokerSymbols.map((sym) => (
-                        <div
-                          key={sym}
-                          onClick={() => handleSelectBrokerSymbol(sym)}
-                          style={{
-                            padding: '8px 12px',
-                            fontSize: '12px',
-                            color: '#f8fafc',
-                            cursor: 'pointer',
-                            borderBottom: '1px solid #1e293b',
-                          }}
-                          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#1e293b')}
-                          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-                        >
-                          {sym}
-                        </div>
-                      ))
-                    ) : (
-                      <div style={{ padding: '8px 12px', fontSize: '12px', color: '#64748b' }}>
-                        No matching symbols found
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading || !newSymbol.trim()}
-              className="flex items-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-white border border-slate-700 rounded-lg text-xs font-medium transition cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Add Symbol</span>
-            </button>
-          </form>
-
-          {/* Tracked Symbols List */}
-          <div className="space-y-2">
-            {symbols.length === 0 ? (
-              <div className="text-center py-6 text-slate-500 text-xs bg-slate-950/40 rounded-lg border border-dashed border-slate-800">
-                No symbols registered for 1m candle collection yet. Add your first symbol above to begin background collection.
-              </div>
-            ) : (
-              symbols.map((item) => (
-                <div
-                  key={item.symbol}
-                  className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-lg border transition-all duration-150 ${
-                    item.is_active
-                      ? 'bg-slate-900/80 border-slate-800 hover:border-slate-700'
-                      : 'bg-slate-900/30 border-slate-900 opacity-60'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`w-2 h-2 rounded-full ${
-                        item.is_active ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)] animate-pulse' : 'bg-slate-600'
-                      }`}
-                    />
-                    <div>
-                      <div className="font-bold text-xs text-white tracking-wide">{item.symbol}</div>
-                      <div className="flex items-center gap-1 text-[11px] text-slate-400">
-                        <Server className="w-3 h-3 text-slate-500" />
-                        <span>
-                          Server: <strong className="text-slate-300 font-normal">{item.server || 'Default'}</strong>
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between sm:justify-end gap-5 text-xs text-slate-400">
-                    <div className="text-right">
-                      <span className="text-slate-500 text-[10px] block">Stored 1M Candles</span>
-                      <span className="font-mono font-bold text-xs text-emerald-400">{item.candle_count.toLocaleString()}</span>
-                    </div>
-
-                    <div className="hidden md:block text-right">
-                      <span className="text-slate-500 text-[10px] block">Last Synced</span>
-                      <span className="text-slate-300 text-[11px]">{item.last_synced || 'Pending first sync'}</span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleToggleSymbol(item.symbol, item.is_active)}
-                        className={`px-2.5 py-1 rounded text-[11px] font-semibold border transition cursor-pointer ${
-                          item.is_active
-                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
-                            : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700 hover:text-slate-200'
-                        }`}
-                      >
-                        {item.is_active ? 'Active' : 'Paused'}
-                      </button>
-
-                      <button
-                        onClick={() => handleRemoveSymbol(item.symbol)}
-                        className="p-1 hover:bg-red-500/20 text-slate-500 hover:text-red-400 rounded transition cursor-pointer"
-                        title="Remove symbol"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
+      {/* Notifications */}
+      {error && (
+        <div
+          style={{
+            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+            border: '1px solid #7f1d1d',
+            color: '#ef4444',
+            fontSize: '11px',
+            padding: '8px 12px',
+            borderRadius: '6px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}
+        >
+          <XCircle size={14} />
+          <span>{error}</span>
         </div>
       )}
+      {success && (
+        <div
+          style={{
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            border: '1px solid #065f46',
+            color: '#10b981',
+            fontSize: '11px',
+            padding: '8px 12px',
+            borderRadius: '6px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}
+        >
+          <CheckCircle2 size={14} />
+          <span>{success}</span>
+        </div>
+      )}
+
+      {/* Add Symbol Input Bar matching TVChart dropdown with favorites */}
+      <form onSubmit={handleAddSymbol} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <div style={{ position: 'relative', flex: 1 }}>
+          {/* Quick Favorite Buttons Bar */}
+          {activeFavSymbols.length > 0 && !showSymbolDropdown && (
+            <div style={{ display: 'flex', gap: '4px', marginBottom: '6px', overflowX: 'auto' }}>
+              {activeFavSymbols.map((fav) => (
+                <button
+                  key={`fav-${fav}`}
+                  type="button"
+                  onClick={() => handleSelectSymbol(fav)}
+                  style={{
+                    backgroundColor: newSymbol === fav ? 'rgba(59, 130, 246, 0.25)' : '#1e293b',
+                    color: newSymbol === fav ? '#60a5fa' : '#cbd5e1',
+                    border: `1px solid ${newSymbol === fav ? '#3b82f6' : '#334155'}`,
+                    borderRadius: '4px',
+                    padding: '2px 6px',
+                    fontSize: '10px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                  }}
+                >
+                  ★ {fav}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <input
+            type="text"
+            placeholder={loadingBrokerSymbols ? 'Loading symbols...' : 'Search MetaTrader symbol...'}
+            value={showSymbolDropdown ? symbolSearch : newSymbol}
+            onFocus={() => {
+              setSymbolSearch('');
+              setShowSymbolDropdown(true);
+            }}
+            onChange={(e) => setSymbolSearch(e.target.value)}
+            onKeyDown={handleKeyDown}
+            style={{
+              width: '100%',
+              backgroundColor: '#1e293b',
+              color: '#ffffff',
+              border: '1px solid #334155',
+              borderRadius: '6px',
+              padding: '6px 10px',
+              fontSize: '12px',
+              outline: 'none',
+            }}
+          />
+
+          {showSymbolDropdown && (
+            <>
+              <div
+                onClick={() => setShowSymbolDropdown(false)}
+                style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }}
+              />
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  right: 0,
+                  backgroundColor: '#0f172a',
+                  border: '1px solid #334155',
+                  borderRadius: '6px',
+                  maxHeight: '200px',
+                  overflowY: 'auto',
+                  zIndex: 1000,
+                  boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)',
+                  marginTop: '4px',
+                }}
+              >
+                {filteredSymbols.length > 0 ? (
+                  filteredSymbols.map((sym, idx) => (
+                    <div
+                      key={sym}
+                      onClick={() => handleSelectSymbol(sym)}
+                      style={{
+                        padding: '6px 10px',
+                        cursor: 'pointer',
+                        fontSize: '12px',
+                        color: '#ffffff',
+                        backgroundColor:
+                          idx === highlightedIndex
+                            ? '#2563eb'
+                            : newSymbol === sym
+                            ? 'rgba(37, 99, 235, 0.3)'
+                            : 'transparent',
+                        transition: 'background-color 0.15s',
+                        display: 'flex',
+                        justify: 'space-between',
+                        alignItems: 'center',
+                      }}
+                      onMouseEnter={() => setHighlightedIndex(idx)}
+                    >
+                      <span>{sym}</span>
+                      <span
+                        onClick={(e) => toggleFavoriteSymbol(sym, e)}
+                        style={{
+                          color: favoriteSymbols.includes(sym) ? '#f59e0b' : '#4b5563',
+                          fontSize: '14px',
+                          padding: '2px 4px',
+                          cursor: 'pointer',
+                          transition: 'color 0.15s',
+                        }}
+                      >
+                        ★
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <div style={{ padding: '6px 10px', fontSize: '11px', color: '#6b7280' }}>
+                    No matching symbols found
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+
+        <button
+          type="submit"
+          disabled={loading || !newSymbol.trim()}
+          style={{
+            backgroundColor: '#2563eb',
+            color: '#ffffff',
+            border: 'none',
+            borderRadius: '6px',
+            padding: '6px 14px',
+            fontSize: '12px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            opacity: loading || !newSymbol.trim() ? 0.5 : 1,
+            transition: 'all 0.2s',
+          }}
+        >
+          <Plus size={14} /> Add Symbol
+        </button>
+      </form>
+
+      {/* Tracked Symbols List styled matching live_overview_panel strategy cards */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '350px', overflowY: 'auto' }}>
+        {symbols.length === 0 ? (
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justify: 'center',
+              height: '80px',
+              color: '#64748b',
+              fontSize: '12px',
+              border: '1px dashed #1f2937',
+              borderRadius: '6px',
+            }}
+          >
+            <span>No symbols registered for 1m candle collection.</span>
+            <span style={{ fontSize: '10px', marginTop: '2px' }}>Add a symbol above to start background collection.</span>
+          </div>
+        ) : (
+          symbols.map((item) => {
+            const isPaused = !item.is_active;
+
+            return (
+              <div
+                key={item.symbol}
+                style={{
+                  backgroundColor: '#0b0f19',
+                  border: '1px solid #1f2937',
+                  borderRadius: '6px',
+                  padding: '8px 12px',
+                  opacity: isPaused ? 0.6 : 1,
+                  transition: 'opacity 0.2s',
+                  display: 'flex',
+                  justify: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                {/* Left side: Symbol & Server info */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div
+                    style={{
+                      width: '6px',
+                      height: '6px',
+                      borderRadius: '50%',
+                      backgroundColor: item.is_active ? '#10b981' : '#6b7280',
+                      boxShadow: item.is_active ? '0 0 6px #10b981' : 'none',
+                    }}
+                  />
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#ffffff', letterSpacing: '0.5px' }}>
+                      {item.symbol}
+                    </div>
+                    <div style={{ fontSize: '10px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Server size={10} />
+                      <span>{item.server || 'Default MT5 Server'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right side: Stored candles count & Actions */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '10px', color: '#64748b' }}>Stored 1M Candles</div>
+                    <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#10b981', fontFamily: 'monospace' }}>
+                      {item.candle_count.toLocaleString()}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => handleToggleSymbol(item.symbol, item.is_active)}
+                    style={{
+                      backgroundColor: item.is_active ? 'rgba(16, 185, 129, 0.15)' : '#1f2937',
+                      color: item.is_active ? '#10b981' : '#9ca3af',
+                      border: `1px solid ${item.is_active ? 'rgba(16, 185, 129, 0.3)' : '#374151'}`,
+                      borderRadius: '4px',
+                      padding: '3px 8px',
+                      fontSize: '11px',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {item.is_active ? 'Active' : 'Paused'}
+                  </button>
+
+                  <button
+                    onClick={() => handleRemoveSymbol(item.symbol)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#64748b',
+                      cursor: 'pointer',
+                      padding: '4px',
+                      display: 'flex',
+                      alignItems: 'center',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = '#64748b')}
+                    title="Remove symbol"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
     </div>
   );
 };
