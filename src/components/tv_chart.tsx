@@ -1742,7 +1742,7 @@ export default function TVChart({
       const slColor = '#ef4444';
       const tpColor = '#10b981';
 
-      const pnlVal = parseFloat(pos.pnl ?? pos.profit ?? pos.unrealized_pnl ?? 0);
+      const pnlVal = parseFloat(pos.unrealized_profit ?? pos.pnl ?? pos.profit ?? pos.unrealized_pnl ?? 0);
       const pnlStr = !isNaN(pnlVal) ? ` (P&L: ${pnlVal >= 0 ? '+' : ''}${pnlVal.toFixed(2)})` : '';
 
       // 1. Full horizontal price lines across price scale
