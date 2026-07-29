@@ -588,6 +588,9 @@ export default function TVChart({
         showSessions: parsed.showSessions ?? true,
         showTrades: parsed.showTrades ?? true,
         showPositions: parsed.showPositions ?? true,
+        showPositionsEntry: parsed.showPositionsEntry ?? true,
+        showPositionsSlTp: parsed.showPositionsSlTp ?? true,
+        showPositionsSvg: parsed.showPositionsSvg ?? true,
         showTrLines: parsed.showTrLines ?? true,
         autoRefreshCandles: parsed.autoRefreshCandles ?? true,
         autoRefreshSeconds: parsed.autoRefreshSeconds ?? 5,
@@ -598,6 +601,9 @@ export default function TVChart({
         showSessions: true,
         showTrades: true,
         showPositions: true,
+        showPositionsEntry: true,
+        showPositionsSlTp: true,
+        showPositionsSvg: true,
         showTrLines: true,
         autoRefreshCandles: true,
         autoRefreshSeconds: 5,
@@ -1779,38 +1785,42 @@ export default function TVChart({
       }
 
       // 1. Full horizontal price lines across price scale
-      const entryPriceLine = candlestickSeriesRef.current.createPriceLine({
-        price: entryPriceVal,
-        color: entryColor,
-        lineWidth: 2,
-        lineStyle: 0,
-        axisLabelVisible: true,
-        title: '',
-      });
-      activePositionsRef.current.push({ type: 'priceLine', line: entryPriceLine });
-
-      if (slVal > 0) {
-        const slPriceLine = candlestickSeriesRef.current.createPriceLine({
-          price: slVal,
-          color: slColor,
-          lineWidth: 1,
-          lineStyle: 2,
+      if (chartSettings.showPositionsEntry !== false) {
+        const entryPriceLine = candlestickSeriesRef.current.createPriceLine({
+          price: entryPriceVal,
+          color: entryColor,
+          lineWidth: 2,
+          lineStyle: 0,
           axisLabelVisible: true,
           title: '',
         });
-        activePositionsRef.current.push({ type: 'priceLine', line: slPriceLine });
+        activePositionsRef.current.push({ type: 'priceLine', line: entryPriceLine });
       }
 
-      if (tpVal > 0) {
-        const tpPriceLine = candlestickSeriesRef.current.createPriceLine({
-          price: tpVal,
-          color: tpColor,
-          lineWidth: 1,
-          lineStyle: 2,
-          axisLabelVisible: true,
-          title: '',
-        });
-        activePositionsRef.current.push({ type: 'priceLine', line: tpPriceLine });
+      if (chartSettings.showPositionsSlTp !== false) {
+        if (slVal > 0) {
+          const slPriceLine = candlestickSeriesRef.current.createPriceLine({
+            price: slVal,
+            color: slColor,
+            lineWidth: 1,
+            lineStyle: 2,
+            axisLabelVisible: true,
+            title: '',
+          });
+          activePositionsRef.current.push({ type: 'priceLine', line: slPriceLine });
+        }
+
+        if (tpVal > 0) {
+          const tpPriceLine = candlestickSeriesRef.current.createPriceLine({
+            price: tpVal,
+            color: tpColor,
+            lineWidth: 1,
+            lineStyle: 2,
+            axisLabelVisible: true,
+            title: '',
+          });
+          activePositionsRef.current.push({ type: 'priceLine', line: tpPriceLine });
+        }
       }
 
       // 2. Line segments starting from entry timestamp to current candle
@@ -1836,9 +1846,13 @@ export default function TVChart({
             activePositionsRef.current.push({ type: 'lineSeries', line: lineSeries });
           };
 
-          createSegmentSeries(entryPriceVal, entryColor, 0);
-          if (slVal > 0) createSegmentSeries(slVal, slColor, 1);
-          if (tpVal > 0) createSegmentSeries(tpVal, tpColor, 1);
+          if (chartSettings.showPositionsEntry !== false) {
+            createSegmentSeries(entryPriceVal, entryColor, 0);
+          }
+          if (chartSettings.showPositionsSlTp !== false) {
+            if (slVal > 0) createSegmentSeries(slVal, slColor, 1);
+            if (tpVal > 0) createSegmentSeries(tpVal, tpColor, 1);
+          }
         }
       }
     });
@@ -2199,7 +2213,14 @@ export default function TVChart({
                       <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}><input type="checkbox" checked={chartSettings.showFvg} onChange={(e) => setChartSettings({ ...chartSettings, showFvg: e.target.checked })} style={{ cursor: 'pointer' }} /> Fair Value Gaps (FVG)</label>
                       <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}><input type="checkbox" checked={chartSettings.showSessions} onChange={(e) => setChartSettings({ ...chartSettings, showSessions: e.target.checked })} style={{ cursor: 'pointer' }} /> Trading Sessions</label>
                       <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}><input type="checkbox" checked={chartSettings.showTrades} onChange={(e) => setChartSettings({ ...chartSettings, showTrades: e.target.checked })} style={{ cursor: 'pointer' }} /> Trades & Order Levels</label>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}><input type="checkbox" checked={chartSettings.showPositions ?? true} onChange={(e) => setChartSettings({ ...chartSettings, showPositions: e.target.checked })} style={{ cursor: 'pointer' }} /> Active Positions (Entry/SL/TP)</label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}><input type="checkbox" checked={chartSettings.showPositions ?? true} onChange={(e) => setChartSettings({ ...chartSettings, showPositions: e.target.checked })} style={{ cursor: 'pointer' }} /> Active Positions</label>
+                      {chartSettings.showPositions && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginLeft: '16px', borderLeft: '2px solid #334155', paddingLeft: '8px', marginBottom: '2px' }}>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px', color: '#cbd5e1' }}><input type="checkbox" checked={chartSettings.showPositionsEntry ?? true} onChange={(e) => setChartSettings({ ...chartSettings, showPositionsEntry: e.target.checked })} style={{ cursor: 'pointer' }} /> Show Entry Line</label>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px', color: '#cbd5e1' }}><input type="checkbox" checked={chartSettings.showPositionsSlTp ?? true} onChange={(e) => setChartSettings({ ...chartSettings, showPositionsSlTp: e.target.checked })} style={{ cursor: 'pointer' }} /> Show SL / TP Lines</label>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px', color: '#cbd5e1' }}><input type="checkbox" checked={chartSettings.showPositionsSvg ?? true} onChange={(e) => setChartSettings({ ...chartSettings, showPositionsSvg: e.target.checked })} style={{ cursor: 'pointer' }} /> Show Clickable Badges</label>
+                        </div>
+                      )}
                       <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}><input type="checkbox" checked={chartSettings.showTrLines} onChange={(e) => setChartSettings({ ...chartSettings, showTrLines: e.target.checked })} style={{ cursor: 'pointer' }} /> Trading Range (TR)</label>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', borderTop: '1px solid #334155', paddingTop: '6px', marginTop: '4px' }}>
                         <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#ffffff' }}><input type="checkbox" checked={chartSettings.autoRefreshCandles ?? true} onChange={(e) => setChartSettings({ ...chartSettings, autoRefreshCandles: e.target.checked })} style={{ cursor: 'pointer' }} /> ⚡ Auto-Refresh Candles</label>
@@ -2377,7 +2398,7 @@ export default function TVChart({
             }}
           >
             {/* Clickable Active Position Badges on the right side */}
-            {chartSettings.showPositions && (() => {
+            {(chartSettings.showPositions !== false && chartSettings.showPositionsSvg !== false) && (() => {
               let positionsList: any[] = [];
               if (Array.isArray(openPositions) && openPositions.length > 0) {
                 positionsList = openPositions;
@@ -2442,7 +2463,7 @@ export default function TVChart({
                 return (
                   <g key={`svg-pos-badge-${pos.position_id}`}>
                     {/* Entry Badge */}
-                    {entryY !== null && entryY > 0 && entryY < chartHeight - 26 && (
+                    {(chartSettings.showPositionsEntry !== false) && entryY !== null && entryY > 0 && entryY < chartHeight - 26 && (
                       <g
                         style={{ cursor: 'pointer', pointerEvents: 'all' }}
                         onClick={handleBadgeClick}
@@ -2472,7 +2493,7 @@ export default function TVChart({
                     )}
 
                     {/* SL Badge */}
-                    {slY !== null && slY > 0 && slY < chartHeight - 26 && (
+                    {(chartSettings.showPositionsSlTp !== false) && slY !== null && slY > 0 && slY < chartHeight - 26 && (
                       <g
                         style={{ cursor: 'pointer', pointerEvents: 'all' }}
                         onClick={handleBadgeClick}
@@ -2502,7 +2523,7 @@ export default function TVChart({
                     )}
 
                     {/* TP Badge */}
-                    {tpY !== null && tpY > 0 && tpY < chartHeight - 26 && (
+                    {(chartSettings.showPositionsSlTp !== false) && tpY !== null && tpY > 0 && tpY < chartHeight - 26 && (
                       <g
                         style={{ cursor: 'pointer', pointerEvents: 'all' }}
                         onClick={handleBadgeClick}
