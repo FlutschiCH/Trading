@@ -1785,7 +1785,7 @@ export default function TVChart({
         lineWidth: 2,
         lineStyle: 0,
         axisLabelVisible: true,
-        title: `${side} ${volume} @ ${entryPriceVal.toFixed(5)}${pnlStr}`,
+        title: '',
       });
       activePositionsRef.current.push({ type: 'priceLine', line: entryPriceLine });
 
@@ -1796,7 +1796,7 @@ export default function TVChart({
           lineWidth: 1,
           lineStyle: 2,
           axisLabelVisible: true,
-          title: `SL @ ${slVal.toFixed(5)}${slLossStr}`,
+          title: '',
         });
         activePositionsRef.current.push({ type: 'priceLine', line: slPriceLine });
       }
@@ -1808,7 +1808,7 @@ export default function TVChart({
           lineWidth: 1,
           lineStyle: 2,
           axisLabelVisible: true,
-          title: `TP @ ${tpVal.toFixed(5)}${tpWinStr}`,
+          title: '',
         });
         activePositionsRef.current.push({ type: 'priceLine', line: tpPriceLine });
       }
