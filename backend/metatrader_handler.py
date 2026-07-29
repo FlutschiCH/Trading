@@ -281,10 +281,19 @@ class MetaTraderHandler(BaseBrokerHandler):
           else:
             filling_mode = mt5.ORDER_FILLING_RETURN
 
+        vol = round(float(volume), 2)
+        if symbol_info is not None:
+          vol_min = getattr(symbol_info, "volume_min", 0.01)
+          vol_max = getattr(symbol_info, "volume_max", 100.0)
+          vol_step = getattr(symbol_info, "volume_step", 0.01)
+          if vol_step > 0:
+            vol = round(round(vol / vol_step) * vol_step, 2)
+          vol = max(vol_min, min(vol_max, vol))
+
         request_dict = {
             "action": mt5.TRADE_ACTION_DEAL,
             "symbol": matched_symbol,
-            "volume": float(volume),
+            "volume": float(vol),
             "type": action_type,
             "price": float(price),
             "deviation": 20,
@@ -341,10 +350,19 @@ class MetaTraderHandler(BaseBrokerHandler):
           else:
             filling_mode = mt5.ORDER_FILLING_RETURN
 
+        vol = round(float(volume), 2)
+        if symbol_info is not None:
+          vol_min = getattr(symbol_info, "volume_min", 0.01)
+          vol_max = getattr(symbol_info, "volume_max", 100.0)
+          vol_step = getattr(symbol_info, "volume_step", 0.01)
+          if vol_step > 0:
+            vol = round(round(vol / vol_step) * vol_step, 2)
+          vol = max(vol_min, min(vol_max, vol))
+
         request_dict = {
             "action": mt5.TRADE_ACTION_DEAL,
             "symbol": symbol,
-            "volume": float(volume),
+            "volume": float(vol),
             "type": action_type,
             "position": int(position_id),
             "price": float(price),
