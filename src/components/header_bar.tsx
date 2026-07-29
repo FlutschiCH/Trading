@@ -262,7 +262,7 @@ export default function HeaderBar({
                   <button
                     onClick={() => {
                       window.open('https://flugrok-production.up.railway.app/api/live/strategies', '_blank');
-                      window.open('https://89.217.138.51:8751/api/live/strategies', '_blank');
+                      window.open('http://89.217.138.51:8751/api/live/strategies', '_blank');
                     }}
                     style={{
                       display: 'flex',
@@ -446,7 +446,7 @@ export default function HeaderBar({
               <button
                 onClick={() => {
                   window.open('https://flugrok-production.up.railway.app/api/live/strategies', '_blank');
-                  window.open('https://89.217.138.51:8751/api/live/strategies', '_blank');
+                  window.open('http://89.217.138.51:8751/api/live/strategies', '_blank');
                 }}
                 style={{
                   display: 'flex',
