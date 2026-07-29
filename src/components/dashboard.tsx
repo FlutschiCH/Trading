@@ -13,6 +13,7 @@ import { API_BASE_URL } from '../api';
 import { isLocalTarget } from './target_switcher';
 import * as apiService from '../services/apiService';
 import NotificationSettingsView from './notification_settings_view';
+import { CandleCollectorPanel } from './candle_collector_panel';
 import '../App.css';
 
 interface Candle {
@@ -3261,6 +3262,9 @@ export default function Dashboard() {
                 </div>
               )}
             </div>
+
+            {/* 1M Candle Collector Panel */}
+            <CandleCollectorPanel />
 
           </main>
 

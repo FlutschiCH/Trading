@@ -39,11 +39,14 @@ from gevent.pywsgi import WSGIServer
 from routes import api_blueprint  # Aggregated blueprint
 from live_strategy_handler import LiveStrategyHandler
 from position_manager import PositionManager
+from candle_collector_handler import CandleCollectorHandler
 
 PositionManager.start()
+CandleCollectorHandler.start_background_collector()
 
 
 app = Flask(__name__)
+
 CORS(app)
 
 # Register consolidated routes
