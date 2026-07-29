@@ -221,43 +221,27 @@ class LiveRunner:
             else:
                 annotated_candles = []
         else:
-            # Incremental fetch: fetch only the last 10 candles
-            # print(f"[Live Runner] Incremental: Fetching 10 candles for strategy {strategy_id} ({symbol} {timeframe})", flush=True)
+            # Incremental fetch: fetch the last 10 candles and append/merge into full historical cache
             new_candles = handler.fetch_candles(
                 symbol=symbol,
                 timeframe=timeframe,
                 limit=10
             )
-            # print(f"[Live Runner DEBUG] Incremental: Fetch returned {len(new_candles) if new_candles else 0} candles for strategy {strategy_id}", flush=True)
             if new_candles:
-                # Convert cached annotated candles to raw candles for the lookback window to calculate accurate Wyckoff indicators on the transition boundary
-                # We need at least lookback * 2 historical candles for stable indicator calculations on the new candles
-                warmup_needed = lookback * 2
-                base_history = cached_candles[-warmup_needed:] if len(cached_candles) > warmup_needed else cached_candles
-                
-                # Merge new raw candles with the base history segment to analyze
-                merge_map = {c["time"]: c for c in base_history}
+                # Merge new raw candles with the entire cached history to maintain full 5,000 candle context
+                merge_map = {c["time"]: c for c in cached_candles}
                 for c in new_candles:
                     merge_map[c["time"]] = c
                 
                 sorted_times = sorted(merge_map.keys())
-                temp_segment = [merge_map[t] for t in sorted_times]
+                # Cap full history at 5000 candles
+                if len(sorted_times) > 5000:
+                    sorted_times = sorted_times[-5000:]
                 
-                # Analyze the segment containing the new candles
-                analyzed_segment = WyckoffHandler.analyze_wyckoff_structure(temp_segment, lookback=lookback)
-                analyzed_map = {c["time"]: c for c in analyzed_segment}
+                full_history = [merge_map[t] for t in sorted_times]
                 
-                # Update the main cache with the freshly analyzed values
-                cache_map = {c["time"]: c for c in cached_candles}
-                for t, c in analyzed_map.items():
-                    cache_map[t] = c
-                
-                # Sort and prune cache
-                sorted_cache_times = sorted(cache_map.keys())
-                if len(sorted_cache_times) > 5000:
-                    sorted_cache_times = sorted_cache_times[-5000:]
-                
-                annotated_candles = [cache_map[t] for t in sorted_cache_times]
+                # Analyze the full 5,000 candle history so rolling indicators, SMAs, and Wyckoff states match full backtest exactly
+                annotated_candles = WyckoffHandler.analyze_wyckoff_structure(full_history, lookback=lookback)
                 cls._candles_cache[strategy_id] = annotated_candles
             else:
                 annotated_candles = cached_candles
