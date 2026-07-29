@@ -7,7 +7,8 @@ export interface TargetOption {
 
 export const TARGET_OPTIONS: TargetOption[] = [
   { label: 'Local Host (Debug)', url: 'http://localhost:8751' },
-  { label: 'Laptop (Live)', url: 'https://flugrok-production.up.railway.app' },
+  { label: 'Laptop (Live Proxy)', url: 'https://flugrok-production.up.railway.app' },
+  { label: 'Laptop (Direct IP)', url: 'https://89.217.138.51:8751' },
 ];
 
 export const DEFAULT_TARGET_URL = 'https://flugrok-production.up.railway.app';

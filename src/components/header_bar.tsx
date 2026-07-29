@@ -259,10 +259,11 @@ export default function HeaderBar({
                   >
                     <RefreshCw size={12} /> Update Backend
                   </button>
-                  <a
-                    href={`${API_BASE_URL}/api/live/strategies`}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    onClick={() => {
+                      window.open('https://flugrok-production.up.railway.app/api/live/strategies', '_blank');
+                      window.open('https://89.217.138.51:8751/api/live/strategies', '_blank');
+                    }}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -280,9 +281,10 @@ export default function HeaderBar({
                       gridColumn: 'span 2',
                       textDecoration: 'none',
                     }}
+                    title="Open both Railway Proxy and Direct Laptop IP to authorize SSL certificates"
                   >
                     <ShieldAlert size={12} /> Authorize Laptop SSL
-                  </a>
+                  </button>
                 </div>
               </div>
 
@@ -441,10 +443,11 @@ export default function HeaderBar({
                 Update & Restart Laptop
               </button>
 
-              <a
-                href={`${API_BASE_URL}/api/live/strategies`}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                onClick={() => {
+                  window.open('https://flugrok-production.up.railway.app/api/live/strategies', '_blank');
+                  window.open('https://89.217.138.51:8751/api/live/strategies', '_blank');
+                }}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -461,11 +464,11 @@ export default function HeaderBar({
                   transition: 'all 0.2s',
                   textDecoration: 'none',
                 }}
-                title="Open Laptop backend to authorize HTTPS Self-Signed Certificate"
+                title="Open both Railway Proxy and Direct Laptop IP to authorize SSL certificates"
               >
                 <ShieldAlert size={12} />
                 Authorize Laptop SSL
-              </a>
+              </button>
               <div style={{ position: 'relative' }}>
                 <button
                   onClick={() => setShowMenu(!showMenu)}
