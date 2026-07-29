@@ -1,7 +1,7 @@
 # /backend/terminal_handler.py
 import sys
 from gevent.lock import RLock
-from gevent.queue import Queue
+from gevent.queue import Queue, Empty
 
 class TerminalHandler:
     _lock = RLock()
@@ -77,9 +77,13 @@ class TerminalHandler:
                 yield history
             
             while True:
-                # Wait for new data
-                data = q.get()
-                yield data
+                try:
+                    # Wait for new data with 10s timeout for proxy heartbeats
+                    data = q.get(timeout=10)
+                    yield data
+                except Empty:
+                    # Yield None as a heartbeat signal to keep SSE connection alive over proxy
+                    yield None
         finally:
             with cls._lock:
                 if q in cls._queues:
