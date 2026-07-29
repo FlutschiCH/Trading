@@ -571,7 +571,20 @@ export default function WyckoffBacktester({
           gap: '12px',
           fontSize: '12px',
         }}>
-        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'flex-end', gap: '8px', marginBottom: '-4px' }}>
+        <div style={{
+          display: 'flex',
+          flexDirection: isMobile ? 'column' : 'row',
+          justifyContent: 'flex-end',
+          gap: '8px',
+          position: 'sticky',
+          top: '-16px', // offset the parent container's padding if necessary, or just '0px'
+          zIndex: 10,
+          backgroundColor: 'var(--app-card-bg, #111827)',
+          paddingTop: '4px',
+          paddingBottom: '8px',
+          borderBottom: '1px solid var(--app-card-border, #1f2937)',
+          marginBottom: '8px'
+        }}>
           {onSaveSettings && (
             <button
               onClick={() => {
