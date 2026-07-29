@@ -1758,6 +1758,26 @@ export default function TVChart({
       const pnlVal = parseFloat(pos.unrealized_profit ?? pos.pnl ?? pos.profit ?? pos.unrealized_pnl ?? 0);
       const pnlStr = !isNaN(pnlVal) ? ` (P&L: ${pnlVal >= 0 ? '+' : ''}${pnlVal.toFixed(2)})` : '';
 
+      // Calculate Dollar SL loss / TP win estimate
+      const volNum = parseFloat(volume as any) || 0;
+      // standard contract multiplier approximation: forex / CFD contract size = 100,000 for 1 lot
+      const isJpy = (symbol || '').toUpperCase().includes('JPY');
+      const multiplier = isJpy ? 1000 : 100000;
+
+      let slLossStr = '';
+      if (slVal > 0 && volNum > 0) {
+        const slDiff = isBuy ? (entryPriceVal - slVal) : (slVal - entryPriceVal);
+        const estLoss = Math.abs(slDiff * volNum * multiplier);
+        slLossStr = ` (-$${estLoss.toFixed(2)})`;
+      }
+
+      let tpWinStr = '';
+      if (tpVal > 0 && volNum > 0) {
+        const tpDiff = isBuy ? (tpVal - entryPriceVal) : (entryPriceVal - tpVal);
+        const estWin = Math.abs(tpDiff * volNum * multiplier);
+        tpWinStr = ` (+$${estWin.toFixed(2)})`;
+      }
+
       // 1. Full horizontal price lines across price scale
       const entryPriceLine = candlestickSeriesRef.current.createPriceLine({
         price: entryPriceVal,
@@ -1776,7 +1796,7 @@ export default function TVChart({
           lineWidth: 1,
           lineStyle: 2,
           axisLabelVisible: true,
-          title: `SL @ ${slVal.toFixed(5)}`,
+          title: `SL @ ${slVal.toFixed(5)}${slLossStr}`,
         });
         activePositionsRef.current.push({ type: 'priceLine', line: slPriceLine });
       }
@@ -1788,7 +1808,7 @@ export default function TVChart({
           lineWidth: 1,
           lineStyle: 2,
           axisLabelVisible: true,
-          title: `TP @ ${tpVal.toFixed(5)}`,
+          title: `TP @ ${tpVal.toFixed(5)}${tpWinStr}`,
         });
         activePositionsRef.current.push({ type: 'priceLine', line: tpPriceLine });
       }
