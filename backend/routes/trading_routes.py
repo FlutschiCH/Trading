@@ -50,8 +50,7 @@ def order():
         price=price,
         stop_loss=stop_loss,
         take_profit=take_profit,
-        magic=magic,
-        **payload
+        magic=magic
     )
     return jsonify(result)
 
