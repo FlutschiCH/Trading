@@ -634,6 +634,18 @@ export default function TVChart({
   const chartHeightRef = useRef(chartHeight);
   const weisHeightRef = useRef(weisHeight);
 
+  // Drag state for interactive SL / TP position badges
+  const [draggingBadge, setDraggingBadge] = useState<{
+    position: any;
+    type: 'sl' | 'tp';
+    originalPrice: number;
+    currentPrice: number;
+  } | null>(null);
+  const draggingBadgeRef = useRef(draggingBadge);
+  useEffect(() => {
+    draggingBadgeRef.current = draggingBadge;
+  }, [draggingBadge]);
+
   useEffect(() => {
     chartHeightRef.current = chartHeight;
     weisHeightRef.current = weisHeight;
@@ -1879,6 +1891,19 @@ export default function TVChart({
   };
 
   const handleSVGMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (draggingBadgeRef.current && candlestickSeriesRef.current && chartContainerRef.current) {
+      const rect = chartContainerRef.current.getBoundingClientRect();
+      const y = e.clientY - rect.top;
+      const newPrice = candlestickSeriesRef.current.coordinateToPrice(y);
+      if (newPrice && !isNaN(newPrice)) {
+        setDraggingBadge({
+          ...draggingBadgeRef.current,
+          currentPrice: newPrice
+        });
+      }
+      return;
+    }
+
     if (!drawingPreview) return;
     if (!chartRef.current || !candlestickSeriesRef.current) return;
 
@@ -1898,10 +1923,86 @@ export default function TVChart({
   };
 
   const handleSVGMouseUp = () => {
+    if (draggingBadgeRef.current) {
+      const active = draggingBadgeRef.current;
+      setDraggingBadge(null);
+      const isSl = active.type === 'sl';
+      const label = isSl ? 'Stop Loss (SL)' : 'Take Profit (TP)';
+      const pos = active.position;
+      const confirmed = window.confirm(
+        `Are you sure you want to update ${label} for position #${pos.position_id} (${pos.symbol})?\n\n` +
+        `Old ${active.type.toUpperCase()}: ${active.originalPrice.toFixed(5)}\n` +
+        `New ${active.type.toUpperCase()}: ${active.currentPrice.toFixed(5)}`
+      );
+
+      if (confirmed) {
+        // Send position modification request to backend
+        const endpoint = isLocal ? 'http://localhost:8751/api/trade/modify_position' : `${API_BASE_URL}/api/trade/modify_position`;
+        const payload: any = {
+          position_id: pos.position_id,
+          symbol: pos.symbol
+        };
+        if (isSl) {
+          payload.stop_loss = active.currentPrice;
+          payload.take_profit = pos.tp;
+        } else {
+          payload.stop_loss = pos.sl;
+          payload.take_profit = active.currentPrice;
+        }
+
+        fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+          .then(res => res.json())
+          .then(data => {
+            if (data.status === 'success' || data.success) {
+              onRefresh();
+            } else {
+              alert(`Failed to update ${label}: ${data.message || 'Unknown error'}`);
+            }
+          })
+          .catch(err => {
+            console.error(`Error modifying ${label}:`, err);
+            alert(`Error modifying ${label}: ${err.message}`);
+          });
+      }
+      return;
+    }
+
     if (!drawingPreview) return;
     setDrawings([...drawings, drawingPreview]);
     setDrawingPreview(null);
   };
+
+  // Window-level mouse listener while dragging SL/TP badge
+  useEffect(() => {
+    if (!draggingBadge) return;
+
+    const onGlobalMouseMove = (e: MouseEvent) => {
+      if (candlestickSeriesRef.current && chartContainerRef.current) {
+        const rect = chartContainerRef.current.getBoundingClientRect();
+        const y = e.clientY - rect.top;
+        const newPrice = candlestickSeriesRef.current.coordinateToPrice(y);
+        if (newPrice && !isNaN(newPrice)) {
+          setDraggingBadge(prev => prev ? { ...prev, currentPrice: newPrice } : null);
+        }
+      }
+    };
+
+    const onGlobalMouseUp = () => {
+      handleSVGMouseUp();
+    };
+
+    window.addEventListener('mousemove', onGlobalMouseMove);
+    window.addEventListener('mouseup', onGlobalMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', onGlobalMouseMove);
+      window.removeEventListener('mouseup', onGlobalMouseUp);
+    };
+  }, [draggingBadge]);
 
   const styles = {
     container: {
@@ -2459,7 +2560,7 @@ export default function TVChart({
                 const slY = slPrice > 0 ? candlestickSeriesRef.current.priceToCoordinate(slPrice) : null;
                 const tpY = tpPrice > 0 ? candlestickSeriesRef.current.priceToCoordinate(tpPrice) : null;
 
-                const handleBadgeClick = (e: React.MouseEvent) => {
+                const handleEntryBadgeClick = (e: React.MouseEvent) => {
                   e.stopPropagation();
                   e.preventDefault();
                   if (onSelectTradeRef.current) {
@@ -2467,13 +2568,48 @@ export default function TVChart({
                   }
                 };
 
+                const handleSlMouseDown = (e: React.MouseEvent) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  if (!candlestickSeriesRef.current) return;
+                  setDraggingBadge({
+                    position: pos,
+                    type: 'sl',
+                    originalPrice: slPrice,
+                    currentPrice: slPrice
+                  });
+                };
+
+                const handleTpMouseDown = (e: React.MouseEvent) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  if (!candlestickSeriesRef.current) return;
+                  setDraggingBadge({
+                    position: pos,
+                    type: 'tp',
+                    originalPrice: tpPrice,
+                    currentPrice: tpPrice
+                  });
+                };
+
+                const activeSlPrice = (draggingBadge?.position?.position_id === pos.position_id && draggingBadge?.type === 'sl')
+                  ? draggingBadge.currentPrice
+                  : slPrice;
+
+                const activeTpPrice = (draggingBadge?.position?.position_id === pos.position_id && draggingBadge?.type === 'tp')
+                  ? draggingBadge.currentPrice
+                  : tpPrice;
+
+                const activeSlY = activeSlPrice > 0 && candlestickSeriesRef.current ? candlestickSeriesRef.current.priceToCoordinate(activeSlPrice) : slY;
+                const activeTpY = activeTpPrice > 0 && candlestickSeriesRef.current ? candlestickSeriesRef.current.priceToCoordinate(activeTpPrice) : tpY;
+
                 return (
                   <g key={`svg-pos-badge-${pos.position_id}`}>
-                    {/* Entry Badge */}
+                    {/* Entry Badge - Opens Trade Info */}
                     {(chartSettings.showPositionsEntry !== false) && entryY !== null && entryY > 0 && entryY < chartHeight - 26 && (
                       <g
                         style={{ cursor: 'pointer', pointerEvents: 'all' }}
-                        onClick={handleBadgeClick}
+                        onClick={handleEntryBadgeClick}
                       >
                         <rect
                           x={plotWidth - 185}
@@ -2499,62 +2635,62 @@ export default function TVChart({
                       </g>
                     )}
 
-                    {/* SL Badge */}
-                    {(chartSettings.showPositionsSlTp !== false) && slY !== null && slY > 0 && slY < chartHeight - 26 && (
+                    {/* SL Badge - Drag & Drop New SL */}
+                    {(chartSettings.showPositionsSlTp !== false) && activeSlY !== null && activeSlY > 0 && activeSlY < chartHeight - 26 && (
                       <g
-                        style={{ cursor: 'pointer', pointerEvents: 'all' }}
-                        onClick={handleBadgeClick}
+                        style={{ cursor: 'ns-resize', pointerEvents: 'all' }}
+                        onMouseDown={handleSlMouseDown}
                       >
                         <rect
                           x={plotWidth - 145}
-                          y={slY - 11}
+                          y={activeSlY - 11}
                           width={140}
                           height={22}
                           rx={4}
                           fill="#dc2626"
-                          stroke="#ffffff"
-                          strokeWidth={1}
+                          stroke={draggingBadge?.position?.position_id === pos.position_id && draggingBadge?.type === 'sl' ? '#fde047' : '#ffffff'}
+                          strokeWidth={draggingBadge?.position?.position_id === pos.position_id && draggingBadge?.type === 'sl' ? 2 : 1}
                         />
                         <text
                           x={plotWidth - 75}
-                          y={slY + 4}
+                          y={activeSlY + 4}
                           fill="#ffffff"
                           fontSize="10"
                           fontWeight="bold"
                           textAnchor="middle"
                           style={{ userSelect: 'none', pointerEvents: 'none' }}
                         >
-                          SL @ {slPrice.toFixed(5)}{slLossStr}
+                          SL @ {activeSlPrice.toFixed(5)}{slLossStr}
                         </text>
                       </g>
                     )}
 
-                    {/* TP Badge */}
-                    {(chartSettings.showPositionsSlTp !== false) && tpY !== null && tpY > 0 && tpY < chartHeight - 26 && (
+                    {/* TP Badge - Drag & Drop New TP */}
+                    {(chartSettings.showPositionsSlTp !== false) && activeTpY !== null && activeTpY > 0 && activeTpY < chartHeight - 26 && (
                       <g
-                        style={{ cursor: 'pointer', pointerEvents: 'all' }}
-                        onClick={handleBadgeClick}
+                        style={{ cursor: 'ns-resize', pointerEvents: 'all' }}
+                        onMouseDown={handleTpMouseDown}
                       >
                         <rect
                           x={plotWidth - 145}
-                          y={tpY - 11}
+                          y={activeTpY - 11}
                           width={140}
                           height={22}
                           rx={4}
                           fill="#059669"
-                          stroke="#ffffff"
-                          strokeWidth={1}
+                          stroke={draggingBadge?.position?.position_id === pos.position_id && draggingBadge?.type === 'tp' ? '#fde047' : '#ffffff'}
+                          strokeWidth={draggingBadge?.position?.position_id === pos.position_id && draggingBadge?.type === 'tp' ? 2 : 1}
                         />
                         <text
                           x={plotWidth - 75}
-                          y={tpY + 4}
+                          y={activeTpY + 4}
                           fill="#ffffff"
                           fontSize="10"
                           fontWeight="bold"
                           textAnchor="middle"
                           style={{ userSelect: 'none', pointerEvents: 'none' }}
                         >
-                          TP @ {tpPrice.toFixed(5)}{tpWinStr}
+                          TP @ {activeTpPrice.toFixed(5)}{tpWinStr}
                         </text>
                       </g>
                     )}
