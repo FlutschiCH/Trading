@@ -3,6 +3,7 @@ import { createChart, ColorType, CandlestickSeries, HistogramSeries, LineSeries,
 import type { ISeriesPrimitive, IPrimitivePaneView as SeriesPrimitivePaneView, IPrimitivePaneRenderer as SeriesPrimitivePaneRenderer } from 'lightweight-charts';
 import { Square, PenTool, Trash2, XCircle, RefreshCw, Maximize2, Minimize2, Settings, Play, Pause, SkipBack, SkipForward, X } from 'lucide-react';
 import { calculateDateBounds } from '../App';
+import { API_BASE_URL } from '../api';
 
 class SessionBoxRenderer implements SeriesPrimitivePaneRenderer {
   private _sessionCoords: any[];
@@ -240,7 +241,7 @@ export default function TVChart({
     if (tpVal && Number(tpVal) > 0) payload.take_profit = Number(tpVal);
 
     try {
-      const res = await fetch('/api/trade/order', {
+      const res = await fetch(`${API_BASE_URL}/api/trade/order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

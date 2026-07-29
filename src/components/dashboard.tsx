@@ -457,7 +457,7 @@ export default function Dashboard() {
     if (tpVal && Number(tpVal) > 0) payload.take_profit = Number(tpVal);
 
     try {
-      const res = await fetch('/api/trade/order', {
+      const res = await fetch(`${API_BASE_URL}/api/trade/order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -2238,7 +2238,7 @@ export default function Dashboard() {
         handleSwitchAccount={handleSwitchAccount}
         setShowAccountModal={setShowAccountModal}
         handleRestartServer={handleRestartServer}
-        setView={setView}
+        setView={(v: string) => setView(v as "trades" | "dashboard" | "mappings" | "computers")}
         styles={styles}
       />
 
