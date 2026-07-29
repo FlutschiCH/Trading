@@ -199,7 +199,7 @@ export default function NotificationSettingsView({ setView }: NotificationSettin
 
   const triggerLocalSound = () => {
     // Play local default beep or test sound
-    const audio = new Audio('/favicon.svg'); # dummy check, we can trigger backend route
+    const audio = new Audio('/favicon.svg'); // dummy check, we can trigger backend route
     fetch(`${API_BASE_URL}/api/notification/trigger`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
