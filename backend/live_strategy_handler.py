@@ -219,13 +219,17 @@ class LiveStrategyHandler:
             if not results:
                 return []
 
-            targets_rows = SQLHandler.execute_query("SELECT strategy_id, broker, account_id FROM live_strategy_targets")
             targets_map = {}
-            for r in targets_rows:
-                s_id = r["strategy_id"]
-                if s_id not in targets_map:
-                    targets_map[s_id] = []
-                targets_map[s_id].append({"broker": r["broker"], "account_id": r["account_id"]})
+            try:
+                targets_rows = SQLHandler.execute_query("SELECT strategy_id, broker, account_id FROM live_strategy_targets")
+                for r in targets_rows:
+                    s_id = r.get("strategy_id")
+                    if s_id:
+                        if s_id not in targets_map:
+                            targets_map[s_id] = []
+                        targets_map[s_id].append({"broker": r.get("broker"), "account_id": r.get("account_id")})
+            except Exception:
+                pass
 
             strats = []
             for row in results:
