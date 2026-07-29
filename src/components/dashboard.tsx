@@ -10,6 +10,7 @@ import ComputerManager from './computer_manager';
 import HeaderBar from './header_bar';
 import MobileTabNav from './mobile_tab_nav';
 import { API_BASE_URL } from '../api';
+import { isLocalTarget } from './target_switcher';
 import * as apiService from '../services/apiService';
 import '../App.css';
 
@@ -1888,9 +1889,10 @@ export default function Dashboard() {
   useEffect(() => {
     if (!isLiveFeed) return;
     fetchCandles(undefined, true, true);
+    const pollIntervalMs = isLocalTarget() ? 5000 : 10000;
     const interval = setInterval(() => {
       fetchCandles(undefined, true, false);
-    }, 2000);
+    }, pollIntervalMs);
     return () => clearInterval(interval);
   }, [isLiveFeed, symbol, timeframe, selectedStrategyId]);
 

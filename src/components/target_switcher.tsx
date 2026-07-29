@@ -6,8 +6,8 @@ export interface TargetOption {
 }
 
 export const TARGET_OPTIONS: TargetOption[] = [
-  { label: 'Local Host (8751)', url: 'http://localhost:8751' },
-  { label: 'Railway Proxy (flugrok)', url: 'https://flugrok-production.up.railway.app' },
+  { label: 'Local Host (Debug)', url: 'http://localhost:8751' },
+  { label: 'Laptop (Live)', url: 'https://flugrok-production.up.railway.app' },
 ];
 
 export const DEFAULT_TARGET_URL = 'https://flugrok-production.up.railway.app';
@@ -16,6 +16,11 @@ export const STORAGE_KEY = 'wyckoff_api_target';
 export const getApiBaseUrl = (): string => {
   if (typeof window === 'undefined') return DEFAULT_TARGET_URL;
   return localStorage.getItem(STORAGE_KEY) || DEFAULT_TARGET_URL;
+};
+
+export const isLocalTarget = (): boolean => {
+  const url = getApiBaseUrl();
+  return url.includes('localhost') || url.includes('127.0.0.1');
 };
 
 export const setApiBaseUrl = (url: string): void => {
