@@ -2376,6 +2376,164 @@ export default function TVChart({
               cursor: activeTool === 'delete' ? 'pointer' : (activeTool !== 'none' ? 'crosshair' : 'default'),
             }}
           >
+            {/* Clickable Active Position Badges on the right side */}
+            {chartSettings.showPositions && (() => {
+              let positionsList: any[] = [];
+              if (Array.isArray(openPositions) && openPositions.length > 0) {
+                positionsList = openPositions;
+              } else {
+                try {
+                  const stored = localStorage.getItem('wyckoff_active_positions');
+                  if (stored) positionsList = JSON.parse(stored);
+                } catch (e) {}
+              }
+
+              if (!Array.isArray(positionsList) || positionsList.length === 0 || !candlestickSeriesRef.current) return null;
+
+              const currentSymbolClean = (symbol || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+              const matchingPositions = positionsList.filter((p) => {
+                if (!p || !p.symbol) return false;
+                const posSymbolClean = String(p.symbol).replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+                return posSymbolClean.includes(currentSymbolClean) || currentSymbolClean.includes(posSymbolClean);
+              });
+
+              const rightScaleWidth = chartRef.current ? chartRef.current.priceScale('right').width() : 55;
+              const plotWidth = chartContainerRef.current ? chartContainerRef.current.clientWidth - rightScaleWidth : 0;
+
+              return matchingPositions.map((pos) => {
+                const isBuy = (pos.trade_side || 'BUY').toUpperCase() === 'BUY';
+                const entryPrice = parseFloat(pos.entry_price ?? pos.entryPrice);
+                const slPrice = parseFloat(pos.stop_loss ?? pos.sl ?? 0);
+                const tpPrice = parseFloat(pos.take_profit ?? pos.tp ?? 0);
+                const volume = pos.volume !== undefined ? pos.volume : '';
+                const pnlVal = parseFloat(pos.unrealized_profit ?? pos.pnl ?? pos.profit ?? pos.unrealized_pnl ?? 0);
+                const pnlStr = !isNaN(pnlVal) ? ` (P&L: ${pnlVal >= 0 ? '+' : ''}${pnlVal.toFixed(2)})` : '';
+
+                const volNum = parseFloat(volume as any) || 0;
+                const isJpy = (symbol || '').toUpperCase().includes('JPY');
+                const multiplier = isJpy ? 1000 : 100000;
+
+                let slLossStr = '';
+                if (slPrice > 0 && volNum > 0) {
+                  const slDiff = isBuy ? (entryPrice - slPrice) : (slPrice - entryPrice);
+                  const estLoss = Math.abs(slDiff * volNum * multiplier);
+                  slLossStr = ` (-$${estLoss.toFixed(2)})`;
+                }
+
+                let tpWinStr = '';
+                if (tpPrice > 0 && volNum > 0) {
+                  const tpDiff = isBuy ? (tpPrice - entryPrice) : (entryPrice - tpPrice);
+                  const estWin = Math.abs(tpDiff * volNum * multiplier);
+                  tpWinStr = ` (+$${estWin.toFixed(2)})`;
+                }
+
+                const entryY = entryPrice > 0 ? candlestickSeriesRef.current.priceToCoordinate(entryPrice) : null;
+                const slY = slPrice > 0 ? candlestickSeriesRef.current.priceToCoordinate(slPrice) : null;
+                const tpY = tpPrice > 0 ? candlestickSeriesRef.current.priceToCoordinate(tpPrice) : null;
+
+                const handleBadgeClick = (e: React.MouseEvent) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  if (onSelectTradeRef.current) {
+                    onSelectTradeRef.current(pos);
+                  }
+                };
+
+                return (
+                  <g key={`svg-pos-badge-${pos.position_id}`}>
+                    {/* Entry Badge */}
+                    {entryY !== null && entryY > 0 && entryY < chartHeight - 26 && (
+                      <g
+                        style={{ cursor: 'pointer', pointerEvents: 'all' }}
+                        onClick={handleBadgeClick}
+                      >
+                        <rect
+                          x={plotWidth - 185}
+                          y={entryY - 11}
+                          width={180}
+                          height={22}
+                          rx={4}
+                          fill={isBuy ? '#2563eb' : '#db2777'}
+                          stroke="#ffffff"
+                          strokeWidth={1}
+                        />
+                        <text
+                          x={plotWidth - 95}
+                          y={entryY + 4}
+                          fill="#ffffff"
+                          fontSize="10"
+                          fontWeight="bold"
+                          textAnchor="middle"
+                          style={{ userSelect: 'none', pointerEvents: 'none' }}
+                        >
+                          {isBuy ? 'BUY' : 'SELL'} {volume} @ {entryPrice.toFixed(5)}{pnlStr}
+                        </text>
+                      </g>
+                    )}
+
+                    {/* SL Badge */}
+                    {slY !== null && slY > 0 && slY < chartHeight - 26 && (
+                      <g
+                        style={{ cursor: 'pointer', pointerEvents: 'all' }}
+                        onClick={handleBadgeClick}
+                      >
+                        <rect
+                          x={plotWidth - 145}
+                          y={slY - 11}
+                          width={140}
+                          height={22}
+                          rx={4}
+                          fill="#dc2626"
+                          stroke="#ffffff"
+                          strokeWidth={1}
+                        />
+                        <text
+                          x={plotWidth - 75}
+                          y={slY + 4}
+                          fill="#ffffff"
+                          fontSize="10"
+                          fontWeight="bold"
+                          textAnchor="middle"
+                          style={{ userSelect: 'none', pointerEvents: 'none' }}
+                        >
+                          SL @ {slPrice.toFixed(5)}{slLossStr}
+                        </text>
+                      </g>
+                    )}
+
+                    {/* TP Badge */}
+                    {tpY !== null && tpY > 0 && tpY < chartHeight - 26 && (
+                      <g
+                        style={{ cursor: 'pointer', pointerEvents: 'all' }}
+                        onClick={handleBadgeClick}
+                      >
+                        <rect
+                          x={plotWidth - 145}
+                          y={tpY - 11}
+                          width={140}
+                          height={22}
+                          rx={4}
+                          fill="#059669"
+                          stroke="#ffffff"
+                          strokeWidth={1}
+                        />
+                        <text
+                          x={plotWidth - 75}
+                          y={tpY + 4}
+                          fill="#ffffff"
+                          fontSize="10"
+                          fontWeight="bold"
+                          textAnchor="middle"
+                          style={{ userSelect: 'none', pointerEvents: 'none' }}
+                        >
+                          TP @ {tpPrice.toFixed(5)}{tpWinStr}
+                        </text>
+                      </g>
+                    )}
+                  </g>
+                );
+              });
+            })()}
 
             {chartSettings.showTrades && selectedTradeCoords && (
               <rect
