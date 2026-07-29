@@ -11,6 +11,8 @@ from discord_handler import send_discord_message
 class PositionManager:
     _thread = None
     _stop_event = threading.Event()
+    # Cache known open position IDs per target account: { (target_acc_id, position_id): pos_data }
+    _known_positions = {}
 
     @classmethod
     def start(cls):
@@ -62,14 +64,12 @@ class PositionManager:
 
     @classmethod
     def _manage_strategy_positions(cls, strategy: dict):
-        if not strategy.get("useBreakEven", False):
-            return
-
         strategy_id = strategy["id"]
         symbol = strategy["symbol"]
         be_trigger_r = float(strategy.get("beTriggerR", 1.0))
         sl_type = strategy.get("slType", "pips")
         sl_val = float(strategy.get("slVal", 10.0))
+        use_be = strategy.get("useBreakEven", False)
 
         targets = strategy.get("targets", [])
         if not targets:
@@ -111,12 +111,13 @@ class PositionManager:
                 print(f"[Position Manager] Failed to get positions for target {target_acc_id}: {e}", flush=True)
                 continue
 
+            current_pos_keys = set()
+
             for pos in positions:
                 # Check matching magic / symbol
                 pos_magic = pos.get("magic")
                 pos_symbol = pos.get("symbol")
 
-                # Match strategy magic or symbol
                 if pos_symbol != symbol and pos_magic != magic:
                     continue
 
@@ -124,15 +125,34 @@ class PositionManager:
                 if not position_id:
                     continue
 
+                pos_key = (target_acc_id, str(position_id))
+                current_pos_keys.add(pos_key)
+
                 entry_price = float(pos.get("price_open", pos.get("open_price", 0.0)))
                 current_price = float(pos.get("price_current", pos.get("current_price", entry_price)))
                 current_sl = float(pos.get("sl", pos.get("stop_loss", 0.0)))
+                current_tp = float(pos.get("tp", pos.get("take_profit", 0.0)))
                 pos_type = str(pos.get("type", "")).upper() # BUY or SELL
 
-                if entry_price <= 0:
+                # Save / update position snapshot in memory
+                cls._known_positions[pos_key] = {
+                    "strategy_id": strategy_id,
+                    "target_acc_id": target_acc_id,
+                    "target_broker": target_broker,
+                    "symbol": symbol,
+                    "position_id": position_id,
+                    "entry_price": entry_price,
+                    "last_price": current_price,
+                    "sl": current_sl,
+                    "tp": current_tp,
+                    "type": pos_type,
+                    "volume": pos.get("volume", 0.0)
+                }
+
+                if entry_price <= 0 or not use_be:
                     continue
 
-                # Determine Risk Distance R
+                # Determine Risk Distance R for BE evaluation
                 pip_size = get_pip_size(symbol, entry_price)
                 if sl_type == "pips":
                     risk_dist = sl_val * pip_size
@@ -146,21 +166,20 @@ class PositionManager:
 
                 be_trigger_dist = risk_dist * be_trigger_r
 
-                # Check BUY position
+                # Check BUY position Break-Even
                 if pos_type in ("BUY", "POSITION_TYPE_BUY", "0"):
-                    # Trigger condition: price moved up by BE trigger distance
                     if current_price >= (entry_price + be_trigger_dist):
-                        # Check if SL is not already set at or above Break-Even (entry_price)
                         if current_sl < (entry_price - (pip_size * 0.5)):
                             print(f"[Position Manager] Setting BUY position {position_id} to BE on {symbol} (Acc: {target_acc_id}). Entry: {entry_price}, Current: {current_price}, Old SL: {current_sl}", flush=True)
                             mod_res = handler.modify_position(
                                 position_id=position_id,
                                 stop_loss=entry_price,
-                                take_profit=pos.get("tp"),
+                                take_profit=current_tp,
                                 symbol=symbol,
                                 **target_kwargs
                             )
                             if mod_res and mod_res.get("status") != "error":
+                                cls._known_positions[pos_key]["sl"] = entry_price
                                 send_discord_message(
                                     f"🛡️ **Break-Even Triggered!**\n"
                                     f"🎛️ **Strategy ID:** `{strategy_id}`\n"
@@ -170,21 +189,20 @@ class PositionManager:
                                     f"🔒 **New Stop Loss:** `{entry_price:.5f}` (BE Set)"
                                 )
 
-                # Check SELL position
+                # Check SELL position Break-Even
                 elif pos_type in ("SELL", "POSITION_TYPE_SELL", "1"):
-                    # Trigger condition: price moved down by BE trigger distance
                     if current_price <= (entry_price - be_trigger_dist):
-                        # Check if SL is not already set at or below Break-Even (entry_price)
                         if current_sl == 0.0 or current_sl > (entry_price + (pip_size * 0.5)):
                             print(f"[Position Manager] Setting SELL position {position_id} to BE on {symbol} (Acc: {target_acc_id}). Entry: {entry_price}, Current: {current_price}, Old SL: {current_sl}", flush=True)
                             mod_res = handler.modify_position(
                                 position_id=position_id,
                                 stop_loss=entry_price,
-                                take_profit=pos.get("tp"),
+                                take_profit=current_tp,
                                 symbol=symbol,
                                 **target_kwargs
                             )
                             if mod_res and mod_res.get("status") != "error":
+                                cls._known_positions[pos_key]["sl"] = entry_price
                                 send_discord_message(
                                     f"🛡️ **Break-Even Triggered!**\n"
                                     f"🎛️ **Strategy ID:** `{strategy_id}`\n"
@@ -193,3 +211,64 @@ class PositionManager:
                                     f"💵 **Entry Price:** `{entry_price:.5f}` | 💵 **Current Price:** `{current_price:.5f}`\n"
                                     f"🔒 **New Stop Loss:** `{entry_price:.5f}` (BE Set)"
                                 )
+
+            # Check for closed positions (previously known but no longer in positions list)
+            known_target_keys = [k for k in cls._known_positions.keys() if k[0] == target_acc_id and cls._known_positions[k]["symbol"] == symbol]
+            for key in known_target_keys:
+                if key not in current_pos_keys:
+                    prev = cls._known_positions.pop(key, None)
+                    if prev:
+                        cls._notify_closed_position(prev, target_kwargs)
+
+    @classmethod
+    def _notify_closed_position(cls, pos: dict, target_kwargs: dict):
+        position_id = pos["position_id"]
+        strategy_id = pos["strategy_id"]
+        target_acc_id = pos["target_acc_id"]
+        target_broker = pos["target_broker"]
+        symbol = pos["symbol"]
+        entry_price = pos["entry_price"]
+        sl = pos["sl"]
+        tp = pos["tp"]
+        side = pos["type"]
+
+        pip_size = get_pip_size(symbol, entry_price)
+        is_be = abs(sl - entry_price) <= (pip_size * 1.5) if sl > 0 else False
+
+        # Attempt to fetch exact exit details from history
+        handler = BrokerHandler.get_handler(target_broker)
+        close_reason = "Position Closed"
+        exit_price = pos["last_price"]
+
+        try:
+            if hasattr(handler, "get_history_trades"):
+                history = handler.get_history_trades(**target_kwargs)
+                matching = [h for h in history if str(h.get("ticket") or h.get("position_id")) == str(position_id)]
+                if matching:
+                    last_h = matching[-1]
+                    exit_price = float(last_h.get("price", last_h.get("close_price", exit_price)))
+        except Exception:
+            pass
+
+        if is_be:
+            close_reason = "Break-Even Hit 🛡️"
+            emoji = "🛡️"
+        elif tp > 0 and abs(exit_price - tp) <= (pip_size * 3):
+            close_reason = "Take-Profit Hit 🎯"
+            emoji = "🎯"
+        elif sl > 0 and abs(exit_price - sl) <= (pip_size * 3):
+            close_reason = "Stop-Loss Hit 🛑"
+            emoji = "🛑"
+        else:
+            close_reason = "Position Closed 🏁"
+            emoji = "🏁"
+
+        send_discord_message(
+            f"{emoji} **Trade Closed: {close_reason}**\n"
+            f"🎛️ **Strategy ID:** `{strategy_id}`\n"
+            f"🏦 **Broker:** `{target_broker}` (Acc: `{target_acc_id}`)\n"
+            f"📊 **Symbol:** `{symbol}` | ➡️ **Side:** `{side}` | 🆔 **Ticket:** `{position_id}`\n"
+            f"💵 **Entry:** `{entry_price:.5f}` | 💵 **Exit / Last:** `{exit_price:.5f}`\n"
+            f"🛑 **SL:** `{sl:.5f}` | 🎯 **TP:** `{tp:.5f}`"
+        )
+
