@@ -38,6 +38,10 @@ from flask_cors import CORS
 from gevent.pywsgi import WSGIServer
 from routes import api_blueprint  # Aggregated blueprint
 from live_strategy_handler import LiveStrategyHandler
+from position_manager import PositionManager
+
+PositionManager.start()
+
 
 app = Flask(__name__)
 CORS(app)

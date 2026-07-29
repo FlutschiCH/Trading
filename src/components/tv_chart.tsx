@@ -1742,6 +1742,9 @@ export default function TVChart({
       const slColor = '#ef4444';
       const tpColor = '#10b981';
 
+      const pnlVal = parseFloat(pos.pnl ?? pos.profit ?? pos.unrealized_pnl ?? 0);
+      const pnlStr = !isNaN(pnlVal) ? ` (P&L: ${pnlVal >= 0 ? '+' : ''}${pnlVal.toFixed(2)})` : '';
+
       // 1. Full horizontal price lines across price scale
       const entryPriceLine = candlestickSeriesRef.current.createPriceLine({
         price: entryPriceVal,
@@ -1749,7 +1752,7 @@ export default function TVChart({
         lineWidth: 2,
         lineStyle: 0,
         axisLabelVisible: true,
-        title: `POS ${side} ${volume} @ ${entryPriceVal.toFixed(5)}`,
+        title: `${side} ${volume} @ ${entryPriceVal.toFixed(5)}${pnlStr}`,
       });
       activePositionsRef.current.push({ type: 'priceLine', line: entryPriceLine });
 
@@ -1760,7 +1763,7 @@ export default function TVChart({
           lineWidth: 1,
           lineStyle: 2,
           axisLabelVisible: true,
-          title: `POS SL @ ${slVal.toFixed(5)}`,
+          title: `SL @ ${slVal.toFixed(5)}`,
         });
         activePositionsRef.current.push({ type: 'priceLine', line: slPriceLine });
       }
@@ -1772,7 +1775,7 @@ export default function TVChart({
           lineWidth: 1,
           lineStyle: 2,
           axisLabelVisible: true,
-          title: `POS TP @ ${tpVal.toFixed(5)}`,
+          title: `TP @ ${tpVal.toFixed(5)}`,
         });
         activePositionsRef.current.push({ type: 'priceLine', line: tpPriceLine });
       }
@@ -1807,136 +1810,6 @@ export default function TVChart({
       }
     });
   }, [openPositions, chartSettings.showPositions, activeCandles, symbol]);
-
-  const [dragPosState, setDragPosState] = useState<{
-    position_id: number;
-    type: 'SL' | 'TP';
-    currentPrice: number;
-    symbol: string;
-  } | null>(null);
-
-  const handleStartDragPosition = (pos: any, type: 'SL' | 'TP', initialPrice: number, e: React.MouseEvent | React.PointerEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-    if (e.nativeEvent) {
-      e.nativeEvent.stopImmediatePropagation();
-    }
-    if (chartRef.current) {
-      chartRef.current.applyOptions({
-        handleScroll: false,
-        handleScale: false,
-      });
-    }
-    setDragPosState({
-      position_id: pos.position_id,
-      type,
-      currentPrice: initialPrice,
-      symbol: pos.symbol,
-    });
-  };
-
-  useEffect(() => {
-    if (!dragPosState) return;
-
-    if (chartRef.current) {
-      chartRef.current.applyOptions({
-        handleScroll: false,
-        handleScale: false,
-      });
-    }
-
-    const handleGlobalMouseMove = (e: MouseEvent | PointerEvent) => {
-      if (!chartContainerRef.current || !candlestickSeriesRef.current) return;
-      const rect = chartContainerRef.current.getBoundingClientRect();
-      const y = e.clientY - rect.top;
-      const price = candlestickSeriesRef.current.coordinateToPrice(y);
-      if (price && price > 0) {
-        setDragPosState((prev) => prev ? { ...prev, currentPrice: price } : null);
-      }
-    };
-
-    const handleGlobalMouseUp = async () => {
-      if (!dragPosState) return;
-      const targetState = dragPosState;
-      setDragPosState(null);
-
-      if (chartRef.current) {
-        chartRef.current.applyOptions({
-          handleScroll: {
-            mouseWheel: true,
-            pressedMouseMove: true,
-            horzTouchDrag: true,
-            vertTouchDrag: true,
-          },
-          handleScale: {
-            axisPressedMouseMove: true,
-            mouseWheel: true,
-            pinch: true,
-          },
-        });
-      }
-
-      try {
-        let positionsList: any[] = [];
-        if (Array.isArray(openPositions) && openPositions.length > 0) {
-          positionsList = openPositions;
-        } else {
-          const stored = localStorage.getItem('wyckoff_active_positions');
-          if (stored) positionsList = JSON.parse(stored);
-        }
-        const posObj = positionsList.find((p) => p.position_id === targetState.position_id);
-
-        const updatedSL = targetState.type === 'SL' ? targetState.currentPrice : (posObj?.stop_loss || posObj?.sl || 0);
-        const updatedTP = targetState.type === 'TP' ? targetState.currentPrice : (posObj?.take_profit || posObj?.tp || 0);
-
-        const API_BASE_URL = localStorage.getItem('wyckoff_api_target') || `http://${window.location.hostname}:8751`;
-        const res = await fetch(`${API_BASE_URL}/api/trade/modify_position`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            broker: candleSource,
-            position_id: targetState.position_id,
-            symbol: targetState.symbol,
-            stop_loss: updatedSL,
-            take_profit: updatedTP
-          })
-        });
-        const data = await res.json();
-        if (data.status === 'success') {
-          onRefresh();
-        }
-      } catch (err) {
-        console.error("Failed to modify position:", err);
-      }
-    };
-
-    window.addEventListener('mousemove', handleGlobalMouseMove);
-    window.addEventListener('pointermove', handleGlobalMouseMove);
-    window.addEventListener('mouseup', handleGlobalMouseUp);
-    window.addEventListener('pointerup', handleGlobalMouseUp);
-    return () => {
-      window.removeEventListener('mousemove', handleGlobalMouseMove);
-      window.removeEventListener('pointermove', handleGlobalMouseMove);
-      window.removeEventListener('mouseup', handleGlobalMouseUp);
-      window.removeEventListener('pointerup', handleGlobalMouseUp);
-
-      if (chartRef.current) {
-        chartRef.current.applyOptions({
-          handleScroll: {
-            mouseWheel: true,
-            pressedMouseMove: true,
-            horzTouchDrag: true,
-            vertTouchDrag: true,
-          },
-          handleScale: {
-            axisPressedMouseMove: true,
-            mouseWheel: true,
-            pinch: true,
-          },
-        });
-      }
-    };
-  }, [dragPosState, openPositions, candleSource, onRefresh]);
 
   const handleSVGMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
     if (activeTool === 'none' || activeTool === 'delete') return;
