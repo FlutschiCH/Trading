@@ -1420,6 +1420,11 @@ export default function Dashboard() {
           if (result && result.status === 'success' && Array.isArray(result.candles)) {
             rawCandles = result.candles.sort((a: Candle, b: Candle) => a.time - b.time);
             setLiveSimulatedTrades(result.trades || []);
+          } else if (result && result.status === 'not_found') {
+            console.warn(`Live strategy ${selectedStrategyId} not found in DB. Clearing from localStorage.`);
+            localStorage.removeItem('wyckoff_selected_live_strategy_id');
+            setSelectedStrategyId('');
+            setIsLiveFeed(false);
           }
         } catch (err) {
           console.error("Failed to fetch live feed cache:", err);
