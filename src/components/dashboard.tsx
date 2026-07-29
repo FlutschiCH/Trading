@@ -556,7 +556,7 @@ export default function Dashboard() {
   const handleRestartServer = async () => {
     if (!window.confirm("Are you sure you want to update and restart the backend server on the Laptop?")) return;
     try {
-      const laptopUrl = 'https://89.217.138.51:8751';
+      const laptopUrl = 'https://flugrok-production.up.railway.app';
       console.log(`[Dashboard] Sending update & restart request to laptop server: ${laptopUrl}/api/system/restart`);
       const res = await fetch(`${laptopUrl}/api/system/restart`, {
         method: 'POST'

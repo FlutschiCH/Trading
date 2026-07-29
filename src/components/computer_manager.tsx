@@ -28,7 +28,7 @@ export default function ComputerManager({ setView }: ComputerManagerProps) {
     },
     {
       name: 'Laptop Server (Remote)',
-      url: 'https://89.217.138.51:8751',
+      url: 'https://flugrok-production.up.railway.app',
       type: 'laptop',
       online: false,
       loading: true,

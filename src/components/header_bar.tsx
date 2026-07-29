@@ -259,7 +259,7 @@ export default function HeaderBar({
                     <RefreshCw size={12} /> Update Backend
                   </button>
                   <a
-                    href="https://89.217.138.51:8751/api/live/strategies"
+                    href="https://flugrok-production.up.railway.app/api/live/strategies"
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{
@@ -369,7 +369,7 @@ export default function HeaderBar({
               </div>
 
               {/* Target API & cTrader test buttons */}
-              {(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname === '89.217.138.51') && (
+              {(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderTop: '1px solid var(--app-card-border)', paddingTop: '12px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '6px', padding: '6px 12px', justifyContent: 'space-between' }}>
                     <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 'bold' }}>Target API:</span>
@@ -390,7 +390,7 @@ export default function HeaderBar({
                       }}
                     >
                       <option style={{ backgroundColor: '#1e293b', color: '#ffffff' }} value={`http://${window.location.hostname}:8751`}>Local Host (8751)</option>
-                      <option style={{ backgroundColor: '#1e293b', color: '#ffffff' }} value="https://89.217.138.51:8751">Laptop Server (89.217.138.51)</option>
+                      <option style={{ backgroundColor: '#1e293b', color: '#ffffff' }} value="https://flugrok-production.up.railway.app">Railway Proxy (flugrok)</option>
                       <option style={{ backgroundColor: '#1e293b', color: '#ffffff' }} value="https://flugrok-production.up.railway.app">Railway Live Container</option>
                     </select>
                   </div>
@@ -465,7 +465,7 @@ export default function HeaderBar({
               </button>
 
               <a
-                href="https://89.217.138.51:8751/api/live/strategies"
+                href="https://flugrok-production.up.railway.app/api/live/strategies"
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{
@@ -614,7 +614,7 @@ export default function HeaderBar({
                 )}
               </div>
 
-              {(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname === '89.217.138.51') && (
+              {(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '6px', padding: '4px 8px' }}>
                   <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 'bold' }}>Target API:</span>
                   <select
@@ -634,7 +634,7 @@ export default function HeaderBar({
                     }}
                   >
                     <option style={{ backgroundColor: '#1e293b', color: '#ffffff' }} value={`http://${window.location.hostname}:8751`}>Local Host (8751)</option>
-                    <option style={{ backgroundColor: '#1e293b', color: '#ffffff' }} value="https://89.217.138.51:8751">Laptop Server (89.217.138.51)</option>
+                    <option style={{ backgroundColor: '#1e293b', color: '#ffffff' }} value="https://flugrok-production.up.railway.app">Railway Proxy (flugrok)</option>
                     <option style={{ backgroundColor: '#1e293b', color: '#ffffff' }} value="https://flugrok-production.up.railway.app">Railway Live Container</option>
                   </select>
                 </div>
