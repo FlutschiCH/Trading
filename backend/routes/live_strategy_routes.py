@@ -108,7 +108,7 @@ def get_strategy_cache(strategy_id):
         if is_targeted_here:
             print(f"[Cache Endpoint] Cache miss for strategy {strategy_id}. Spawning background warm-up evaluation...", flush=True)
             threading.Thread(target=LiveRunner._evaluate_strategy, args=(strategy,), daemon=True).start()
-            return jsonify({"status": "pending", "message": "Strategy warm-up calculation in progress", "candles": [], "trades": []}), 202
+            return jsonify({"status": "pending", "message": "Strategy warm-up calculation in progress", "strategy_id": strategy_id, "candles": [], "trades": []}), 200
         else:
             # Read from DB live_state when strategy runs on another machine (e.g. laptop)
             if strategy.get("live_state"):
@@ -123,7 +123,7 @@ def get_strategy_cache(strategy_id):
                     trades = live_state.get("trades", [])
 
     if not cache:
-        return jsonify({"status": "error", "message": "Failed to retrieve strategy candles"}), 404
+        return jsonify({"status": "pending", "message": "Strategy candles warming up", "strategy_id": strategy_id, "candles": [], "trades": []}), 200
 
     limit = request.args.get('limit', type=int)
     if limit and cache:
