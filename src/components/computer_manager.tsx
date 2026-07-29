@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Server, RefreshCw, ArrowLeft, Activity, ShieldAlert, Cpu } from 'lucide-react';
+import { TARGET_OPTIONS } from './target_switcher';
 
 interface HostStatus {
   name: string;
@@ -18,29 +19,15 @@ interface ComputerManagerProps {
 }
 
 export default function ComputerManager({ setView }: ComputerManagerProps) {
-  const [hosts, setHosts] = useState<HostStatus[]>([
-    {
-      name: 'Local Dev Machine',
-      url: 'http://localhost:8751',
-      type: 'local',
+  const [hosts, setHosts] = useState<HostStatus[]>(() =>
+    TARGET_OPTIONS.map((opt, idx) => ({
+      name: opt.label,
+      url: opt.url,
+      type: idx === 0 ? 'local' : 'laptop',
       online: false,
       loading: true,
-    },
-    {
-      name: 'Laptop Server (Remote)',
-      url: 'https://flugrok-production.up.railway.app',
-      type: 'laptop',
-      online: false,
-      loading: true,
-    },
-    {
-      name: 'Railway Cloud Container',
-      url: 'https://flugrok-production.up.railway.app',
-      type: 'railway',
-      online: false,
-      loading: true,
-    },
-  ]);
+    }))
+  );
 
   const checkHostStatus = async (hostIndex: number) => {
     const host = hosts[hostIndex];

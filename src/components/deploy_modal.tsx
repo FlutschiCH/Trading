@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { X, Server, ShieldAlert, Check, RefreshCw } from 'lucide-react';
 import { API_BASE_URL } from '../api';
+import { TARGET_OPTIONS } from './target_switcher';
 
 interface HostStatus {
   name: string;
@@ -59,11 +60,15 @@ export default function DeployModal({
   onClose,
   onConfirm,
 }: DeployModalProps) {
-  const [hosts, setHosts] = useState<HostStatus[]>([
-    { name: 'Local Dev Machine', url: 'http://localhost:8751', type: 'local', online: false, loading: true },
-    { name: 'Railway Proxy (flugrok)', url: 'https://flugrok-production.up.railway.app', type: 'laptop', online: false, loading: true },
-    { name: 'Railway Cloud Container', url: 'https://flugrok-production.up.railway.app', type: 'railway', online: false, loading: true },
-  ]);
+  const [hosts, setHosts] = useState<HostStatus[]>(() =>
+    TARGET_OPTIONS.map((opt, idx) => ({
+      name: opt.label,
+      url: opt.url,
+      type: idx === 0 ? 'local' : 'laptop',
+      online: false,
+      loading: true,
+    }))
+  );
 
   const [strategyName, setStrategyName] = useState<string>(initialName);
 
@@ -107,7 +112,7 @@ export default function DeployModal({
       if (saved) {
         cachedList = JSON.parse(saved);
         setAccounts(cachedList);
-        
+
         // Auto select active account or first account if we don't have initialTargets
         if (!initialTargets || initialTargets.length === 0) {
           const active = cachedList.find((a: any) => a.is_active || a.active);
@@ -634,7 +639,7 @@ export default function DeployModal({
           >
             Cancel
           </button>
-          
+
           <button
             onClick={handleConfirmDeploy}
             style={{

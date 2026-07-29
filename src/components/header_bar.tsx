@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Activity, X, Menu, ChevronDown, Sun, Moon, RefreshCw, ShieldAlert } from 'lucide-react';
 import { API_BASE_URL } from '../api';
+import { TargetSwitcher } from './target_switcher';
 
 const triggerPWAEventNotification = (title: string, body: string, soundType: string = 'alert') => {
   fetch(`${API_BASE_URL}/api/notification/trigger`, {
@@ -259,7 +260,7 @@ export default function HeaderBar({
                     <RefreshCw size={12} /> Update Backend
                   </button>
                   <a
-                    href="https://flugrok-production.up.railway.app/api/live/strategies"
+                    href={`${API_BASE_URL}/api/live/strategies`}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{
@@ -369,33 +370,9 @@ export default function HeaderBar({
               </div>
 
               {/* Target API & cTrader test buttons */}
-              {(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderTop: '1px solid var(--app-card-border)', paddingTop: '12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '6px', padding: '6px 12px', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 'bold' }}>Target API:</span>
-                    <select
-                      value={localStorage.getItem('wyckoff_api_target') || `http://${window.location.hostname}:8751`}
-                      onChange={(e) => {
-                        localStorage.setItem('wyckoff_api_target', e.target.value);
-                        window.location.reload();
-                      }}
-                      style={{
-                        backgroundColor: '#1e293b',
-                        border: 'none',
-                        color: '#ffffff',
-                        fontSize: '11px',
-                        fontWeight: 'bold',
-                        cursor: 'pointer',
-                        outline: 'none',
-                      }}
-                    >
-                      <option style={{ backgroundColor: '#1e293b', color: '#ffffff' }} value={`http://${window.location.hostname}:8751`}>Local Host (8751)</option>
-                      <option style={{ backgroundColor: '#1e293b', color: '#ffffff' }} value="https://flugrok-production.up.railway.app">Railway Proxy (flugrok)</option>
-                      <option style={{ backgroundColor: '#1e293b', color: '#ffffff' }} value="https://flugrok-production.up.railway.app">Railway Live Container</option>
-                    </select>
-                  </div>
-                </div>
-              )}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderTop: '1px solid var(--app-card-border)', paddingTop: '12px' }}>
+                <TargetSwitcher />
+              </div>
             </div>
           )}
         </>
@@ -465,7 +442,7 @@ export default function HeaderBar({
               </button>
 
               <a
-                href="https://flugrok-production.up.railway.app/api/live/strategies"
+                href={`${API_BASE_URL}/api/live/strategies`}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{
@@ -614,31 +591,7 @@ export default function HeaderBar({
                 )}
               </div>
 
-              {(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '6px', padding: '4px 8px' }}>
-                  <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 'bold' }}>Target API:</span>
-                  <select
-                    value={localStorage.getItem('wyckoff_api_target') || `http://${window.location.hostname}:8751`}
-                    onChange={(e) => {
-                      localStorage.setItem('wyckoff_api_target', e.target.value);
-                      window.location.reload();
-                    }}
-                    style={{
-                      backgroundColor: '#1e293b',
-                      border: 'none',
-                      color: '#ffffff',
-                      fontSize: '11px',
-                      fontWeight: 'bold',
-                      cursor: 'pointer',
-                      outline: 'none',
-                    }}
-                  >
-                    <option style={{ backgroundColor: '#1e293b', color: '#ffffff' }} value={`http://${window.location.hostname}:8751`}>Local Host (8751)</option>
-                    <option style={{ backgroundColor: '#1e293b', color: '#ffffff' }} value="https://flugrok-production.up.railway.app">Railway Proxy (flugrok)</option>
-                    <option style={{ backgroundColor: '#1e293b', color: '#ffffff' }} value="https://flugrok-production.up.railway.app">Railway Live Container</option>
-                  </select>
-                </div>
-              )}
+              <TargetSwitcher compact />
             </div>
           </div>
 
