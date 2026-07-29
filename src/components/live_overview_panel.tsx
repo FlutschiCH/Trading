@@ -143,7 +143,35 @@ export default function LiveOverviewPanel({
   }
 
   if (error && strategies.length === 0) {
-    return <div style={{ color: '#ef4444', fontSize: '12px', padding: '12px' }}>Error: {error}</div>;
+    return (
+      <div style={{ color: '#ef4444', fontSize: '12px', padding: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', backgroundColor: '#0b0f19', border: '1px solid #7f1d1d', borderRadius: '8px' }}>
+        <span>⚠️ Error: {error}</span>
+        <button
+          onClick={() => {
+            setError(null);
+            setLoading(true);
+            fetchStrategies();
+          }}
+          style={{
+            backgroundColor: '#2563eb',
+            color: '#ffffff',
+            border: 'none',
+            borderRadius: '6px',
+            padding: '6px 16px',
+            fontSize: '12px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            boxShadow: '0 2px 8px rgba(37, 99, 235, 0.3)',
+            transition: 'all 0.2s'
+          }}
+        >
+          <RefreshCw size={14} /> Retry Connection
+        </button>
+      </div>
+    );
   }
 
   return (
