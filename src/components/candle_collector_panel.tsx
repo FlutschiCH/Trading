@@ -270,7 +270,7 @@ export const CandleCollectorPanel: React.FC<CandleCollectorPanelProps> = ({ avai
       <div
         style={{
           display: 'flex',
-          justify: 'space-between',
+          justifyContent: 'space-between',
           alignItems: 'center',
           borderBottom: '1px solid #1f2937',
           paddingBottom: '8px',
@@ -473,7 +473,7 @@ export const CandleCollectorPanel: React.FC<CandleCollectorPanelProps> = ({ avai
                             : 'transparent',
                         transition: 'background-color 0.15s',
                         display: 'flex',
-                        justify: 'space-between',
+                        justifyContent: 'space-between',
                         alignItems: 'center',
                       }}
                       onMouseEnter={() => setHighlightedIndex(idx)}
@@ -534,7 +534,7 @@ export const CandleCollectorPanel: React.FC<CandleCollectorPanelProps> = ({ avai
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
-              justify: 'center',
+              justifyContent: 'center',
               height: '80px',
               color: '#64748b',
               fontSize: '12px',
@@ -560,7 +560,7 @@ export const CandleCollectorPanel: React.FC<CandleCollectorPanelProps> = ({ avai
                   opacity: isPaused ? 0.6 : 1,
                   transition: 'opacity 0.2s',
                   display: 'flex',
-                  justify: 'space-between',
+                  justifyContent: 'space-between',
                   alignItems: 'center',
                 }}
               >
