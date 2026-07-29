@@ -2102,9 +2102,12 @@ export default function Dashboard() {
       backgroundColor: 'var(--app-input-bg)',
       border: '1px solid var(--app-input-border)',
       borderRadius: '6px',
-      padding: '6px 10px',
+      padding: '4px 8px',
       color: 'var(--app-input-text)',
       outline: 'none',
+      fontSize: '12px',
+      maxWidth: '180px',
+      width: '100%',
     },
     submitBtn: (isBuy: boolean) => ({
       width: '100%',
