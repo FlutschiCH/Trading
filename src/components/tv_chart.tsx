@@ -287,16 +287,17 @@ export default function TVChart({
     lastValidCandlesRef.current = [];
   }, [symbol, timeframe]);
 
-  // Update cached candles when valid non-empty candles arrive
+  // Update cached candles when valid non-empty candles arrive (require >= 10 candles)
   useEffect(() => {
-    if (candles && candles.length > 0) {
+    if (candles && candles.length >= 10) {
       lastValidCandlesRef.current = candles;
     }
   }, [candles]);
 
-  const currentDisplayCandles = (candles && candles.length > 0)
+  const currentDisplayCandles = (candles && candles.length >= 10)
     ? candles
-    : lastValidCandlesRef.current;
+    : (lastValidCandlesRef.current.length > 0 ? lastValidCandlesRef.current : candles);
+
 
   const activeCandles = replayTime !== null
     ? currentDisplayCandles.filter(c => Number(c.time) <= replayTime)

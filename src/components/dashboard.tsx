@@ -1416,13 +1416,16 @@ export default function Dashboard() {
 
     try {
       let rawCandles: Candle[] = [];
+      let fetchedTrades: any[] = [];
+      let isFromLiveFeedCache = false;
 
       if (isLiveFeed && selectedStrategyId) {
         try {
           const result = await apiService.fetchLiveStrategyCache(selectedStrategyId, isIncremental ? 2 : undefined);
           if (result && result.status === 'success' && Array.isArray(result.candles)) {
             rawCandles = result.candles.sort((a: Candle, b: Candle) => a.time - b.time);
-            setLiveSimulatedTrades(result.trades || []);
+            fetchedTrades = result.trades || [];
+            isFromLiveFeedCache = true;
           } else if (result && result.status === 'not_found') {
             console.warn(`Live strategy ${selectedStrategyId} not found in DB. Clearing from localStorage.`);
             localStorage.removeItem('wyckoff_selected_live_strategy_id');
@@ -1445,19 +1448,39 @@ export default function Dashboard() {
           });
           if (result && result.status === 'success' && Array.isArray(result.candles)) {
             rawCandles = result.candles.sort((a: Candle, b: Candle) => a.time - b.time);
-            setLiveSimulatedTrades(result.trades || []);
+            fetchedTrades = result.trades || [];
           } else if (Array.isArray(result)) {
             rawCandles = result.sort((a: Candle, b: Candle) => a.time - b.time);
-            setLiveSimulatedTrades([]);
+            fetchedTrades = [];
           }
         } catch (err) {
           console.error("Error fetching trade candles:", err);
         }
       }
 
+      // Merge or update trades state without wiping existing trades on incremental 2-candle fetches
+      if (isIncremental && isFromLiveFeedCache) {
+        setLiveSimulatedTrades(prev => {
+          if (prev.length === 0) return fetchedTrades;
+          const merged = [...prev];
+          fetchedTrades.forEach((newTrade: any) => {
+            const idx = merged.findIndex(t => t.id === newTrade.id || (t.entryTimestamp === newTrade.entryTimestamp && t.symbol === newTrade.symbol));
+            if (idx !== -1) {
+              merged[idx] = newTrade;
+            } else {
+              merged.push(newTrade);
+            }
+          });
+          return merged;
+        });
+      } else {
+        setLiveSimulatedTrades(fetchedTrades);
+      }
+
       if (rawCandles.length > 0) {
-        if (isIncremental) {
+        if (isIncremental || rawCandles.length < 50) {
           setCandles(prev => {
+            if (prev.length === 0) return rawCandles;
             const merged = [...prev];
             rawCandles.forEach((newCandle) => {
               const idx = merged.findIndex(c => c.time === newCandle.time);
@@ -1473,6 +1496,8 @@ export default function Dashboard() {
           setCandles(rawCandles);
         }
         setLoading(false);
+        setInitialCandlesLoaded(true);
+      }
         setInitialCandlesLoaded(true);
       }
     } catch (error) {
