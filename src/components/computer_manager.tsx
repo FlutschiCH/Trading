@@ -35,7 +35,7 @@ export default function ComputerManager({ setView }: ComputerManagerProps) {
     },
     {
       name: 'Railway Cloud Container',
-      url: 'https://trading-production-cb87.up.railway.app',
+      url: 'https://flugrok-production.up.railway.app',
       type: 'railway',
       online: false,
       loading: true,

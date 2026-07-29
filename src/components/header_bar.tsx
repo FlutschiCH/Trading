@@ -391,7 +391,7 @@ export default function HeaderBar({
                     >
                       <option style={{ backgroundColor: '#1e293b', color: '#ffffff' }} value={`http://${window.location.hostname}:8751`}>Local Host (8751)</option>
                       <option style={{ backgroundColor: '#1e293b', color: '#ffffff' }} value="https://89.217.138.51:8751">Laptop Server (89.217.138.51)</option>
-                      <option style={{ backgroundColor: '#1e293b', color: '#ffffff' }} value="https://trading-production-cb87.up.railway.app">Railway Live Container</option>
+                      <option style={{ backgroundColor: '#1e293b', color: '#ffffff' }} value="https://flugrok-production.up.railway.app">Railway Live Container</option>
                     </select>
                   </div>
                 </div>
@@ -635,7 +635,7 @@ export default function HeaderBar({
                   >
                     <option style={{ backgroundColor: '#1e293b', color: '#ffffff' }} value={`http://${window.location.hostname}:8751`}>Local Host (8751)</option>
                     <option style={{ backgroundColor: '#1e293b', color: '#ffffff' }} value="https://89.217.138.51:8751">Laptop Server (89.217.138.51)</option>
-                    <option style={{ backgroundColor: '#1e293b', color: '#ffffff' }} value="https://trading-production-cb87.up.railway.app">Railway Live Container</option>
+                    <option style={{ backgroundColor: '#1e293b', color: '#ffffff' }} value="https://flugrok-production.up.railway.app">Railway Live Container</option>
                   </select>
                 </div>
               )}

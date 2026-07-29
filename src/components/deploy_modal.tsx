@@ -62,7 +62,7 @@ export default function DeployModal({
   const [hosts, setHosts] = useState<HostStatus[]>([
     { name: 'Local Dev Machine', url: 'http://localhost:8751', type: 'local', online: false, loading: true },
     { name: 'Laptop Server (Remote)', url: 'https://89.217.138.51:8751', type: 'laptop', online: false, loading: true },
-    { name: 'Railway Cloud Container', url: 'https://trading-production-cb87.up.railway.app', type: 'railway', online: false, loading: true },
+    { name: 'Railway Cloud Container', url: 'https://flugrok-production.up.railway.app', type: 'railway', online: false, loading: true },
   ]);
 
   const [strategyName, setStrategyName] = useState<string>(initialName);
