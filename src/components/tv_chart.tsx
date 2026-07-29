@@ -280,13 +280,32 @@ export default function TVChart({
 
 
 
+  const lastValidCandlesRef = useRef<any[]>([]);
+
+  // Clear cached candles when symbol or timeframe changes
+  useEffect(() => {
+    lastValidCandlesRef.current = [];
+  }, [symbol, timeframe]);
+
+  // Update cached candles when valid non-empty candles arrive
+  useEffect(() => {
+    if (candles && candles.length > 0) {
+      lastValidCandlesRef.current = candles;
+    }
+  }, [candles]);
+
+  const currentDisplayCandles = (candles && candles.length > 0)
+    ? candles
+    : lastValidCandlesRef.current;
+
   const activeCandles = replayTime !== null
-    ? candles.filter(c => Number(c.time) <= replayTime)
-    : candles;
+    ? currentDisplayCandles.filter(c => Number(c.time) <= replayTime)
+    : currentDisplayCandles;
 
   const visibleTrades = replayTime !== null
     ? (trades || []).filter(t => Number(t.entryTimestamp) <= replayTime)
     : trades;
+
 
   const visibleFvgs = replayTime !== null
     ? (fvgs || []).filter(f => Number(f.timeStart) <= replayTime)
@@ -516,10 +535,10 @@ export default function TVChart({
     candlesRef.current = activeCandles;
   }, [activeCandles]);
 
-  const fullCandlesRef = useRef(candles);
+  const fullCandlesRef = useRef(currentDisplayCandles);
   useEffect(() => {
-    fullCandlesRef.current = candles;
-  }, [candles]);
+    fullCandlesRef.current = currentDisplayCandles;
+  }, [currentDisplayCandles]);
 
   // Log Wyckoff stage swaps on data load/change
   useEffect(() => {
