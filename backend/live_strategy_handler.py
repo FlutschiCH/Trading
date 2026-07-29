@@ -15,16 +15,7 @@ class LiveStrategyHandler:
         """
         if LiveStrategyHandler._db_initialized:
             return
-        # Check if table has 'id' column, if not drop it to migrate
-        try:
-            SQLHandler.execute_query("SELECT id FROM live_strategies LIMIT 1")
-        except Exception:
-            try:
-                SQLHandler.execute_query("DROP TABLE IF EXISTS live_strategies")
-            except Exception:
-                pass
 
-        # Create MySQL style table
         create_mysql = """
         CREATE TABLE IF NOT EXISTS live_strategies (
             id VARCHAR(50) PRIMARY KEY,
@@ -49,7 +40,12 @@ class LiveStrategyHandler:
             entryStabilityRule VARCHAR(20) DEFAULT 'default',
             broker VARCHAR(50) DEFAULT 'metatrader',
             account_id VARCHAR(100),
-            live_state TEXT
+            live_state TEXT,
+            target_computer VARCHAR(100) DEFAULT 'All',
+            dateRangeOption VARCHAR(50) DEFAULT 'last_candles',
+            customFrom VARCHAR(100) DEFAULT '',
+            customTo VARCHAR(100) DEFAULT '',
+            candleLimit INT DEFAULT 1000
         )
         """
         create_targets_table = """
@@ -63,78 +59,6 @@ class LiveStrategyHandler:
         try:
             SQLHandler.execute_query(create_mysql)
             SQLHandler.execute_query(create_targets_table)
-            # Add name column if not exists
-            try:
-                SQLHandler.execute_query("SELECT name FROM live_strategies LIMIT 1")
-            except Exception:
-                try:
-                    SQLHandler.execute_query("ALTER TABLE live_strategies ADD COLUMN name VARCHAR(100) DEFAULT ''")
-                except Exception:
-                    pass
-            # Add broker column if not exists
-            try:
-                SQLHandler.execute_query("SELECT broker FROM live_strategies LIMIT 1")
-            except Exception:
-                try:
-                    SQLHandler.execute_query("ALTER TABLE live_strategies ADD COLUMN broker VARCHAR(50) DEFAULT 'metatrader'")
-                except Exception:
-                    pass
-            # Add account_id column if not exists
-            try:
-                SQLHandler.execute_query("SELECT account_id FROM live_strategies LIMIT 1")
-            except Exception:
-                try:
-                    SQLHandler.execute_query("ALTER TABLE live_strategies ADD COLUMN account_id VARCHAR(100)")
-                except Exception:
-                    pass
-            # Try to query live_state column, if not exists, alter table to add it
-            try:
-                SQLHandler.execute_query("SELECT live_state FROM live_strategies LIMIT 1")
-            except Exception:
-                try:
-                    SQLHandler.execute_query("ALTER TABLE live_strategies ADD COLUMN live_state TEXT")
-                except Exception:
-                    pass
-            # Add target_computer column if not exists
-            try:
-                SQLHandler.execute_query("SELECT target_computer FROM live_strategies LIMIT 1")
-            except Exception:
-                try:
-                    SQLHandler.execute_query("ALTER TABLE live_strategies ADD COLUMN target_computer VARCHAR(100) DEFAULT 'All'")
-                except Exception:
-                    pass
-            # Add dateRangeOption column if not exists
-            try:
-                SQLHandler.execute_query("SELECT dateRangeOption FROM live_strategies LIMIT 1")
-            except Exception:
-                try:
-                    SQLHandler.execute_query("ALTER TABLE live_strategies ADD COLUMN dateRangeOption VARCHAR(50) DEFAULT 'last_candles'")
-                except Exception:
-                    pass
-            # Add customFrom column if not exists
-            try:
-                SQLHandler.execute_query("SELECT customFrom FROM live_strategies LIMIT 1")
-            except Exception:
-                try:
-                    SQLHandler.execute_query("ALTER TABLE live_strategies ADD COLUMN customFrom VARCHAR(100) DEFAULT ''")
-                except Exception:
-                    pass
-            # Add customTo column if not exists
-            try:
-                SQLHandler.execute_query("SELECT customTo FROM live_strategies LIMIT 1")
-            except Exception:
-                try:
-                    SQLHandler.execute_query("ALTER TABLE live_strategies ADD COLUMN customTo VARCHAR(100) DEFAULT ''")
-                except Exception:
-                    pass
-            # Add candleLimit column if not exists
-            try:
-                SQLHandler.execute_query("SELECT candleLimit FROM live_strategies LIMIT 1")
-            except Exception:
-                try:
-                    SQLHandler.execute_query("ALTER TABLE live_strategies ADD COLUMN candleLimit INT DEFAULT 1000")
-                except Exception:
-                    pass
             LiveStrategyHandler._db_initialized = True
         except Exception as e:
             print(f"Error initializing live_strategies DB table: {e}", flush=True)
@@ -286,20 +210,27 @@ class LiveStrategyHandler:
     @staticmethod
     def get_all_strategies() -> list:
         """
-        Retrieves all live strategies from the database.
+        Retrieves all live strategies from the database in a single query.
         """
         LiveStrategyHandler.init_db()
         query = "SELECT * FROM live_strategies ORDER BY deployedAt DESC"
         try:
             results = SQLHandler.execute_query(query)
+            if not results:
+                return []
+
+            targets_rows = SQLHandler.execute_query("SELECT strategy_id, broker, account_id FROM live_strategy_targets")
+            targets_map = {}
+            for r in targets_rows:
+                s_id = r["strategy_id"]
+                if s_id not in targets_map:
+                    targets_map[s_id] = []
+                targets_map[s_id].append({"broker": r["broker"], "account_id": r["account_id"]})
+
             strats = []
             for row in results:
                 strat = LiveStrategyHandler._row_to_dict(row)
-                targets_rows = SQLHandler.execute_query(
-                    "SELECT broker, account_id FROM live_strategy_targets WHERE strategy_id = %s",
-                    (strat["id"],)
-                )
-                strat["targets"] = [{"broker": r["broker"], "account_id": r["account_id"]} for r in targets_rows]
+                strat["targets"] = targets_map.get(strat["id"], [])
                 strats.append(strat)
             return strats
         except Exception as e:
