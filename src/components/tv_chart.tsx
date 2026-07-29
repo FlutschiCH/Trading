@@ -1686,21 +1686,6 @@ export default function TVChart({
 
   // Effect for rendering active live positions (Entry, SL, TP)
   useEffect(() => {
-    if (activePositionsRef.current.length > 0) {
-      activePositionsRef.current.forEach((item) => {
-        try {
-          if (item.type === 'priceLine' && candlestickSeriesRef.current) {
-            candlestickSeriesRef.current.removePriceLine(item.line);
-          } else if (item.type === 'lineSeries' && chartRef.current) {
-            chartRef.current.removeSeries(item.line);
-          }
-        } catch (e) {}
-      });
-      activePositionsRef.current = [];
-    }
-
-    if (chartSettings.showPositions === false) return;
-
     let positionsList: any[] = [];
     if (Array.isArray(openPositions) && openPositions.length > 0) {
       positionsList = openPositions;
@@ -1713,8 +1698,36 @@ export default function TVChart({
       } catch (e) {}
     }
 
-    if (!Array.isArray(positionsList) || positionsList.length === 0) return;
+    if (!Array.isArray(positionsList) || positionsList.length === 0) {
+      if (activePositionsRef.current.length > 0) {
+        activePositionsRef.current.forEach((item) => {
+          try {
+            if (item.type === 'priceLine' && candlestickSeriesRef.current) {
+              candlestickSeriesRef.current.removePriceLine(item.line);
+            } else if (item.type === 'lineSeries' && chartRef.current) {
+              chartRef.current.removeSeries(item.line);
+            }
+          } catch (e) {}
+        });
+        activePositionsRef.current = [];
+      }
+      return;
+    }
+
     if (!candlestickSeriesRef.current || !chartRef.current || !activeCandles || activeCandles.length === 0) return;
+
+    if (activePositionsRef.current.length > 0) {
+      activePositionsRef.current.forEach((item) => {
+        try {
+          if (item.type === 'priceLine' && candlestickSeriesRef.current) {
+            candlestickSeriesRef.current.removePriceLine(item.line);
+          } else if (item.type === 'lineSeries' && chartRef.current) {
+            chartRef.current.removeSeries(item.line);
+          }
+        } catch (e) {}
+      });
+      activePositionsRef.current = [];
+    }
 
     const currentSymbolClean = (symbol || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
     const matchingPositions = positionsList.filter((p) => {
