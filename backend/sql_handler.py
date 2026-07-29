@@ -40,7 +40,7 @@ class SQLHandler:
         if cls._pool is not None:
             return True
         start_time = time.time()
-        pool_size = int(os.getenv("DB_POOL_SIZE", "3"))
+        pool_size = int(os.getenv("DB_POOL_SIZE", "6"))
         try:
             from mysql.connector.pooling import MySQLConnectionPool
             cls._pool = MySQLConnectionPool(
