@@ -11,7 +11,11 @@ interface TrackedSymbol {
   candle_count: number;
 }
 
-export const CandleCollectorPanel: React.FC = () => {
+interface CandleCollectorPanelProps {
+  availableSymbols?: string[];
+}
+
+export const CandleCollectorPanel: React.FC<CandleCollectorPanelProps> = ({ availableSymbols = [] }) => {
   const [symbols, setSymbols] = useState<TrackedSymbol[]>([]);
   const [newSymbol, setNewSymbol] = useState('');
   const [loading, setLoading] = useState(false);
@@ -19,6 +23,40 @@ export const CandleCollectorPanel: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [countdown, setCountdown] = useState<number>(600); // 10 minutes in seconds
+
+  // Broker symbols dropdown states
+  const [brokerSymbols, setBrokerSymbols] = useState<string[]>([]);
+  const [loadingBrokerSymbols, setLoadingBrokerSymbols] = useState(false);
+  const [brokerSymbolSearch, setBrokerSymbolSearch] = useState('');
+  const [showBrokerSymbolDropdown, setShowBrokerSymbolDropdown] = useState(false);
+
+  const fetchBrokerSymbols = async () => {
+    setLoadingBrokerSymbols(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/metatrader/symbols`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.status === 'success' && Array.isArray(data.data) && data.data.length > 0) {
+          setBrokerSymbols(data.data);
+          return;
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load MT5 broker symbols:', e);
+    } finally {
+      setLoadingBrokerSymbols(false);
+    }
+
+    // Fallback to default symbols if MT5 endpoint returns empty
+    const fallbackList = availableSymbols.length > 0
+      ? availableSymbols
+      : ['BTCUSD', 'ETHUSD', 'EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'XAUUSD', 'US30', 'GER40'];
+    setBrokerSymbols(fallbackList);
+  };
+
+  useEffect(() => {
+    fetchBrokerSymbols();
+  }, []);
 
   const fetchStats = async () => {
     try {
@@ -65,6 +103,12 @@ export const CandleCollectorPanel: React.FC = () => {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const handleSelectBrokerSymbol = (sym: string) => {
+    setNewSymbol(sym);
+    setBrokerSymbolSearch(sym);
+    setShowBrokerSymbolDropdown(false);
+  };
+
   const handleAddSymbol = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newSymbol.trim()) return;
@@ -82,6 +126,7 @@ export const CandleCollectorPanel: React.FC = () => {
       if (res.ok && data.status === 'success') {
         setSuccess(data.message || `Added ${newSymbol}`);
         setNewSymbol('');
+        setBrokerSymbolSearch('');
         fetchStats();
       } else {
         setError(data.message || 'Failed to add symbol');
@@ -143,6 +188,10 @@ export const CandleCollectorPanel: React.FC = () => {
   };
 
   const [showContent, setShowContent] = useState(true);
+
+  const filteredBrokerSymbols = brokerSymbols.filter((s) =>
+    s.toLowerCase().includes(brokerSymbolSearch.toLowerCase())
+  );
 
   return (
     <div
@@ -282,20 +331,85 @@ export const CandleCollectorPanel: React.FC = () => {
             </div>
           )}
 
-          {/* Add Symbol Input */}
+          {/* Add Symbol Searchable Dropdown Form */}
           <form onSubmit={handleAddSymbol} className="flex gap-2 mb-4">
-            <input
-              type="text"
-              value={newSymbol}
-              onChange={(e) => setNewSymbol(e.target.value)}
-              placeholder="Enter MetaTrader Symbol (e.g. EURUSD, BTCUSD, XAUUSD)..."
-              style={{
-                backgroundColor: 'var(--app-input-bg, #0b0f19)',
-                borderColor: 'var(--app-input-border, #1f2937)',
-                color: 'var(--app-input-text, #ffffff)',
-              }}
-              className="flex-1 border rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-emerald-500"
-            />
+            <div className="relative flex-1">
+              <input
+                type="text"
+                placeholder={loadingBrokerSymbols ? 'Loading symbols...' : 'Search/select MetaTrader symbol (e.g. EURUSD.ecn, BTCUSD)...'}
+                value={showBrokerSymbolDropdown ? brokerSymbolSearch : newSymbol}
+                onFocus={() => {
+                  setBrokerSymbolSearch('');
+                  setShowBrokerSymbolDropdown(true);
+                }}
+                onChange={(e) => {
+                  setBrokerSymbolSearch(e.target.value);
+                  setNewSymbol(e.target.value);
+                }}
+                style={{
+                  backgroundColor: 'var(--app-input-bg, #0b0f19)',
+                  borderColor: 'var(--app-input-border, #1f2937)',
+                  color: 'var(--app-input-text, #ffffff)',
+                }}
+                className="w-full border rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-emerald-500"
+              />
+
+              {showBrokerSymbolDropdown && (
+                <>
+                  <div
+                    onClick={() => setShowBrokerSymbolDropdown(false)}
+                    style={{
+                      position: 'fixed',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      zIndex: 999,
+                    }}
+                  />
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      right: 0,
+                      backgroundColor: '#0f172a',
+                      border: '1px solid #334155',
+                      borderRadius: '6px',
+                      maxHeight: '200px',
+                      overflowY: 'auto',
+                      zIndex: 1000,
+                      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)',
+                    }}
+                  >
+                    {filteredBrokerSymbols.length > 0 ? (
+                      filteredBrokerSymbols.map((sym) => (
+                        <div
+                          key={sym}
+                          onClick={() => handleSelectBrokerSymbol(sym)}
+                          style={{
+                            padding: '8px 12px',
+                            fontSize: '12px',
+                            color: '#f8fafc',
+                            cursor: 'pointer',
+                            borderBottom: '1px solid #1e293b',
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#1e293b')}
+                          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                        >
+                          {sym}
+                        </div>
+                      ))
+                    ) : (
+                      <div style={{ padding: '8px 12px', fontSize: '12px', color: '#64748b' }}>
+                        No matching symbols found
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+
             <button
               type="submit"
               disabled={loading || !newSymbol.trim()}

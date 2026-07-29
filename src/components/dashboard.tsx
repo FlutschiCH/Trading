@@ -3287,7 +3287,7 @@ export default function Dashboard() {
             </div>
 
             {/* 1M Candle Collector Panel */}
-            <CandleCollectorPanel />
+            <CandleCollectorPanel availableSymbols={availableSymbols} />
 
           </main>
 
