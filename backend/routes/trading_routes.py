@@ -41,6 +41,13 @@ def order():
         take_profit = float(take_profit)
 
     magic = payload.get('magic')
+    if magic is not None:
+        try:
+            magic = int(magic)
+        except (ValueError, TypeError):
+            magic = 123456
+    else:
+        magic = 123456
 
     handler = _get_handler(payload)
     result = handler.create_order(

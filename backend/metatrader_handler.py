@@ -276,7 +276,7 @@ class MetaTraderHandler(BaseBrokerHandler):
             "type": action_type,
             "price": float(price),
             "deviation": 20,
-            "magic": int(magic),
+            "magic": int(magic) if magic is not None else 123456,
             "comment": "Wyckoff MT5 Order",
             "type_time": mt5.ORDER_TIME_GTC,
             "type_filling": mt5.ORDER_FILLING_IOC,
