@@ -269,6 +269,18 @@ class MetaTraderHandler(BaseBrokerHandler):
                 return {"status": "error", "message": f"Failed to get current price tick for {matched_symbol}"}
             price = tick.ask if is_buy else tick.bid
         
+        symbol_info = mt5.symbol_info(matched_symbol)
+        filling_mode = mt5.ORDER_FILLING_IOC
+        if symbol_info is not None and hasattr(symbol_info, "filling_mode"):
+          modes = symbol_info.filling_mode
+          # checking bits: 1 = FOK (ORDER_FILLING_FOK), 2 = IOC (ORDER_FILLING_IOC)
+          if modes & 2:
+            filling_mode = mt5.ORDER_FILLING_IOC
+          elif modes & 1:
+            filling_mode = mt5.ORDER_FILLING_FOK
+          else:
+            filling_mode = mt5.ORDER_FILLING_RETURN
+
         request_dict = {
             "action": mt5.TRADE_ACTION_DEAL,
             "symbol": matched_symbol,
@@ -279,7 +291,7 @@ class MetaTraderHandler(BaseBrokerHandler):
             "magic": int(magic) if magic is not None else 123456,
             "comment": "Wyckoff MT5 Order",
             "type_time": mt5.ORDER_TIME_GTC,
-            "type_filling": mt5.ORDER_FILLING_IOC,
+            "type_filling": filling_mode,
         }
         
         if stop_loss is not None:
@@ -318,6 +330,17 @@ class MetaTraderHandler(BaseBrokerHandler):
             return {"status": "error", "message": f"Failed to get price tick for {symbol}"}
         price = tick.bid if is_buy else tick.ask
         
+        symbol_info = mt5.symbol_info(symbol)
+        filling_mode = mt5.ORDER_FILLING_IOC
+        if symbol_info is not None and hasattr(symbol_info, "filling_mode"):
+          modes = symbol_info.filling_mode
+          if modes & 2:
+            filling_mode = mt5.ORDER_FILLING_IOC
+          elif modes & 1:
+            filling_mode = mt5.ORDER_FILLING_FOK
+          else:
+            filling_mode = mt5.ORDER_FILLING_RETURN
+
         request_dict = {
             "action": mt5.TRADE_ACTION_DEAL,
             "symbol": symbol,
@@ -329,7 +352,7 @@ class MetaTraderHandler(BaseBrokerHandler):
             "magic": 234000,
             "comment": "Auto-Close Session Position",
             "type_time": mt5.ORDER_TIME_GTC,
-            "type_filling": mt5.ORDER_FILLING_IOC,
+            "type_filling": filling_mode,
         }
         result = mt5.order_send(request_dict)
         from notification_handler import NotificationHandler
