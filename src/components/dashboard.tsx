@@ -1863,96 +1863,31 @@ export default function Dashboard() {
     localStorage.setItem('wyckoff_trades_poll_interval', tradesPollInterval.toString());
   }, [tradesPollInterval]);
 
-  const [isInitialDataReady, setIsInitialDataReady] = useState(false);
-
-  // Fetch initial required data (accounts & account info) before starting interval polling.
-  // Pauses 2 seconds and retries if backend returns an error or is restarting.
+  // Fetch account/positions data on initial load and setup interval polling when autoPollTrades is enabled.
   useEffect(() => {
-    let isMounted = true;
-    let timeoutId: any = null;
+    fetchAccountData();
+    fetchPositionData();
 
-    const loadInitialData = async () => {
-      try {
-        const [accRes, tradeAccRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/api/accounts`).catch(() => null),
-          fetch(`${API_BASE_URL}/api/trade/account`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ broker: candleSource })
-          }).catch(() => null)
-        ]);
-
-        if (accRes && accRes.ok && tradeAccRes && tradeAccRes.ok) {
-          const accData = await accRes.json();
-          const tradeAccData = await tradeAccRes.json();
-
-          if (accData.status === 'success' && tradeAccData.status === 'success') {
-            const list = accData.data || [];
-            setAccounts(list);
-            localStorage.setItem('wyckoff_accounts', JSON.stringify(list));
-            setAccountInfo(tradeAccData.data);
-            if (isMounted) {
-              setIsInitialDataReady(true);
-              fetchPositionData();
-            }
-            return;
-          }
-        }
-      } catch (err) {
-        console.warn('[Initial Load] Backend unreachable or restarting. Retrying in 2s...', err);
-      }
-
-      if (isMounted) {
-        setIsInitialDataReady(false);
-        timeoutId = setTimeout(loadInitialData, 2000);
-      }
-    };
-
-    loadInitialData();
-
-    return () => {
-      isMounted = false;
-      if (timeoutId) clearTimeout(timeoutId);
-    };
-  }, [candleSource]);
-
-  // Fetch account/positions data interval polling once initial data is ready
-  useEffect(() => {
-    if (!isInitialDataReady || !autoPollTrades) return;
+    if (!autoPollTrades) return;
 
     const ms = Math.max(1, tradesPollInterval) * 1000;
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/trade/account`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ broker: candleSource })
-        });
-        if (!res.ok) {
-          console.warn('[Polling] Backend error during polling. Pausing...');
-          setIsInitialDataReady(false);
-          return;
-        }
-        fetchAccountData();
-        fetchPositionData();
-      } catch (e) {
-        console.warn('[Polling] Backend unreachable. Pausing polling...');
-        setIsInitialDataReady(false);
-      }
+    const interval = setInterval(() => {
+      fetchAccountData();
+      fetchPositionData();
     }, ms);
 
     return () => clearInterval(interval);
-  }, [isInitialDataReady, candleSource, autoPollTrades, tradesPollInterval]);
+  }, [candleSource, autoPollTrades, tradesPollInterval]);
 
-  // Live Feed auto-update polling (runs only when initial data is verified and backend is reachable)
+  // Live Feed auto-update polling
   useEffect(() => {
-    if (!isLiveFeed || !isInitialDataReady) return;
+    if (!isLiveFeed) return;
     fetchCandles(undefined, true, true);
     const interval = setInterval(() => {
       fetchCandles(undefined, true, false);
     }, 2000);
     return () => clearInterval(interval);
-  }, [isLiveFeed, isInitialDataReady, symbol, timeframe, selectedStrategyId]);
+  }, [isLiveFeed, symbol, timeframe, selectedStrategyId]);
 
   const currentConnected = true;
 
