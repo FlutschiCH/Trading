@@ -1502,9 +1502,14 @@ export default function Dashboard() {
       });
       const result = await response.json();
       if (result.status === 'success') {
-        setOpenPositions(result.data);
+        const positions = Array.isArray(result.data) ? result.data : [];
+        setOpenPositions(positions);
         try {
-          localStorage.setItem('wyckoff_active_positions', JSON.stringify(result.data));
+          if (positions.length > 0) {
+            localStorage.setItem('wyckoff_active_positions', JSON.stringify(positions));
+          } else {
+            localStorage.removeItem('wyckoff_active_positions');
+          }
         } catch (e) {}
       }
     } catch (error) {
