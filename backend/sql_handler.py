@@ -52,7 +52,7 @@ class SQLHandler:
                 user=DB_USER,
                 password=DB_PASSWORD,
                 database=DB_NAME,
-                connect_timeout=3
+                connect_timeout=2
             )
             cls._remote_db_offline = False
             duration = time.time() - start_time
@@ -105,57 +105,68 @@ class SQLHandler:
     @classmethod
     def execute_query(cls, query: str, params: tuple = None) -> list:
         """
-        Executes a query with thread-safety and connection cleanup using MySQL.
+        Executes a query with thread-safety and connection cleanup using MySQL,
+        with automated fallback to SQLite if remote MySQL connection times out or fails.
         """
         if params is None:
             params = ()
 
-        cls._lock.acquire()
-        try:
-            max_retries = 3
-            last_err = None
-            for attempt in range(max_retries):
-                conn = None
-                cursor = None
+        # Try Remote MySQL if available and not marked offline
+        if MYSQL_AVAILABLE and not cls._remote_db_offline:
+            if cls._lock.acquire(timeout=2.0):
                 try:
-                    conn = cls.get_mysql_connection()
-                    cursor = conn.cursor(dictionary=True)
-                    cursor.execute(query, params)
-                    if query.strip().upper().startswith("SELECT"):
-                        result = cursor.fetchall()
-                    else:
-                        conn.commit()
-                        result = [{"rowcount": cursor.rowcount, "lastrowid": cursor.lastrowid}]
-                    return result
-                except Exception as err:
-                    last_err = err
-                    err_msg = str(err)
-                    is_conn_err = any(x in err_msg for x in ["pool exhausted", "PoolError", "2055", "Lost connection", "10054", "Connection refused", "is closed", "not connected", "Failed getting connection"])
-                    if is_conn_err:
-                        print(f"[SQLHandler] MySQL connection issue (attempt {attempt + 1}/{max_retries}): {err_msg}", flush=True)
-                        cls._pool = None  # Re-initialize pool on retry
-                        if attempt < max_retries - 1:
-                            time.sleep(0.2)
-                            continue
-                    else:
-                        raise err
-                finally:
-                    if cursor:
+                    max_retries = 2
+                    last_err = None
+                    for attempt in range(max_retries):
+                        conn = None
+                        cursor = None
                         try:
-                            cursor.close()
-                        except Exception:
-                            pass
-                    if conn:
-                        try:
-                            conn.close()
-                        except Exception:
-                            pass
+                            conn = cls.get_mysql_connection()
+                            cursor = conn.cursor(dictionary=True)
+                            cursor.execute(query, params)
+                            if query.strip().upper().startswith("SELECT"):
+                                result = cursor.fetchall()
+                            else:
+                                conn.commit()
+                                result = [{"rowcount": cursor.rowcount, "lastrowid": cursor.lastrowid}]
+                            return result
+                        except Exception as err:
+                            last_err = err
+                            err_msg = str(err)
+                            is_conn_err = any(x in err_msg for x in ["pool exhausted", "PoolError", "2055", "Lost connection", "10054", "Connection refused", "is closed", "not connected", "Failed getting connection"])
+                            if is_conn_err:
+                                print(f"[SQLHandler] MySQL connection issue (attempt {attempt + 1}/{max_retries}): {err_msg}", flush=True)
+                                cls._pool = None  # Re-initialize pool on retry
+                                if attempt < max_retries - 1:
+                                    time.sleep(0.1)
+                                    continue
+                            else:
+                                raise err
+                        finally:
+                            if cursor:
+                                try:
+                                    cursor.close()
+                                except Exception:
+                                    pass
+                            if conn:
+                                try:
+                                    conn.close()
+                                except Exception:
+                                    pass
 
-            if last_err:
-                raise last_err
-            raise RuntimeError("Failed to execute MySQL query.")
-        finally:
-            cls._lock.release()
+                    if last_err:
+                        cls._remote_db_offline = True
+                        cls._last_db_check = time.time()
+                finally:
+                    cls._lock.release()
+
+        # Retry remote DB recovery check after 60s if previously marked offline
+        if cls._remote_db_offline and (time.time() - cls._last_db_check > 60):
+            cls.init_pool()
+
+        # Fallback to local SQLite connection
+        with cls._lock:
+            return cls._execute_sqlite(query, params)
 
     @classmethod
     def _translate_to_sqlite(cls, query: str) -> str:

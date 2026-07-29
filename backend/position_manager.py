@@ -59,8 +59,8 @@ class PositionManager:
             except Exception as e:
                 print(f"[Position Manager] Loop error: {e}", flush=True)
 
-            # Poll position updates every 3 seconds
-            cls._stop_event.wait(3)
+            # Poll position updates every 5 seconds
+            cls._stop_event.wait(5)
 
     @classmethod
     def _manage_strategy_positions(cls, strategy: dict):
