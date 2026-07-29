@@ -56,7 +56,8 @@ export const CandleCollectorPanel: React.FC<CandleCollectorPanelProps> = ({ avai
     setLoadingBrokerSymbols(true);
     try {
       const res = await fetch(`${API_BASE_URL}/api/metatrader/symbols`);
-      if (res.ok) {
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
         const data = await res.json();
         if (data.status === 'success' && Array.isArray(data.data) && data.data.length > 0) {
           setBrokerSymbols(data.data);
@@ -83,7 +84,8 @@ export const CandleCollectorPanel: React.FC<CandleCollectorPanelProps> = ({ avai
     try {
       setLoading(true);
       const res = await fetch(`${API_BASE_URL}/api/candle-collector/symbols`);
-      if (res.ok) {
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
         const data = await res.json();
         setSymbols(data.symbols || []);
         if (data.next_sync_timestamp && data.next_sync_timestamp > 0) {
@@ -170,6 +172,10 @@ export const CandleCollectorPanel: React.FC<CandleCollectorPanelProps> = ({ avai
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ symbol: newSymbol.trim() }),
       });
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        throw new Error('Backend returned non-JSON response (e.g. 404 or 500 HTML error).');
+      }
       const data = await res.json();
       if (res.ok && data.status === 'success') {
         setSuccess(data.message || `Added ${newSymbol}`);
@@ -188,12 +194,15 @@ export const CandleCollectorPanel: React.FC<CandleCollectorPanelProps> = ({ avai
 
   const handleToggleSymbol = async (symbol: string, currentActive: boolean) => {
     try {
-      await fetch(`${API_BASE_URL}/api/candle-collector/symbols/${encodeURIComponent(symbol)}/toggle`, {
+      const res = await fetch(`${API_BASE_URL}/api/candle-collector/symbols/${encodeURIComponent(symbol)}/toggle`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ active: !currentActive }),
       });
-      fetchStats();
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
+        fetchStats();
+      }
     } catch (err) {
       console.error('Error toggling symbol:', err);
     }
@@ -202,10 +211,13 @@ export const CandleCollectorPanel: React.FC<CandleCollectorPanelProps> = ({ avai
   const handleRemoveSymbol = async (symbol: string) => {
     if (!confirm(`Are you sure you want to stop collecting 1m candles for ${symbol}?`)) return;
     try {
-      await fetch(`${API_BASE_URL}/api/candle-collector/symbols/${encodeURIComponent(symbol)}`, {
+      const res = await fetch(`${API_BASE_URL}/api/candle-collector/symbols/${encodeURIComponent(symbol)}`, {
         method: 'DELETE',
       });
-      fetchStats();
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
+        fetchStats();
+      }
     } catch (err) {
       console.error('Error removing symbol:', err);
     }
@@ -220,6 +232,10 @@ export const CandleCollectorPanel: React.FC<CandleCollectorPanelProps> = ({ avai
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        throw new Error('Backend returned non-JSON response (e.g. 404 or 500 HTML error).');
+      }
       const data = await res.json();
       if (res.ok) {
         setSuccess('Manual sync completed successfully.');
