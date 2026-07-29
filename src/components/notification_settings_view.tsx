@@ -217,7 +217,7 @@ export default function NotificationSettingsView({ setView }: NotificationSettin
   }
 
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px 16px', color: 'var(--app-text)' }}>
+    <div style={{ maxWidth: '520px', margin: '0 auto', padding: '24px 16px', color: 'var(--app-text)' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
         <button
