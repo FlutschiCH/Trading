@@ -1856,7 +1856,7 @@ export default function TVChart({
         }
       }
     });
-  }, [openPositions, chartSettings.showPositions, activeCandles, symbol]);
+  }, [openPositions, chartSettings.showPositions, chartSettings.showPositionsEntry, chartSettings.showPositionsSlTp, activeCandles, symbol]);
 
   const handleSVGMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
     if (activeTool === 'none' || activeTool === 'delete') return;
