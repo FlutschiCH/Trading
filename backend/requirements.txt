@@ -9,3 +9,6 @@ python-dotenv
 MetaTrader5; sys_platform == 'win32'
 yfinance
 websocket-client
+pywebpush
+cryptography
+

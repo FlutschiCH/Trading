@@ -56,18 +56,46 @@ self.addEventListener('message', (event) => {
   }
 });
 
+// Listener for web push events from the backend
+self.addEventListener('push', (event) => {
+  let data = {};
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch (e) {
+      data = { title: 'Trading Alert', body: event.data.text() };
+    }
+  }
+
+  const title = data.title || 'Trading Alert 🔔';
+  const options = {
+    body: data.body || 'New update from Wyckoff Desk.',
+    icon: data.icon || '/favicon.svg',
+    badge: data.badge || '/favicon.svg',
+    vibrate: data.vibrate || [200, 100, 200],
+    data: {
+      url: data.url || self.location.origin
+    }
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(title, options)
+  );
+});
+
 // Listener for notification click
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  const targetUrl = event.notification.data?.url || self.location.origin;
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
       for (let client of windowClients) {
-        if (client.url === event.notification.data.url && 'focus' in client) {
+        if (client.url === targetUrl && 'focus' in client) {
           return client.focus();
         }
       }
       if (clients.openWindow) {
-        return clients.openWindow(event.notification.data.url);
+        return clients.openWindow(targetUrl);
       }
     })
   );

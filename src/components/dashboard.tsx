@@ -7,7 +7,9 @@ import LiveTradesPanel from './live_trades_panel';
 import LiveOverviewPanel from './live_overview_panel';
 import SymbolMappingsView from './symbol_mappings_view';
 import ComputerManager from './computer_manager';
+import NotificationSettingsView from './notification_settings_view';
 import { API_BASE_URL } from '../api';
+
 import '../App.css';
 
 interface Candle {
@@ -295,7 +297,7 @@ export default function Dashboard() {
   const [loadingBacktest, setLoadingBacktest] = useState(false);
   const [backtestProgress, setBacktestProgress] = useState(0);
 
-  const [view, setView] = useState<'dashboard' | 'mappings' | 'trades'>('dashboard');
+  const [view, setView] = useState<'dashboard' | 'mappings' | 'trades' | 'computers' | 'notifications'>('dashboard');
   const [connectionMode, setConnectionMode] = useState<'openapi' | 'fix'>('fix');
   const [isConnectedOpenAPI] = useState(true);
   const [isConnectedFIX] = useState(true);
@@ -2192,6 +2194,17 @@ export default function Dashboard() {
                   >
                     💻 Computer Manager
                   </a>
+                  <a 
+                    href="#notifications" 
+                    className="menu-item" 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setView('notifications');
+                      setShowMenu(false);
+                    }}
+                  >
+                    🔔 Notification Settings
+                  </a>
                   <button 
                     onClick={() => {
                       setShowMenu(false);
@@ -2443,6 +2456,10 @@ export default function Dashboard() {
         />
       ) : view === 'computers' ? (
         <ComputerManager
+          setView={setView}
+        />
+      ) : view === 'notifications' ? (
+        <NotificationSettingsView
           setView={setView}
         />
       ) : (
