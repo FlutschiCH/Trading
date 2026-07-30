@@ -134,7 +134,7 @@ class SQLHandler:
                     conn.commit()
                     result = [{"rowcount": cursor.rowcount, "lastrowid": cursor.lastrowid}]
                 q_dur = time.time() - q_start
-                if q_dur > 0.05:
+                if q_dur > 0.05 and "system_log_settings" not in query:
                     from logger_handler import logPrint
                     clean_q = " ".join(query.split())[:120]
                     logPrint(f"Executed SQL query in {q_dur:.4f}s: {clean_q}", category="SQLHandler", level="DEBUG")
