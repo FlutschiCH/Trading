@@ -1402,7 +1402,7 @@ export default function Dashboard() {
         }
       }
 
-      if (rawCandles.length === 0 && !isLiveFeed) {
+      if (rawCandles.length === 0) {
         try {
           const result = await apiService.fetchTradeCandles({
             broker: overrideBroker || candleSource,
@@ -1413,10 +1413,11 @@ export default function Dashboard() {
           });
           if (result && result.status === 'success' && Array.isArray(result.candles)) {
             rawCandles = result.candles.sort((a: Candle, b: Candle) => a.time - b.time);
-            fetchedTrades = result.trades || [];
+            if (!isFromLiveFeedCache) {
+              fetchedTrades = result.trades || [];
+            }
           } else if (Array.isArray(result)) {
             rawCandles = result.sort((a: Candle, b: Candle) => a.time - b.time);
-            fetchedTrades = [];
           }
         } catch (err) {
           console.error("Error fetching trade candles:", err);
