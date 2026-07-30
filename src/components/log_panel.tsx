@@ -237,18 +237,23 @@ export default function LogPanel({ isMobileLayout = false }: LogPanelProps) {
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '4px',
-                backgroundColor: '#1e293b',
-                border: '1px solid #334155',
+                gap: '6px',
+                backgroundColor: showFilterDropdown ? '#3b82f6' : '#1e293b',
+                border: '1px solid #3b82f6',
                 color: '#ffffff',
-                padding: '4px 8px',
-                borderRadius: '4px',
+                padding: '5px 10px',
+                borderRadius: '6px',
                 fontSize: '11px',
-                cursor: 'pointer'
+                fontWeight: '600',
+                cursor: 'pointer',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                transition: 'all 0.2s',
               }}
             >
-              <Filter size={12} /> Log Sources
+              <Filter size={13} style={{ color: showFilterDropdown ? '#ffffff' : '#60a5fa' }} />
+              <span>Log Sources & Settings</span>
             </button>
+
 
             {showFilterDropdown && (
               <>
