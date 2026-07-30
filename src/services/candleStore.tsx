@@ -57,8 +57,16 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setCandleLimitState(limit);
   };
 
+  const isFetchingRef = useRef<boolean>(false);
+
   const fetchCandles = async (forceFullRefresh: boolean = false, isBackground: boolean = false) => {
     if (!symbol) return;
+    if (isFetchingRef.current && isBackground) {
+      console.log(`[CandleStore] Skipping background fetch while request is already in-flight...`);
+      return;
+    }
+
+    isFetchingRef.current = true;
     const fetchStartTime = performance.now();
     const startIsoTime = new Date().toISOString();
 
@@ -70,8 +78,8 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setCandles([]);
     }
 
-    const isIncremental = !forceFullRefresh && candlesRef.current.length >= 100;
-    const reqLimit = isIncremental ? 2 : candleLimit;
+    const isIncremental = !forceFullRefresh && candlesRef.current.length >= 50;
+    const reqLimit = isIncremental ? 2 : Math.min(candleLimit, 500);
 
     try {
       const endpoint = `${API_BASE_URL}/api/trade/candles`;
@@ -127,6 +135,7 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } catch (err) {
       console.error('[CandleStore] Error fetching candles:', err);
     } finally {
+      isFetchingRef.current = false;
       setLoading(false);
     }
   };
