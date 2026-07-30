@@ -30,6 +30,9 @@ class LoggerHandler:
             elif '.' in category:
                 category = category.split('.')[-1]
 
+        if category == "SQLHandler":
+            return
+
         # Refresh cache from DB every 2 seconds for high performance
         now = time.time()
         if now - cls._last_cache_time > 2.0:
