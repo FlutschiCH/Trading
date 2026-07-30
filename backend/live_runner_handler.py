@@ -287,6 +287,36 @@ class LiveRunner:
                 f"💵 **Price:** `{close_price:.5f}`"
             )
             send_discord_message(discord_msg)
+
+            # Log/Save signal to JSON file for analysis
+            try:
+                import json, os
+                signals_file = os.path.join(os.path.dirname(__file__), "live_signals.json")
+                signals_data = []
+                if os.path.exists(signals_file):
+                    try:
+                        with open(signals_file, "r", encoding="utf-8") as f:
+                            signals_data = json.load(f)
+                    except Exception:
+                        signals_data = []
+                
+                signal_entry = {
+                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "strategy_id": strategy_id,
+                    "symbol": symbol,
+                    "timeframe": timeframe,
+                    "direction": direction,
+                    "price": close_price,
+                    "candle": last_completed_candle,
+                    "state_info": state_info
+                }
+                signals_data.append(signal_entry)
+                with open(signals_file, "w", encoding="utf-8") as f:
+                    json.dump(signals_data, f, indent=2, ensure_ascii=False)
+                print(f"[Live Runner] Saved signal entry to {signals_file}", flush=True)
+            except Exception as sig_err:
+                print(f"[Live Runner] Failed to save signal to JSON: {sig_err}", flush=True)
+
             cls._execute_trade(strategy, should_buy, should_sell, last_completed_candle)
             
             # Append new simulated trade to cache
