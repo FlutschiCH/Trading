@@ -167,3 +167,42 @@ class SQLHandler:
         if last_err:
             raise last_err
         raise RuntimeError("Failed to execute MySQL query.")
+
+
+if __name__ == '__main__':
+    import time
+    print(f"==================================================")
+    print(f"⏱️  Benchmarking SQLHandler MySQL Connection")
+    print(f"   Host:     {DB_HOST}:{DB_PORT}")
+    print(f"   Database: {DB_NAME}")
+    print(f"   User:     {DB_USER}")
+    print(f"==================================================")
+
+    # 1. Benchmark pool initialization
+    t0 = time.perf_counter()
+    pool_ok = SQLHandler.init_pool()
+    t1 = time.perf_counter()
+    init_ms = (t1 - t0) * 1000.0
+    print(f"1. Pool Initialization: {'SUCCESS' if pool_ok else 'FAILED'} in {init_ms:.2f} ms ({init_ms/1000.0:.2f} s)")
+
+    # 2. Benchmark single raw connection
+    t2 = time.perf_counter()
+    try:
+        conn = SQLHandler.get_mysql_connection()
+        t3 = time.perf_counter()
+        raw_ms = (t3 - t2) * 1000.0
+        print(f"2. Fetch Connection from Pool: SUCCESS in {raw_ms:.2f} ms ({raw_ms/1000.0:.2f} s)")
+        conn.close()
+    except Exception as e:
+        print(f"2. Fetch Connection from Pool: FAILED ({e})")
+
+    # 3. Benchmark simple SELECT query
+    t4 = time.perf_counter()
+    try:
+        res = SQLHandler.execute_query("SELECT 1 AS test")
+        t5 = time.perf_counter()
+        q_ms = (t5 - t4) * 1000.0
+        print(f"3. Execute 'SELECT 1' Query: SUCCESS ({res}) in {q_ms:.2f} ms ({q_ms/1000.0:.2f} s)")
+    except Exception as e:
+        print(f"3. Execute Query: FAILED ({e})")
+
