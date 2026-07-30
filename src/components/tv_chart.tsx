@@ -179,7 +179,7 @@ export default function TVChart({
   isMobile = false
 }: TVChartProps) {
   const { candles: storeCandles, loading: storeLoading, fetchCandles: storeFetchCandles } = useCandleStore();
-  const activeCandles = candles || storeCandles;
+  const baseCandles = candles || storeCandles;
   const isChartLoading = loading !== undefined ? loading : storeLoading;
   const handleRefresh = onRefresh || (() => storeFetchCandles(true, false));
 
@@ -278,14 +278,14 @@ export default function TVChart({
 
   // Update cached candles when valid non-empty candles arrive (require >= 10 candles)
   useEffect(() => {
-    if (candles && candles.length >= 10) {
-      lastValidCandlesRef.current = candles;
+    if (baseCandles && baseCandles.length >= 10) {
+      lastValidCandlesRef.current = baseCandles;
     }
-  }, [candles]);
+  }, [baseCandles]);
 
-  const currentDisplayCandles = (candles && candles.length >= 10)
-    ? candles
-    : (lastValidCandlesRef.current.length > 0 ? lastValidCandlesRef.current : candles);
+  const currentDisplayCandles = (baseCandles && baseCandles.length >= 10)
+    ? baseCandles
+    : (lastValidCandlesRef.current.length > 0 ? lastValidCandlesRef.current : baseCandles);
 
 
   const activeCandles = replayTime !== null
