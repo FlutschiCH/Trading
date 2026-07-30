@@ -31,7 +31,7 @@ TerminalHandler.init()
 
 from sql_handler import SQLHandler
 import threading
-threading.Thread(target=SQLHandler.init_pool, daemon=True).start()
+threading.Thread(target=SQLHandler.get_mysql_connection, daemon=True).start()
 
 from flask import Flask
 from flask_cors import CORS
