@@ -1614,13 +1614,15 @@ export default function TVChart({
     if (!candlestickSeriesRef.current || !activeCandles || activeCandles.length === 0) return;
 
     let maxDecimals = 2;
-    const sampleSize = Math.min(activeCandles.length, 20);
+    const sampleSize = Math.min(activeCandles.length, 50);
     for (let i = 0; i < sampleSize; i++) {
       const candle = activeCandles[i];
       const prices = [candle.open, candle.high, candle.low, candle.close];
       for (const price of prices) {
         if (price !== undefined && price !== null) {
-          const parts = price.toString().split('.');
+          // Strip trailing zeroes to measure true precision
+          const numStr = Number(price).toString();
+          const parts = numStr.split('.');
           if (parts.length === 2) {
             const decimals = parts[1].length;
             if (decimals > maxDecimals) {
@@ -1631,7 +1633,8 @@ export default function TVChart({
       }
     }
 
-    const precision = Math.max(2, Math.min(maxDecimals, 8));
+    // Cap precision at 5 (standard for forex pairs like EURUSD, 2-3 for JPY, 2 for Crypto/Indices)
+    const precision = Math.max(2, Math.min(maxDecimals, 5));
     const minMove = Math.pow(10, -precision);
 
     const priceFormat = {
