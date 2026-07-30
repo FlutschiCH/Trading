@@ -1669,7 +1669,13 @@ export default function TVChart({
         beLineRef.current = null;
       }
 
-      if (chartSettings.showTrades) {
+      const isSelectedTradeFinished = selectedTrade && (
+        selectedTrade.exitTimestamp ||
+        (selectedTrade.exitReason && selectedTrade.exitReason !== 'Position still open') ||
+        selectedTrade.status === 'closed'
+      );
+
+      if (chartSettings.showTrades && !isSelectedTradeFinished) {
         if (entryPrice) {
           entryLineRef.current = candlestickSeriesRef.current.createPriceLine({
             price: entryPrice,
@@ -1713,7 +1719,7 @@ export default function TVChart({
         }
       }
     }
-  }, [entryPrice, slPrice, tpPrice, candles, chartSettings.showTrades]);
+  }, [entryPrice, slPrice, tpPrice, selectedTrade, candles, chartSettings.showTrades]);
 
   // Effect for rendering active live positions (Entry, SL, TP)
   useEffect(() => {
