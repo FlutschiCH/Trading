@@ -1881,18 +1881,24 @@ export default function Dashboard() {
     candlesRef.current = candles;
   }, [candles]);
 
-  // Priority #1: Immediately fetch candles when symbol, timeframe, candleLimit, or candleSource changes, and set up auto-refresh polling
+  // Priority #1: Immediately fetch candles on mount/change, and set up a single 5s auto-refresh interval
   useEffect(() => {
     if (!symbol) return;
-    // Initial fetch (full load)
+    let isCancelled = false;
+
+    // Initial fetch
     fetchCandles(undefined, false, true);
 
-    // Auto-poll candles every 5 seconds to keep data fresh incrementally
     const interval = setInterval(() => {
-      fetchCandles(undefined, true, false);
+      if (!isCancelled) {
+        fetchCandles(undefined, true, false);
+      }
     }, 5000);
 
-    return () => clearInterval(interval);
+    return () => {
+      isCancelled = true;
+      clearInterval(interval);
+    };
   }, [symbol, timeframe, candleLimit, candleSource]);
 
   // Save autoPollTrades & tradesPollInterval to localStorage
