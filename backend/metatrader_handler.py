@@ -116,20 +116,28 @@ class MetaTraderHandler(BaseBrokerHandler):
         }
         mt5_tf = tf_map.get(timeframe, mt5.TIMEFRAME_M15)
 
-        # Match symbol (e.g. EURUSD -> EURUSD.m or similar suffix support)
-        from symbol_mapping_handler import SymbolMappingHandler
+        # Match symbol: Check MT5 terminal directly first to bypass DB lookup overhead
+        matched_symbol = symbol
         broker_key = f"metatrader:{server}"
-        mapped_symbol = SymbolMappingHandler.map_to_broker(symbol, broker_key)
-
         symbols = mt5.symbols_get()
-        matched_symbol = mapped_symbol
         if symbols:
             symbol_names = [s.name for s in symbols]
-            if mapped_symbol not in symbol_names:
+            if symbol not in symbol_names:
                 for s in symbol_names:
-                    if mapped_symbol.upper() in s.upper():
+                    if symbol.upper() in s.upper():
                         matched_symbol = s
                         break
+                if matched_symbol == symbol:
+                    # Fallback to DB mapping if not found in open symbol list
+                    from symbol_mapping_handler import SymbolMappingHandler
+                    mapped_symbol = SymbolMappingHandler.map_to_broker(symbol, broker_key)
+                    if mapped_symbol in symbol_names:
+                        matched_symbol = mapped_symbol
+                    else:
+                        for s in symbol_names:
+                            if mapped_symbol.upper() in s.upper():
+                                matched_symbol = s
+                                break
 
         # Select symbol in Market Watch
         mt5.symbol_select(matched_symbol, True)
