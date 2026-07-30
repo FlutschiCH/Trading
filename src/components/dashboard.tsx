@@ -1365,11 +1365,6 @@ export default function Dashboard() {
     loadLiveStrategyAndPerms();
   }, []);
 
-  // Candle fetching is managed centrally by CandleStore.
-  const fetchCandles = (overrideBroker?: string, isBackground: boolean = false, forceFullRefresh: boolean = false) => {
-    return storeFetchCandles(forceFullRefresh, isBackground);
-  };
-
   // Unified API endpoints
   const fetchAccountData = async (overrideBroker?: string) => {
     try {
