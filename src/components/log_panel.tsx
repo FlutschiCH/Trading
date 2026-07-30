@@ -86,10 +86,11 @@ export default function LogPanel({ isMobileLayout = false }: LogPanelProps) {
   }, []);
 
   useEffect(() => {
-    if (!isPaused && logsEndRef.current && !userScrolledUpRef.current) {
-      logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (!isPaused && containerRef.current && !userScrolledUpRef.current) {
+      containerRef.current.scrollTop = containerRef.current.scrollHeight;
     }
   }, [logs, isPaused]);
+
 
 
   const classifySource = (logLine: string): string => {
