@@ -36,7 +36,9 @@ class SQLHandler:
         start_time = time.time()
         pool_size = int(os.getenv("DB_POOL_SIZE", "6"))
         try:
+            from logger_handler import logPrint
             from mysql.connector.pooling import MySQLConnectionPool
+            logPrint(f"Connecting to MySQL database at {DB_HOST}:{DB_PORT}/{DB_NAME} (pool_size={pool_size})...", category="SQLHandler", level="INFO")
             cls._pool = MySQLConnectionPool(
                 pool_name="trading_pool",
                 pool_size=pool_size,
@@ -49,12 +51,16 @@ class SQLHandler:
                 connect_timeout=5
             )
             duration = time.time() - start_time
-            print(f"Successfully initialized MySQL connection pool (size={pool_size}) in {duration:.4f} seconds.", flush=True)
+            logPrint(f"Successfully initialized MySQL connection pool (size={pool_size}) in {duration:.4f} seconds.", category="SQLHandler", level="INFO")
             cls.init_log_settings_db()
             return True
         except Exception as e:
             duration = time.time() - start_time
-            print(f"Failed to initialize MySQL connection pool after {duration:.4f} seconds: {e}.", flush=True)
+            try:
+                from logger_handler import logPrint
+                logPrint(f"Failed to initialize MySQL connection pool after {duration:.4f} seconds: {e}.", category="SQLHandler", level="ERROR")
+            except Exception:
+                print(f"Failed to initialize MySQL connection pool after {duration:.4f} seconds: {e}.", flush=True)
             return False
 
     @classmethod
@@ -118,6 +124,7 @@ class SQLHandler:
             conn = None
             cursor = None
             try:
+                q_start = time.time()
                 conn = cls.get_mysql_connection()
                 cursor = conn.cursor(dictionary=True)
                 cursor.execute(query, params)
@@ -126,13 +133,19 @@ class SQLHandler:
                 else:
                     conn.commit()
                     result = [{"rowcount": cursor.rowcount, "lastrowid": cursor.lastrowid}]
+                q_dur = time.time() - q_start
+                if q_dur > 0.05:
+                    from logger_handler import logPrint
+                    clean_q = " ".join(query.split())[:120]
+                    logPrint(f"Executed SQL query in {q_dur:.4f}s: {clean_q}", category="SQLHandler", level="DEBUG")
                 return result
             except Exception as err:
                 last_err = err
                 err_msg = str(err)
                 is_conn_err = any(x in err_msg for x in ["pool exhausted", "PoolError", "2055", "Lost connection", "10054", "Connection refused", "is closed", "not connected", "Failed getting connection"])
                 if is_conn_err:
-                    print(f"[SQLHandler] MySQL connection issue (attempt {attempt + 1}/{max_retries}): {err_msg}", flush=True)
+                    from logger_handler import logPrint
+                    logPrint(f"MySQL connection issue (attempt {attempt + 1}/{max_retries}): {err_msg}", category="SQLHandler", level="WARNING")
                     cls._pool = None  # Re-initialize pool on retry
                     if attempt < max_retries - 1:
                         time.sleep(0.2)
