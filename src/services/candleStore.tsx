@@ -73,13 +73,24 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const reqLimit = isIncremental ? 2 : candleLimit;
 
     try {
-      console.log(`[${startIsoTime}] 🚀 [CandleStore] Fetching ${reqLimit} candles for ${symbol} (${timeframe}) via ${candleSource}`);
-      const marketResult = await apiService.fetchTradeCandles({
+      const endpoint = `${API_BASE_URL}/api/trade/candles`;
+      const payload = {
         broker: candleSource,
         symbol: symbol,
         interval: timeframe,
         limit: reqLimit,
+      };
+
+      console.log(`[${startIsoTime}] 🚀 [CandleStore] Requesting Candles:`, {
+        targetUrl: endpoint,
+        apiBaseUrl: API_BASE_URL,
+        payload,
+        isIncremental,
+        forceFullRefresh,
+        isBackground
       });
+
+      const marketResult = await apiService.fetchTradeCandles(payload);
 
       let rawCandles: Candle[] = [];
       if (marketResult && marketResult.status === 'success' && Array.isArray(marketResult.candles)) {
@@ -87,11 +98,16 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       } else if (Array.isArray(marketResult)) {
         rawCandles = marketResult.sort((a: Candle, b: Candle) => a.time - b.time);
       } else {
-        console.warn(`[${new Date().toISOString()}] ⚠️ [CandleStore] Unexpected fetch response:`, marketResult);
+        console.warn(`[${new Date().toISOString()}] ⚠️ [CandleStore] Failed/Unexpected Response from ${endpoint}:`, marketResult);
       }
 
       const durationMs = (performance.now() - fetchStartTime).toFixed(1);
-      console.log(`[${new Date().toISOString()}] ✅ [CandleStore] Received ${rawCandles.length} candles in ${durationMs}ms`);
+      console.log(`[${new Date().toISOString()}] ✅ [CandleStore] Finished request to ${endpoint} in ${durationMs}ms:`, {
+        candlesReceived: rawCandles.length,
+        status: marketResult?.status || (Array.isArray(marketResult) ? 'success' : 'error'),
+        message: marketResult?.message || null,
+        sampleCandle: rawCandles.length > 0 ? rawCandles[rawCandles.length - 1] : null
+      });
 
       if (rawCandles.length > 0) {
         if (isIncremental) {
