@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import type { Candle } from '../types/trading';
 import * as apiService from './apiService';
+import { API_BASE_URL } from '../api';
 
 interface CandleContextType {
   candles: Candle[];
