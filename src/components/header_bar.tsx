@@ -27,7 +27,9 @@ interface Account {
   broker_type: string;
 }
 
+interface HeaderBarProps {
   isMobile: boolean;
+
   theme: 'dark' | 'light';
   toggleTheme: () => void;
   connectionMode: string;
