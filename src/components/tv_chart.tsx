@@ -2426,10 +2426,11 @@ export default function TVChart({
                   </>
                 )}
               </div>
-              <button onClick={toggleFullscreen} style={styles.refreshBtn} title="Toggle Fullscreen">{isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}</button>
             </div>
           </>
         )}
+      </div>
+
       <div style={styles.chartWrapper}>
         <div style={{ position: 'relative', height: chartHeight }}>
           <div ref={chartContainerRef} style={{ width: '100%', height: '100%', touchAction: 'none' }} />
