@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Activity, X, Menu, ChevronDown, Sun, Moon, RefreshCw, ShieldAlert } from 'lucide-react';
 import { API_BASE_URL } from '../api';
-import { TargetSwitcher } from './target_switcher';
-import { AccountInfo } from '../types/trading';
+import type { AccountInfo } from '../types/trading';
+
 
 const triggerPWAEventNotification = (title: string, body: string, soundType: string = 'alert') => {
   fetch(`${API_BASE_URL}/api/notification/trigger`, {

@@ -16,9 +16,8 @@ import NotificationSettingsView from './notification_settings_view';
 import { CandleCollectorPanel } from './candle_collector_panel';
 import LogPanel from './log_panel';
 import AccountInfoPanel from './account_info_panel';
-import PositionsPanel from './positions_panel';
-import { Candle, AccountInfo, Position } from '../types/trading';
-import '../App.css';
+import type { Candle, AccountInfo, Position } from '../types/trading';
+
 
 
 const formatDateTime = (timestampSec: number) => {

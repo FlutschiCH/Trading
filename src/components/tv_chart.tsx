@@ -1,7 +1,108 @@
-import { Candle } from '../types/trading';
+import React, { useEffect, useRef, useState } from 'react';
+import { createChart, ColorType, CandlestickSeries, HistogramSeries, LineSeries, createSeriesMarkers } from 'lightweight-charts';
+import type { ISeriesPrimitive, IPrimitivePaneView as SeriesPrimitivePaneView, IPrimitivePaneRenderer as SeriesPrimitivePaneRenderer } from 'lightweight-charts';
+import { Square, PenTool, Trash2, XCircle, RefreshCw, Maximize2, Minimize2, Settings, Play, Pause, SkipBack, SkipForward, X } from 'lucide-react';
+import { calculateDateBounds } from '../App';
+import { API_BASE_URL } from '../api';
+import type { Candle } from '../types/trading';
 
+class SessionBoxRenderer implements SeriesPrimitivePaneRenderer {
+  private _sessionCoords: any[];
+
+  constructor(sessionCoords: any[]) {
+    this._sessionCoords = sessionCoords;
+  }
+
+  draw(target: any) {
+    target.useMediaCoordinateSpace((scope: any) => {
+      const ctx = scope.context;
+      ctx.save();
+      this._sessionCoords.forEach(session => {
+        const x1 = session.x1;
+        const x2 = session.x2;
+        const y1 = session.y1;
+        const y2 = session.y2;
+        const width = Math.max(1, x2 - x1);
+        const height = Math.max(1, y2 - y1);
+
+        if (width <= 0 || height <= 0) return;
+
+        const colorHex = session.color || '#3b82f6';
+        let r = 59, g = 130, b = 246;
+        if (colorHex.startsWith('#')) {
+          const hexVal = colorHex.replace('#', '');
+          if (hexVal.length === 3) {
+            r = parseInt(hexVal[0] + hexVal[0], 16);
+            g = parseInt(hexVal[1] + hexVal[1], 16);
+            b = parseInt(hexVal[2] + hexVal[2], 16);
+          } else if (hexVal.length === 6) {
+            r = parseInt(hexVal.substring(0, 2), 16);
+            g = parseInt(hexVal.substring(2, 4), 16);
+            b = parseInt(hexVal.substring(4, 6), 16);
+          }
+        }
+
+        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.08)`;
+        ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, 0.4)`;
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([2, 2]);
+
+        ctx.fillRect(x1, y1, width, height);
+        ctx.strokeRect(x1, y1, width, height);
+
+        if (width > 40) {
+          ctx.fillStyle = colorHex;
+          ctx.font = 'bold 9px sans-serif';
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'top';
+          ctx.globalAlpha = 0.8;
+          ctx.fillText(session.label || '', x1 + 6, y1 + 6);
+          ctx.globalAlpha = 1.0;
+        }
+      });
+      ctx.restore();
+    });
+  }
+}
+
+class SessionBoxPrimitive implements ISeriesPrimitive {
+  private _sessionCoords: any[];
+
+  private _requestUpdate?: () => void;
+
+  constructor(sessionCoords: any[]) {
+    this._sessionCoords = sessionCoords;
+  }
+
+  updateSessionCoords(sessionCoords: any[]) {
+    this._sessionCoords = sessionCoords;
+    if (this._requestUpdate) {
+      this._requestUpdate();
+    }
+  }
+
+  update(requestUpdate: () => void) {
+    this._requestUpdate = requestUpdate;
+  }
+
+  paneViews(): readonly SeriesPrimitivePaneView[] {
+    return [
+      {
+        renderer: () => new SessionBoxRenderer(this._sessionCoords)
+      }
+    ];
+  }
+}
+
+const isLocal = typeof window !== 'undefined' &&
+  (window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1' ||
+    window.location.hostname.startsWith('192.168.') ||
+    window.location.hostname.startsWith('10.') ||
+    window.location.hostname.startsWith('172.'));
 
 interface TVChartProps {
+
   symbol: string;
   onSymbolChange: (symbol: string) => void;
   timeframe: string;

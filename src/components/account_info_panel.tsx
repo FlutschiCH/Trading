@@ -1,5 +1,5 @@
-import React from 'react';
-import { AccountInfo } from '../types/trading';
+import type { AccountInfo } from '../types/trading';
+
 import { Wallet, DollarSign, Shield, PieChart } from 'lucide-react';
 
 interface AccountInfoPanelProps {

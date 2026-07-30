@@ -1,5 +1,5 @@
-import React from 'react';
-import { Position } from '../types/trading';
+import type { Position } from '../types/trading';
+
 import { TrendingUp, TrendingDown, Layers } from 'lucide-react';
 
 interface PositionsPanelProps {
