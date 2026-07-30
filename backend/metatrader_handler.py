@@ -12,28 +12,54 @@ class MetaTraderHandler(BaseBrokerHandler):
     _connection_states = {}
 
     @staticmethod
-    def _initialize_mt5(login: int, password: str, server: str) -> bool:
+    def _initialize_mt5(login: int = None, password: str = None, server: str = None) -> bool:
         if not MT5_AVAILABLE:
             return False
         
-        login_str = str(login)
-        is_first_attempt = login_str not in MetaTraderHandler._connection_states
-        
-        success = mt5.initialize(login=int(login), password=password, server=server)
-        if not success:
-            error_code, error_desc = mt5.last_error()
-            if is_first_attempt or MetaTraderHandler._connection_states.get(login_str) != "failed":
-                print(f"[MetaTrader Connection Failure] Account: {login_str} | Server: {server} | Reason: Initialization failed | Error Code: {error_code} | Details: {error_desc}", flush=True)
-                MetaTraderHandler._connection_states[login_str] = "failed"
-            return False
+        # Check if already connected/initialized to MT5 terminal
+        try:
+            term_info = mt5.terminal_info()
+            if term_info is not None:
+                return True
+        except Exception:
+            pass
+
+        # Try initializing with current terminal session
+        if mt5.initialize():
+            return True
+
+        if login and password and server:
+            login_str = str(login)
+            is_first_attempt = login_str not in MetaTraderHandler._connection_states
             
-        if is_first_attempt or MetaTraderHandler._connection_states.get(login_str) != "connected":
-            print(f"[MetaTrader Connection Success] Account: {login_str} | Server: {server} | Status: Initialized successfully", flush=True)
-            MetaTraderHandler._connection_states[login_str] = "connected"
-        return True
+            success = mt5.initialize(login=int(login), password=password, server=server)
+            if not success:
+                error_code, error_desc = mt5.last_error()
+                if is_first_attempt or MetaTraderHandler._connection_states.get(login_str) != "failed":
+                    print(f"[MetaTrader Connection Failure] Account: {login_str} | Server: {server} | Reason: Initialization failed | Error Code: {error_code} | Details: {error_desc}", flush=True)
+                    MetaTraderHandler._connection_states[login_str] = "failed"
+                return False
+                
+            if is_first_attempt or MetaTraderHandler._connection_states.get(login_str) != "connected":
+                print(f"[MetaTrader Connection Success] Account: {login_str} | Server: {server} | Status: Initialized successfully", flush=True)
+                MetaTraderHandler._connection_states[login_str] = "connected"
+            return True
+
+        return False
 
     @staticmethod
     def _resolve_credentials(login=None, password=None, server=None, **kwargs):
+        # If MT5 terminal is already initialized and active, skip DB queries entirely
+        if MT5_AVAILABLE:
+            try:
+                term_info = mt5.terminal_info()
+                if term_info is not None:
+                    acc_info = mt5.account_info()
+                    if acc_info is not None:
+                        return acc_info.login, password or "", acc_info.server or ""
+            except Exception:
+                pass
+
         # Check if login looks like the default mock/placeholder value
         is_default_mock = str(login) == "2002061314" or login is None
 
@@ -48,25 +74,30 @@ class MetaTraderHandler(BaseBrokerHandler):
         if login is not None and str(login) != "2002061314":
             return int(login), password, server
 
-        raise RuntimeError("No active MetaTrader account configured in Account Management. Please connect an account first.")
+        raise RuntimeError("MetaTrader 5 terminal is not initialized. Please start MT5 terminal or connect an account.")
 
     @staticmethod
-    def fetch_candles(symbol: str, timeframe: str, limit: int = 1000, date_from: int = None, date_to: int = None, login: int = 2002061314, password: str = "Godzilla_12", server: str = "JustMarkets-Demo", **kwargs) -> list:
+    def fetch_candles(symbol: str, timeframe: str, limit: int = 1000, date_from: int = None, date_to: int = None, login: int = None, password: str = None, server: str = None, **kwargs) -> list:
         """
-        Initializes connection to MT5, fetches historical candles for the given symbol/timeframe, and shuts down.
+        Uses existing MT5 terminal connection (or initializes if needed) to fetch historical candles.
         """
-        try:
-            login, password, server = MetaTraderHandler._resolve_credentials(login, password, server, **kwargs)
-        except Exception as e:
-            if not MT5_AVAILABLE:
-                raise ImportError("MetaTrader 5 library is not available on this platform.")
-            raise e
-
         if not MT5_AVAILABLE:
             raise ImportError("MetaTrader 5 library is not available on this platform.")
 
-        if not MetaTraderHandler._initialize_mt5(login, password, server):
-            raise RuntimeError("Failed to initialize MetaTrader 5 connection.")
+        # Check if MT5 is already connected/initialized
+        is_connected = False
+        try:
+            is_connected = mt5.terminal_info() is not None
+        except Exception:
+            pass
+
+        if not is_connected:
+            try:
+                login, password, server = MetaTraderHandler._resolve_credentials(login, password, server, **kwargs)
+                if not MetaTraderHandler._initialize_mt5(login, password, server):
+                    raise RuntimeError("Failed to initialize MetaTrader 5 connection.")
+            except Exception as e:
+                raise RuntimeError(f"MetaTrader 5 is not initialized or connected: {e}")
 
         # Map timeframe string to MT5 timeframe constants
         tf_map = {
