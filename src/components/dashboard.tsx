@@ -1893,13 +1893,26 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, [candleSource, autoPollTrades, tradesPollInterval]);
 
-  // Live Feed auto-update polling (every 5 seconds)
+  // Live Feed auto-update polling (respects Auto-Refresh toggle and configured interval)
   useEffect(() => {
     if (!isLiveFeed) return;
+    let isAutoRefreshOn = true;
+    let pollIntervalMs = 5000;
+    try {
+      const stored = localStorage.getItem('tv_chart_settings');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed.autoRefreshCandles !== undefined) isAutoRefreshOn = parsed.autoRefreshCandles;
+        if (parsed.autoRefreshSeconds) pollIntervalMs = Math.max(1, parsed.autoRefreshSeconds) * 1000;
+      }
+    } catch (e) {}
+
+    if (!isAutoRefreshOn) return;
+
     fetchCandles(undefined, true, false);
     const interval = setInterval(() => {
       fetchCandles(undefined, true, false);
-    }, 5000);
+    }, pollIntervalMs);
     return () => clearInterval(interval);
   }, [isLiveFeed, symbol, timeframe, selectedStrategyId]);
 
