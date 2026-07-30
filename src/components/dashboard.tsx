@@ -1878,7 +1878,7 @@ export default function Dashboard() {
   // Live Feed auto-update polling
   useEffect(() => {
     if (!isLiveFeed) return;
-    fetchCandles(undefined, true, true);
+    fetchCandles(undefined, true, false);
     const pollIntervalMs = isLocalTarget() ? 5000 : 10000;
     const interval = setInterval(() => {
       fetchCandles(undefined, true, false);

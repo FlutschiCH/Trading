@@ -2196,7 +2196,7 @@ export default function TVChart({
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 {onLiveFeedChange && (
                   <button
-                    onClick={() => { const nextVal = !isLiveFeed; localStorage.setItem('wyckoff_is_live_feed', String(nextVal)); onLiveFeedChange(nextVal); setTimeout(() => onRefresh(), 50); }}
+                    onClick={() => { const nextVal = !isLiveFeed; localStorage.setItem('wyckoff_is_live_feed', String(nextVal)); onLiveFeedChange(nextVal); }}
                     style={{ ...styles.refreshBtn, backgroundColor: isLiveFeed ? '#10b981' : '#1f2937', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', fontSize: '11px', fontWeight: 'bold', boxShadow: isLiveFeed ? '0 0 10px rgba(16, 185, 129, 0.4)' : 'none' }}
                     title="Toggle Live Feed"
                   >
@@ -2303,7 +2303,7 @@ export default function TVChart({
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               {onLiveFeedChange && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <button onClick={() => { const nextVal = !isLiveFeed; localStorage.setItem('wyckoff_is_live_feed', String(nextVal)); onLiveFeedChange(nextVal); setTimeout(() => onRefresh(), 50); }} style={{ ...styles.refreshBtn, backgroundColor: isLiveFeed ? '#10b981' : '#1f2937', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '11px', fontWeight: 'bold', boxShadow: isLiveFeed ? '0 0 10px rgba(16, 185, 129, 0.4)' : 'none' }} title="Toggle Live Feed">
+                  <button onClick={() => { const nextVal = !isLiveFeed; localStorage.setItem('wyckoff_is_live_feed', String(nextVal)); onLiveFeedChange(nextVal); }} style={{ ...styles.refreshBtn, backgroundColor: isLiveFeed ? '#10b981' : '#1f2937', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '11px', fontWeight: 'bold', boxShadow: isLiveFeed ? '0 0 10px rgba(16, 185, 129, 0.4)' : 'none' }} title="Toggle Live Feed">
                     <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: isLiveFeed ? '#ffffff' : '#9ca3af', display: 'inline-block', animation: isLiveFeed ? 'pulse 1.5s infinite' : 'none' }}></span>
                     Live Feed
                   </button>
