@@ -588,6 +588,21 @@ def run_trade_simulation(
 
     reversed_trades = list(reversed(completed_trades))
     
+    # Save backtest trades to JSON for analysis
+    try:
+        import json, os
+        bt_file = os.path.join(os.path.dirname(__file__), "backtest_trades.json")
+        with open(bt_file, "w", encoding="utf-8") as f:
+            json.dump({
+                "saved_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "symbol": symbol,
+                "total_trades": len(completed_trades),
+                "trades": completed_trades
+            }, f, indent=2, ensure_ascii=False)
+        print(f"[Trade Simulation] Saved {len(completed_trades)} backtest trades to {bt_file}", flush=True)
+    except Exception as bt_err:
+        print(f"[Trade Simulation] Failed to save backtest trades to JSON: {bt_err}", flush=True)
+
     return {
         "trades": reversed_trades,
         "completed_trades_raw": completed_trades,
