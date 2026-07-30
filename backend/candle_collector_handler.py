@@ -2,6 +2,7 @@ import time
 import threading
 import logging
 from datetime import datetime
+from logger_handler import logPrint
 from sql_handler import SQLHandler
 from account_handler import AccountHandler
 from metatrader_handler import MetaTraderHandler
@@ -40,9 +41,9 @@ class CandleCollectorHandler:
         try:
             SQLHandler.execute_query(create_symbols_table)
             SQLHandler.execute_query(create_candles_table)
-            print("[CandleCollectorHandler] Tables initialized successfully.", flush=True)
+            logPrint("Tables initialized successfully.", category="CandleCollectorHandler", level="INFO")
         except Exception as e:
-            print(f"[CandleCollectorHandler] Error initializing tables: {e}", flush=True)
+            logPrint(f"Error initializing tables: {e}", category="CandleCollectorHandler", level="ERROR")
 
     @classmethod
     def get_tracked_symbols(cls) -> list:
@@ -68,7 +69,7 @@ class CandleCollectorHandler:
                 })
             return symbols_data
         except Exception as e:
-            print(f"[CandleCollectorHandler] Error fetching tracked symbols: {e}", flush=True)
+            logPrint(f"Error fetching tracked symbols: {e}", category="CandleCollectorHandler", level="ERROR")
             return []
 
     @classmethod
@@ -119,7 +120,7 @@ class CandleCollectorHandler:
             # Determine active MetaTrader server credentials
             login, password, server = MetaTraderHandler._resolve_credentials()
         except Exception as e:
-            print(f"[CandleCollectorHandler] Cannot resolve MT5 credentials: {e}", flush=True)
+            logPrint(f"Cannot resolve MT5 credentials: {e}", category="CandleCollectorHandler", level="ERROR")
             return {"status": "error", "message": f"MetaTrader credentials not available: {e}"}
 
         server_name = server or "MetaTrader"
@@ -135,7 +136,7 @@ class CandleCollectorHandler:
             )
 
             if not candles:
-                print(f"[CandleCollectorHandler] No candles returned for {symbol} on server {server_name}", flush=True)
+                logPrint(f"No candles returned for {symbol} on server {server_name}", category="CandleCollectorHandler", level="WARNING")
                 return {"status": "warning", "message": f"No candles returned for {symbol}."}
 
             # Batch insert/upsert into mt5_1m_candles
@@ -193,11 +194,11 @@ class CandleCollectorHandler:
                 """
                 SQLHandler.execute_query(update_symbol_query, (server_name, symbol))
 
-            print(f"[CandleCollectorHandler] Successfully synced {len(records)} 1m candles for {symbol} ({server_name}).", flush=True)
+            logPrint(f"Successfully synced {len(records)} 1m candles for {symbol} ({server_name}).", category="CandleCollectorHandler", level="INFO")
             return {"status": "success", "count": len(records), "symbol": symbol, "server": server_name}
 
         except Exception as e:
-            print(f"[CandleCollectorHandler] Error syncing candles for {symbol}: {e}", flush=True)
+            logPrint(f"Error syncing candles for {symbol}: {e}", category="CandleCollectorHandler", level="ERROR")
             return {"status": "error", "message": str(e)}
 
     @classmethod
@@ -209,7 +210,7 @@ class CandleCollectorHandler:
         if not active_symbols:
             return
 
-        print(f"[CandleCollectorHandler] Periodic 10m sync starting for active symbols: {active_symbols}", flush=True)
+        logPrint(f"Periodic 10m sync starting for active symbols: {active_symbols}", category="CandleCollectorHandler", level="INFO")
         for sym in active_symbols:
             cls.sync_candles_for_symbol(sym, limit=limit)
 
@@ -223,13 +224,13 @@ class CandleCollectorHandler:
         cls.init_db()
 
         def _loop():
-            print("[CandleCollectorHandler] Background 10-minute collector daemon started.", flush=True)
+            logPrint("Background 10-minute collector daemon started.", category="CandleCollectorHandler", level="INFO")
             time.sleep(15)  # Initial delay on startup
             while True:
                 try:
                     cls.sync_all_active(limit=50)
                 except Exception as e:
-                    print(f"[CandleCollectorHandler] Error in background loop cycle: {e}", flush=True)
+                    logPrint(f"Error in background loop cycle: {e}", category="CandleCollectorHandler", level="ERROR")
                 time.sleep(cls._interval_seconds)
 
         thread = threading.Thread(target=_loop, daemon=True)

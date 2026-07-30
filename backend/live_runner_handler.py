@@ -5,8 +5,8 @@ from datetime import datetime, timezone as pytimezone
 from live_strategy_handler import LiveStrategyHandler
 from indicator_handler import IndicatorHandler
 from trading_handler import TradingHandler
-from wyckoff_handler import WyckoffHandler
 from backtest_helpers import get_pip_size, get_lot_size, is_datetime_in_sessions
+from logger_handler import logPrint
 
 def calculate_date_bounds(option: str, custom_from: str = None, custom_to: str = None):
     from datetime import datetime, timedelta, timezone
@@ -89,14 +89,14 @@ class LiveRunner:
         cls._stop_event.clear()
         cls._thread = threading.Thread(target=cls._run_loop, daemon=True)
         cls._thread.start()
-        print("[Live Runner] Started background execution thread.", flush=True)
+        logPrint("Started background execution thread.", category="LiveRunner", level="INFO")
 
     @classmethod
     def stop(cls):
         cls._stop_event.set()
         if cls._thread:
             cls._thread.join(timeout=5)
-            print("[Live Runner] Stopped background execution thread.", flush=True)
+            logPrint("Stopped background execution thread.", category="LiveRunner", level="INFO")
 
     @classmethod
     def _run_loop(cls):
@@ -123,20 +123,17 @@ class LiveRunner:
                     try:
                         cls._evaluate_strategy(strategy)
                     except Exception as e:
-                        print(f"[Live Runner] Error evaluating strategy {strategy.get('id')}: {e}", flush=True)
+                        logPrint(f"Error evaluating strategy {strategy.get('id')}: {e}", category="LiveRunner", level="ERROR")
                         traceback.print_exc()
 
             except Exception as e:
-                print(f"[Live Runner] Error in loop: {e}", flush=True)
+                logPrint(f"Error in loop: {e}", category="LiveRunner", level="ERROR")
 
             # Wait 15 seconds before checking again
             cls._stop_event.wait(15)
 
     @classmethod
     def _evaluate_strategy(cls, strategy: dict):
-        # Suppressed fetching during debugging
-        return
-
         strategy_id = strategy["id"]
         symbol = strategy["symbol"]
         timeframe = strategy["timeframe"]
@@ -275,7 +272,7 @@ class LiveRunner:
         if cls._last_processed.get(strategy_id) == candle_time:
             return
 
-        print(f"[Live Runner] New candle detected for strategy {strategy_id} ({symbol} {timeframe}) at {datetime.fromtimestamp(candle_time)}", flush=True)
+        # print(f"[Live Runner] New candle detected for strategy {strategy_id} ({symbol} {timeframe}) at {datetime.fromtimestamp(candle_time)}", flush=True)
 
         if should_buy or should_sell:
             direction = "BUY" if should_buy else "SELL"
