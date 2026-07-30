@@ -1366,6 +1366,14 @@ export default function Dashboard() {
 
   // Fetch candle data and analyze on Flask backend
   const fetchCandles = async (overrideBroker?: string, isBackground: boolean = false, forceFullRefresh: boolean = false) => {
+    const fetchStartTime = performance.now();
+    const startIsoTime = new Date().toISOString();
+    const targetSymbol = symbol;
+    const targetTf = timeframe;
+    const targetBroker = overrideBroker || candleSource;
+
+    console.log(`[${startIsoTime}] 🚀 [Dashboard] Initiating fetchCandles for ${targetSymbol} (${targetTf}) via ${targetBroker} (background: ${isBackground}, forceFullRefresh: ${forceFullRefresh})`);
+
     if (!isBackground) {
       setLoading(true);
     }
@@ -1405,9 +1413,9 @@ export default function Dashboard() {
       if (rawCandles.length === 0 || isLiveFeed) {
         try {
           const marketResult = await apiService.fetchTradeCandles({
-            broker: overrideBroker || candleSource,
-            symbol: symbol,
-            interval: timeframe,
+            broker: targetBroker,
+            symbol: targetSymbol,
+            interval: targetTf,
             limit: isLiveFeed ? Math.max(reqLimit, 5) : reqLimit,
             lookback: parseInt(lookbackWindow) || 20,
           });
@@ -1440,6 +1448,12 @@ export default function Dashboard() {
           console.error("Error fetching trade candles:", err);
         }
       }
+
+      const fetchEndTime = performance.now();
+      const endIsoTime = new Date().toISOString();
+      const durationMs = (fetchEndTime - fetchStartTime).toFixed(1);
+
+      console.log(`[${endIsoTime}] ✅ [Dashboard] Received ${rawCandles.length} candles for ${targetSymbol} (${targetTf}) in ${durationMs}ms`);
 
       // Merge or update trades state without wiping existing trades on incremental 2-candle fetches
       if (isIncremental && isFromLiveFeedCache) {
