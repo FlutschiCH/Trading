@@ -1860,12 +1860,17 @@ export default function Dashboard() {
     }
   };
 
-  // Automatic candle fetching disabled to prevent overloading the server. Charts only load on manual click/refresh.
+  // Priority #1: Immediately fetch candles when symbol, timeframe, candleLimit, or candleSource changes, and set up auto-refresh polling
   useEffect(() => {
-    // Only load metadata and set flags on startup without fetching candles
-    setInitialCandlesLoaded(true);
-    setLoading(false);
-    setLoadingStrategy(false);
+    if (!symbol) return;
+    fetchCandles(undefined, false, false);
+
+    // Auto-poll candles every 5 seconds to keep data fresh
+    const interval = setInterval(() => {
+      fetchCandles(undefined, true, false);
+    }, 5000);
+
+    return () => clearInterval(interval);
   }, [symbol, timeframe, candleLimit, candleSource]);
 
   // Save autoPollTrades & tradesPollInterval to localStorage
