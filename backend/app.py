@@ -145,7 +145,10 @@ def run_auto_closer():
 
 class CustomWSGILogger:
     def write(self, msg):
-        pass  # Suppress all Flask HTTP access logs
+        if msg:
+            m = msg.strip()
+            if m:
+                print(f"[Flask API] {m}", flush=True)
 
 if __name__ == '__main__':
     import threading
