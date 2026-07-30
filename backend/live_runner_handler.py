@@ -134,6 +134,9 @@ class LiveRunner:
 
     @classmethod
     def _evaluate_strategy(cls, strategy: dict):
+        # Suppressed fetching during debugging
+        return
+
         strategy_id = strategy["id"]
         symbol = strategy["symbol"]
         timeframe = strategy["timeframe"]
