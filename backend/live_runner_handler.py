@@ -539,12 +539,25 @@ class LiveRunner:
                 # 2. Get Account Info for sizing
                 acct = handler.get_account_info(**target_kwargs)
                 # Parse standard dict result or direct balance field
-                balance = 10000.0
+                balance = None
                 if acct:
-                    if "data" in acct:
-                        balance = acct["data"].get("balance", 10000.0)
-                    else:
-                        balance = acct.get("balance", 10000.0)
+                    if "data" in acct and isinstance(acct["data"], dict):
+                        balance = acct["data"].get("balance")
+                    elif isinstance(acct, dict):
+                        balance = acct.get("balance")
+
+                if balance is None or float(balance) <= 0:
+                    print(f"[Live Runner] Could not retrieve valid account balance for target {target_acc_id}. Skipping execution.", flush=True)
+                    from discord_handler import send_discord_message
+                    send_discord_message(
+                        f"⚠️ **Trade Execution Skipped (No Balance)!**\n"
+                        f"🎛️ **Strategy ID:** `{strategy_id}`\n"
+                        f"🏦 **Broker:** `{target_broker}` (Acc: `{target_acc_id}`)\n"
+                        f"⚠️ **Error:** Account balance could not be retrieved from broker."
+                    )
+                    continue
+
+                balance = float(balance)
 
                 # 3. Calculate Trade Parameters
                 entry_price = float(last_candle["close"])
