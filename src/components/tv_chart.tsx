@@ -2209,6 +2209,36 @@ export default function TVChart({
                 <option value="wins">Wins</option>
                 <option value="losses">Losses</option>
               </select>
+              {(() => {
+                const lastCandle = activeCandles && activeCandles.length > 0 ? activeCandles[activeCandles.length - 1] : null;
+                if (!lastCandle) return null;
+                const d = new Date(Number(lastCandle.time) * 1000);
+                if (isNaN(d.getTime())) return null;
+                const day = String(d.getDate()).padStart(2, '0');
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const year = d.getFullYear();
+                const hours = String(d.getHours()).padStart(2, '0');
+                const mins = String(d.getMinutes()).padStart(2, '0');
+                const secs = String(d.getSeconds()).padStart(2, '0');
+                const formattedTime = `${day}/${month}/${year} - ${hours}:${mins}:${secs}`;
+                return (
+                  <div style={{
+                    fontSize: '10px',
+                    color: '#94a3b8',
+                    backgroundColor: '#1e293b',
+                    border: '1px solid #334155',
+                    padding: '3px 6px',
+                    borderRadius: '4px',
+                    fontFamily: 'monospace',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    whiteSpace: 'nowrap'
+                  }} title="Last Candle Time">
+                    <span style={{ color: '#3b82f6', fontWeight: 'bold' }}>🕒</span> {formattedTime}
+                  </div>
+                );
+              })()}
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 {onLiveFeedChange && (
                   <button
@@ -2315,6 +2345,36 @@ export default function TVChart({
                   <option value="losses">Losers Only</option>
                 </select>
               </div>
+              {(() => {
+                const lastCandle = activeCandles && activeCandles.length > 0 ? activeCandles[activeCandles.length - 1] : null;
+                if (!lastCandle) return null;
+                const d = new Date(Number(lastCandle.time) * 1000);
+                if (isNaN(d.getTime())) return null;
+                const day = String(d.getDate()).padStart(2, '0');
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const year = d.getFullYear();
+                const hours = String(d.getHours()).padStart(2, '0');
+                const mins = String(d.getMinutes()).padStart(2, '0');
+                const secs = String(d.getSeconds()).padStart(2, '0');
+                const formattedTime = `${day}/${month}/${year} - ${hours}:${mins}:${secs}`;
+                return (
+                  <div style={{
+                    fontSize: '11px',
+                    color: '#94a3b8',
+                    backgroundColor: '#1e293b',
+                    border: '1px solid #334155',
+                    padding: '4px 8px',
+                    borderRadius: '4px',
+                    fontFamily: 'monospace',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    whiteSpace: 'nowrap'
+                  }} title="Last Candle Time">
+                    <span style={{ color: '#3b82f6', fontWeight: 'bold' }}>🕒</span> {formattedTime}
+                  </div>
+                );
+              })()}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               {onLiveFeedChange && (
