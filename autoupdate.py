@@ -141,8 +141,11 @@ def main():
     while True:
         print("Starting backend server (backend/app.py)...", flush=True)
         try:
+            env = os.environ.copy()
+            env["FLASK_ENV"] = "production"
+            env["PYTHONUNBUFFERED"] = "1"
             with process_lock:
-                current_backend_process = subprocess.Popen([python_exe, "app.py"], cwd="backend")
+                current_backend_process = subprocess.Popen([python_exe, "app.py"], cwd="backend", env=env)
             
             current_backend_process.wait()
             exit_code = current_backend_process.returncode
