@@ -101,8 +101,9 @@ const isLocal = typeof window !== 'undefined' &&
     window.location.hostname.startsWith('10.') ||
     window.location.hostname.startsWith('172.'));
 
-interface TVChartProps {
+import { useCandleStore } from '../services/candleStore';
 
+interface TVChartProps {
   symbol: string;
   onSymbolChange: (symbol: string) => void;
   timeframe: string;
@@ -111,10 +112,10 @@ interface TVChartProps {
   onCandleSourceChange: (source: 'ctrader' | 'metatrader') => void;
   availableSymbols: string[];
   availableTimeframes: string[];
-  candles: Candle[];
-  loading: boolean;
+  candles?: Candle[];
+  loading?: boolean;
   loadingStrategy?: boolean;
-  onRefresh: (overrideBroker?: string, isBackground?: boolean) => void;
+  onRefresh?: (overrideBroker?: string, isBackground?: boolean) => void;
   entryPrice?: number;
   slPrice?: number;
   tpPrice?: number;
@@ -177,6 +178,11 @@ export default function TVChart({
   onLiveFeedChange,
   isMobile = false
 }: TVChartProps) {
+  const { candles: storeCandles, loading: storeLoading, fetchCandles: storeFetchCandles } = useCandleStore();
+  const activeCandles = candles || storeCandles;
+  const isChartLoading = loading !== undefined ? loading : storeLoading;
+  const handleRefresh = onRefresh || (() => storeFetchCandles(true, false));
+
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const weisContainerRef = useRef<HTMLDivElement>(null);
 

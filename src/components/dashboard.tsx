@@ -17,6 +17,7 @@ import { CandleCollectorPanel } from './candle_collector_panel';
 import LogPanel from './log_panel';
 import AccountInfoPanel from './account_info_panel';
 import type { Candle, AccountInfo, Position } from '../types/trading';
+import { useCandleStore } from '../services/candleStore';
 
 
 
@@ -199,6 +200,20 @@ export default function Dashboard() {
     }
   };
 
+  const {
+    candles,
+    loading: candleStoreLoading,
+    symbol,
+    timeframe,
+    candleSource,
+    candleLimit,
+    setSymbol,
+    setTimeframe,
+    setCandleSource,
+    setCandleLimit,
+    fetchCandles: storeFetchCandles,
+  } = useCandleStore();
+
   const [availableSymbols, setAvailableSymbols] = useState<string[]>([
     'BTCUSD', 'ETHUSD', 'EURUSD', 'GBPUSD', 'USDJPY',
     'AUDUSD', 'USDCAD', 'XAUUSD', 'US30', 'GER40'
@@ -206,17 +221,8 @@ export default function Dashboard() {
   const [availableTimeframes, setAvailableTimeframes] = useState<string[]>([
     '1m', '5m', '15m', '30m', '1h', '4h', '1d'
   ]);
-  const [symbol, setSymbol] = useState(() => {
-    return localStorage.getItem('wyckoff_symbol') || 'EURUSD';
-  });
   const [symbolSearch, setSymbolSearch] = useState('');
   const [showSymbolDropdown, setShowSymbolDropdown] = useState(false);
-  const [timeframe, setTimeframe] = useState(() => {
-    return localStorage.getItem('wyckoff_timeframe') || '15m';
-  });
-  const [candleLimit, setCandleLimit] = useState<number>(() => {
-    return parseInt(localStorage.getItem('wyckoff_candle_limit') || '5000');
-  });
   const [accounts, setAccounts] = useState<any[]>(() => {
     try {
       const saved = localStorage.getItem('wyckoff_accounts');
@@ -1876,30 +1882,9 @@ export default function Dashboard() {
     }
   };
 
-  const candlesRef = useRef<Candle[]>([]);
-  useEffect(() => {
-    candlesRef.current = candles;
-  }, [candles]);
-
-  // Priority #1: Immediately fetch candles on mount/change, and set up a single 5s auto-refresh interval
-  useEffect(() => {
-    if (!symbol) return;
-    let isCancelled = false;
-
-    // Initial fetch
-    fetchCandles(undefined, false, true);
-
-    const interval = setInterval(() => {
-      if (!isCancelled) {
-        fetchCandles(undefined, true, false);
-      }
-    }, 5000);
-
-    return () => {
-      isCancelled = true;
-      clearInterval(interval);
-    };
-  }, [symbol, timeframe, candleLimit, candleSource]);
+  const fetchCandles = (overrideBroker?: string, isBackground: boolean = false, forceFullRefresh: boolean = false) => {
+    return storeFetchCandles(forceFullRefresh, isBackground);
+  };
 
   // Save autoPollTrades & tradesPollInterval to localStorage
   useEffect(() => {
