@@ -1443,6 +1443,8 @@ export default function Dashboard() {
               marketCandles.forEach(c => map.set(c.time, c));
               rawCandles = Array.from(map.values()).sort((a, b) => a.time - b.time);
             }
+          } else {
+            console.warn(`[${new Date().toISOString()}] ⚠️ [Dashboard] fetchTradeCandles returned unexpected format or error:`, marketResult);
           }
         } catch (err) {
           console.error("Error fetching trade candles:", err);
