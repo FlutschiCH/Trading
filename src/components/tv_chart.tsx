@@ -1388,12 +1388,22 @@ export default function TVChart({
     if (candlestickSeriesRef.current) {
       candlestickSeriesRef.current.setData(activeCandles);
 
+      const tradeEntryMap = new Map<number, any>();
+      (visibleTrades || []).forEach((t) => {
+        const ts = Number(t.entryTimestamp);
+        if (!isNaN(ts)) {
+          tradeEntryMap.set(ts, t);
+        }
+      });
+
       const entryMarkers = activeCandles
         .map((c) => {
-          // 1. Check Backtest Trade Signal
-          if (chartSettings.showTrades && c.backtest_signal) {
-            const isBullish = c.backtest_signal === 'BUY';
-            const trade = (visibleTrades || []).find(t => Number(t.entryTimestamp) === Number(c.time));
+          if (!chartSettings.showTrades) return null;
+          const candleTime = Number(c.time);
+          const trade = tradeEntryMap.get(candleTime);
+
+          if (c.backtest_signal || trade) {
+            const isBullish = trade ? (trade.type || trade.side || 'BUY').toUpperCase() === 'BUY' : c.backtest_signal === 'BUY';
             const isProfit = trade ? trade.pnl >= 0 : true;
 
             if (trade) {
@@ -1404,8 +1414,8 @@ export default function TVChart({
             const baseColor = isBullish ? '#10b981' : '#ef4444';
 
             let markerText = isBullish ? 'BUY' : 'SELL';
-            if (trade) {
-              const pnlStr = trade.pnl >= 0 ? `+${trade.pnl.toFixed(2)}` : `${trade.pnl.toFixed(2)}`;
+            if (trade && trade.pnl !== undefined) {
+              const pnlStr = trade.pnl >= 0 ? `+${Number(trade.pnl).toFixed(2)}` : `${Number(trade.pnl).toFixed(2)}`;
               markerText += ` (${isProfit ? 'WIN' : 'LOSS'} ${pnlStr})`;
             }
 
