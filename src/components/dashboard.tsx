@@ -246,10 +246,6 @@ export default function Dashboard() {
   const [newAccPassword, setNewAccPassword] = useState('');
   const [newAccServer, setNewAccServer] = useState('');
 
-  const candleSource = activeAccount ? activeAccount.broker_type : 'metatrader';
-  const setCandleSource = (source: 'ctrader' | 'metatrader') => {
-    // legacy mock for components relying on setCandleSource
-  };
   const [dateRangeOption, setDateRangeOption] = useState<string>(() => {
     return localStorage.getItem('wyckoff_date_range_option') || 'last_candles';
   });
@@ -263,7 +259,6 @@ export default function Dashboard() {
   const [orderType, setOrderType] = useState<'market' | 'limit'>('market');
   const [price, setPrice] = useState('57450.00');
   const [amount, setAmount] = useState('0.1');
-  const [candles, setCandles] = useState<Candle[]>([]);
   const [liveSimulatedTrades, setLiveSimulatedTrades] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingStrategy, setLoadingStrategy] = useState(false);
@@ -1370,146 +1365,9 @@ export default function Dashboard() {
     loadLiveStrategyAndPerms();
   }, []);
 
-  // Fetch candle data and analyze on Flask backend
-  const fetchCandles = async (overrideBroker?: string, isBackground: boolean = false, forceFullRefresh: boolean = false) => {
-    const fetchStartTime = performance.now();
-    const startIsoTime = new Date().toISOString();
-    const targetSymbol = symbol;
-    const targetTf = timeframe;
-    const targetBroker = overrideBroker || candleSource;
-
-    console.log(`[${startIsoTime}] 🚀 [Dashboard] Initiating fetchCandles for ${targetSymbol} (${targetTf}) via ${targetBroker} (background: ${isBackground}, forceFullRefresh: ${forceFullRefresh})`);
-
-    if (!isBackground) {
-      setLoading(true);
-    }
-    setLoadingStrategy(true);
-
-    if (forceFullRefresh) {
-      setCandles([]);
-      setLiveSimulatedTrades([]);
-    }
-
-    const isIncremental = !forceFullRefresh && candlesRef.current.length >= 100;
-    const reqLimit = isIncremental ? 2 : candleLimit;
-
-    try {
-      let rawCandles: Candle[] = [];
-      let fetchedTrades: any[] = [];
-      let isFromLiveFeedCache = false;
-
-      if (isLiveFeed && selectedStrategyId) {
-        try {
-          const result = await apiService.fetchLiveStrategyCache(selectedStrategyId, isIncremental ? 2 : undefined);
-          if (result && result.status === 'success' && Array.isArray(result.candles) && result.candles.length > 0) {
-            rawCandles = result.candles.sort((a: Candle, b: Candle) => a.time - b.time);
-            fetchedTrades = result.trades || [];
-            isFromLiveFeedCache = true;
-          } else if (result && result.status === 'not_found') {
-            console.warn(`Live strategy ${selectedStrategyId} not found in DB. Clearing from localStorage.`);
-            localStorage.removeItem('wyckoff_selected_live_strategy_id');
-            setSelectedStrategyId('');
-            setIsLiveFeed(false);
-          }
-        } catch (err) {
-          console.error("Failed to fetch live feed cache:", err);
-        }
-      }
-
-      if (rawCandles.length === 0 || isLiveFeed) {
-        try {
-          const marketResult = await apiService.fetchTradeCandles({
-            broker: targetBroker,
-            symbol: targetSymbol,
-            interval: targetTf,
-            limit: isLiveFeed ? Math.max(reqLimit, 5) : reqLimit,
-            lookback: parseInt(lookbackWindow) || 20,
-          });
-          if (marketResult && marketResult.status === 'success' && Array.isArray(marketResult.candles)) {
-            const marketCandles = marketResult.candles.sort((a: Candle, b: Candle) => a.time - b.time);
-            if (rawCandles.length === 0) {
-              rawCandles = marketCandles;
-            } else {
-              // Combine live strategy cache candles with fresh live market candles
-              const map = new Map<number, Candle>();
-              rawCandles.forEach(c => map.set(c.time, c));
-              marketCandles.forEach(c => map.set(c.time, c));
-              rawCandles = Array.from(map.values()).sort((a, b) => a.time - b.time);
-            }
-            if (!isFromLiveFeedCache) {
-              fetchedTrades = marketResult.trades || [];
-            }
-          } else if (Array.isArray(marketResult)) {
-            const marketCandles = marketResult.sort((a: Candle, b: Candle) => a.time - b.time);
-            if (rawCandles.length === 0) {
-              rawCandles = marketCandles;
-            } else {
-              const map = new Map<number, Candle>();
-              rawCandles.forEach(c => map.set(c.time, c));
-              marketCandles.forEach(c => map.set(c.time, c));
-              rawCandles = Array.from(map.values()).sort((a, b) => a.time - b.time);
-            }
-          } else {
-            console.warn(`[${new Date().toISOString()}] ⚠️ [Dashboard] fetchTradeCandles returned unexpected format or error:`, marketResult);
-          }
-        } catch (err) {
-          console.error("Error fetching trade candles:", err);
-        }
-      }
-
-      const fetchEndTime = performance.now();
-      const endIsoTime = new Date().toISOString();
-      const durationMs = (fetchEndTime - fetchStartTime).toFixed(1);
-
-      console.log(`[${endIsoTime}] ✅ [Dashboard] Received ${rawCandles.length} candles for ${targetSymbol} (${targetTf}) in ${durationMs}ms`);
-
-      // Merge or update trades state without wiping existing trades on incremental 2-candle fetches
-      if (isIncremental && isFromLiveFeedCache) {
-        setLiveSimulatedTrades(prev => {
-          if (prev.length === 0) return fetchedTrades;
-          const merged = [...prev];
-          fetchedTrades.forEach((newTrade: any) => {
-            const idx = merged.findIndex(t => t.id === newTrade.id || (t.entryTimestamp === newTrade.entryTimestamp && t.symbol === newTrade.symbol));
-            if (idx !== -1) {
-              merged[idx] = newTrade;
-            } else {
-              merged.push(newTrade);
-            }
-          });
-          return merged;
-        });
-      } else {
-        setLiveSimulatedTrades(fetchedTrades);
-      }
-
-      if (rawCandles.length > 0) {
-        if (isIncremental || rawCandles.length < 50) {
-          setCandles(prev => {
-            if (prev.length === 0) return rawCandles;
-            const merged = [...prev];
-            rawCandles.forEach((newCandle) => {
-              const idx = merged.findIndex(c => c.time === newCandle.time);
-              if (idx !== -1) {
-                merged[idx] = newCandle;
-              } else {
-                merged.push(newCandle);
-              }
-            });
-            return merged.sort((a, b) => a.time - b.time);
-          });
-        } else {
-          setCandles(rawCandles);
-        }
-        setLoading(false);
-        setInitialCandlesLoaded(true);
-      }
-    } catch (error) {
-      console.error('Error fetching candles:', error);
-    } finally {
-      setLoading(false);
-      setLoadingStrategy(false);
-      setInitialCandlesLoaded(true);
-    }
+  // Candle fetching is managed centrally by CandleStore.
+  const fetchCandles = (overrideBroker?: string, isBackground: boolean = false, forceFullRefresh: boolean = false) => {
+    return storeFetchCandles(forceFullRefresh, isBackground);
   };
 
   // Unified API endpoints
