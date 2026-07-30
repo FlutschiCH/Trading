@@ -1,5 +1,7 @@
 # /backend/terminal_handler.py
 import sys
+import re
+import time
 from gevent.lock import RLock
 from gevent.queue import Queue, Empty
 
@@ -9,10 +11,38 @@ class TerminalHandler:
     _max_logs = 1000
     _queues = []
     _initialized = False
+    _settings_cache = {}
+    _last_cache_time = 0
 
     # Store references to original streams to prevent recursion
     _orig_stdout = None
     _orig_stderr = None
+
+    @classmethod
+    def _is_category_enabled(cls, text: str) -> bool:
+        now = time.time()
+        if now - cls._last_cache_time > 2.0:
+            try:
+                from sql_handler import SQLHandler
+                cls._settings_cache = SQLHandler.get_log_settings()
+                cls._last_cache_time = now
+            except Exception:
+                pass
+
+        if not cls._settings_cache:
+            return True
+
+        category = 'Other'
+        if 'GET /' in text or 'POST /' in text or 'PUT /' in text or 'DELETE /' in text or '[API Log]' in text:
+            category = 'Flask API'
+        else:
+            match = re.search(r'\[([A-Za-z0-9_ -]+)\]', text)
+            if match and match.group(1):
+                category = match.group(1).strip()
+
+        if cls._settings_cache.get(category) is False:
+            return False
+        return True
 
     class StreamWrapper:
         def __init__(self, original_stream, is_stderr=False):
@@ -20,6 +50,10 @@ class TerminalHandler:
             self.is_stderr = is_stderr
 
         def write(self, data):
+            if data and not self.is_stderr:
+                if not TerminalHandler._is_category_enabled(data):
+                    return
+
             # Print to the original stream first (no recursion)
             self.original_stream.write(data)
             self.original_stream.flush()
@@ -88,3 +122,4 @@ class TerminalHandler:
             with cls._lock:
                 if q in cls._queues:
                     cls._queues.remove(q)
+
