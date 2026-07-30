@@ -1387,7 +1387,7 @@ export default function Dashboard() {
       if (isLiveFeed && selectedStrategyId) {
         try {
           const result = await apiService.fetchLiveStrategyCache(selectedStrategyId, isIncremental ? 2 : undefined);
-          if (result && result.status === 'success' && Array.isArray(result.candles)) {
+          if (result && result.status === 'success' && Array.isArray(result.candles) && result.candles.length > 0) {
             rawCandles = result.candles.sort((a: Candle, b: Candle) => a.time - b.time);
             fetchedTrades = result.trades || [];
             isFromLiveFeedCache = true;
@@ -1402,22 +1402,39 @@ export default function Dashboard() {
         }
       }
 
-      if (rawCandles.length === 0) {
+      if (rawCandles.length === 0 || isLiveFeed) {
         try {
-          const result = await apiService.fetchTradeCandles({
+          const marketResult = await apiService.fetchTradeCandles({
             broker: overrideBroker || candleSource,
             symbol: symbol,
             interval: timeframe,
-            limit: reqLimit,
+            limit: isLiveFeed ? Math.max(reqLimit, 5) : reqLimit,
             lookback: parseInt(lookbackWindow) || 20,
           });
-          if (result && result.status === 'success' && Array.isArray(result.candles)) {
-            rawCandles = result.candles.sort((a: Candle, b: Candle) => a.time - b.time);
-            if (!isFromLiveFeedCache) {
-              fetchedTrades = result.trades || [];
+          if (marketResult && marketResult.status === 'success' && Array.isArray(marketResult.candles)) {
+            const marketCandles = marketResult.candles.sort((a: Candle, b: Candle) => a.time - b.time);
+            if (rawCandles.length === 0) {
+              rawCandles = marketCandles;
+            } else {
+              // Combine live strategy cache candles with fresh live market candles
+              const map = new Map<number, Candle>();
+              rawCandles.forEach(c => map.set(c.time, c));
+              marketCandles.forEach(c => map.set(c.time, c));
+              rawCandles = Array.from(map.values()).sort((a, b) => a.time - b.time);
             }
-          } else if (Array.isArray(result)) {
-            rawCandles = result.sort((a: Candle, b: Candle) => a.time - b.time);
+            if (!isFromLiveFeedCache) {
+              fetchedTrades = marketResult.trades || [];
+            }
+          } else if (Array.isArray(marketResult)) {
+            const marketCandles = marketResult.sort((a: Candle, b: Candle) => a.time - b.time);
+            if (rawCandles.length === 0) {
+              rawCandles = marketCandles;
+            } else {
+              const map = new Map<number, Candle>();
+              rawCandles.forEach(c => map.set(c.time, c));
+              marketCandles.forEach(c => map.set(c.time, c));
+              rawCandles = Array.from(map.values()).sort((a, b) => a.time - b.time);
+            }
           }
         } catch (err) {
           console.error("Error fetching trade candles:", err);
@@ -1876,14 +1893,13 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, [candleSource, autoPollTrades, tradesPollInterval]);
 
-  // Live Feed auto-update polling
+  // Live Feed auto-update polling (every 5 seconds)
   useEffect(() => {
     if (!isLiveFeed) return;
     fetchCandles(undefined, true, false);
-    const pollIntervalMs = isLocalTarget() ? 5000 : 10000;
     const interval = setInterval(() => {
       fetchCandles(undefined, true, false);
-    }, pollIntervalMs);
+    }, 5000);
     return () => clearInterval(interval);
   }, [isLiveFeed, symbol, timeframe, selectedStrategyId]);
 
