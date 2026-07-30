@@ -92,6 +92,7 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       });
 
       const marketResult = await apiService.fetchTradeCandles(payload);
+      console.log(`[${new Date().toISOString()}] 📩 [CandleStore] Raw response from ${endpoint}:`, marketResult);
 
       let rawCandles: Candle[] = [];
       if (marketResult && marketResult.status === 'success' && Array.isArray(marketResult.candles)) {
