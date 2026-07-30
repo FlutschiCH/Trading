@@ -58,12 +58,17 @@ export const fetchLiveStrategyCache = async (strategyId: string, limit?: number)
 };
 
 export const fetchTradeCandles = async (payload: any) => {
-  const response = await fetch(`${API_BASE_URL}/api/trade/candles`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
-  return safeJsonParse(response);
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/trade/candles`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    return await safeJsonParse(response);
+  } catch (err: any) {
+    console.error(`[apiService] fetchTradeCandles network exception:`, err);
+    return { status: 'error', message: err.message || 'Network exception' };
+  }
 };
 
 export const fetchFavouritesList = async () => {
