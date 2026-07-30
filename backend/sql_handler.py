@@ -34,7 +34,7 @@ class SQLHandler:
         if cls._pool is not None:
             return True
         start_time = time.time()
-        pool_size = int(os.getenv("DB_POOL_SIZE", "6"))
+        pool_size = int(os.getenv("DB_POOL_SIZE", "2"))
         try:
             from logger_handler import logPrint
             from mysql.connector.pooling import MySQLConnectionPool
@@ -48,7 +48,7 @@ class SQLHandler:
                 user=DB_USER,
                 password=DB_PASSWORD,
                 database=DB_NAME,
-                connect_timeout=5
+                connect_timeout=3
             )
             duration = time.time() - start_time
             logPrint(f"Successfully initialized MySQL connection pool (size={pool_size}) in {duration:.4f} seconds.", category="SQLHandler", level="INFO")
