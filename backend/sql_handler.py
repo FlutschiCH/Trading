@@ -22,46 +22,51 @@ DB_NAME = os.getenv("DB_NAME", "trading_db")
 
 class SQLHandler:
     _lock = threading.Semaphore(1)
-    _pool = None
+    _conn = None
 
     @classmethod
-    def init_pool(cls):
+    def get_mysql_connection(cls):
         """
-        Initializes the MySQL connection pool.
+        Returns an active, single persistent MySQL connection (reconnects if disconnected).
         """
         if not MYSQL_AVAILABLE:
-            return False
-        if cls._pool is not None:
-            return True
-        start_time = time.time()
-        pool_size = int(os.getenv("DB_POOL_SIZE", "2"))
-        try:
-            from logger_handler import logPrint
-            from mysql.connector.pooling import MySQLConnectionPool
-            logPrint(f"Connecting to MySQL database at {DB_HOST}:{DB_PORT}/{DB_NAME} (pool_size={pool_size})...", category="SQLHandler", level="INFO")
-            cls._pool = MySQLConnectionPool(
-                pool_name="trading_pool",
-                pool_size=pool_size,
-                pool_reset_session=True,
+            raise RuntimeError("mysql-connector-python is not installed.")
+
+        with cls._lock:
+            # Check if current connection is still alive
+            if cls._conn is not None:
+                try:
+                    if cls._conn.is_connected():
+                        cls._conn.ping(reconnect=True, attempts=3, delay=1)
+                        return cls._conn
+                except Exception:
+                    cls._conn = None
+
+            # Establish single persistent connection
+            start_time = time.time()
+            try:
+                from logger_handler import logPrint
+                logPrint(f"Connecting single persistent MySQL connection to {DB_HOST}:{DB_PORT}/{DB_NAME}...", category="SQLHandler", level="INFO")
+            except Exception:
+                pass
+
+            cls._conn = mysql.connector.connect(
                 host=DB_HOST,
                 port=DB_PORT,
                 user=DB_USER,
                 password=DB_PASSWORD,
                 database=DB_NAME,
-                connect_timeout=3
+                connect_timeout=5,
+                autocommit=True
             )
-            duration = time.time() - start_time
-            logPrint(f"Successfully initialized MySQL connection pool (size={pool_size}) in {duration:.4f} seconds.", category="SQLHandler", level="INFO")
-            cls.init_log_settings_db()
-            return True
-        except Exception as e:
             duration = time.time() - start_time
             try:
                 from logger_handler import logPrint
-                logPrint(f"Failed to initialize MySQL connection pool after {duration:.4f} seconds: {e}.", category="SQLHandler", level="ERROR")
+                logPrint(f"Successfully connected to MySQL database in {duration:.4f} seconds.", category="SQLHandler", level="INFO")
             except Exception:
-                print(f"Failed to initialize MySQL connection pool after {duration:.4f} seconds: {e}.", flush=True)
-            return False
+                pass
+
+            return cls._conn
 
     @classmethod
     def init_log_settings_db(cls):
@@ -101,19 +106,9 @@ class SQLHandler:
             print(f"[SQLHandler] Error saving log setting for {category}: {e}", flush=True)
 
     @classmethod
-    def get_mysql_connection(cls):
-        if not MYSQL_AVAILABLE:
-            raise RuntimeError("mysql-connector-python is not installed.")
-        if cls._pool is None:
-            cls.init_pool()
-        if cls._pool is None:
-            raise RuntimeError("MySQL connection pool is not initialized.")
-        return cls._pool.get_connection()
-
-    @classmethod
     def execute_query(cls, query: str, params: tuple = None) -> list:
         """
-        Executes a query with connection cleanup using MySQL.
+        Executes a query with thread lock safety using single persistent connection.
         """
         if params is None:
             params = ()
@@ -121,7 +116,6 @@ class SQLHandler:
         max_retries = 3
         last_err = None
         for attempt in range(max_retries):
-            conn = None
             cursor = None
             try:
                 q_start = time.time()
@@ -131,7 +125,6 @@ class SQLHandler:
                 if query.strip().upper().startswith("SELECT"):
                     result = cursor.fetchall()
                 else:
-                    conn.commit()
                     result = [{"rowcount": cursor.rowcount, "lastrowid": cursor.lastrowid}]
                 q_dur = time.time() - q_start
                 if q_dur > 0.05 and "system_log_settings" not in query:
@@ -142,11 +135,9 @@ class SQLHandler:
             except Exception as err:
                 last_err = err
                 err_msg = str(err)
-                is_conn_err = any(x in err_msg for x in ["pool exhausted", "PoolError", "2055", "Lost connection", "10054", "Connection refused", "is closed", "not connected", "Failed getting connection"])
+                is_conn_err = any(x in err_msg for x in ["2055", "Lost connection", "10054", "Connection refused", "is closed", "not connected", "MySQL Connection not available"])
                 if is_conn_err:
-                    from logger_handler import logPrint
-                    logPrint(f"MySQL connection issue (attempt {attempt + 1}/{max_retries}): {err_msg}", category="SQLHandler", level="WARNING")
-                    cls._pool = None  # Re-initialize pool on retry
+                    cls._conn = None  # Reset persistent connection on disconnect
                     if attempt < max_retries - 1:
                         time.sleep(0.2)
                         continue
@@ -158,11 +149,6 @@ class SQLHandler:
                         cursor.close()
                     except Exception:
                         pass
-                if conn:
-                    try:
-                        conn.close()
-                    except Exception:
-                        pass
 
         if last_err:
             raise last_err
@@ -172,29 +158,25 @@ class SQLHandler:
 if __name__ == '__main__':
     import time
     print(f"==================================================")
-    print(f"⏱️  Benchmarking SQLHandler MySQL Connection")
+    print(f"⏱️  Benchmarking SQLHandler (Single Persistent Connection)")
     print(f"   Host:     {DB_HOST}:{DB_PORT}")
     print(f"   Database: {DB_NAME}")
     print(f"   User:     {DB_USER}")
     print(f"==================================================")
 
-    # 1. Benchmark pool initialization
+    # 1. Benchmark initial connection establishment
     t0 = time.perf_counter()
-    pool_ok = SQLHandler.init_pool()
+    conn = SQLHandler.get_mysql_connection()
     t1 = time.perf_counter()
     init_ms = (t1 - t0) * 1000.0
-    print(f"1. Pool Initialization: {'SUCCESS' if pool_ok else 'FAILED'} in {init_ms:.2f} ms ({init_ms/1000.0:.2f} s)")
+    print(f"1. Establish Persistent Connection: SUCCESS in {init_ms:.2f} ms ({init_ms/1000.0:.2f} s)")
 
-    # 2. Benchmark single raw connection
+    # 2. Benchmark ping / reuse existing connection
     t2 = time.perf_counter()
-    try:
-        conn = SQLHandler.get_mysql_connection()
-        t3 = time.perf_counter()
-        raw_ms = (t3 - t2) * 1000.0
-        print(f"2. Fetch Connection from Pool: SUCCESS in {raw_ms:.2f} ms ({raw_ms/1000.0:.2f} s)")
-        conn.close()
-    except Exception as e:
-        print(f"2. Fetch Connection from Pool: FAILED ({e})")
+    conn2 = SQLHandler.get_mysql_connection()
+    t3 = time.perf_counter()
+    reuse_ms = (t3 - t2) * 1000.0
+    print(f"2. Reuse Active Connection (Ping): SUCCESS in {reuse_ms:.2f} ms")
 
     # 3. Benchmark simple SELECT query
     t4 = time.perf_counter()
