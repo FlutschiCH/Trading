@@ -2713,7 +2713,7 @@ export default function Dashboard() {
                       />
                     </div>
                   </div>
-                ) : (
+                ) : mobileTab === 'live_overview' ? (
                   <div style={{
                     width: '100%',
                     backgroundColor: 'var(--app-card-bg)',
