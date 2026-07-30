@@ -8,7 +8,7 @@ import LiveOverviewPanel from './live_overview_panel';
 import SymbolMappingsView from './symbol_mappings_view';
 import ComputerManager from './computer_manager';
 import HeaderBar from './header_bar';
-import MobileTabNav from './mobile_tab_nav';
+import MobileTabNav, { MobileTab } from './mobile_tab_nav';
 import { API_BASE_URL } from '../api';
 import { isLocalTarget } from './target_switcher';
 import * as apiService from '../services/apiService';
@@ -509,7 +509,7 @@ export default function Dashboard() {
 
   // Responsive mobile states
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [mobileTab, setMobileTab] = useState<'chart' | 'backtester' | 'trades' | 'live_overview'>('chart');
+  const [mobileTab, setMobileTab] = useState<MobileTab>('chart');
   const [showMenu, setShowMenu] = useState(false);
 
   useEffect(() => {
@@ -1183,7 +1183,7 @@ export default function Dashboard() {
         broker: targetBroker,
         target_computer: targetComputer,
         targets: targets,
-        initialBalance: parseFloat(backtestInitialBalance) || 10000.0,
+        initialBalance: parseFloat(backtestBalance) || 10000.0,
         dateRangeOption,
         customFrom,
         customTo,

@@ -192,7 +192,7 @@ export default function LogPanel({ isMobileLayout = false }: LogPanelProps) {
       <div style={{
         display: 'flex',
         flexWrap: 'wrap',
-        justify: 'space-between',
+        justifyContent: 'space-between',
         alignItems: 'center',
         padding: '10px 16px',
         backgroundColor: '#111827',
