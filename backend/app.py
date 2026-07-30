@@ -144,29 +144,8 @@ def run_auto_closer():
         time.sleep(15) # check every 15 seconds
 
 class CustomWSGILogger:
-    def __init__(self):
-        self.candle_request_count = 0
-
     def write(self, msg):
-        if "/api/terminal/stream" in msg:
-            return
-        if "/api/trade/positions" in msg:
-            return
-        if "/api/live/strategy/cache" in msg:
-            return
-        is_200 = " 200 " in msg
-        if is_200:
-            if "OPTIONS " in msg:
-                return
-            if "/api/trade/candles" in msg:
-                self.candle_request_count += 1
-                if self.candle_request_count % 20 != 0:
-                    return
-                print(f"[API Log] /api/trade/candles request processed (Show 1/20 | Total: {self.candle_request_count})", flush=True)
-                return
-        m = msg.strip()
-        if m:
-            print(m, flush=True)
+        pass  # Suppress all Flask HTTP access logs
 
 if __name__ == '__main__':
     import threading
