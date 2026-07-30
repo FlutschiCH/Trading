@@ -480,3 +480,33 @@ class MetaTraderHandler(BaseBrokerHandler):
         Standard timeframes.
         """
         return ["1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "6h", "8h", "12h", "1d"]
+
+if __name__ == '__main__':
+    import time
+    import sys
+
+    # Allow custom arguments: python metatrader_handler.py [symbol] [timeframe] [limit]
+    symbol = sys.argv[1] if len(sys.argv) > 1 else "EURUSD"
+    timeframe = sys.argv[2] if len(sys.argv) > 2 else "5m"
+    limit = int(sys.argv[3]) if len(sys.argv) > 3 else 500
+
+    print(f"==================================================")
+    print(f"⏱️  Benchmarking MetaTraderHandler.fetch_candles")
+    print(f"   Symbol:    {symbol}")
+    print(f"   Timeframe: {timeframe}")
+    print(f"   Limit:     {limit}")
+    print(f"==================================================")
+
+    start_time = time.perf_counter()
+    candles = MetaTraderHandler.fetch_candles(symbol=symbol, timeframe=timeframe, limit=limit)
+    end_time = time.perf_counter()
+
+    elapsed_ms = (end_time - start_time) * 1000.0
+    print(f"✅ Fetched {len(candles)} candles in {elapsed_ms:.2f} ms ({elapsed_ms/1000.0:.2f} seconds)")
+
+    if candles:
+        print(f"   First candle: {candles[0]}")
+        print(f"   Last candle:  {candles[-1]}")
+    else:
+        print("⚠️ No candles returned!")
+
