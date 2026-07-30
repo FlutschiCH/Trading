@@ -143,12 +143,14 @@ def run_auto_closer():
 
         time.sleep(15) # check every 15 seconds
 
+from logger_handler import logPrint
+
 class CustomWSGILogger:
     def write(self, msg):
         if msg:
             m = msg.strip()
             if m:
-                print(f"[Flask API] {m}", flush=True)
+                logPrint(m, category="Flask API", level="INFO")
 
 if __name__ == '__main__':
     import threading
