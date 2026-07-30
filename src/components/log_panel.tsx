@@ -33,8 +33,18 @@ export default function LogPanel({ isMobileLayout = false }: LogPanelProps) {
   const [showFilterDropdown, setShowFilterDropdown] = useState<boolean>(false);
 
   const logsEndRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const userScrolledUpRef = useRef<boolean>(false);
   const isPausedRef = useRef<boolean>(isPaused);
   isPausedRef.current = isPaused;
+
+  const handleScroll = () => {
+    if (containerRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
+      const isAtBottom = scrollHeight - (scrollTop + clientHeight) < 40;
+      userScrolledUpRef.current = !isAtBottom;
+    }
+  };
 
   useEffect(() => {
     const eventSource = new EventSource(`${API_BASE_URL}/api/terminal/stream`);
@@ -76,10 +86,11 @@ export default function LogPanel({ isMobileLayout = false }: LogPanelProps) {
   }, []);
 
   useEffect(() => {
-    if (!isPaused && logsEndRef.current) {
+    if (!isPaused && logsEndRef.current && !userScrolledUpRef.current) {
       logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [logs, isPaused]);
+
 
   const classifySource = (logLine: string): string => {
     // Check if Flask/WSGI API log line
@@ -351,16 +362,21 @@ export default function LogPanel({ isMobileLayout = false }: LogPanelProps) {
       </div>
 
       {/* Logs Console Box */}
-      <div style={{
-        flex: 1,
-        padding: '12px',
-        overflowY: 'auto',
-        backgroundColor: '#090d16',
-        fontSize: '11px',
-        lineHeight: '1.5',
-        whiteSpace: 'pre-wrap',
-        wordBreak: 'break-all'
-      }}>
+      <div
+        ref={containerRef}
+        onScroll={handleScroll}
+        style={{
+          flex: 1,
+          padding: '12px',
+          overflowY: 'auto',
+          backgroundColor: '#090d16',
+          fontSize: '11px',
+          lineHeight: '1.5',
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-all'
+        }}
+      >
+
         {filteredLogs.length === 0 ? (
           <div style={{ color: '#6b7280', fontStyle: 'italic', textAlign: 'center', marginTop: '40px' }}>
             No log messages matching selected sources.
