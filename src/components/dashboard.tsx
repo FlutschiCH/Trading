@@ -1384,7 +1384,7 @@ export default function Dashboard() {
       setLiveSimulatedTrades([]);
     }
 
-    const isIncremental = !forceFullRefresh && candles.length >= 100;
+    const isIncremental = !forceFullRefresh && candlesRef.current.length >= 100;
     const reqLimit = isIncremental ? 2 : candleLimit;
 
     try {
@@ -1876,12 +1876,18 @@ export default function Dashboard() {
     }
   };
 
+  const candlesRef = useRef<Candle[]>([]);
+  useEffect(() => {
+    candlesRef.current = candles;
+  }, [candles]);
+
   // Priority #1: Immediately fetch candles when symbol, timeframe, candleLimit, or candleSource changes, and set up auto-refresh polling
   useEffect(() => {
     if (!symbol) return;
-    fetchCandles(undefined, false, false);
+    // Initial fetch (full load)
+    fetchCandles(undefined, false, true);
 
-    // Auto-poll candles every 5 seconds to keep data fresh
+    // Auto-poll candles every 5 seconds to keep data fresh incrementally
     const interval = setInterval(() => {
       fetchCandles(undefined, true, false);
     }, 5000);
