@@ -1,6 +1,6 @@
 import React from 'react';
 
-export type MobileTab = 'chart' | 'backtester' | 'trades' | 'live_overview';
+export type MobileTab = 'chart' | 'backtester' | 'trades' | 'live_overview' | 'logs';
 
 interface MobileTabNavProps {
   activeTab: MobileTab;
@@ -93,6 +93,24 @@ export default function MobileTabNav({ activeTab, onTabChange }: MobileTabNavPro
         }}
       >
         ⚡ Live
+      </button>
+      <button
+        onClick={() => onTabChange('logs')}
+        style={{
+          flex: 1,
+          padding: '8px 6px',
+          borderRadius: '6px',
+          border: 'none',
+          backgroundColor: activeTab === 'logs' ? '#2563eb' : 'transparent',
+          color: '#ffffff',
+          fontWeight: 'bold',
+          fontSize: '11px',
+          cursor: 'pointer',
+          transition: 'all 0.2s',
+          whiteSpace: 'nowrap'
+        }}
+      >
+        📋 Logs
       </button>
     </div>
   );
