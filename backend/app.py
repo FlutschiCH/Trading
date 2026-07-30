@@ -150,6 +150,10 @@ class CustomWSGILogger:
     def write(self, msg):
         if "/api/terminal/stream" in msg:
             return
+        if "/api/trade/positions" in msg:
+            return
+        if "/api/live/strategy/cache" in msg:
+            return
         is_200 = " 200 " in msg
         if is_200:
             if "OPTIONS " in msg:
