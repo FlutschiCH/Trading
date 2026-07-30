@@ -2430,15 +2430,7 @@ export default function TVChart({
             </div>
           </>
         )}
-      </div>
-
       <div style={styles.chartWrapper}>
-        {loading && (
-          <div style={styles.loadingOverlay}>
-            Fetching raw candles...
-          </div>
-        )}
-
         <div style={{ position: 'relative', height: chartHeight }}>
           <div ref={chartContainerRef} style={{ width: '100%', height: '100%', touchAction: 'none' }} />
 
