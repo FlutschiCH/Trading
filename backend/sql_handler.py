@@ -37,19 +37,13 @@ class SQLHandler:
             if cls._conn is not None:
                 try:
                     if cls._conn.is_connected():
-                        cls._conn.ping(reconnect=True, attempts=3, delay=1)
+                        cls._conn.ping(reconnect=True, attempts=1, delay=0)
                         return cls._conn
                 except Exception:
                     cls._conn = None
 
             # Establish single persistent connection
             start_time = time.time()
-            try:
-                from logger_handler import logPrint
-                logPrint(f"Connecting single persistent MySQL connection to {DB_HOST}:{DB_PORT}/{DB_NAME}...", category="SQLHandler", level="INFO")
-            except Exception:
-                pass
-
             cls._conn = mysql.connector.connect(
                 host=DB_HOST,
                 port=DB_PORT,
@@ -62,7 +56,7 @@ class SQLHandler:
             duration = time.time() - start_time
             try:
                 from logger_handler import logPrint
-                logPrint(f"Successfully connected to MySQL database in {duration:.4f} seconds.", category="SQLHandler", level="INFO")
+                logPrint(f"Successfully established persistent MySQL connection to {DB_HOST}:{DB_PORT}/{DB_NAME} in {duration:.4f} seconds.", category="SQLHandler", level="INFO")
             except Exception:
                 pass
 
