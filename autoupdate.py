@@ -2,6 +2,10 @@ import os
 import sys
 import subprocess
 import time
+import threading
+from flask import Flask, jsonify, request
+from flask_cors import CORS
+from gevent.pywsgi import WSGIServer
 
 # Change working directory to the directory of this script to ensure relative paths work
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -23,6 +27,37 @@ def disable_quick_edit():
 
 disable_quick_edit()
 
+current_backend_process = None
+process_lock = threading.Lock()
+
+# Secondary Control Flask Server
+control_app = Flask(__name__)
+CORS(control_app)
+
+@control_app.route('/api/restart', methods=['POST'])
+def handle_restart():
+    global current_backend_process
+    with process_lock:
+        if current_backend_process and current_backend_process.poll() is None:
+            print("[Updater Server] Terminating backend process via restart API...", flush=True)
+            current_backend_process.terminate()
+            try:
+                current_backend_process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                current_backend_process.kill()
+    return jsonify({"status": "restarting", "message": "Backend restart triggered"}), 200
+
+@control_app.route('/api/health', methods=['GET'])
+def handle_health():
+    is_running = current_backend_process is not None and current_backend_process.poll() is None
+    return jsonify({"status": "ok", "backend_running": is_running}), 200
+
+def start_control_server():
+    port = int(os.environ.get("UPDATER_PORT", 8081))
+    print(f"[Updater Server] Starting control server on port {port}...", flush=True)
+    server = WSGIServer(('0.0.0.0', port), control_app)
+    server.serve_forever()
+
 def get_git_commit():
     try:
         res = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True)
@@ -35,7 +70,6 @@ def restart_updater():
     print("Restarting autoupdater process...", flush=True)
     executable = sys.executable
     args = [sys.executable] + sys.argv
-    # Quote arguments with spaces for Windows safety
     if os.name == 'nt':
         quoted_args = []
         for arg in args:
@@ -50,19 +84,12 @@ def restart_updater():
 def run_force_git_update():
     print("Checking for updates from Git (Force Update)...", flush=True)
     try:
-        # Fetch all changes
         subprocess.run(["git", "fetch", "--all"], check=True)
-        
-        # Get the name of the current active branch
         branch_res = subprocess.run(["git", "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True, check=True)
         branch = branch_res.stdout.strip()
         print(f"Current branch detected: {branch}", flush=True)
-        
-        # Force reset to origin's branch to discard local modifications
         res = subprocess.run(["git", "reset", "--hard", f"origin/{branch}"], capture_output=True, text=True, check=True)
         print("Git reset output:", res.stdout, flush=True)
-        
-        # Get and print the new active commit details
         commit_info = subprocess.run(["git", "log", "-1", "--oneline"], capture_output=True, text=True, check=True)
         print(f"Git Update Complete! Active Commit: {commit_info.stdout.strip()}", flush=True)
         return True
@@ -70,22 +97,11 @@ def run_force_git_update():
         print(f"Git force update failed: {e}", flush=True)
         return False
 
-def run_git_pull():
-    print("Checking for updates from Git...", flush=True)
-    try:
-        res = subprocess.run(["git", "pull"], capture_output=True, text=True, check=True)
-        print("Git pull output:", res.stdout, flush=True)
-        return "requirements.txt" in res.stdout
-    except Exception as e:
-        print(f"Git pull failed: {e}", flush=True)
-        return False
-
 def check_and_install_dependencies(python_exe):
     req_path = os.path.join("backend", "requirements.txt")
     if os.path.exists(req_path):
         print("Installing/updating dependencies from requirements.txt...", flush=True)
         try:
-            # Determine pip path (usually in the same folder as python)
             pip_exe = os.path.join(os.path.dirname(python_exe), "pip")
             if os.name == 'nt' and not pip_exe.endswith(".exe"):
                 pip_exe += ".exe"
@@ -96,8 +112,12 @@ def check_and_install_dependencies(python_exe):
             print(f"Failed to install dependencies: {e}", flush=True)
 
 def main():
-    # Detect the correct Python path to use for running backend/app.py
-    # Priority: backend/.venv/Scripts/python.exe -> backend/venv/Scripts/python.exe -> backend/.venv/bin/python -> sys.executable
+    global current_backend_process
+    
+    # Start updater control server thread on port 8081
+    updater_thread = threading.Thread(target=start_control_server, daemon=True)
+    updater_thread.start()
+
     if os.path.exists("backend/.venv/Scripts/python.exe"):
         python_exe = os.path.abspath("backend/.venv/Scripts/python.exe")
     elif os.path.exists("backend/venv/Scripts/python.exe"):
@@ -109,43 +129,35 @@ def main():
 
     print(f"Using Python interpreter: {python_exe}", flush=True)
 
-    # Initial check and force update on startup
     commit_before = get_git_commit()
     run_force_git_update()
     commit_after = get_git_commit()
     
-    # Reinstall dependencies
     check_and_install_dependencies(python_exe)
     
-    # If the updater script itself was modified by the force pull, restart it to apply changes
     if commit_before and commit_after and commit_before != commit_after:
         restart_updater()
 
     while True:
         print("Starting backend server (backend/app.py)...", flush=True)
         try:
-            # Run backend/app.py with cwd=backend so relative imports work correctly
-            process = subprocess.Popen([python_exe, "app.py"], cwd="backend")
-            process.wait()
+            with process_lock:
+                current_backend_process = subprocess.Popen([python_exe, "app.py"], cwd="backend")
             
-            exit_code = process.returncode
+            current_backend_process.wait()
+            exit_code = current_backend_process.returncode
             print(f"Backend exited with code {exit_code}.", flush=True)
             
-            # Code 99 could mean manual stop request
             if exit_code == 99:
                 print("Exit code 99 received. Stopping autoupdater.", flush=True)
                 break
             
-            # Code 12 means update and restart request from frontend
             if exit_code == 12:
                 print("Exit code 12 received. Performing force update and restarting autoupdater...", flush=True)
                 run_force_git_update()
                 check_and_install_dependencies(python_exe)
-                
-                # Restart the updater script itself to load any new updater changes
                 restart_updater()
                 
-            # Otherwise wait and restart on crash/normal exit
             print("Restarting backend in 3 seconds...", flush=True)
             time.sleep(3)
         except KeyboardInterrupt:
@@ -157,3 +169,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
