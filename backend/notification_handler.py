@@ -9,9 +9,9 @@ from sql_handler import SQLHandler
 try:
     from pywebpush import webpush, WebPushException
     PYWEBPUSH_AVAILABLE = True
-except ImportError:
-    PYWEBPUSH_AVAILABLE = False
-    print("Warning: pywebpush is not installed.", flush=True)
+    from logger_handler import logPrint
+    logPrint("Warning: pywebpush is not installed.", category="NotificationHandler", level="WARNING")
+
 
 class NotificationHandler:
     _db_initialized = False

@@ -7,6 +7,8 @@ from indicator_handler import IndicatorHandler
 from trading_handler import TradingHandler
 from backtest_helpers import get_pip_size, get_lot_size, is_datetime_in_sessions
 from logger_handler import logPrint
+from wyckoff_handler import WyckoffHandler
+
 
 def calculate_date_bounds(option: str, custom_from: str = None, custom_to: str = None):
     from datetime import datetime, timedelta, timezone
