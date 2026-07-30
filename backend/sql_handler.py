@@ -21,7 +21,8 @@ DB_PASSWORD = os.getenv("DB_PASSWORD", "")
 DB_NAME = os.getenv("DB_NAME", "trading_db")
 
 class SQLHandler:
-    _lock = threading.Semaphore(1)
+    _lock = threading.RLock()
+    _exec_lock = threading.RLock()
     _conn = None
 
     @classmethod
@@ -107,42 +108,43 @@ class SQLHandler:
         if params is None:
             params = ()
 
-        max_retries = 3
-        last_err = None
-        for attempt in range(max_retries):
-            cursor = None
-            try:
-                q_start = time.time()
-                conn = cls.get_mysql_connection()
-                cursor = conn.cursor(dictionary=True)
-                cursor.execute(query, params)
-                if query.strip().upper().startswith("SELECT"):
-                    result = cursor.fetchall()
-                else:
-                    result = [{"rowcount": cursor.rowcount, "lastrowid": cursor.lastrowid}]
-                q_dur = time.time() - q_start
-                if q_dur > 0.05 and "system_log_settings" not in query:
-                    from logger_handler import logPrint
-                    clean_q = " ".join(query.split())[:120]
-                    logPrint(f"Executed SQL query in {q_dur:.4f}s: {clean_q}", category="SQLHandler", level="DEBUG")
-                return result
-            except Exception as err:
-                last_err = err
-                err_msg = str(err)
-                is_conn_err = any(x in err_msg for x in ["2055", "Lost connection", "10054", "Connection refused", "is closed", "not connected", "MySQL Connection not available"])
-                if is_conn_err:
-                    cls._conn = None  # Reset persistent connection on disconnect
-                    if attempt < max_retries - 1:
-                        time.sleep(0.2)
-                        continue
-                else:
-                    raise err
-            finally:
-                if cursor:
-                    try:
-                        cursor.close()
-                    except Exception:
-                        pass
+        with cls._exec_lock:
+            max_retries = 3
+            last_err = None
+            for attempt in range(max_retries):
+                cursor = None
+                try:
+                    q_start = time.time()
+                    conn = cls.get_mysql_connection()
+                    cursor = conn.cursor(dictionary=True)
+                    cursor.execute(query, params)
+                    if query.strip().upper().startswith("SELECT"):
+                        result = cursor.fetchall()
+                    else:
+                        result = [{"rowcount": cursor.rowcount, "lastrowid": cursor.lastrowid}]
+                    q_dur = time.time() - q_start
+                    if q_dur > 0.05 and "system_log_settings" not in query:
+                        from logger_handler import logPrint
+                        clean_q = " ".join(query.split())[:120]
+                        logPrint(f"Executed SQL query in {q_dur:.4f}s: {clean_q}", category="SQLHandler", level="DEBUG")
+                    return result
+                except Exception as err:
+                    last_err = err
+                    err_msg = str(err)
+                    is_conn_err = any(x in err_msg for x in ["2055", "Lost connection", "10054", "Connection refused", "is closed", "not connected", "MySQL Connection not available"])
+                    if is_conn_err:
+                        cls._conn = None  # Reset persistent connection on disconnect
+                        if attempt < max_retries - 1:
+                            time.sleep(0.2)
+                            continue
+                    else:
+                        raise err
+                finally:
+                    if cursor:
+                        try:
+                            cursor.close()
+                        except Exception:
+                            pass
 
         if last_err:
             raise last_err
