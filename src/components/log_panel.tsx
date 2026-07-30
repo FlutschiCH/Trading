@@ -106,11 +106,34 @@ export default function LogPanel({ isMobileLayout = false }: LogPanelProps) {
     return selectedSources[src] !== false;
   });
 
+  useEffect(() => {
+    // Fetch log settings from database on mount
+    fetch(`${API_BASE_URL}/api/system/log-settings`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === 'success' && data.settings) {
+          setSelectedSources(prev => ({
+            ...prev,
+            ...data.settings
+          }));
+        }
+      })
+      .catch(err => console.warn("Failed to load DB log settings:", err));
+  }, []);
+
   const toggleSource = (source: string) => {
+    const nextVal = !selectedSources[source];
     setSelectedSources((prev) => ({
       ...prev,
-      [source]: !prev[source]
+      [source]: nextVal
     }));
+
+    // Persist setting to MySQL database via API
+    fetch(`${API_BASE_URL}/api/system/log-settings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ category: source, enabled: nextVal })
+    }).catch(err => console.error("Failed to persist log setting to DB:", err));
   };
 
   const selectAll = () => {

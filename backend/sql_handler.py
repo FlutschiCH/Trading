@@ -50,11 +50,49 @@ class SQLHandler:
             )
             duration = time.time() - start_time
             print(f"Successfully initialized MySQL connection pool (size={pool_size}) in {duration:.4f} seconds.", flush=True)
+            cls.init_log_settings_db()
             return True
         except Exception as e:
             duration = time.time() - start_time
             print(f"Failed to initialize MySQL connection pool after {duration:.4f} seconds: {e}.", flush=True)
             return False
+
+    @classmethod
+    def init_log_settings_db(cls):
+        """Creates table for log category visibility settings."""
+        query = """
+        CREATE TABLE IF NOT EXISTS system_log_settings (
+            category VARCHAR(128) PRIMARY KEY,
+            enabled TINYINT(1) DEFAULT 1,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        """
+        try:
+            cls.execute_query(query)
+        except Exception as e:
+            print(f"[SQLHandler] Error initializing system_log_settings table: {e}", flush=True)
+
+    @classmethod
+    def get_log_settings(cls) -> dict:
+        try:
+            rows = cls.execute_query("SELECT category, enabled FROM system_log_settings")
+            if isinstance(rows, list):
+                return {r['category']: bool(r['enabled']) for r in rows if 'category' in r}
+        except Exception:
+            pass
+        return {}
+
+    @classmethod
+    def save_log_setting(cls, category: str, enabled: bool):
+        try:
+            query = """
+            INSERT INTO system_log_settings (category, enabled)
+            VALUES (%s, %s)
+            ON DUPLICATE KEY UPDATE enabled = VALUES(enabled)
+            """
+            cls.execute_query(query, (category, 1 if enabled else 0))
+        except Exception as e:
+            print(f"[SQLHandler] Error saving log setting for {category}: {e}", flush=True)
 
     @classmethod
     def get_mysql_connection(cls):
