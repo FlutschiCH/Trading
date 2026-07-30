@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Activity, X, Menu, ChevronDown, Sun, Moon, RefreshCw, ShieldAlert } from 'lucide-react';
 import { API_BASE_URL } from '../api';
 import { TargetSwitcher } from './target_switcher';
+import { AccountInfo } from '../types/trading';
 
 const triggerPWAEventNotification = (title: string, body: string, soundType: string = 'alert') => {
   fetch(`${API_BASE_URL}/api/notification/trigger`, {
@@ -26,17 +27,6 @@ interface Account {
   broker_type: string;
 }
 
-interface AccountInfo {
-  balance: number;
-  equity: number;
-  margin: number;
-  margin_free: number;
-  currency: string;
-  account_type?: string;
-  broker?: string;
-}
-
-interface HeaderBarProps {
   isMobile: boolean;
   theme: 'dark' | 'light';
   toggleTheme: () => void;

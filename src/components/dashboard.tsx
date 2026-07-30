@@ -15,47 +15,11 @@ import * as apiService from '../services/apiService';
 import NotificationSettingsView from './notification_settings_view';
 import { CandleCollectorPanel } from './candle_collector_panel';
 import LogPanel from './log_panel';
+import AccountInfoPanel from './account_info_panel';
+import PositionsPanel from './positions_panel';
+import { Candle, AccountInfo, Position } from '../types/trading';
 import '../App.css';
 
-interface Candle {
-  time: number;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume: number;
-  vsa_patterns?: string[];
-  weis_wave_volume?: number;
-  tr_high?: number;
-  tr_low?: number;
-  sweep_high?: number;
-  sweep_low?: number;
-  backtest_signal?: 'BUY' | 'SELL';
-  sma_20?: number;
-  wyckoff_stage?: string;
-  support_level?: number;
-  resistance_level?: number;
-  wyckoff_signal?: string;
-}
-
-interface AccountInfo {
-  balance: number;
-  equity: number;
-  margin: number;
-  margin_free: number;
-  currency: string;
-  account_type?: string;
-  broker?: string;
-}
-
-interface Position {
-  position_id: number;
-  symbol: string;
-  trade_side: string;
-  volume: number;
-  entry_price: number;
-  unrealized_profit: number;
-}
 
 const formatDateTime = (timestampSec: number) => {
   const d = new Date(timestampSec * 1000);
