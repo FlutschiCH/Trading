@@ -51,6 +51,10 @@ def backtest():
         date_to=date_to
     )
     
+    # If running against recent candles (no fixed end date specified), trim off the current in-progress live candle
+    if len(candles) > 1 and not date_to:
+        candles = candles[:-1]
+    
     if not candles:
         return jsonify({"status": "error", "message": "Failed to fetch up-to-date candles for backtest."}), 400
     sl_val = float(payload.get('slVal', 1.0))
@@ -240,6 +244,10 @@ def backtest_optimize():
         date_to=date_to
     )
     
+    # If running against recent candles (no fixed end date specified), trim off the current in-progress live candle
+    if len(candles) > 1 and not date_to:
+        candles = candles[:-1]
+
     if not candles:
         return jsonify({"status": "error", "message": "Failed to fetch up-to-date candles for optimization."}), 400
 
