@@ -58,15 +58,20 @@ export const fetchLiveStrategyCache = async (strategyId: string, limit?: number)
 };
 
 export const fetchTradeCandles = async (payload: any) => {
+  const url = `${API_BASE_URL}/api/trade/candles`;
+  console.log(`[apiService] Executing POST request to ${url} with payload:`, payload);
   try {
-    const response = await fetch(`${API_BASE_URL}/api/trade/candles`, {
+    const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
-    return await safeJsonParse(response);
+    console.log(`[apiService] Received response object for ${url}, status: ${response.status}`);
+    const data = await safeJsonParse(response);
+    console.log(`[apiService] Parsed JSON data for ${url}:`, data);
+    return data;
   } catch (err: any) {
-    console.error(`[apiService] fetchTradeCandles network exception:`, err);
+    console.error(`[apiService] fetchTradeCandles network exception for ${url}:`, err);
     return { status: 'error', message: err.message || 'Network exception' };
   }
 };
