@@ -2803,14 +2803,36 @@ export default function Dashboard() {
                             onCandleSourceChange={setCandleSource}
                             availableSymbols={availableSymbols}
                             availableTimeframes={availableTimeframes}
-                            candles={isLiveFeed ? candles : (backtestResults?.candles || candles)}
+                            candles={(() => {
+                              const btCandles = backtestResults?.candles || [];
+                              if (!isLiveFeed || btCandles.length === 0) return isLiveFeed ? candles : (btCandles.length > 0 ? btCandles : candles);
+                              const mergedMap = new Map<number, Candle>();
+                              btCandles.forEach((c: Candle) => mergedMap.set(c.time, c));
+                              candles.forEach((c: Candle) => mergedMap.set(c.time, c));
+                              return Array.from(mergedMap.values()).sort((a, b) => a.time - b.time);
+                            })()}
                             loading={loading}
                             loadingStrategy={loadingStrategy}
                             onRefresh={(broker, isBg) => fetchCandles(broker, isBg, true)}
                             entryPrice={selectedTrade?.entryPrice}
                             slPrice={selectedTrade?.slPrice}
                             tpPrice={selectedTrade?.tpPrice}
-                            trades={isLiveFeed ? (liveSimulatedTrades.length > 0 ? liveSimulatedTrades : liveTrades) : (backtestResults ? backtestResults.trades : (liveSimulatedTrades.length > 0 ? liveSimulatedTrades : liveTrades))}
+                            trades={(() => {
+                              const btTrades = backtestResults?.trades || [];
+                              const liveList = liveSimulatedTrades.length > 0 ? liveSimulatedTrades : liveTrades;
+                              if (!isLiveFeed) return btTrades.length > 0 ? btTrades : liveList;
+                              if (btTrades.length === 0) return liveList;
+                              if (liveList.length === 0) return btTrades;
+                              const combined = [...btTrades];
+                              liveList.forEach((lt: any) => {
+                                const exists = combined.some((bt: any) =>
+                                  (lt.id && bt.id && lt.id === bt.id) ||
+                                  (lt.entryTimestamp && bt.entryTimestamp && lt.entryTimestamp === bt.entryTimestamp && lt.symbol === bt.symbol)
+                                );
+                                if (!exists) combined.push(lt);
+                              });
+                              return combined;
+                            })()}
                             selectedTrade={selectedTrade}
                             onSelectTrade={(trade) => {
                               setSelectedTrade(trade);
