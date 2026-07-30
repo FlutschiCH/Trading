@@ -32,7 +32,7 @@ class LoggerHandler:
 
         # Refresh cache from DB every 2 seconds for high performance
         now = time.time()
-        if now - cls._last_cache_time > 2.0 and category != 'SQLHandler':
+        if now - cls._last_cache_time > 2.0:
             try:
                 from sql_handler import SQLHandler
                 cls._settings_cache = SQLHandler.get_log_settings()
