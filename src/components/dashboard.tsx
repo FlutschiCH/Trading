@@ -1219,6 +1219,7 @@ export default function Dashboard() {
         broker: targetBroker,
         target_computer: targetComputer,
         targets: targets,
+        initialBalance: parseFloat(backtestInitialBalance) || 10000.0,
         dateRangeOption,
         customFrom,
         customTo,

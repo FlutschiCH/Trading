@@ -45,6 +45,7 @@ def save_strategy():
         "broker": payload.get("broker", "metatrader"),
         "target_computer": payload.get("target_computer", "All"),
         "targets": payload.get("targets", []),
+        "initialBalance": float(payload.get("initialBalance", 10000.0)),
         "dateRangeOption": payload.get("dateRangeOption") or "last_candles",
         "customFrom": payload.get("customFrom") or "",
         "customTo": payload.get("customTo") or "",

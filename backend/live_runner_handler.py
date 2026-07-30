@@ -197,7 +197,7 @@ class LiveRunner:
                     sl_type=strategy["slType"],
                     rr=strategy["rr"],
                     size=strategy["size"],
-                    initial_balance=10000.0,
+                    initial_balance=strategy.get("initialBalance", 10000.0),
                     use_risk_sizing=strategy["useRiskSizing"],
                     risk_pct=strategy["riskPct"],
                     use_break_even=strategy.get("useBreakEven", False),
