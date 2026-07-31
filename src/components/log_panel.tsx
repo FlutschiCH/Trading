@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Terminal, Filter, Trash2, Pause, Play, Download, Search, CheckSquare, Square } from 'lucide-react';
+import { Terminal, Filter, Trash2, Pause, Play, Download, Search, CheckSquare, Square, RefreshCw } from 'lucide-react';
 import { API_BASE_URL } from '../api';
 
 interface LogPanelProps {
@@ -20,6 +20,7 @@ const KNOWN_SOURCES = [
 export default function LogPanel({ isMobileLayout = false }: LogPanelProps) {
   const [logs, setLogs] = useState<string[]>([]);
   const [isPaused, setIsPaused] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [selectedSources, setSelectedSources] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = { 'Flask API': true };
     KNOWN_SOURCES.forEach(s => {
@@ -32,6 +33,31 @@ export default function LogPanel({ isMobileLayout = false }: LogPanelProps) {
   const [sourceSearchText, setSourceSearchText] = useState<string>('');
   const [discoveredSources, setDiscoveredSources] = useState<string[]>(KNOWN_SOURCES);
   const [showFilterDropdown, setShowFilterDropdown] = useState<boolean>(false);
+
+  const handleFetchLogs = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/system/logs`);
+      const data = await res.json();
+      if (data.status === 'success' && Array.isArray(data.logs)) {
+        setLogs(data.logs);
+        // Discover any new categories
+        const sources = new Set(discoveredSources);
+        data.logs.forEach((line: string) => {
+          const match = line.match(/\[([A-Za-z0-9_ -]+)\]/);
+          if (match && match[1]) {
+            sources.add(match[1].trim());
+          }
+        });
+        setDiscoveredSources(Array.from(sources));
+      }
+    } catch (err) {
+      console.error("Failed to fetch system logs:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
 
   const logsEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -175,6 +201,31 @@ export default function LogPanel({ isMobileLayout = false }: LogPanelProps) {
 
         {/* Toolbar controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          {/* Fetch Logs button */}
+          <button
+            onClick={handleFetchLogs}
+            disabled={isLoading}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              backgroundColor: '#059669',
+              border: '1px solid #10b981',
+              color: '#ffffff',
+              padding: '5px 12px',
+              borderRadius: '6px',
+              fontSize: '11px',
+              fontWeight: '600',
+              cursor: isLoading ? 'not-allowed' : 'pointer',
+              boxShadow: '0 2px 6px rgba(16, 185, 129, 0.25)',
+              transition: 'all 0.2s',
+              opacity: isLoading ? 0.7 : 1
+            }}
+          >
+            <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} />
+            <span>{isLoading ? 'Fetching Logs...' : 'Fetch Logs'}</span>
+          </button>
+
           {/* Search Filter input */}
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
             <Search size={12} style={{ position: 'absolute', left: '8px', color: '#9ca3af' }} />
@@ -195,6 +246,7 @@ export default function LogPanel({ isMobileLayout = false }: LogPanelProps) {
               }}
             />
           </div>
+
 
           {/* Sources Overlay Button */}
           <div style={{ position: 'relative' }}>

@@ -2,6 +2,9 @@
 import sys
 import re
 import time
+import json
+import os
+from datetime import datetime
 from gevent.lock import RLock
 from gevent.queue import Queue, Empty
 
@@ -93,6 +96,49 @@ class TerminalHandler:
                 except Exception:
                     pass
 
+        # Persist unformatted stdout/stderr lines to logs.json
+        cls._append_to_file(text)
+
+    @classmethod
+    def _append_to_file(cls, text: str):
+        try:
+            log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs.json")
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            lines = text.strip('\n').split('\n')
+            entries = []
+            for line in lines:
+                line_str = line.strip()
+                if not line_str:
+                    continue
+                # Skip if already formatted by LoggerHandler.log to avoid duplicates
+                if line_str.startswith('[20') and '] [' in line_str:
+                    continue
+                level = "ERROR" if any(err in line_str for err in ["Exception", "Error", "Traceback", "Failed"]) else "INFO"
+                entries.append({
+                    "timestamp": timestamp,
+                    "level": level,
+                    "category": "Terminal",
+                    "message": line_str
+                })
+            if not entries:
+                return
+
+            with cls._lock:
+                logs = []
+                if os.path.exists(log_path):
+                    try:
+                        with open(log_path, "r", encoding="utf-8") as f:
+                            logs = json.load(f)
+                    except Exception:
+                        logs = []
+                logs.extend(entries)
+                if len(logs) > 2000:
+                    logs = logs[-2000:]
+                with open(log_path, "w", encoding="utf-8") as f:
+                    json.dump(logs, f, indent=2, ensure_ascii=False)
+        except Exception:
+            pass
+
     @classmethod
     def get_history(cls):
         with cls._lock:
@@ -122,4 +168,5 @@ class TerminalHandler:
             with cls._lock:
                 if q in cls._queues:
                     cls._queues.remove(q)
+
 
