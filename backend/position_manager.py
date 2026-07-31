@@ -7,6 +7,7 @@ from sql_handler import SQLHandler
 from broker_handler import BrokerHandler
 from backtest_helpers import get_pip_size
 from discord_handler import send_discord_message
+from notification_handler import NotificationHandler
 
 class PositionManager:
     _thread = None
@@ -180,13 +181,14 @@ class PositionManager:
                             )
                             if mod_res and mod_res.get("status") != "error":
                                 cls._known_positions[pos_key]["sl"] = entry_price
-                                send_discord_message(
+                                NotificationHandler.send_notification(
                                     f"🛡️ **Break-Even Triggered!**\n"
                                     f"🎛️ **Strategy ID:** `{strategy_id}`\n"
                                     f"🏦 **Target Account:** `{target_acc_id}` ({target_broker})\n"
                                     f"📊 **Symbol:** `{symbol}` | ➡️ **BUY Position ID:** `{position_id}`\n"
                                     f"💵 **Entry Price:** `{entry_price:.5f}` | 💵 **Current Price:** `{current_price:.5f}`\n"
-                                    f"🔒 **New Stop Loss:** `{entry_price:.5f}` (BE Set)"
+                                    f"🔒 **New Stop Loss:** `{entry_price:.5f}` (BE Set)",
+                                    sound_type="break_even"
                                 )
 
                 # Check SELL position Break-Even
@@ -203,13 +205,14 @@ class PositionManager:
                             )
                             if mod_res and mod_res.get("status") != "error":
                                 cls._known_positions[pos_key]["sl"] = entry_price
-                                send_discord_message(
+                                NotificationHandler.send_notification(
                                     f"🛡️ **Break-Even Triggered!**\n"
                                     f"🎛️ **Strategy ID:** `{strategy_id}`\n"
                                     f"🏦 **Target Account:** `{target_acc_id}` ({target_broker})\n"
                                     f"📊 **Symbol:** `{symbol}` | ➡️ **SELL Position ID:** `{position_id}`\n"
                                     f"💵 **Entry Price:** `{entry_price:.5f}` | 💵 **Current Price:** `{current_price:.5f}`\n"
-                                    f"🔒 **New Stop Loss:** `{entry_price:.5f}` (BE Set)"
+                                    f"🔒 **New Stop Loss:** `{entry_price:.5f}` (BE Set)",
+                                    sound_type="break_even"
                                 )
 
             # Check for closed positions (previously known but no longer in positions list)
@@ -263,12 +266,13 @@ class PositionManager:
             close_reason = "Position Closed 🏁"
             emoji = "🏁"
 
-        send_discord_message(
+        NotificationHandler.send_notification(
             f"{emoji} **Trade Closed: {close_reason}**\n"
             f"🎛️ **Strategy ID:** `{strategy_id}`\n"
             f"🏦 **Broker:** `{target_broker}` (Acc: `{target_acc_id}`)\n"
             f"📊 **Symbol:** `{symbol}` | ➡️ **Side:** `{side}` | 🆔 **Ticket:** `{position_id}`\n"
             f"💵 **Entry:** `{entry_price:.5f}` | 💵 **Exit / Last:** `{exit_price:.5f}`\n"
-            f"🛑 **SL:** `{sl:.5f}` | 🎯 **TP:** `{tp:.5f}`"
+            f"🛑 **SL:** `{sl:.5f}` | 🎯 **TP:** `{tp:.5f}`",
+            sound_type="break_even" if is_be else "trade_close"
         )
 

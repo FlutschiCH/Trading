@@ -110,6 +110,7 @@ class NotificationHandler:
             "startup": os.path.join(media_dir, "chimes.wav"),
             "trade_open": os.path.join(media_dir, "tada.wav"),
             "trade_close": os.path.join(media_dir, "notify.wav"),
+            "break_even": os.path.join(media_dir, "flourish.wav"),
             "error": os.path.join(media_dir, "chord.wav"),
             "rejected": os.path.join(media_dir, "chord.wav"),
             "alert": os.path.join(media_dir, "ding.wav"),
