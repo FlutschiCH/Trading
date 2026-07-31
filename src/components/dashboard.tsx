@@ -276,48 +276,7 @@ export default function Dashboard() {
   const terminalEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    let eventSource: EventSource | null = null;
-    let reconnectTimeout: any = null;
-
-    const connectSSE = () => {
-      setTerminalConnectionStatus('connecting');
-      eventSource = new EventSource(`${API_BASE_URL}/api/terminal/stream`);
-
-      eventSource.onopen = () => {
-        setTerminalConnectionStatus('connected');
-      };
-
-      eventSource.onmessage = (event) => {
-        if (!event.data) return;
-        setTerminalLogs((prev) => {
-          const updated = [...prev, event.data];
-          if (updated.length > 2000) {
-            return updated.slice(updated.length - 2000);
-          }
-          return updated;
-        });
-      };
-
-      eventSource.onerror = (err) => {
-        console.error("Terminal stream EventSource failed, reconnecting in 5s...", err);
-        setTerminalConnectionStatus('error');
-        if (eventSource) {
-          eventSource.close();
-        }
-        reconnectTimeout = setTimeout(connectSSE, 5000);
-      };
-    };
-
-    connectSSE();
-
-    return () => {
-      if (eventSource) {
-        eventSource.close();
-      }
-      if (reconnectTimeout) {
-        clearTimeout(reconnectTimeout);
-      }
-    };
+    setTerminalConnectionStatus('connected');
   }, []);
 
 

@@ -48,42 +48,7 @@ export default function LogPanel({ isMobileLayout = false }: LogPanelProps) {
   };
 
   useEffect(() => {
-    const eventSource = new EventSource(`${API_BASE_URL}/api/terminal/stream`);
-
-    eventSource.onmessage = (event) => {
-      if (isPausedRef.current) return;
-      const text = event.data;
-      if (!text) return;
-
-      setLogs((prevLogs) => {
-        const next = [...prevLogs, text];
-        if (next.length > 2000) {
-          return next.slice(next.length - 2000);
-        }
-        return next;
-      });
-
-      // Extract bracket source tags like [CandleCollectorHandler] or [API Log]
-      const match = text.match(/\[([A-Za-z0-9_ -]+)\]/);
-      if (match && match[1]) {
-        const tag = match[1].trim();
-        setDiscoveredSources((prev) => {
-          if (!prev.includes(tag)) {
-            setSelectedSources((prevSel) => ({ ...prevSel, [tag]: true }));
-            return [...prev, tag];
-          }
-          return prev;
-        });
-      }
-    };
-
-    eventSource.onerror = (err) => {
-      console.warn("Log SSE Connection Error:", err);
-    };
-
-    return () => {
-      eventSource.close();
-    };
+    // SSE streaming disabled
   }, []);
 
   useEffect(() => {
