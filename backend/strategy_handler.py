@@ -387,6 +387,8 @@ class StrategyHandler:
                                 "be": be
                             })
 
+        import time
+        overall_start_time = time.time()
         print(f"\n[Optimization] Starting grid matrix optimization with {len(matrix)} combinations...", flush=True)
 
         analysis_cache = {}
@@ -398,6 +400,7 @@ class StrategyHandler:
                 print(f"[Optimization] Optimization cancelled by user at run {idx}/{total_runs}.", flush=True)
                 break
 
+            run_start_time = time.time()
             pct = int((idx / total_runs) * 100)
             if progress_callback:
                 progress_callback(pct)
@@ -468,12 +471,13 @@ class StrategyHandler:
                 entry_stability_rule=entry_stability_rule
             )
 
+            run_duration = time.time() - run_start_time
             pnl = sim_result["netPnl"]
             win_rate = sim_result["winRate"]
             trades_cnt = sim_result["totalTrades"]
             pf = sim_result["profitFactor"]
             pnl_str = f"+${pnl:.2f}" if pnl >= 0 else f"-${abs(pnl):.2f}"
-            print(f"[Optimization] [{idx+1}/{total_runs}] -> Result: Net PnL: {pnl_str} | Win Rate: {win_rate:.1f}% | Trades: {trades_cnt} | PF: {pf:.2f}", flush=True)
+            print(f"[Optimization] [{idx+1}/{total_runs}] -> Result ({run_duration:.2f}s): Net PnL: {pnl_str} | Win Rate: {win_rate:.1f}% | Trades: {trades_cnt} | PF: {pf:.2f}", flush=True)
 
             # Save detailed combo results
             results_to_save = {
@@ -510,7 +514,8 @@ class StrategyHandler:
                     "maxDrawdown": sim_result["maxDrawdown"],
                     "maxDailyLoss": sim_result["maxDailyLoss"],
                     "dailyLossBreached": sim_result["dailyLossBreached"],
-                    "candleCount": len(annotated_data)
+                    "candleCount": len(annotated_data),
+                    "executionTimeSec": round(run_duration, 3)
                 },
                 "trades": sim_result["completed_trades_raw"],
                 "candles": annotated_data
@@ -538,21 +543,30 @@ class StrategyHandler:
                 "totalTrades": sim_result["totalTrades"],
                 "maxDrawdown": sim_result["maxDrawdown"],
                 "maxDailyLoss": sim_result["maxDailyLoss"],
-                "dailyLossBreached": sim_result["dailyLossBreached"]
+                "dailyLossBreached": sim_result["dailyLossBreached"],
+                "executionTimeSec": round(run_duration, 3)
             })
 
         if progress_callback:
             progress_callback(100)
 
+        total_duration = time.time() - overall_start_time
+        if total_duration >= 60:
+            duration_str = f"{int(total_duration // 60)}m {total_duration % 60:.2f}s"
+        else:
+            duration_str = f"{total_duration:.2f}s"
+
         best_combo = max(results, key=lambda x: x['netPnl']) if results else None
         if best_combo:
-            print(f"[Optimization] Completed matrix optimization ({len(results)} runs). Best Net PnL: +${best_combo['netPnl']:.2f} ({best_combo['symbol']} {best_combo['timeframe']} SL:{best_combo['sl']} RR:{best_combo['rr']})", flush=True)
+            print(f"[Optimization] Completed grid matrix optimization ({len(results)} runs) in {duration_str}. Best Net PnL: +${best_combo['netPnl']:.2f} ({best_combo['symbol']} {best_combo['timeframe']} SL:{best_combo['sl']} RR:{best_combo['rr']})", flush=True)
         else:
-            print(f"[Optimization] Completed matrix optimization ({len(results)} runs).", flush=True)
+            print(f"[Optimization] Completed grid matrix optimization ({len(results)} runs) in {duration_str}.", flush=True)
 
         return {
             "status": "success",
-            "results": results
+            "results": results,
+            "totalExecutionTimeSec": round(total_duration, 2)
         }
+
 
 
