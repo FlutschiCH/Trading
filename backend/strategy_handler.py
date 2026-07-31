@@ -409,7 +409,11 @@ class StrategyHandler:
 
             pct = int((idx / total_runs) * 100)
             if progress_callback:
-                progress_callback(pct)
+                try:
+                    progress_callback(pct, idx + 1, total_runs)
+                except TypeError:
+                    progress_callback(pct)
+
 
             s = combo["symbol"]
             tf = combo["timeframe"]

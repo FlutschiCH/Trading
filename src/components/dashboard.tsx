@@ -265,6 +265,8 @@ export default function Dashboard() {
   const [initialCandlesLoaded, setInitialCandlesLoaded] = useState(false);
   const [loadingBacktest, setLoadingBacktest] = useState(false);
   const [backtestProgress, setBacktestProgress] = useState(0);
+  const [backtestRunInfo, setBacktestRunInfo] = useState<{ current: number; total: number } | null>(null);
+
 
   const [view, setView] = useState<'dashboard' | 'mappings' | 'trades' | 'computers' | 'notifications'>('dashboard');
   const [connectionMode, setConnectionMode] = useState<'openapi' | 'fix'>('fix');
@@ -1022,6 +1024,7 @@ export default function Dashboard() {
     setLoadingBacktest(true);
     try {
       setBacktestProgress(0);
+      setBacktestRunInfo(null);
       setOptimizationResults(null);
       const bounds = calculateDateBounds(dateRangeOption, customFrom, customTo);
       const response = await fetch(`${API_BASE_URL}/api/backtest/optimize`, {
@@ -1086,11 +1089,15 @@ export default function Dashboard() {
                 if (parsed.progress !== undefined) {
                   setBacktestProgress(parsed.progress);
                 }
+                if (parsed.currentRun !== undefined && parsed.totalRuns !== undefined) {
+                  setBacktestRunInfo({ current: parsed.currentRun, total: parsed.totalRuns });
+                }
                 if (parsed.status === 'success' && parsed.data) {
                   const resData = parsed.data;
                   if (resData.results) {
                     setOptimizationResults(resData.results);
                   }
+
                 } else if (parsed.status === 'error') {
                   throw new Error(parsed.message || "Unknown optimization error");
                 }
@@ -2382,6 +2389,8 @@ export default function Dashboard() {
                         onRunBacktest={runBacktest}
                         loadingBacktest={loadingBacktest}
                         backtestProgress={backtestProgress}
+                        backtestRunInfo={backtestRunInfo}
+
                         dailyRetryLimit={dailyRetryLimit}
                         setDailyRetryLimit={setDailyRetryLimit}
                         allowOppositeClose={allowOppositeClose}

@@ -57,7 +57,9 @@ interface WyckoffBacktesterProps {
   onRunBacktest: (params?: any) => void;
   loadingBacktest: boolean;
   backtestProgress?: number;
+  backtestRunInfo?: { current: number; total: number } | null;
   dailyRetryLimit: string;
+
   setDailyRetryLimit: (val: string) => void;
   allowOppositeClose: boolean;
   setAllowOppositeClose: (val: boolean) => void;
@@ -207,7 +209,9 @@ export default function WyckoffBacktester({
   onRunBacktest,
   loadingBacktest,
   backtestProgress = 0,
+  backtestRunInfo,
   dailyRetryLimit,
+
   setDailyRetryLimit,
   allowOppositeClose,
   setAllowOppositeClose,
@@ -818,7 +822,14 @@ export default function WyckoffBacktester({
             onMouseOver={(e) => !loadingBacktest && (e.currentTarget.style.backgroundColor = isOptimizeMode ? '#059669' : '#2563eb')}
             onMouseOut={(e) => !loadingBacktest && (e.currentTarget.style.backgroundColor = isOptimizeMode ? '#10b981' : '#3b82f6')}
           >
-            {loadingBacktest ? `⏳ Running ${backtestProgress}%...` : (isOptimizeMode ? '⚡ Run Range Optimization' : '🔄 Run Backtest')}
+            {loadingBacktest ? (
+              backtestRunInfo && backtestRunInfo.total > 1
+                ? `⏳ Run ${backtestRunInfo.current}/${backtestRunInfo.total} (${backtestProgress}%)`
+                : `⏳ Running ${backtestProgress}%...`
+            ) : (
+              isOptimizeMode ? '⚡ Run Range Optimization' : '🔄 Run Backtest'
+            )}
+
           </button>
           {loadingBacktest && (
             <button

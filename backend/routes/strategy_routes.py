@@ -283,8 +283,13 @@ def backtest_optimize():
 
     def run_in_thread():
         try:
-            def cb(pct):
-                q.put({"progress": int(pct)})
+            def cb(pct, current_run=None, total_runs=None):
+                payload = {"progress": int(pct)}
+                if current_run is not None and total_runs is not None:
+                    payload["currentRun"] = current_run
+                    payload["totalRuns"] = total_runs
+                q.put(payload)
+
                 
             res = StrategyHandler.run_optimization(
                 symbol=symbol,
