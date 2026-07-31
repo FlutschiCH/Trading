@@ -329,27 +329,28 @@ export default function WyckoffBacktester({
   });
   const [beStart, setBEStart] = React.useState<string>(() => localStorage.getItem('wyckoff_backtester_be_start') || '1.0');
   const [beEnd, setBEEnd] = React.useState<string>(() => localStorage.getItem('wyckoff_backtester_be_end') || '3.0');
-  const [beStep, setBEStep] = React.useState<string>(() => localStorage.getItem('wyckoff_backtester_be_step') || '0.5');
+  const [beStep, setBEStep] = React.useState<string>(() => localStorage.getItem('wyckoff_backtester_be_step') || '0.5');  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem('wyckoff_backtester_sl_range_mode', JSON.stringify(slRangeMode));
+        localStorage.setItem('wyckoff_backtester_sl_start', slStart);
+        localStorage.setItem('wyckoff_backtester_sl_end', slEnd);
+        localStorage.setItem('wyckoff_backtester_sl_step', slStep);
 
-  React.useEffect(() => {
-    try {
-      localStorage.setItem('wyckoff_backtester_sl_range_mode', JSON.stringify(slRangeMode));
-      localStorage.setItem('wyckoff_backtester_sl_start', slStart);
-      localStorage.setItem('wyckoff_backtester_sl_end', slEnd);
-      localStorage.setItem('wyckoff_backtester_sl_step', slStep);
+        localStorage.setItem('wyckoff_backtester_rr_range_mode', JSON.stringify(rrRangeMode));
+        localStorage.setItem('wyckoff_backtester_rr_start', internalRRStart);
+        localStorage.setItem('wyckoff_backtester_rr_end', internalRREnd);
+        localStorage.setItem('wyckoff_backtester_rr_step', internalRRStep);
 
-      localStorage.setItem('wyckoff_backtester_rr_range_mode', JSON.stringify(rrRangeMode));
-      localStorage.setItem('wyckoff_backtester_rr_start', internalRRStart);
-      localStorage.setItem('wyckoff_backtester_rr_end', internalRREnd);
-      localStorage.setItem('wyckoff_backtester_rr_step', internalRRStep);
-
-      localStorage.setItem('wyckoff_backtester_be_range_mode', JSON.stringify(beRangeMode));
-      localStorage.setItem('wyckoff_backtester_be_start', beStart);
-      localStorage.setItem('wyckoff_backtester_be_end', beEnd);
-      localStorage.setItem('wyckoff_backtester_be_step', beStep);
-    } catch (e) {
-      console.error(e);
-    }
+        localStorage.setItem('wyckoff_backtester_be_range_mode', JSON.stringify(beRangeMode));
+        localStorage.setItem('wyckoff_backtester_be_start', beStart);
+        localStorage.setItem('wyckoff_backtester_be_end', beEnd);
+        localStorage.setItem('wyckoff_backtester_be_step', beStep);
+      } catch (e) {
+        console.error(e);
+      }
+    }, 150);
+    return () => clearTimeout(timer);
   }, [slRangeMode, slStart, slEnd, slStep, rrRangeMode, internalRRStart, internalRREnd, internalRRStep, beRangeMode, beStart, beEnd, beStep]);
 
 
@@ -397,18 +398,20 @@ export default function WyckoffBacktester({
     };
   });
 
-
   const toggleSection = (section: string) => {
     setCollapsedSections(prev => {
       const newVal = { ...prev, [section]: !prev[section] };
-      try {
-        localStorage.setItem('wyckoff_backtester_collapsed', JSON.stringify(newVal));
-      } catch (e) {
-        console.error(e);
-      }
+      setTimeout(() => {
+        try {
+          localStorage.setItem('wyckoff_backtester_collapsed', JSON.stringify(newVal));
+        } catch (e) {
+          console.error(e);
+        }
+      }, 0);
       return newVal;
     });
   };
+
 
 
 
@@ -2185,21 +2188,22 @@ export default function WyckoffBacktester({
                     return (
                       <div
                         key={idx}
-                        onClick={async () => {
+                        onClick={() => {
                           setSelectedLeaderboardCombo(r);
                           setCollapsedSections(prev => ({ ...prev, trades: false }));
                           if (onLoadSpecificResults) {
                             const beVal = r.be !== undefined && r.be !== null ? r.be : 'off';
-                            await onLoadSpecificResults(
+                            onLoadSpecificResults(
                               broker,
                               r.symbol || symbol,
                               r.timeframe || timeframe,
                               String(r.sl ?? backtestSL),
                               String(r.rr),
                               String(beVal)
-                            );
+                            ).catch(err => console.error("Error loading specific backtest result:", err));
                           }
                         }}
+
                         style={{
                           display: 'grid',
                           gridTemplateColumns: isMobile ? '35px 1fr 1fr 1fr' : '35px 1.1fr 1.6fr 1fr 0.9fr 0.9fr 0.9fr',
