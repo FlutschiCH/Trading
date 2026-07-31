@@ -1714,7 +1714,8 @@ export default function Dashboard() {
 
     if (!autoPollTrades) return;
 
-    const ms = Math.max(1, tradesPollInterval) * 1000;
+    // Minimum 15 second polling interval to prevent server overload
+    const ms = Math.max(15, tradesPollInterval) * 1000;
     const interval = setInterval(() => {
       fetchAccountData();
       fetchPositionData();
@@ -1722,29 +1723,6 @@ export default function Dashboard() {
 
     return () => clearInterval(interval);
   }, [candleSource, autoPollTrades, tradesPollInterval]);
-
-  // Live Feed auto-update polling (respects Auto-Refresh toggle and configured interval)
-  useEffect(() => {
-    if (!isLiveFeed) return;
-    let isAutoRefreshOn = true;
-    let pollIntervalMs = 5000;
-    try {
-      const stored = localStorage.getItem('tv_chart_settings');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (parsed.autoRefreshCandles !== undefined) isAutoRefreshOn = parsed.autoRefreshCandles;
-        if (parsed.autoRefreshSeconds) pollIntervalMs = Math.max(1, parsed.autoRefreshSeconds) * 1000;
-      }
-    } catch (e) {}
-
-    if (!isAutoRefreshOn) return;
-
-    fetchCandles(undefined, true, false);
-    const interval = setInterval(() => {
-      fetchCandles(undefined, true, false);
-    }, pollIntervalMs);
-    return () => clearInterval(interval);
-  }, [isLiveFeed, symbol, timeframe, selectedStrategyId]);
 
   const currentConnected = true;
 

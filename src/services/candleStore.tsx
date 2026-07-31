@@ -135,7 +135,7 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  // Immediate fetch on mount or parameter changes + 5s background polling loop
+  // Immediate fetch on mount or parameter changes + 15s background polling loop
   useEffect(() => {
     let isCancelled = false;
     fetchCandles(true, false);
@@ -144,7 +144,7 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (!isCancelled) {
         fetchCandles(false, true);
       }
-    }, 5000);
+    }, 15000);
 
     return () => {
       isCancelled = true;

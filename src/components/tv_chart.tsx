@@ -629,15 +629,7 @@ export default function TVChart({
     setLiveStrategyState(null);
   }, [symbol, timeframe]);
 
-  // Live fetching of candles if enabled
-  useEffect(() => {
-    if (!chartSettings.autoRefreshCandles || replayTime !== null) return;
-    const intervalMs = Math.max(1, chartSettings.autoRefreshSeconds || 5) * 1000;
-    const interval = setInterval(() => {
-      onRefresh(undefined, true); // background refresh call
-    }, intervalMs);
-    return () => clearInterval(interval);
-  }, [chartSettings.autoRefreshCandles, chartSettings.autoRefreshSeconds, replayTime, onRefresh]);
+  // Candle polling handled centrally by CandleStore (15s interval)
   const [chartHeight, setChartHeight] = useState(window.innerWidth < 768 ? 380 : 680);
   const [weisHeight, setWeisHeight] = useState(window.innerWidth < 768 ? 100 : 140);
   const chartHeightRef = useRef(chartHeight);
