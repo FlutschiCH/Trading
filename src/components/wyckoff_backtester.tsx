@@ -344,7 +344,10 @@ export default function WyckoffBacktester({
   const [collapsedSections, setCollapsedSections] = React.useState<{ [key: string]: boolean }>(() => {
     try {
       const saved = localStorage.getItem('wyckoff_backtester_collapsed');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return { ...parsed, trades: false };
+      }
     } catch (e) {
       console.error(e);
     }
@@ -358,6 +361,12 @@ export default function WyckoffBacktester({
     };
   });
 
+  React.useEffect(() => {
+    if (backtestResults) {
+      setCollapsedSections(prev => ({ ...prev, trades: false }));
+    }
+  }, [backtestResults]);
+
   const toggleSection = (section: string) => {
     setCollapsedSections(prev => {
       const newVal = { ...prev, [section]: !prev[section] };
@@ -369,6 +378,7 @@ export default function WyckoffBacktester({
       return newVal;
     });
   };
+
 
 
 
