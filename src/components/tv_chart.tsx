@@ -139,6 +139,7 @@ interface TVChartProps {
   isLiveFeed?: boolean;
   onLiveFeedChange?: (active: boolean) => void;
   isMobile?: boolean;
+  theme?: 'dark' | 'light';
 }
 
 export default function TVChart({
@@ -176,7 +177,8 @@ export default function TVChart({
   hiddenStages = [],
   isLiveFeed = false,
   onLiveFeedChange,
-  isMobile = false
+  isMobile = false,
+  theme = 'dark'
 }: TVChartProps) {
   const { candles: storeCandles, loading: storeLoading, fetchCandles: storeFetchCandles } = useCandleStore();
   const baseCandles = candles || storeCandles;
@@ -1094,15 +1096,20 @@ export default function TVChart({
   useEffect(() => {
     if (!chartContainerRef.current || !weisContainerRef.current) return;
 
+    const isLight = theme === 'light';
+    const chartBg = isLight ? '#ffffff' : '#111827';
+    const textColor = isLight ? '#0f172a' : '#d1d5db';
+    const gridColor = isLight ? '#e2e8f0' : '#1f2937';
+
     // Initialize Main Chart
     const mainChart = createChart(chartContainerRef.current, {
       layout: {
-        background: { type: ColorType.Solid, color: '#111827' },
-        textColor: '#d1d5db',
+        background: { type: ColorType.Solid, color: chartBg },
+        textColor: textColor,
       },
       grid: {
-        vertLines: { color: '#1f2937' },
-        horzLines: { color: '#1f2937' },
+        vertLines: { color: gridColor },
+        horzLines: { color: gridColor },
       },
       handleScroll: {
         mouseWheel: true,
@@ -1182,12 +1189,12 @@ export default function TVChart({
 
     const weisChart = createChart(weisContainerRef.current, {
       layout: {
-        background: { type: ColorType.Solid, color: '#111827' },
-        textColor: '#d1d5db',
+        background: { type: ColorType.Solid, color: chartBg },
+        textColor: textColor,
       },
       grid: {
-        vertLines: { color: '#1f2937' },
-        horzLines: { color: '#1f2937' },
+        vertLines: { color: gridColor },
+        horzLines: { color: gridColor },
       },
       handleScroll: {
         mouseWheel: true,
@@ -1328,6 +1335,37 @@ export default function TVChart({
     };
 
     window.addEventListener('resize', handleResize);
+
+    // Dynamic theme options update
+    const updateThemeOptions = () => {
+      if (!mainChart || !weisChart) return;
+      const isL = theme === 'light';
+      const cBg = isL ? '#ffffff' : '#111827';
+      const tCol = isL ? '#0f172a' : '#d1d5db';
+      const gCol = isL ? '#e2e8f0' : '#1f2937';
+      
+      mainChart.applyOptions({
+        layout: {
+          background: { type: ColorType.Solid, color: cBg },
+          textColor: tCol,
+        },
+        grid: {
+          vertLines: { color: gCol },
+          horzLines: { color: gCol },
+        },
+      });
+      weisChart.applyOptions({
+        layout: {
+          background: { type: ColorType.Solid, color: cBg },
+          textColor: tCol,
+        },
+        grid: {
+          vertLines: { color: gCol },
+          horzLines: { color: gCol },
+        },
+      });
+    };
+    updateThemeOptions();
 
     // Watch for card/container resizes via ResizeObserver
     const resizeObserver = new ResizeObserver((entries) => {
@@ -2032,8 +2070,8 @@ export default function TVChart({
       display: 'flex',
       flexDirection: 'column' as const,
       gap: '16px',
-      backgroundColor: '#111827',
-      border: '1px solid #1f2937',
+      backgroundColor: 'var(--app-card-bg, #111827)',
+      border: '1px solid var(--app-card-border, #1f2937)',
       borderRadius: '12px',
       padding: '16px',
     },
@@ -2044,11 +2082,11 @@ export default function TVChart({
       fontSize: '12px',
     },
     pairSelect: {
-      backgroundColor: '#0b0f19',
-      border: '1px solid #1f2937',
+      backgroundColor: 'var(--app-input-bg, #0b0f19)',
+      border: '1px solid var(--app-input-border, #1f2937)',
       borderRadius: '6px',
       padding: '4px 8px',
-      color: '#ffffff',
+      color: 'var(--app-text, #ffffff)',
       fontWeight: 'bold',
       cursor: 'pointer',
       outline: 'none',
@@ -2057,7 +2095,7 @@ export default function TVChart({
       display: 'flex',
       justifyContent: 'space-between',
       alignItems: 'center',
-      borderBottom: '1px solid #1f2937',
+      borderBottom: '1px solid var(--app-card-border, #1f2937)',
       paddingBottom: isMobile ? '6px' : '12px',
     },
     toolsGroup: {
@@ -2066,10 +2104,10 @@ export default function TVChart({
       alignItems: 'center',
     },
     symbolBadge: {
-      color: '#d1d5db',
+      color: 'var(--app-text, #d1d5db)',
       fontWeight: 'bold',
       fontSize: '14px',
-      backgroundColor: '#1f2937',
+      backgroundColor: 'var(--app-panel-header-bg, #1f2937)',
       padding: '6px 12px',
       borderRadius: '8px',
     },
@@ -2084,8 +2122,8 @@ export default function TVChart({
       border: 'none',
       cursor: 'pointer',
       transition: 'all 0.2s',
-      backgroundColor: active ? (isDelete ? '#ef4444' : '#3b82f6') : '#1f2937',
-      color: active ? '#ffffff' : '#9ca3af',
+      backgroundColor: active ? (isDelete ? '#ef4444' : '#3b82f6') : 'var(--app-panel-header-bg, #1f2937)',
+      color: active ? '#ffffff' : 'var(--app-text-muted, #9ca3af)',
     }),
     clearBtn: {
       padding: '6px 12px',
@@ -2102,8 +2140,8 @@ export default function TVChart({
       transition: 'all 0.2s',
     },
     refreshBtn: {
-      color: '#9ca3af',
-      backgroundColor: '#1f2937',
+      color: 'var(--app-text-muted, #9ca3af)',
+      backgroundColor: 'var(--app-panel-header-bg, #1f2937)',
       border: 'none',
       padding: isMobile ? '6px' : '8px',
       borderRadius: '8px',
@@ -2118,8 +2156,8 @@ export default function TVChart({
       display: 'flex',
       flexDirection: 'column' as const,
       gap: '8px',
-      backgroundColor: '#0b0f19',
-      border: '1px solid #1f2937',
+      backgroundColor: 'var(--app-bg, #0b0f19)',
+      border: '1px solid var(--app-card-border, #1f2937)',
       borderRadius: '8px',
       overflow: 'hidden',
     },

@@ -148,8 +148,8 @@ export default function LogPanel({ isMobileLayout = false }: LogPanelProps) {
       flexDirection: 'column',
       height: '100%',
       width: '100%',
-      backgroundColor: '#0b0f19',
-      color: '#f3f4f6',
+      backgroundColor: 'var(--app-bg, #0b0f19)',
+      color: 'var(--app-text, #f3f4f6)',
       borderRadius: '8px',
       overflow: 'hidden',
       fontFamily: 'monospace',
@@ -161,14 +161,14 @@ export default function LogPanel({ isMobileLayout = false }: LogPanelProps) {
         justifyContent: 'space-between',
         alignItems: 'center',
         padding: '10px 16px',
-        backgroundColor: '#111827',
-        borderBottom: '1px solid #1f2937',
+        backgroundColor: 'var(--app-panel-header-bg, #111827)',
+        borderBottom: '1px solid var(--app-card-border, #1f2937)',
         gap: '10px'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Terminal size={16} className="text-emerald-400" />
-          <span style={{ fontWeight: 'bold', fontSize: '13px', color: '#f3f4f6' }}>System Realtime Logs</span>
-          <span style={{ fontSize: '11px', color: '#9ca3af', backgroundColor: '#1e293b', padding: '2px 6px', borderRadius: '4px' }}>
+          <span style={{ fontWeight: 'bold', fontSize: '13px', color: 'var(--app-text, #f3f4f6)' }}>System Realtime Logs</span>
+          <span style={{ fontSize: '11px', color: 'var(--app-text-muted, #9ca3af)', backgroundColor: 'var(--app-hover-bg, #1e293b)', padding: '2px 6px', borderRadius: '4px' }}>
             {filteredLogs.length} / {logs.length} lines
           </span>
         </div>
@@ -184,9 +184,9 @@ export default function LogPanel({ isMobileLayout = false }: LogPanelProps) {
               value={filterText}
               onChange={(e) => setFilterText(e.target.value)}
               style={{
-                backgroundColor: '#1e293b',
-                border: '1px solid #334155',
-                color: '#ffffff',
+                backgroundColor: 'var(--app-input-bg, #1e293b)',
+                border: '1px solid var(--app-input-border, #334155)',
+                color: 'var(--app-input-text, #ffffff)',
                 borderRadius: '4px',
                 padding: '4px 8px 4px 26px',
                 fontSize: '11px',
@@ -204,9 +204,9 @@ export default function LogPanel({ isMobileLayout = false }: LogPanelProps) {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
-                backgroundColor: showFilterDropdown ? '#2563eb' : '#1e293b',
+                backgroundColor: showFilterDropdown ? '#2563eb' : 'var(--app-hover-bg, #1e293b)',
                 border: '1px solid #3b82f6',
-                color: '#ffffff',
+                color: 'var(--app-text, #ffffff)',
                 padding: '5px 12px',
                 borderRadius: '6px',
                 fontSize: '11px',

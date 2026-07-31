@@ -110,8 +110,8 @@ interface CollapsibleCardProps {
 const CollapsibleCard = ({ title, isCollapsed, onToggle, children, style }: CollapsibleCardProps) => {
   return (
     <div style={{
-      backgroundColor: '#111827',
-      border: '1px solid #1f2937',
+      backgroundColor: 'var(--app-card-bg, #111827)',
+      border: '1px solid var(--app-card-border, #1f2937)',
       borderRadius: '6px',
       overflow: 'hidden',
       transition: 'all 0.2s',
@@ -125,14 +125,14 @@ const CollapsibleCard = ({ title, isCollapsed, onToggle, children, style }: Coll
           alignItems: 'center',
           padding: '8px 10px',
           cursor: 'pointer',
-          backgroundColor: '#1f2937',
+          backgroundColor: 'var(--app-panel-header-bg, #1f2937)',
           userSelect: 'none',
           transition: 'background-color 0.2s'
         }}
-        onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#374151'}
-        onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#1f2937'}
+        onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--app-hover-bg, #374151)'}
+        onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'var(--app-panel-header-bg, #1f2937)'}
       >
-        <span style={{ fontWeight: 'bold', color: '#cbd5e1', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+        <span style={{ fontWeight: 'bold', color: 'var(--app-text, #cbd5e1)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
           {title}
         </span>
         <span style={{ color: '#9ca3af', fontSize: '10px' }}>

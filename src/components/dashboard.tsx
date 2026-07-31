@@ -2237,6 +2237,7 @@ export default function Dashboard() {
                       <span>📊 Candlestick & Weis Wave Analysis Chart</span>
                     </div>
                     <TVChart
+                      theme={theme}
                       symbol={symbol}
                       openPositions={openPositions}
                       onSymbolChange={setSymbol}
@@ -2634,6 +2635,7 @@ export default function Dashboard() {
                         </div>
                         <div className="no-drag" style={{ padding: '0px', flex: 1, display: 'flex', flexDirection: 'column' }}>
                           <TVChart
+                            theme={theme}
                             symbol={symbol}
                             openPositions={openPositions}
                             onSymbolChange={setSymbol}

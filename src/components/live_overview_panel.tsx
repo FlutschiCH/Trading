@@ -144,7 +144,7 @@ export default function LiveOverviewPanel({
 
   if (error && strategies.length === 0) {
     return (
-      <div style={{ color: '#ef4444', fontSize: '12px', padding: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', backgroundColor: '#0b0f19', border: '1px solid #7f1d1d', borderRadius: '8px' }}>
+      <div style={{ color: '#ef4444', fontSize: '12px', padding: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', backgroundColor: 'var(--app-bg, #0b0f19)', border: '1px solid #7f1d1d', borderRadius: '8px' }}>
         <span>⚠️ Error: {error}</span>
         <button
           onClick={() => {
@@ -177,7 +177,7 @@ export default function LiveOverviewPanel({
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* Header section with Timer & Refresh */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', borderBottom: '1px solid #1f2937', paddingBottom: '8px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', borderBottom: '1px solid var(--app-card-border, #1f2937)', paddingBottom: '8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 'bold' }}>
             LIVE STRATEGIES ({strategies.length})
@@ -212,7 +212,7 @@ export default function LiveOverviewPanel({
       {/* Strategies List */}
       <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', paddingRight: '4px' }}>
         {strategies.length === 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100px', color: '#64748b', fontSize: '12px', border: '1px dashed #1f2937', borderRadius: '8px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100px', color: 'var(--app-text-muted, #64748b)', fontSize: '12px', border: '1px dashed var(--app-card-border, #1f2937)', borderRadius: '8px' }}>
             <span>No live strategies currently deployed.</span>
             <span style={{ fontSize: '10px', marginTop: '4px' }}>Deploy one using the Backtester panel settings!</span>
           </div>
@@ -225,8 +225,8 @@ export default function LiveOverviewPanel({
               <div 
                 key={strategy.id} 
                 style={{ 
-                  backgroundColor: '#0b0f19', 
-                  border: '1px solid #1f2937', 
+                  backgroundColor: 'var(--app-bg, #0b0f19)', 
+                  border: '1px solid var(--app-card-border, #1f2937)', 
                   borderRadius: '8px', 
                   padding: '10px',
                   opacity: isPaused ? 0.6 : 1,
@@ -334,38 +334,38 @@ export default function LiveOverviewPanel({
                 {!isPaused ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '11px' }}>
                     {/* Strategy Parameters Details */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 8px', borderBottom: '1px solid #111827', paddingBottom: '6px', fontSize: '10px', color: '#94a3b8' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 8px', borderBottom: '1px solid var(--app-card-border, #111827)', paddingBottom: '6px', fontSize: '10px', color: 'var(--app-text-muted, #94a3b8)' }}>
                       <div>
                         <span>Lookback: </span>
-                        <strong style={{ color: '#f3f4f6' }}>{strategy.lookbackWindow}</strong>
+                        <strong style={{ color: 'var(--app-text, #f3f4f6)' }}>{strategy.lookbackWindow}</strong>
                       </div>
                       <div>
                         <span>SL: </span>
-                        <strong style={{ color: '#f3f4f6' }}>{strategy.slVal} ({strategy.slType})</strong>
+                        <strong style={{ color: 'var(--app-text, #f3f4f6)' }}>{strategy.slVal} ({strategy.slType})</strong>
                       </div>
                       <div>
                         <span>RR: </span>
-                        <strong style={{ color: '#f3f4f6' }}>{strategy.rr}</strong>
+                        <strong style={{ color: 'var(--app-text, #f3f4f6)' }}>{strategy.rr}</strong>
                       </div>
                       <div>
                         <span>Risk Size: </span>
-                        <strong style={{ color: '#f3f4f6' }}>{strategy.useRiskSizing ? `${strategy.riskPct}%` : strategy.size}</strong>
+                        <strong style={{ color: 'var(--app-text, #f3f4f6)' }}>{strategy.useRiskSizing ? `${strategy.riskPct}%` : strategy.size}</strong>
                       </div>
                       <div style={{ gridColumn: 'span 2', color: '#64748b' }}>
                         <span>Target: </span>
-                        <strong style={{ color: '#94a3b8' }}>{strategy.broker.toUpperCase()} ({strategy.account_id}) | Host: {strategy.target_computer || 'All'}</strong>
+                        <strong style={{ color: 'var(--app-text-muted, #94a3b8)' }}>{strategy.broker.toUpperCase()} ({strategy.account_id}) | Host: {strategy.target_computer || 'All'}</strong>
                       </div>
                     </div>
 
                     {/* Stage & Consec Bars */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #111827', paddingBottom: '4px' }}>
-                      <span style={{ color: '#94a3b8' }}>Wyckoff Stage</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--app-card-border, #111827)', paddingBottom: '4px' }}>
+                      <span style={{ color: 'var(--app-text-muted, #94a3b8)' }}>Wyckoff Stage</span>
                       <span style={{ 
                         fontWeight: 'bold', 
                         color: state.stage === 'ACCUMULATION' ? '#3b82f6' : 
                                state.stage === 'MARKUP' ? '#10b981' : 
                                state.stage === 'DISTRIBUTION' ? '#f59e0b' : 
-                               state.stage === 'MARKDOWN' ? '#ef4444' : '#cbd5e1' 
+                               state.stage === 'MARKDOWN' ? '#ef4444' : 'var(--app-text, #cbd5e1)' 
                       }}>
                         {state.stage || 'TRANSITION'} 
                         {state.consec_bars ? ` (${state.consec_bars} bars)` : ''}
@@ -374,38 +374,38 @@ export default function LiveOverviewPanel({
 
                     {/* Pending Spring/Upthrust Thresholds */}
                     {(state.pending_buy || state.pending_sell) && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', borderBottom: '1px solid #111827', paddingBottom: '4px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', borderBottom: '1px solid var(--app-card-border, #111827)', paddingBottom: '4px' }}>
                         {state.pending_buy && (
                           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                             <span style={{ color: '#10b981', fontWeight: 'bold' }}>Spring Pending (Age: {state.pending_buy_age}/15)</span>
-                            <span style={{ color: '#94a3b8', fontFamily: 'monospace' }}>High: {state.spring_high ? state.spring_high.toFixed(5) : 'N/A'}</span>
+                            <span style={{ color: 'var(--app-text-muted, #94a3b8)', fontFamily: 'monospace' }}>High: {state.spring_high ? state.spring_high.toFixed(5) : 'N/A'}</span>
                           </div>
                         )}
                         {state.pending_sell && (
                           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                             <span style={{ color: '#ef4444', fontWeight: 'bold' }}>Upthrust Pending (Age: {state.pending_sell_age}/15)</span>
-                            <span style={{ color: '#94a3b8', fontFamily: 'monospace' }}>Low: {state.upthrust_low ? state.upthrust_low.toFixed(5) : 'N/A'}</span>
+                            <span style={{ color: 'var(--app-text-muted, #94a3b8)', fontFamily: 'monospace' }}>Low: {state.upthrust_low ? state.upthrust_low.toFixed(5) : 'N/A'}</span>
                           </div>
                         )}
                       </div>
                     )}
 
                     {/* Waiting/Pending status */}
-                    <div style={{ backgroundColor: '#111827', padding: '6px 8px', borderRadius: '4px', borderLeft: '3px solid #3b82f6', marginTop: '2px' }}>
-                      <span style={{ display: 'block', fontSize: '10px', color: '#64748b', fontWeight: 'bold' }}>CURRENT STATE</span>
-                      <span style={{ color: '#f3f4f6', fontSize: '10.5px', lineHeight: '1.4' }}>
+                    <div style={{ backgroundColor: 'var(--app-panel-header-bg, #111827)', padding: '6px 8px', borderRadius: '4px', borderLeft: '3px solid #3b82f6', marginTop: '2px' }}>
+                      <span style={{ display: 'block', fontSize: '10px', color: 'var(--app-text-muted, #64748b)', fontWeight: 'bold' }}>CURRENT STATE</span>
+                      <span style={{ color: 'var(--app-text, #f3f4f6)', fontSize: '10.5px', lineHeight: '1.4' }}>
                         {state.status_message || 'Fetching initial live structure...'}
                       </span>
                     </div>
 
                     {/* Last Checked Info */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: '#64748b', marginTop: '4px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: 'var(--app-text-muted, #64748b)', marginTop: '4px' }}>
                       <span>Last Candle: {state.last_candle_time || 'N/A'}</span>
                       <span>Evaluated: {state.last_checked ? state.last_checked.split(' ')[1] : 'N/A'}</span>
                     </div>
                   </div>
                 ) : (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '12px', backgroundColor: '#111827', borderRadius: '6px', fontSize: '11px', color: '#94a3b8' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '12px', backgroundColor: 'var(--app-panel-header-bg, #111827)', borderRadius: '6px', fontSize: '11px', color: 'var(--app-text-muted, #94a3b8)' }}>
                     <Pause size={12} />
                     <span>Strategy paused. Evaluation threads are skipped.</span>
                   </div>
