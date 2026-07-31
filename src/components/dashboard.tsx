@@ -2605,8 +2605,9 @@ export default function Dashboard() {
                   const dragStyles = {
                     width: cardWidths[panelId] ? `${cardWidths[panelId]}px` : defaultWidth,
                     height: cardHeights[panelId] ? `${cardHeights[panelId]}px` : undefined,
-                    maxHeight: '800px',
+                    maxHeight: panelId === 'backtester' ? 'none' : '800px',
                     display: 'flex',
+
                     flexDirection: 'column' as const,
                     flexGrow: cardWidths[panelId] ? 0 : 1,
                     flexShrink: 1,
