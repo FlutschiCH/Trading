@@ -831,34 +831,35 @@ export default function WyckoffBacktester({
             }}>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2px' }}>
                 <span style={{ color: '#9ca3af', fontSize: '9px', textTransform: 'uppercase', fontWeight: 600 }}>Trades</span>
-                <span style={{ color: '#ffffff', fontSize: '11px', fontWeight: 'bold' }}>{backtestResults.totalTrades}</span>
+                <span style={{ color: '#ffffff', fontSize: '11px', fontWeight: 'bold' }}>{backtestResults?.totalTrades ?? 0}</span>
               </div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2px' }}>
               <span style={{ color: '#9ca3af', fontSize: '9px', textTransform: 'uppercase', fontWeight: 600 }}>Win Rate</span>
-              <span style={{ color: backtestResults.winRate >= 50 ? '#10b981' : '#ef4444', fontSize: '11px', fontWeight: 'bold' }}>
-                {backtestResults.winRate.toFixed(1)}%
+              <span style={{ color: (backtestResults?.winRate ?? 0) >= 50 ? '#10b981' : '#ef4444', fontSize: '11px', fontWeight: 'bold' }}>
+                {(backtestResults?.winRate ?? 0).toFixed(1)}%
               </span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2px' }}>
               <span style={{ color: '#9ca3af', fontSize: '9px', textTransform: 'uppercase', fontWeight: 600 }}>Net Profit</span>
-              <span style={{ color: backtestResults.netPnl >= 0 ? '#10b981' : '#ef4444', fontSize: '11px', fontWeight: 'bold' }}>
-                ${backtestResults.netPnl.toFixed(2)}
+              <span style={{ color: (backtestResults?.netPnl ?? 0) >= 0 ? '#10b981' : '#ef4444', fontSize: '11px', fontWeight: 'bold' }}>
+                ${(backtestResults?.netPnl ?? 0).toFixed(2)}
               </span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2px' }}>
               <span style={{ color: '#9ca3af', fontSize: '9px', textTransform: 'uppercase', fontWeight: 600 }}>Prof. Fact</span>
-              <span style={{ color: '#ffffff', fontSize: '11px', fontWeight: 'bold' }}>{backtestResults.profitFactor.toFixed(2)}</span>
+              <span style={{ color: '#ffffff', fontSize: '11px', fontWeight: 'bold' }}>{(backtestResults?.profitFactor ?? 0).toFixed(2)}</span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2px' }}>
               <span style={{ color: '#9ca3af', fontSize: '9px', textTransform: 'uppercase', fontWeight: 600 }}>Max DD</span>
-              <span style={{ color: '#ffffff', fontSize: '11px', fontWeight: 'bold' }}>{(backtestResults.maxDrawdown ?? 0).toFixed(2)}%</span>
+              <span style={{ color: '#ffffff', fontSize: '11px', fontWeight: 'bold' }}>{(backtestResults?.maxDrawdown ?? 0).toFixed(2)}%</span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2px' }}>
               <span style={{ color: '#9ca3af', fontSize: '9px', textTransform: 'uppercase', fontWeight: 600 }}>Daily Loss</span>
-              <span style={{ color: (backtestResults.maxDailyLoss ?? 0) >= 5.0 ? '#ef4444' : '#ffffff', fontSize: '11px', fontWeight: 'bold' }}>
-                {(backtestResults.maxDailyLoss ?? 0).toFixed(2)}%
+              <span style={{ color: (backtestResults?.maxDailyLoss ?? 0) >= 5.0 ? '#ef4444' : '#ffffff', fontSize: '11px', fontWeight: 'bold' }}>
+                {(backtestResults?.maxDailyLoss ?? 0).toFixed(2)}%
               </span>
             </div>
+
           </div>
           </div>
         )}
