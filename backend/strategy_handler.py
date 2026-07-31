@@ -395,16 +395,21 @@ class StrategyHandler:
 
         for idx, combo in enumerate(matrix):
             if check_cancelled and check_cancelled():
+                print(f"[Optimization] Optimization cancelled by user at run {idx}/{total_runs}.", flush=True)
                 break
 
+            pct = int((idx / total_runs) * 100)
             if progress_callback:
-                progress_callback(int((idx / total_runs) * 100))
+                progress_callback(pct)
 
             s = combo["symbol"]
             tf = combo["timeframe"]
             sl = combo["sl"]
             rr = combo["rr"]
             be = combo["be"]
+            be_str = f"{be}R" if be is not None else "Off"
+
+            print(f"[Optimization] [{idx+1}/{total_runs}] ({pct}%) Testing {s} ({tf}) | SL: {sl}{sl_type} | RR: 1:{rr} | BE: {be_str}...", flush=True)
 
             cache_key = (s, tf)
             if cache_key not in analysis_cache:
@@ -421,10 +426,11 @@ class StrategyHandler:
                     if len(candles) > 1 and not date_to:
                         candles = candles[:-1]
                 except Exception as e:
-                    print(f"Failed to fetch candles for {s} {tf}: {e}", flush=True)
+                    print(f"[Optimization] Failed to fetch candles for {s} {tf}: {e}", flush=True)
                     continue
 
                 if not candles:
+                    print(f"[Optimization] No candle data available for {s} {tf}.", flush=True)
                     continue
 
                 analysis = StrategyHandler.analyze_market_data(candles, lookback=lookback_window)
@@ -432,6 +438,7 @@ class StrategyHandler:
 
             annotated_data = analysis_cache[cache_key]
             if not annotated_data:
+                print(f"[Optimization] No market data analyzed for {s} {tf}.", flush=True)
                 continue
 
             from backtest_helpers import run_trade_simulation
@@ -460,6 +467,13 @@ class StrategyHandler:
                 progress_callback=None,
                 entry_stability_rule=entry_stability_rule
             )
+
+            pnl = sim_result["netPnl"]
+            win_rate = sim_result["winRate"]
+            trades_cnt = sim_result["totalTrades"]
+            pf = sim_result["profitFactor"]
+            pnl_str = f"+${pnl:.2f}" if pnl >= 0 else f"-${abs(pnl):.2f}"
+            print(f"[Optimization] [{idx+1}/{total_runs}] -> Result: Net PnL: {pnl_str} | Win Rate: {win_rate:.1f}% | Trades: {trades_cnt} | PF: {pf:.2f}", flush=True)
 
             # Save detailed combo results
             results_to_save = {
@@ -502,8 +516,8 @@ class StrategyHandler:
                 "candles": annotated_data
             }
 
-            be_str = str(be) if be is not None else "off"
-            specific_filename = f"backtest_results_{candle_source.lower()}_{s.lower()}_{tf}_sl{sl}_rr{rr}_be{be_str}.json"
+            be_file_str = str(be) if be is not None else "off"
+            specific_filename = f"backtest_results_{candle_source.lower()}_{s.lower()}_{tf}_sl{sl}_rr{rr}_be{be_file_str}.json"
             specific_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), specific_filename)
             try:
                 with open(specific_path, 'w') as f:
@@ -530,8 +544,15 @@ class StrategyHandler:
         if progress_callback:
             progress_callback(100)
 
+        best_combo = max(results, key=lambda x: x['netPnl']) if results else None
+        if best_combo:
+            print(f"[Optimization] Completed matrix optimization ({len(results)} runs). Best Net PnL: +${best_combo['netPnl']:.2f} ({best_combo['symbol']} {best_combo['timeframe']} SL:{best_combo['sl']} RR:{best_combo['rr']})", flush=True)
+        else:
+            print(f"[Optimization] Completed matrix optimization ({len(results)} runs).", flush=True)
+
         return {
             "status": "success",
             "results": results
         }
+
 
