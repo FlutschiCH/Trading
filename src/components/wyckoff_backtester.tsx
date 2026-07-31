@@ -281,6 +281,45 @@ export default function WyckoffBacktester({
   const [activeResultCombo, setActiveResultCombo] = React.useState<{ symbol: string; timeframe: string } | null>(null);
   const currentCombo = activeResultCombo || { symbol: effectiveSymbols[0], timeframe: effectiveTimeframes[0] };
 
+  // Range states for SL, RR, and BE
+  const [slRangeMode, setSLRangeMode] = React.useState<boolean>(false);
+  const [slStart, setSLStart] = React.useState<string>('10');
+  const [slEnd, setSLEnd] = React.useState<string>('20');
+  const [slStep, setSLStep] = React.useState<string>('1');
+
+  const [rrRangeMode, setRRRangeMode] = React.useState<boolean>(false);
+  const [internalRRStart, setInternalRRStart] = React.useState<string>('0.5');
+  const [internalRREnd, setInternalRREnd] = React.useState<string>('5.0');
+  const [internalRRStep, setInternalRRStep] = React.useState<string>('0.1');
+
+  const activeRRStart = rrStart ?? internalRRStart;
+  const setActiveRRStart = setRRStart ?? setInternalRRStart;
+  const activeRREnd = rrEnd ?? internalRREnd;
+  const setActiveRREnd = setRREnd ?? setInternalRREnd;
+  const activeRRStep = rrStep ?? internalRRStep;
+  const setActiveRRStep = setRRStep ?? setInternalRRStep;
+
+  const [beRangeMode, setBERangeMode] = React.useState<boolean>(false);
+  const [beStart, setBEStart] = React.useState<string>('1.0');
+  const [beEnd, setBEEnd] = React.useState<string>('3.0');
+  const [beStep, setBEStep] = React.useState<string>('0.5');
+
+  const calcStepCount = (startStr: string, endStr: string, stepStr: string) => {
+    const start = parseFloat(startStr) || 0;
+    const end = parseFloat(endStr) || 0;
+    const step = parseFloat(stepStr) || 1;
+    if (step <= 0 || end < start) return 1;
+    return Math.floor((end - start) / step) + 1;
+  };
+
+  const symbolCount = effectiveSymbols.length;
+  const timeframeCount = effectiveTimeframes.length;
+  const slCount = slRangeMode ? calcStepCount(slStart, slEnd, slStep) : 1;
+  const rrCount = (rrRangeMode || isOptimizeMode) ? calcStepCount(activeRRStart, activeRREnd, activeRRStep) : 1;
+  const beCount = (useBreakEven && beRangeMode) ? calcStepCount(beStart, beEnd, beStep) : 1;
+
+  const totalRunCombinations = symbolCount * timeframeCount * slCount * rrCount * beCount;
+
   React.useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 768);
@@ -617,6 +656,27 @@ export default function WyckoffBacktester({
           gap: '12px',
           fontSize: '12px',
         }}>
+        {totalRunCombinations > 1 && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            backgroundColor: '#0f172a',
+            border: '1px solid #1e3a8a',
+            padding: '6px 12px',
+            borderRadius: '6px',
+            color: '#38bdf8',
+            fontSize: '11px',
+            fontWeight: 600,
+            marginBottom: '6px'
+          }}>
+            <span>⚡ Grid Search Matrix:</span>
+            <span>
+              {symbolCount} Syms × {timeframeCount} TFs × {slCount} SL × {rrCount} RR × {beCount} BE = <strong style={{ color: '#10b981' }}>{totalRunCombinations.toLocaleString()} runs</strong>
+            </span>
+          </div>
+        )}
+
         <div style={{
           display: 'flex',
           flexDirection: isMobile ? 'column' : 'row',
@@ -983,57 +1043,123 @@ export default function WyckoffBacktester({
           </div>
 
           {/* Stop Loss & Profit Target (RR Ratio) */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px', marginBottom: '4px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px', color: '#cbd5e1' }}>
-              <input
-                type="checkbox"
-                checked={isOptimizeMode}
-                onChange={(e) => setIsOptimizeMode(e.target.checked)}
-                style={{ cursor: 'pointer' }}
-              />
-              Optimize Risk-Reward Ratio (Multi-RR Backtest)
-            </div>
-          </div>
-
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '12px' }}>
+            {/* Stop Loss Field */}
             <div style={styles.formGroup}>
-              <label style={{ color: '#9ca3af', fontSize: '11px' }}>Stop Loss</label>
-              <div style={{ display: 'flex', gap: '4px' }}>
-                <input
-                  type="number"
-                  value={backtestSL}
-                  onChange={(e) => setBacktestSL(e.target.value)}
-                  style={{ ...styles.input, flexGrow: 1, minWidth: 0 }}
-                  step={backtestSLType === 'pct' ? '0.1' : '1'}
-                  min="0.01"
-                />
-                <select
-                  value={backtestSLType}
-                  onChange={(e) => {
-                    const newType = e.target.value as 'pct' | 'price' | 'dollar';
-                    setUseRiskSizing(true); // Preserve risk sizing target
-                    setBacktestSLType(newType);
-                    const isForex = ['EUR', 'GBP', 'JPY', 'USD', 'CAD', 'AUD', 'CHF'].some(curr => symbol.toUpperCase().includes(curr)) && !['BTC', 'ETH', 'SOL', 'LTC', 'XRP'].some(crypto => symbol.toUpperCase().includes(crypto));
-                    setBacktestSL(newType === 'pct' ? '1.0' : (newType === 'dollar' ? '100' : (isForex ? '20' : '200')));
-                  }}
-                  style={{
-                    ...styles.input,
-                    width: '65px',
-                    backgroundColor: '#1f2937',
-                    cursor: 'pointer',
-                    padding: '0 4px',
-                  }}
-                >
-                  <option value="pct">%</option>
-                  <option value="price">Pips</option>
-                  <option value="dollar">$</option>
-                </select>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+                <label style={{ color: '#9ca3af', fontSize: '11px' }}>Stop Loss</label>
+                <label style={{ color: '#cbd5e1', fontSize: '10px', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={slRangeMode}
+                    onChange={(e) => setSLRangeMode(e.target.checked)}
+                    style={{ cursor: 'pointer' }}
+                  />
+                  Range Mode
+                </label>
               </div>
+
+              {!slRangeMode ? (
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  <input
+                    type="number"
+                    value={backtestSL}
+                    onChange={(e) => setBacktestSL(e.target.value)}
+                    style={{ ...styles.input, flexGrow: 1, minWidth: 0 }}
+                    step={backtestSLType === 'pct' ? '0.1' : '1'}
+                    min="0.01"
+                  />
+                  <select
+                    value={backtestSLType}
+                    onChange={(e) => {
+                      const newType = e.target.value as 'pct' | 'price' | 'dollar';
+                      setUseRiskSizing(true);
+                      setBacktestSLType(newType);
+                      const isForex = ['EUR', 'GBP', 'JPY', 'USD', 'CAD', 'AUD', 'CHF'].some(curr => symbol.toUpperCase().includes(curr)) && !['BTC', 'ETH', 'SOL', 'LTC', 'XRP'].some(crypto => symbol.toUpperCase().includes(crypto));
+                      setBacktestSL(newType === 'pct' ? '1.0' : (newType === 'dollar' ? '100' : (isForex ? '20' : '200')));
+                    }}
+                    style={{
+                      ...styles.input,
+                      width: '65px',
+                      backgroundColor: '#1f2937',
+                      cursor: 'pointer',
+                      padding: '0 4px',
+                    }}
+                  >
+                    <option value="pct">%</option>
+                    <option value="price">Pips</option>
+                    <option value="dollar">$</option>
+                  </select>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <div style={{ display: 'flex', gap: '3px' }}>
+                    <input
+                      type="number"
+                      value={slStart}
+                      onChange={(e) => setSLStart(e.target.value)}
+                      style={{ ...styles.input, minWidth: 0, flex: 1, padding: '4px' }}
+                      placeholder="Start (10)"
+                      step="1"
+                    />
+                    <input
+                      type="number"
+                      value={slEnd}
+                      onChange={(e) => setSLEnd(e.target.value)}
+                      style={{ ...styles.input, minWidth: 0, flex: 1, padding: '4px' }}
+                      placeholder="End (20)"
+                      step="1"
+                    />
+                    <input
+                      type="number"
+                      value={slStep}
+                      onChange={(e) => setSLStep(e.target.value)}
+                      style={{ ...styles.input, minWidth: 0, flex: 1, padding: '4px' }}
+                      placeholder="Step (1)"
+                      step="0.1"
+                    />
+                    <select
+                      value={backtestSLType}
+                      onChange={(e) => setBacktestSLType(e.target.value as any)}
+                      style={{
+                        ...styles.input,
+                        width: '55px',
+                        backgroundColor: '#1f2937',
+                        cursor: 'pointer',
+                        padding: '0 2px',
+                      }}
+                    >
+                      <option value="pct">%</option>
+                      <option value="price">Pips</option>
+                      <option value="dollar">$</option>
+                    </select>
+                  </div>
+                  <span style={{ fontSize: '9px', color: '#38bdf8' }}>
+                    ⚡ SL Range: {slStart} → {slEnd} ({slCount} values)
+                  </span>
+                </div>
+              )}
             </div>
 
-            {!isOptimizeMode ? (
-              <div style={styles.formGroup}>
+            {/* RR Ratio Field */}
+            <div style={styles.formGroup}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
                 <label style={{ color: '#9ca3af', fontSize: '11px' }}>RR Ratio</label>
+                <label style={{ color: '#cbd5e1', fontSize: '10px', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={rrRangeMode || isOptimizeMode}
+                    onChange={(e) => {
+                      setRRRangeMode(e.target.checked);
+                      setIsOptimizeMode(e.target.checked);
+                    }}
+                    style={{ cursor: 'pointer' }}
+                  />
+                  Range Mode
+                </label>
+              </div>
+
+              {!(rrRangeMode || isOptimizeMode) ? (
                 <input
                   type="number"
                   value={backtestRR}
@@ -1042,41 +1168,43 @@ export default function WyckoffBacktester({
                   step="0.1"
                   min="0.5"
                 />
-              </div>
-            ) : (
-              <div style={styles.formGroup}>
-                <label style={{ color: '#9ca3af', fontSize: '11px' }}>RR Range (Start / End / Step)</label>
-                <div style={{ display: 'flex', gap: '3px' }}>
-                  <input
-                    type="number"
-                    value={rrStart}
-                    onChange={(e) => setRRStart(e.target.value)}
-                    style={{ ...styles.input, minWidth: 0, flex: 1, padding: '4px' }}
-                    placeholder="Start"
-                    step="0.1"
-                  />
-                  <input
-                    type="number"
-                    value={rrEnd}
-                    onChange={(e) => setRREnd(e.target.value)}
-                    style={{ ...styles.input, minWidth: 0, flex: 1, padding: '4px' }}
-                    placeholder="End"
-                    step="0.1"
-                  />
-                  <input
-                    type="number"
-                    value={rrStep}
-                    onChange={(e) => setRRStep(e.target.value)}
-                    style={{ ...styles.input, minWidth: 0, flex: 1, padding: '4px' }}
-                    placeholder="Step"
-                    step="0.1"
-                  />
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <div style={{ display: 'flex', gap: '3px' }}>
+                    <input
+                      type="number"
+                      value={activeRRStart}
+                      onChange={(e) => setActiveRRStart(e.target.value)}
+                      style={{ ...styles.input, minWidth: 0, flex: 1, padding: '4px' }}
+                      placeholder="Start (0)"
+                      step="0.1"
+                    />
+                    <input
+                      type="number"
+                      value={activeRREnd}
+                      onChange={(e) => setActiveRREnd(e.target.value)}
+                      style={{ ...styles.input, minWidth: 0, flex: 1, padding: '4px' }}
+                      placeholder="End (5)"
+                      step="0.1"
+                    />
+                    <input
+                      type="number"
+                      value={activeRRStep}
+                      onChange={(e) => setActiveRRStep(e.target.value)}
+                      style={{ ...styles.input, minWidth: 0, flex: 1, padding: '4px' }}
+                      placeholder="Step (0.1)"
+                      step="0.1"
+                    />
+                  </div>
+                  <span style={{ fontSize: '9px', color: '#38bdf8' }}>
+                    ⚡ RR Range: {activeRRStart} → {activeRREnd} ({rrCount} values, step {activeRRStep})
+                  </span>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
-          {/* Break Even controls & Lookback Window */}
+          {/* Break Even controls & Sweep Lookback */}
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.2fr 0.8fr', gap: '12px', alignItems: 'end' }}>
             <div style={{ ...styles.formGroup, height: '100%', justifyContent: 'center' }}>
               <label style={{ color: '#9ca3af', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', margin: 0 }}>
@@ -1092,15 +1220,61 @@ export default function WyckoffBacktester({
 
             {useBreakEven ? (
               <div style={styles.formGroup}>
-                <label style={{ color: '#9ca3af', fontSize: '11px' }}>BE Trigger (R)</label>
-                <input
-                  type="number"
-                  value={backtestBE}
-                  onChange={(e) => setBacktestBE(e.target.value)}
-                  style={styles.input}
-                  step="0.1"
-                  min="0.1"
-                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+                  <label style={{ color: '#9ca3af', fontSize: '11px' }}>BE Trigger (R)</label>
+                  <label style={{ color: '#cbd5e1', fontSize: '10px', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={beRangeMode}
+                      onChange={(e) => setBERangeMode(e.target.checked)}
+                      style={{ cursor: 'pointer' }}
+                    />
+                    Range Mode
+                  </label>
+                </div>
+
+                {!beRangeMode ? (
+                  <input
+                    type="number"
+                    value={backtestBE}
+                    onChange={(e) => setBacktestBE(e.target.value)}
+                    style={styles.input}
+                    step="0.1"
+                    min="0.1"
+                  />
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <div style={{ display: 'flex', gap: '3px' }}>
+                      <input
+                        type="number"
+                        value={beStart}
+                        onChange={(e) => setBEStart(e.target.value)}
+                        style={{ ...styles.input, minWidth: 0, flex: 1, padding: '4px' }}
+                        placeholder="Start (1.0)"
+                        step="0.1"
+                      />
+                      <input
+                        type="number"
+                        value={beEnd}
+                        onChange={(e) => setBEEnd(e.target.value)}
+                        style={{ ...styles.input, minWidth: 0, flex: 1, padding: '4px' }}
+                        placeholder="End (3.0)"
+                        step="0.1"
+                      />
+                      <input
+                        type="number"
+                        value={beStep}
+                        onChange={(e) => setBEStep(e.target.value)}
+                        style={{ ...styles.input, minWidth: 0, flex: 1, padding: '4px' }}
+                        placeholder="Step (0.5)"
+                        step="0.1"
+                      />
+                    </div>
+                    <span style={{ fontSize: '9px', color: '#38bdf8' }}>
+                      ⚡ BE Range: {beStart}R → {beEnd}R ({beCount} values)
+                    </span>
+                  </div>
+                )}
               </div>
             ) : (
               <div style={styles.formGroup}>
