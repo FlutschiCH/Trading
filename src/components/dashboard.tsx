@@ -271,7 +271,7 @@ export default function Dashboard() {
   const [showMobileNav, setShowMobileNav] = useState<boolean>(false);
 
   const [terminalLogs, setTerminalLogs] = useState<string[]>([]);
-  const [showTerminal, setShowTerminal] = useState<boolean>(true);
+  const [showTerminal, setShowTerminal] = useState<boolean>(false);
   const [terminalConnectionStatus, setTerminalConnectionStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
   const terminalEndRef = useRef<HTMLDivElement>(null);
 
@@ -3033,14 +3033,16 @@ export default function Dashboard() {
               </div>
             )}
             {/* Interactive Realtime Log Panel */}
-            <div style={{
-              width: '100%',
-              height: '420px',
-              marginTop: '24px',
-              boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)',
-            }}>
-              <LogPanel />
-            </div>
+            {showTerminal && (
+              <div style={{
+                width: '100%',
+                height: '420px',
+                marginTop: '24px',
+                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)',
+              }}>
+                <LogPanel />
+              </div>
+            )}
 
             {/* 1M Candle Collector Panel */}
             <CandleCollectorPanel availableSymbols={availableSymbols} />
