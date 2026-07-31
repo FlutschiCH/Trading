@@ -61,6 +61,7 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const fetchCandles = async (forceFullRefresh: boolean = false, isBackground: boolean = false) => {
     if (!symbol) return;
+    if (isFetchingRef.current) return;
 
     isFetchingRef.current = true;
     const fetchStartTime = performance.now();
@@ -69,7 +70,6 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!isBackground) {
       setLoading(true);
     }
-
 
     const isIncremental = !forceFullRefresh && candlesRef.current.length >= 50;
     const reqLimit = isIncremental ? 2 : Math.min(candleLimit, 500);
@@ -98,6 +98,8 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       let rawCandles: Candle[] = [];
       if (marketResult && marketResult.status === 'success' && Array.isArray(marketResult.candles)) {
         rawCandles = marketResult.candles.sort((a: Candle, b: Candle) => a.time - b.time);
+      } else if (marketResult && Array.isArray(marketResult.data)) {
+        rawCandles = marketResult.data.sort((a: Candle, b: Candle) => a.time - b.time);
       } else if (Array.isArray(marketResult)) {
         rawCandles = marketResult.sort((a: Candle, b: Candle) => a.time - b.time);
       } else {
