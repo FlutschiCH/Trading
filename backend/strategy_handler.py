@@ -401,6 +401,12 @@ class StrategyHandler:
                 break
 
             run_start_time = time.time()
+            elapsed_sec = run_start_time - overall_start_time
+            if elapsed_sec >= 60:
+                elapsed_str = f"{int(elapsed_sec // 60)}m {elapsed_sec % 60:.1f}s"
+            else:
+                elapsed_str = f"{elapsed_sec:.1f}s"
+
             pct = int((idx / total_runs) * 100)
             if progress_callback:
                 progress_callback(pct)
@@ -412,7 +418,8 @@ class StrategyHandler:
             be = combo["be"]
             be_str = f"{be}R" if be is not None else "Off"
 
-            print(f"[Optimization] [{idx+1}/{total_runs}] ({pct}%) Testing {s} ({tf}) | SL: {sl}{sl_type} | RR: 1:{rr} | BE: {be_str}...", flush=True)
+            print(f"[Optimization] [{idx+1}/{total_runs}] ({pct}%) [Elapsed: {elapsed_str}] Testing {s} ({tf}) | SL: {sl}{sl_type} | RR: 1:{rr} | BE: {be_str}...", flush=True)
+
 
             cache_key = (s, tf)
             if cache_key not in analysis_cache:
