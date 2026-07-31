@@ -190,7 +190,8 @@ class StrategyHandler:
         global_close_time: str = '',
         progress_callback = None,
         entry_stability_rule: str = 'default',
-        broker: str = 'metatrader'
+        broker: str = 'metatrader',
+        session_config: dict = None
     ) -> dict:
         """
         Runs the full Wyckoff structure analysis backtest in Python.
@@ -230,7 +231,8 @@ class StrategyHandler:
             use_global_close=use_global_close,
             global_close_time=global_close_time,
             progress_callback=progress_callback,
-            entry_stability_rule=entry_stability_rule
+            entry_stability_rule=entry_stability_rule,
+            session_config=session_config
         )
         
         from candle_sanitizer import sanitize_and_fill_candles

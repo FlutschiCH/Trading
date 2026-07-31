@@ -127,7 +127,8 @@ def run_trade_simulation(
     use_global_close: bool = False,
     global_close_time: str = '',
     progress_callback = None,
-    entry_stability_rule: str = 'default'
+    entry_stability_rule: str = 'default',
+    session_config: dict = None
 ) -> dict:
     """
     Simulates the Wyckoff strategy trade executions on the annotated candle list.
