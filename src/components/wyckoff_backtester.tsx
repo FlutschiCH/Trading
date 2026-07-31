@@ -278,6 +278,12 @@ export default function WyckoffBacktester({
   const effectiveSymbols = activeSymbols.length > 0 ? activeSymbols : [symbol];
   const effectiveTimeframes = activeTimeframes.length > 0 ? activeTimeframes : [timeframe];
 
+  // Searchable Multi-Select Dropdown States
+  const [symbolSearchQuery, setSymbolSearchQuery] = React.useState('');
+  const [showSymbolDropdown, setShowSymbolDropdown] = React.useState(false);
+  const [tfSearchQuery, setTfSearchQuery] = React.useState('');
+  const [showTfDropdown, setShowTfDropdown] = React.useState(false);
+
   const [activeResultCombo, setActiveResultCombo] = React.useState<{ symbol: string; timeframe: string } | null>(null);
   const currentCombo = activeResultCombo || { symbol: effectiveSymbols[0], timeframe: effectiveTimeframes[0] };
 
@@ -844,11 +850,12 @@ export default function WyckoffBacktester({
           isCollapsed={collapsedSections.multiAsset ?? false}
           onToggle={() => toggleSection('multiAsset')}
         >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {/* Searchable Multi-Symbol Dropdown */}
+            <div style={{ position: 'relative' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                 <span style={{ color: '#9ca3af', fontSize: '11px', fontWeight: 600 }}>
-                  Symbols ({activeSymbols.length > 0 ? `${activeSymbols.length} selected` : `Fallback (Chart): ${symbol}`}):
+                  Target Symbols ({activeSymbols.length > 0 ? `${activeSymbols.length} selected` : `Fallback: ${symbol}`})
                 </span>
                 {activeSymbols.length > 0 && (
                   <button
@@ -856,42 +863,162 @@ export default function WyckoffBacktester({
                     onClick={() => setActiveSymbols([])}
                     style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '10px', cursor: 'pointer' }}
                   >
-                    Reset to Chart Symbol
+                    Clear All
                   </button>
                 )}
               </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                {defaultSymbolsList.map((sym) => {
-                  const isSelected = activeSymbols.includes(sym);
-                  const isFallback = activeSymbols.length === 0 && sym === symbol;
-                  return (
-                    <button
-                      key={sym}
-                      type="button"
-                      onClick={() => toggleSymbolSelect(sym)}
+
+              {/* Searchable Input Bar */}
+              <div style={{ position: 'relative' }}>
+                <input
+                  type="text"
+                  placeholder="🔍 Search or select symbols..."
+                  value={symbolSearchQuery}
+                  onChange={(e) => {
+                    setSymbolSearchQuery(e.target.value);
+                    setShowSymbolDropdown(true);
+                  }}
+                  onFocus={() => setShowSymbolDropdown(true)}
+                  style={{
+                    ...styles.input,
+                    paddingRight: '24px',
+                    width: '100%',
+                    backgroundColor: '#1f2937',
+                    borderColor: showSymbolDropdown ? '#3b82f6' : '#374151'
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowSymbolDropdown(!showSymbolDropdown)}
+                  style={{
+                    position: 'absolute',
+                    right: '6px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    color: '#9ca3af',
+                    cursor: 'pointer',
+                    fontSize: '10px'
+                  }}
+                >
+                  {showSymbolDropdown ? '▲' : '▼'}
+                </button>
+              </div>
+
+              {/* Dropdown menu */}
+              {showSymbolDropdown && (
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  right: 0,
+                  zIndex: 50,
+                  backgroundColor: '#1e293b',
+                  border: '1px solid #3b82f6',
+                  borderRadius: '6px',
+                  boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
+                  maxHeight: '180px',
+                  overflowY: 'auto',
+                  marginTop: '4px',
+                  padding: '4px'
+                }}>
+                  {defaultSymbolsList
+                    .filter(s => s.toLowerCase().includes(symbolSearchQuery.toLowerCase()))
+                    .map((sym) => {
+                      const isSelected = activeSymbols.includes(sym);
+                      return (
+                        <div
+                          key={sym}
+                          onClick={() => toggleSymbolSelect(sym)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '6px 8px',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.2)' : 'transparent',
+                            color: isSelected ? '#60a5fa' : '#cbd5e1',
+                            fontSize: '11px',
+                            fontWeight: isSelected ? 'bold' : 'normal',
+                            transition: 'background-color 0.15s'
+                          }}
+                          onMouseOver={(e) => {
+                            if (!isSelected) e.currentTarget.style.backgroundColor = '#334155';
+                          }}
+                          onMouseOut={(e) => {
+                            if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';
+                          }}
+                        >
+                          <span>{sym}</span>
+                          <span style={{ fontSize: '12px' }}>{isSelected ? '☑' : '☐'}</span>
+                        </div>
+                      );
+                    })}
+                  {symbolSearchQuery.trim() && !defaultSymbolsList.some(s => s.toLowerCase() === symbolSearchQuery.trim().toLowerCase()) && (
+                    <div
+                      onClick={() => {
+                        toggleSymbolSelect(symbolSearchQuery.trim().toUpperCase());
+                        setSymbolSearchQuery('');
+                      }}
                       style={{
-                        padding: '4px 8px',
-                        borderRadius: '4px',
-                        fontSize: '10px',
-                        fontWeight: 600,
+                        padding: '6px 8px',
+                        fontSize: '11px',
+                        color: '#10b981',
                         cursor: 'pointer',
-                        border: isSelected ? '1px solid #3b82f6' : (isFallback ? '1px dashed #64748b' : '1px solid #374151'),
-                        backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.2)' : (isFallback ? 'rgba(100, 116, 139, 0.15)' : '#1f2937'),
-                        color: isSelected ? '#60a5fa' : (isFallback ? '#94a3b8' : '#d1d5db'),
-                        transition: 'all 0.15s'
+                        fontWeight: 'bold',
+                        borderTop: '1px solid #334155'
                       }}
                     >
-                      {sym} {isFallback ? ' (Chart)' : ''}
-                    </button>
-                  );
-                })}
+                      + Add Custom Symbol "{symbolSearchQuery.trim().toUpperCase()}"
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Selected Tag Badges */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '6px' }}>
+                {activeSymbols.length > 0 ? (
+                  activeSymbols.map(sym => (
+                    <span
+                      key={sym}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                        border: '1px solid #3b82f6',
+                        color: '#60a5fa',
+                        fontSize: '10px',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      {sym}
+                      <button
+                        type="button"
+                        onClick={() => toggleSymbolSelect(sym)}
+                        style={{ background: 'none', border: 'none', color: '#60a5fa', cursor: 'pointer', fontSize: '10px', padding: 0, marginLeft: '2px' }}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))
+                ) : (
+                  <span style={{ fontSize: '10px', color: '#94a3b8', fontStyle: 'italic' }}>
+                    No symbols selected — using active chart symbol: <strong style={{ color: '#38bdf8' }}>{symbol}</strong>
+                  </span>
+                )}
               </div>
             </div>
 
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+            {/* Searchable Multi-Timeframe Dropdown */}
+            <div style={{ position: 'relative' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                 <span style={{ color: '#9ca3af', fontSize: '11px', fontWeight: 600 }}>
-                  Timeframes ({activeTimeframes.length > 0 ? `${activeTimeframes.length} selected` : `Fallback (Chart): ${timeframe}`}):
+                  Target Timeframes ({activeTimeframes.length > 0 ? `${activeTimeframes.length} selected` : `Fallback: ${timeframe}`})
                 </span>
                 {activeTimeframes.length > 0 && (
                   <button
@@ -899,35 +1026,136 @@ export default function WyckoffBacktester({
                     onClick={() => setActiveTimeframes([])}
                     style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '10px', cursor: 'pointer' }}
                   >
-                    Reset to Chart Timeframe
+                    Clear All
                   </button>
                 )}
               </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                {defaultTimeframesList.map((tf) => {
-                  const isSelected = activeTimeframes.includes(tf);
-                  const isFallback = activeTimeframes.length === 0 && tf === timeframe;
-                  return (
-                    <button
+
+              {/* Searchable Input Bar */}
+              <div style={{ position: 'relative' }}>
+                <input
+                  type="text"
+                  placeholder="🔍 Search or select timeframes..."
+                  value={tfSearchQuery}
+                  onChange={(e) => {
+                    setTfSearchQuery(e.target.value);
+                    setShowTfDropdown(true);
+                  }}
+                  onFocus={() => setShowTfDropdown(true)}
+                  style={{
+                    ...styles.input,
+                    paddingRight: '24px',
+                    width: '100%',
+                    backgroundColor: '#1f2937',
+                    borderColor: showTfDropdown ? '#10b981' : '#374151'
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowTfDropdown(!showTfDropdown)}
+                  style={{
+                    position: 'absolute',
+                    right: '6px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    color: '#9ca3af',
+                    cursor: 'pointer',
+                    fontSize: '10px'
+                  }}
+                >
+                  {showTfDropdown ? '▲' : '▼'}
+                </button>
+              </div>
+
+              {/* Dropdown menu */}
+              {showTfDropdown && (
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  right: 0,
+                  zIndex: 50,
+                  backgroundColor: '#1e293b',
+                  border: '1px solid #10b981',
+                  borderRadius: '6px',
+                  boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
+                  maxHeight: '180px',
+                  overflowY: 'auto',
+                  marginTop: '4px',
+                  padding: '4px'
+                }}>
+                  {defaultTimeframesList
+                    .filter(tf => tf.toLowerCase().includes(tfSearchQuery.toLowerCase()))
+                    .map((tf) => {
+                      const isSelected = activeTimeframes.includes(tf);
+                      return (
+                        <div
+                          key={tf}
+                          onClick={() => toggleTimeframeSelect(tf)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '6px 8px',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            backgroundColor: isSelected ? 'rgba(16, 185, 129, 0.2)' : 'transparent',
+                            color: isSelected ? '#34d399' : '#cbd5e1',
+                            fontSize: '11px',
+                            fontWeight: isSelected ? 'bold' : 'normal',
+                            transition: 'background-color 0.15s'
+                          }}
+                          onMouseOver={(e) => {
+                            if (!isSelected) e.currentTarget.style.backgroundColor = '#334155';
+                          }}
+                          onMouseOut={(e) => {
+                            if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';
+                          }}
+                        >
+                          <span>{tf}</span>
+                          <span style={{ fontSize: '12px' }}>{isSelected ? '☑' : '☐'}</span>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+
+              {/* Selected Tag Badges */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '6px' }}>
+                {activeTimeframes.length > 0 ? (
+                  activeTimeframes.map(tf => (
+                    <span
                       key={tf}
-                      type="button"
-                      onClick={() => toggleTimeframeSelect(tf)}
                       style={{
-                        padding: '4px 8px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: '2px 8px',
                         borderRadius: '4px',
+                        backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                        border: '1px solid #10b981',
+                        color: '#34d399',
                         fontSize: '10px',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        border: isSelected ? '1px solid #10b981' : (isFallback ? '1px dashed #64748b' : '1px solid #374151'),
-                        backgroundColor: isSelected ? 'rgba(16, 185, 129, 0.2)' : (isFallback ? 'rgba(100, 116, 139, 0.15)' : '#1f2937'),
-                        color: isSelected ? '#34d399' : (isFallback ? '#94a3b8' : '#d1d5db'),
-                        transition: 'all 0.15s'
+                        fontWeight: 'bold'
                       }}
                     >
-                      {tf} {isFallback ? ' (Chart)' : ''}
-                    </button>
-                  );
-                })}
+                      {tf}
+                      <button
+                        type="button"
+                        onClick={() => toggleTimeframeSelect(tf)}
+                        style={{ background: 'none', border: 'none', color: '#34d399', cursor: 'pointer', fontSize: '10px', padding: 0, marginLeft: '2px' }}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))
+                ) : (
+                  <span style={{ fontSize: '10px', color: '#94a3b8', fontStyle: 'italic' }}>
+                    No timeframes selected — using active chart timeframe: <strong style={{ color: '#34d399' }}>{timeframe}</strong>
+                  </span>
+                )}
               </div>
             </div>
 
