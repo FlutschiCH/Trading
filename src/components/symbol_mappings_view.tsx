@@ -42,8 +42,6 @@ export default function SymbolMappingsView({
         endpoint = '/api/metatrader/symbols';
       } else if (key.startsWith('ctrader')) {
         endpoint = '/api/ctrader/symbols';
-      } else if (key === 'yfinance') {
-        endpoint = '/api/yfinance/symbols';
       }
 
       if (endpoint) {
@@ -236,7 +234,6 @@ export default function SymbolMappingsView({
                 <option value="metatrader:JustMarkets-Demo">MetaTrader (JustMarkets-Demo)</option>
                 <option value="metatrader:FTMO-Demo">MetaTrader (FTMO-Demo)</option>
                 <option value="ctrader:live.ftmo.17151091">cTrader (live.ftmo.17151091)</option>
-                <option value="yfinance">Yahoo Finance</option>
                 <option value="custom">Custom/Other Server Key</option>
               </select>
             </div>
