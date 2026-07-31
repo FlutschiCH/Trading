@@ -1,17 +1,5 @@
 [
   {
-    "timestamp": "2026-07-31 00:59:29",
-    "level": "INFO",
-    "category": "Flask API",
-    "message": "127.0.0.1 - - [2026-07-31 00:59:29] \"POST /api/trade/candles HTTP/1.1\" 200 49060 0.011968"
-  },
-  {
-    "timestamp": "2026-07-31 00:59:34",
-    "level": "DEBUG",
-    "category": "SQLHandler",
-    "message": "Executed SQL query in 0.2569s: SELECT * FROM live_strategies ORDER BY deployedAt DESC"
-  },
-  {
     "timestamp": "2026-07-31 00:59:34",
     "level": "DEBUG",
     "category": "SQLHandler",
@@ -11998,5 +11986,17 @@
     "level": "DEBUG",
     "category": "SQLHandler",
     "message": "Executed SQL query in 0.2359s: SELECT * FROM live_strategies WHERE (target_computer = 'All' OR target_computer = %s) ORDER BY deployedAt DESC LIMIT 1"
+  },
+  {
+    "timestamp": "2026-07-31 02:02:07",
+    "level": "DEBUG",
+    "category": "SQLHandler",
+    "message": "Executed SQL query in 0.2616s: SELECT * FROM live_strategies ORDER BY deployedAt DESC"
+  },
+  {
+    "timestamp": "2026-07-31 02:02:08",
+    "level": "DEBUG",
+    "category": "SQLHandler",
+    "message": "Executed SQL query in 0.2311s: SELECT strategy_id, broker, account_id FROM live_strategy_targets"
   }
 ]

@@ -61,10 +61,6 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const fetchCandles = async (forceFullRefresh: boolean = false, isBackground: boolean = false) => {
     if (!symbol) return;
-    if (isFetchingRef.current && isBackground) {
-      console.log(`[CandleStore] Skipping background fetch while request is already in-flight...`);
-      return;
-    }
 
     isFetchingRef.current = true;
     const fetchStartTime = performance.now();
