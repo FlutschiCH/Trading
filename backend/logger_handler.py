@@ -15,11 +15,13 @@ class LoggerHandler:
         "TradingHandler",
         "MetaTraderHandler",
         "CTraderHandler",
+        "Flask API",
         "App",
         "System"
     ]
     DISABLED_CATEGORIES = [
-        "SQLHandler"
+        "SQLHandler",
+        "Flask API"
     ]
 
     _settings_cache = {}
