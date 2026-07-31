@@ -72,8 +72,13 @@ interface WyckoffBacktesterProps {
   setGlobalCloseTime: (val: string) => void;
   entryStabilityRule: string;
   setEntryStabilityRule: (val: string) => void;
-  hiddenStages?: string[];
-  setHiddenStages?: (stages: string[]) => void;
+  // Multi-symbol and multi-timeframe props
+  availableSymbols?: string[];
+  availableTimeframes?: string[];
+  selectedSymbols?: string[];
+  setSelectedSymbols?: (syms: string[]) => void;
+  selectedTimeframes?: string[];
+  setSelectedTimeframes?: (tfs: string[]) => void;
 
   // Optimization props
   isOptimizeMode: boolean;
@@ -229,11 +234,52 @@ export default function WyckoffBacktester({
   setOptimizationResults,
   onRunOptimization,
   onSaveSettings,
-  isReadOnly = false
+  isReadOnly = false,
+  availableSymbols,
+  availableTimeframes,
+  selectedSymbols,
+  setSelectedSymbols,
+  selectedTimeframes,
+  setSelectedTimeframes,
 }: WyckoffBacktesterProps) {
   const [copied, setCopied] = React.useState(false);
   const [isMobile, setIsMobile] = React.useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
   const [showDeployModal, setShowDeployModal] = React.useState(false);
+
+  // Multi-Symbol and Multi-Timeframe State Handling
+  const [internalSelectedSymbols, setInternalSelectedSymbols] = React.useState<string[]>([]);
+  const [internalSelectedTimeframes, setInternalSelectedTimeframes] = React.useState<string[]>([]);
+
+  const activeSymbols = selectedSymbols ?? internalSelectedSymbols;
+  const setActiveSymbols = setSelectedSymbols ?? setInternalSelectedSymbols;
+
+  const activeTimeframes = selectedTimeframes ?? internalSelectedTimeframes;
+  const setActiveTimeframes = setSelectedTimeframes ?? setInternalSelectedTimeframes;
+
+  const defaultSymbolsList = availableSymbols || ['BTCUSD', 'ETHUSD', 'EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'XAUUSD', 'US30', 'GER40'];
+  const defaultTimeframesList = availableTimeframes || ['1m', '5m', '15m', '30m', '1h', '4h', '1d'];
+
+  const toggleSymbolSelect = (sym: string) => {
+    if (activeSymbols.includes(sym)) {
+      setActiveSymbols(activeSymbols.filter(s => s !== sym));
+    } else {
+      setActiveSymbols([...activeSymbols, sym]);
+    }
+  };
+
+  const toggleTimeframeSelect = (tf: string) => {
+    if (activeTimeframes.includes(tf)) {
+      setActiveTimeframes(activeTimeframes.filter(t => t !== tf));
+    } else {
+      setActiveTimeframes([...activeTimeframes, tf]);
+    }
+  };
+
+  const effectiveSymbols = activeSymbols.length > 0 ? activeSymbols : [symbol];
+  const effectiveTimeframes = activeTimeframes.length > 0 ? activeTimeframes : [timeframe];
+
+  const [activeResultCombo, setActiveResultCombo] = React.useState<{ symbol: string; timeframe: string } | null>(null);
+  const currentCombo = activeResultCombo || { symbol: effectiveSymbols[0], timeframe: effectiveTimeframes[0] };
 
   React.useEffect(() => {
     const handleResize = () => {
@@ -730,6 +776,143 @@ export default function WyckoffBacktester({
           </div>
         )}
         {/* Collapsible Cards */}
+        {/* Multi-Asset & Timeframe Selection */}
+        <CollapsibleCard
+          title="🎯 Multi-Symbol & Timeframe Selection"
+          isCollapsed={collapsedSections.multiAsset ?? false}
+          onToggle={() => toggleSection('multiAsset')}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <span style={{ color: '#9ca3af', fontSize: '11px', fontWeight: 600 }}>
+                  Symbols ({activeSymbols.length > 0 ? `${activeSymbols.length} selected` : `Fallback (Chart): ${symbol}`}):
+                </span>
+                {activeSymbols.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveSymbols([])}
+                    style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '10px', cursor: 'pointer' }}
+                  >
+                    Reset to Chart Symbol
+                  </button>
+                )}
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                {defaultSymbolsList.map((sym) => {
+                  const isSelected = activeSymbols.includes(sym);
+                  const isFallback = activeSymbols.length === 0 && sym === symbol;
+                  return (
+                    <button
+                      key={sym}
+                      type="button"
+                      onClick={() => toggleSymbolSelect(sym)}
+                      style={{
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        fontSize: '10px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        border: isSelected ? '1px solid #3b82f6' : (isFallback ? '1px dashed #64748b' : '1px solid #374151'),
+                        backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.2)' : (isFallback ? 'rgba(100, 116, 139, 0.15)' : '#1f2937'),
+                        color: isSelected ? '#60a5fa' : (isFallback ? '#94a3b8' : '#d1d5db'),
+                        transition: 'all 0.15s'
+                      }}
+                    >
+                      {sym} {isFallback ? ' (Chart)' : ''}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <span style={{ color: '#9ca3af', fontSize: '11px', fontWeight: 600 }}>
+                  Timeframes ({activeTimeframes.length > 0 ? `${activeTimeframes.length} selected` : `Fallback (Chart): ${timeframe}`}):
+                </span>
+                {activeTimeframes.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTimeframes([])}
+                    style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '10px', cursor: 'pointer' }}
+                  >
+                    Reset to Chart Timeframe
+                  </button>
+                )}
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                {defaultTimeframesList.map((tf) => {
+                  const isSelected = activeTimeframes.includes(tf);
+                  const isFallback = activeTimeframes.length === 0 && tf === timeframe;
+                  return (
+                    <button
+                      key={tf}
+                      type="button"
+                      onClick={() => toggleTimeframeSelect(tf)}
+                      style={{
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        fontSize: '10px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        border: isSelected ? '1px solid #10b981' : (isFallback ? '1px dashed #64748b' : '1px solid #374151'),
+                        backgroundColor: isSelected ? 'rgba(16, 185, 129, 0.2)' : (isFallback ? 'rgba(100, 116, 139, 0.15)' : '#1f2937'),
+                        color: isSelected ? '#34d399' : (isFallback ? '#94a3b8' : '#d1d5db'),
+                        transition: 'all 0.15s'
+                      }}
+                    >
+                      {tf} {isFallback ? ' (Chart)' : ''}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {(effectiveSymbols.length > 1 || effectiveTimeframes.length > 1) && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                overflowX: 'auto',
+                padding: '6px 8px',
+                backgroundColor: '#0f172a',
+                borderRadius: '6px',
+                border: '1px solid #1e293b',
+                fontSize: '11px',
+                marginTop: '4px'
+              }}>
+                <span style={{ color: '#9ca3af', fontWeight: 600, whiteSpace: 'nowrap', fontSize: '10px' }}>
+                  🔀 Active Combos ({effectiveSymbols.length * effectiveTimeframes.length}):
+                </span>
+                {effectiveSymbols.flatMap(s => effectiveTimeframes.map(tf => ({ s, tf }))).map(({ s, tf }) => {
+                  const isCurrent = currentCombo.symbol === s && currentCombo.timeframe === tf;
+                  return (
+                    <button
+                      key={`${s}-${tf}`}
+                      type="button"
+                      onClick={() => setActiveResultCombo({ symbol: s, timeframe: tf })}
+                      style={{
+                        padding: '3px 8px',
+                        borderRadius: '4px',
+                        fontSize: '10px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                        border: isCurrent ? '1px solid #38bdf8' : '1px solid #334155',
+                        backgroundColor: isCurrent ? 'rgba(56, 189, 248, 0.2)' : '#1e293b',
+                        color: isCurrent ? '#38bdf8' : '#94a3b8'
+                      }}
+                    >
+                      {s} • {tf}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </CollapsibleCard>
+
         <CollapsibleCard title="Risk Management" isCollapsed={collapsedSections.riskManagement} onToggle={() => toggleSection('riskManagement')}>
           {/* Starting Balance & Fees */}
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '12px' }}>

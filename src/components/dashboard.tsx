@@ -2323,6 +2323,8 @@ export default function Dashboard() {
                     <div style={{ padding: '16px', overflowY: 'auto' }}>
                       <WyckoffBacktester
                         isReadOnly={isProdHost && !isAuthenticated}
+                        availableSymbols={availableSymbols}
+                        availableTimeframes={availableTimeframes}
                         symbol={symbol}
                         timeframe={timeframe}
                         broker={candleSource}
@@ -2773,6 +2775,8 @@ export default function Dashboard() {
                         <div className="no-drag" style={contentStyle}>
                           <WyckoffBacktester
                             isReadOnly={isProdHost && !isAuthenticated}
+                            availableSymbols={availableSymbols}
+                            availableTimeframes={availableTimeframes}
                             symbol={symbol}
                             timeframe={timeframe}
                             broker={candleSource}
