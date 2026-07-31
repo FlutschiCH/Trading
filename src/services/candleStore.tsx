@@ -70,9 +70,6 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setLoading(true);
     }
 
-    if (forceFullRefresh) {
-      setCandles([]);
-    }
 
     const isIncremental = !forceFullRefresh && candlesRef.current.length >= 50;
     const reqLimit = isIncremental ? 2 : Math.min(candleLimit, 500);
