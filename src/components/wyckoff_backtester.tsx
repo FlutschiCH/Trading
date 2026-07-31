@@ -2732,12 +2732,14 @@ export default function WyckoffBacktester({
                         }}
                       />
                     </div>
+                  </div>
                 );
               })}
             </div>
             </>
           )}
         </CollapsibleCard>
+
 
 
         {loadingBacktest && (
