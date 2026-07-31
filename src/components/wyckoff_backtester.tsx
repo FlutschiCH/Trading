@@ -2166,15 +2166,14 @@ export default function WyckoffBacktester({
             </div>
           </CollapsibleCard>
         )}
-        </div>
-      </fieldset>
 
-        <CollapsibleCard title="Trades & Results" style={{ marginTop: '16px' }} isCollapsed={collapsedSections.trades} onToggle={() => toggleSection('trades')}>
+        <CollapsibleCard title="Trades & Results" isCollapsed={collapsedSections.trades} onToggle={() => toggleSection('trades')}>
           {!backtestResults && favouriteCandles.length === 0 ? (
             <div style={{ color: '#9ca3af', padding: '16px', fontSize: '11px', textAlign: 'center', fontStyle: 'italic' }}>
               No backtest results yet. Click "Run Backtest" above to generate trade analytics.
             </div>
           ) : (
+
             <>
               {backtestResults && (
                 <>
@@ -2740,6 +2739,9 @@ export default function WyckoffBacktester({
             </>
           )}
         </CollapsibleCard>
+        </div>
+      </fieldset>
+
 
 
 
