@@ -876,7 +876,7 @@ export default function Dashboard() {
     </>
   );
 
-  const runBacktest = async () => {
+  const runBacktest = async (rangeParams?: any) => {
     if (isProdHost && !isAuthenticated) {
       alert("Action disabled in read-only mode.");
       return;
@@ -927,7 +927,8 @@ export default function Dashboard() {
           useGlobalClose,
           globalCloseTime,
           entryStabilityRule,
-          ...bounds
+          ...bounds,
+          ...(rangeParams || {})
         }),
       });
 
@@ -1002,7 +1003,7 @@ export default function Dashboard() {
     }
   };
 
-  const runOptimization = async () => {
+  const runOptimization = async (rangeParams?: any) => {
     if (isProdHost && !isAuthenticated) {
       alert("Action disabled in read-only mode.");
       return;
@@ -1056,7 +1057,8 @@ export default function Dashboard() {
           useGlobalClose,
           globalCloseTime,
           entryStabilityRule,
-          ...bounds
+          ...bounds,
+          ...(rangeParams || {})
         }),
       });
 
@@ -1113,6 +1115,26 @@ export default function Dashboard() {
       }
     }
   };
+
+  const loadSpecificResults = async (broker: string, symbol: string, timeframe: string, sl: string, rr: string, be: string) => {
+    try {
+      const url = `${API_BASE_URL}/api/backtest/results?broker=${broker.toLowerCase()}&symbol=${symbol.toUpperCase()}&timeframe=${timeframe}&sl=${sl}&rr=${rr}&be=${be}`;
+      const res = await fetch(url);
+      const json = await res.json();
+      if (json.status === 'success' && json.data) {
+        setBacktestResults(json.data);
+        setFvgs(json.data.fvgs || []);
+        if (json.data.trades && json.data.trades.length > 0) {
+          setSelectedTrade(json.data.trades[0]);
+        } else {
+          setSelectedTrade(null);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load specific results", err);
+    }
+  };
+
   const deployLiveStrategy = async (targetComputer: string = 'All', targets: Array<{ broker: string; account_id: string }> = [], name: string = '') => {
     if (isProdHost && !isAuthenticated) {
       alert("Action disabled in read-only mode.");
@@ -2387,6 +2409,7 @@ export default function Dashboard() {
                         setOptimizationResults={setOptimizationResults}
                         onRunOptimization={runOptimization}
                         onSaveSettings={saveBacktestSettings}
+                        onLoadSpecificResults={loadSpecificResults}
                       />
                     </div>
                   </div>
@@ -2841,6 +2864,7 @@ export default function Dashboard() {
                             setOptimizationResults={setOptimizationResults}
                             onRunOptimization={runOptimization}
                             onSaveSettings={saveBacktestSettings}
+                            onLoadSpecificResults={loadSpecificResults}
                           />
                         </div>
                         {renderResizeHandle('backtester')}

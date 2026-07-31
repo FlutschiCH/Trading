@@ -233,24 +233,6 @@ def backtest_optimize():
     date_from = payload.get('date_from')
     date_to = payload.get('date_to')
 
-    # Fetch up-to-date candles on the backend
-    from broker_handler import BrokerHandler
-    handler = BrokerHandler.get_handler(candle_source)
-    candles = handler.fetch_candles(
-        symbol=symbol,
-        timeframe=timeframe,
-        limit=limit,
-        date_from=date_from,
-        date_to=date_to
-    )
-    
-    # If running against recent candles (no fixed end date specified), trim off the current in-progress live candle
-    if len(candles) > 1 and not date_to:
-        candles = candles[:-1]
-
-    if not candles:
-        return jsonify({"status": "error", "message": "Failed to fetch up-to-date candles for optimization."}), 400
-
     sl_val = float(payload.get('slVal', 1.0))
     sl_type = payload.get('slType', 'pct')
     size = float(payload.get('size', 1.0))
@@ -275,6 +257,18 @@ def backtest_optimize():
     global_close_time = payload.get('globalCloseTime', '')
     entry_stability_rule = payload.get('entryStabilityRule', 'default')
 
+    # Grid parameters
+    symbols = payload.get('symbols', [])
+    timeframes = payload.get('timeframes', [])
+    sl_range_mode = bool(payload.get('slRangeMode', False))
+    sl_start = float(payload.get('slStart')) if payload.get('slStart') is not None else None
+    sl_end = float(payload.get('slEnd')) if payload.get('slEnd') is not None else None
+    sl_step = float(payload.get('slStep')) if payload.get('slStep') is not None else None
+    be_range_mode = bool(payload.get('beRangeMode', False))
+    be_start = float(payload.get('beStart')) if payload.get('beStart') is not None else None
+    be_end = float(payload.get('beEnd')) if payload.get('beEnd') is not None else None
+    be_step = float(payload.get('beStep')) if payload.get('beStep') is not None else None
+
     def check_cancelled():
         if backtest_id and str(backtest_id) in cancelled_backtests:
             return True
@@ -293,7 +287,6 @@ def backtest_optimize():
                 q.put({"progress": int(pct)})
                 
             res = StrategyHandler.run_optimization(
-                candles=candles,
                 symbol=symbol,
                 sl_val=sl_val,
                 sl_type=sl_type,
@@ -318,7 +311,19 @@ def backtest_optimize():
                 use_global_close=use_global_close,
                 global_close_time=global_close_time,
                 progress_callback=cb,
-                entry_stability_rule=entry_stability_rule
+                entry_stability_rule=entry_stability_rule,
+                candle_source=candle_source,
+                limit=limit,
+                symbols=symbols,
+                timeframes=timeframes,
+                sl_range_mode=sl_range_mode,
+                sl_start=sl_start,
+                sl_end=sl_end,
+                sl_step=sl_step,
+                be_range_mode=be_range_mode,
+                be_start=be_start,
+                be_end=be_end,
+                be_step=be_step
             )
             q.put({"status": "success", "data": res})
         except Exception as e:
@@ -353,22 +358,32 @@ def backtest_optimize():
 def get_backtest_results():
     """
     Exposes the latest generated backtest_results.json.
-    Supports optional 'broker' and 'symbol' query parameters to retrieve specific run results.
+    Supports loading specific setting combination results if exact parameters are provided.
     """
     import os
     import json
     broker = request.args.get('broker')
     symbol = request.args.get('symbol')
+    timeframe = request.args.get('timeframe')
+    sl = request.args.get('sl')
+    rr = request.args.get('rr')
+    be = request.args.get('be')
     
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     results_path = os.path.join(base_dir, 'backtest_results.json')
     
     if broker and symbol:
-        specific_filename = f"backtest_results_{broker.lower()}_{symbol.upper()}.json"
-        specific_path = os.path.join(base_dir, specific_filename)
-        if os.path.exists(specific_path):
-            results_path = specific_path
-
+        if timeframe and sl and rr and be:
+            specific_filename = f"backtest_results_{broker.lower()}_{symbol.lower()}_{timeframe}_sl{sl}_rr{rr}_be{be}.json"
+            specific_path = os.path.join(base_dir, specific_filename)
+            if os.path.exists(specific_path):
+                results_path = specific_path
+        else:
+            specific_filename = f"backtest_results_{broker.lower()}_{symbol.upper()}.json"
+            specific_path = os.path.join(base_dir, specific_filename)
+            if os.path.exists(specific_path):
+                results_path = specific_path
+            
     if os.path.exists(results_path):
         try:
             with open(results_path, 'r') as f:

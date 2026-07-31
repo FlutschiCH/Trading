@@ -294,7 +294,6 @@ class StrategyHandler:
 
     @staticmethod
     def run_optimization(
-        candles: list,
         symbol: str,
         sl_val: float,
         sl_type: str,
@@ -319,55 +318,133 @@ class StrategyHandler:
         use_global_close: bool = False,
         global_close_time: str = '',
         progress_callback = None,
-        entry_stability_rule: str = 'default'
+        entry_stability_rule: str = 'default',
+        candle_source: str = 'metatrader',
+        limit: int = 1000,
+        symbols: list = None,
+        timeframes: list = None,
+        sl_range_mode: bool = False,
+        sl_start: float = None,
+        sl_end: float = None,
+        sl_step: float = None,
+        be_range_mode: bool = False,
+        be_start: float = None,
+        be_end: float = None,
+        be_step: float = None
     ) -> dict:
         """
-        Runs Wyckoff Structure Analysis once, then runs multiple trade simulations across the parameter range.
+        Runs Wyckoff parameter grid search optimization, fetching candles dynamically and executing simulations.
         """
-        print(f"\n[Optimization] Starting parameter range optimization for {symbol} on {len(candles)} candles...", flush=True)
-        
-        # 1. Run Market Data Analysis (once, takes 0% to 40% progress)
-        wrapped_cb = None
-        if progress_callback:
-            wrapped_cb = lambda p: progress_callback(int(p * 0.4))
-            
-        analysis = StrategyHandler.analyze_market_data(candles, lookback=lookback_window, progress_callback=wrapped_cb)
-        annotated_data = list(analysis.get('data', []))
-        
-        # Calculate RR range values
+        import os
+        import json
+
+        # Generate Stop Loss values
+        if sl_range_mode and sl_start is not None and sl_end is not None and sl_step:
+            sl_values = []
+            curr = sl_start
+            while curr <= sl_end + 0.0001:
+                sl_values.append(round(curr, 2))
+                curr += sl_step
+        else:
+            sl_values = [sl_val]
+
+        # Generate Reward-to-Risk values
         rr_values = []
-        current_rr = rr_start
-        while current_rr <= rr_end + 0.0001:
-            rr_values.append(round(current_rr, 2))
-            current_rr += rr_step
-            
+        curr = rr_start
+        while curr <= rr_end + 0.0001:
+            rr_values.append(round(curr, 2))
+            curr += rr_step
         if not rr_values:
             rr_values = [2.0]
-            
+
+        # Generate Break-Even values
+        if use_break_even and be_range_mode and be_start is not None and be_end is not None and be_step:
+            be_values = []
+            curr = be_start
+            while curr <= be_end + 0.0001:
+                be_values.append(round(curr, 2))
+                curr += be_step
+        else:
+            be_values = [be_trigger_r] if use_break_even else [None]
+
+        symbols_list = symbols if (symbols and len(symbols) > 0) else [symbol]
+        timeframes_list = timeframes if (timeframes and len(timeframes) > 0) else [timeframe]
+
+        # Build combination matrix
+        matrix = []
+        for s in symbols_list:
+            for tf in timeframes_list:
+                for sl in sl_values:
+                    for rr in rr_values:
+                        for be in be_values:
+                            matrix.append({
+                                "symbol": s,
+                                "timeframe": tf,
+                                "sl": sl,
+                                "rr": rr,
+                                "be": be
+                            })
+
+        print(f"\n[Optimization] Starting grid matrix optimization with {len(matrix)} combinations...", flush=True)
+
+        analysis_cache = {}
         results = []
-        from backtest_helpers import run_trade_simulation
-        
-        for idx, temp_rr in enumerate(rr_values):
+        total_runs = len(matrix)
+
+        for idx, combo in enumerate(matrix):
             if check_cancelled and check_cancelled():
                 break
-                
+
             if progress_callback:
-                # Map 40% to 100% across the loops
-                loop_pct = 40 + int(((idx) / len(rr_values)) * 60)
-                progress_callback(loop_pct)
-                
+                progress_callback(int((idx / total_runs) * 100))
+
+            s = combo["symbol"]
+            tf = combo["timeframe"]
+            sl = combo["sl"]
+            rr = combo["rr"]
+            be = combo["be"]
+
+            cache_key = (s, tf)
+            if cache_key not in analysis_cache:
+                from broker_handler import BrokerHandler
+                handler = BrokerHandler.get_handler(candle_source)
+                try:
+                    candles = handler.fetch_candles(
+                        symbol=s,
+                        timeframe=tf,
+                        limit=limit,
+                        date_from=date_from,
+                        date_to=date_to
+                    )
+                    if len(candles) > 1 and not date_to:
+                        candles = candles[:-1]
+                except Exception as e:
+                    print(f"Failed to fetch candles for {s} {tf}: {e}", flush=True)
+                    continue
+
+                if not candles:
+                    continue
+
+                analysis = StrategyHandler.analyze_market_data(candles, lookback=lookback_window)
+                analysis_cache[cache_key] = list(analysis.get('data', []))
+
+            annotated_data = analysis_cache[cache_key]
+            if not annotated_data:
+                continue
+
+            from backtest_helpers import run_trade_simulation
             sim_result = run_trade_simulation(
                 annotated_data=annotated_data,
-                symbol=symbol,
-                sl_val=sl_val,
+                symbol=s,
+                sl_val=sl,
                 sl_type=sl_type,
-                rr=temp_rr,
+                rr=rr,
                 size=size,
                 initial_balance=initial_balance,
                 use_risk_sizing=use_risk_sizing,
                 risk_pct=risk_pct,
-                use_break_even=use_break_even,
-                be_trigger_r=be_trigger_r,
+                use_break_even=(be is not None),
+                be_trigger_r=be if be is not None else 1.0,
                 fees_percent=fees_percent,
                 daily_retry_limit=daily_retry_limit,
                 allow_opposite_close=allow_opposite_close,
@@ -378,12 +455,67 @@ class StrategyHandler:
                 sessions=sessions,
                 use_global_close=use_global_close,
                 global_close_time=global_close_time,
-                progress_callback=None, # Run fast without inner progress reporting
+                progress_callback=None,
                 entry_stability_rule=entry_stability_rule
             )
-            
+
+            # Save detailed combo results
+            results_to_save = {
+                "settings": {
+                    "symbol": s,
+                    "timeframe": tf,
+                    "sl_val": sl,
+                    "sl_type": sl_type,
+                    "rr": rr,
+                    "be_trigger_r": be,
+                    "size": size,
+                    "initial_balance": initial_balance,
+                    "use_risk_sizing": use_risk_sizing,
+                    "risk_pct": risk_pct,
+                    "use_break_even": (be is not None),
+                    "lookback_window": lookback_window,
+                    "fees_percent": fees_percent,
+                    "daily_retry_limit": daily_retry_limit,
+                    "allow_opposite_close": allow_opposite_close,
+                    "timezone": timezone,
+                    "sessions": sessions,
+                    "use_global_close": use_global_close,
+                    "global_close_time": global_close_time,
+                    "entry_stability_rule": entry_stability_rule,
+                    "date_from": date_from,
+                    "date_to": date_to,
+                    "limit": len(annotated_data)
+                },
+                "metrics": {
+                    "winRate": sim_result["winRate"],
+                    "netPnl": sim_result["netPnl"],
+                    "profitFactor": sim_result["profitFactor"],
+                    "totalTrades": sim_result["totalTrades"],
+                    "maxDrawdown": sim_result["maxDrawdown"],
+                    "maxDailyLoss": sim_result["maxDailyLoss"],
+                    "dailyLossBreached": sim_result["dailyLossBreached"],
+                    "candleCount": len(annotated_data)
+                },
+                "trades": sim_result["completed_trades_raw"],
+                "candles": annotated_data
+            }
+
+            be_str = str(be) if be is not None else "off"
+            specific_filename = f"backtest_results_{candle_source.lower()}_{s.lower()}_{tf}_sl{sl}_rr{rr}_be{be_str}.json"
+            specific_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), specific_filename)
+            try:
+                with open(specific_path, 'w') as f:
+                    json.dump(results_to_save, f, indent=4)
+            except Exception as e:
+                print(f"Failed to save detailed backtest results to {specific_filename}: {e}", flush=True)
+
             results.append({
-                "rr": temp_rr,
+                "symbol": s,
+                "timeframe": tf,
+                "sl": sl,
+                "slType": sl_type,
+                "rr": rr,
+                "be": be,
                 "winRate": sim_result["winRate"],
                 "netPnl": sim_result["netPnl"],
                 "profitFactor": sim_result["profitFactor"],
@@ -392,10 +524,10 @@ class StrategyHandler:
                 "maxDailyLoss": sim_result["maxDailyLoss"],
                 "dailyLossBreached": sim_result["dailyLossBreached"]
             })
-            
+
         if progress_callback:
             progress_callback(100)
-            
+
         return {
             "status": "success",
             "results": results

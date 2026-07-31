@@ -54,7 +54,7 @@ interface WyckoffBacktesterProps {
   styles: any;
   enabledIndicators: { fvg: boolean };
   setEnabledIndicators: (val: any) => void;
-  onRunBacktest: () => void;
+  onRunBacktest: (params?: any) => void;
   loadingBacktest: boolean;
   backtestProgress?: number;
   dailyRetryLimit: string;
@@ -91,12 +91,13 @@ interface WyckoffBacktesterProps {
   setRRStep: (val: string) => void;
   optimizationResults: any[] | null;
   setOptimizationResults: (val: any[] | null) => void;
-  onRunOptimization: () => void;
+  onRunOptimization: (params?: any) => void;
   onSaveSettings?: () => void;
   isReadOnly?: boolean;
   broker?: string;
   hiddenStages?: string[];
   setHiddenStages?: React.Dispatch<React.SetStateAction<string[]>>;
+  onLoadSpecificResults?: (broker: string, symbol: string, timeframe: string, sl: string, rr: string, be: string) => Promise<void>;
 }
 
 interface CollapsibleCardProps {
@@ -243,6 +244,7 @@ export default function WyckoffBacktester({
   setSelectedSymbols,
   selectedTimeframes,
   setSelectedTimeframes,
+  onLoadSpecificResults,
 }: WyckoffBacktesterProps) {
   const [copied, setCopied] = React.useState(false);
   const [isMobile, setIsMobile] = React.useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
@@ -732,10 +734,22 @@ export default function WyckoffBacktester({
             onClick={() => {
               console.log(`[Wyckoff Backtester] ${isOptimizeMode ? 'Run Range Optimization' : 'Run Backtest'} clicked at:`, new Date().toLocaleTimeString());
               console.time("Backtest execution duration");
+              const rangeParams = {
+                slRangeMode,
+                slStart: parseFloat(slStart) || 0.0,
+                slEnd: parseFloat(slEnd) || 0.0,
+                slStep: parseFloat(slStep) || 1.0,
+                beRangeMode,
+                beStart: parseFloat(beStart) || 0.0,
+                beEnd: parseFloat(beEnd) || 0.0,
+                beStep: parseFloat(beStep) || 1.0,
+                symbols: effectiveSymbols,
+                timeframes: effectiveTimeframes
+              };
               if (isOptimizeMode) {
-                onRunOptimization();
+                onRunOptimization(rangeParams);
               } else {
-                onRunBacktest();
+                onRunBacktest(rangeParams);
               }
             }}
             style={{
@@ -2092,16 +2106,40 @@ export default function WyckoffBacktester({
                     const isProfit = (r.netPnl ?? 0) >= 0;
                     const rankMedal = idx === 0 ? '🏆 #1' : (idx === 1 ? '🥈 #2' : (idx === 2 ? '🥉 #3' : `#${idx + 1}`));
                     return (
-                      <div key={idx} style={{
-                        display: 'grid',
-                        gridTemplateColumns: isMobile ? '35px 1fr 1fr 1fr' : '35px 1.1fr 1.6fr 1fr 0.9fr 0.9fr 0.9fr',
-                        padding: '8px 8px',
-                        alignItems: 'center',
-                        borderLeft: `4px solid ${idx === 0 ? '#eab308' : (isProfit ? '#10b981' : '#ef4444')}`,
-                        backgroundColor: idx === 0 ? 'rgba(234, 179, 8, 0.1)' : 'rgba(31, 41, 55, 0.35)',
-                        borderRadius: '4px',
-                        fontSize: '11px'
-                      }}>
+                      <div
+                        key={idx}
+                        onClick={async () => {
+                          if (onLoadSpecificResults) {
+                            const beVal = r.be !== undefined && r.be !== null ? r.be : 'off';
+                            await onLoadSpecificResults(
+                              broker,
+                              r.symbol || symbol,
+                              r.timeframe || timeframe,
+                              String(r.sl ?? backtestSL),
+                              String(r.rr),
+                              String(beVal)
+                            );
+                          }
+                        }}
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: isMobile ? '35px 1fr 1fr 1fr' : '35px 1.1fr 1.6fr 1fr 0.9fr 0.9fr 0.9fr',
+                          padding: '8px 8px',
+                          alignItems: 'center',
+                          borderLeft: `4px solid ${idx === 0 ? '#eab308' : (isProfit ? '#10b981' : '#ef4444')}`,
+                          backgroundColor: idx === 0 ? 'rgba(234, 179, 8, 0.15)' : 'rgba(31, 41, 55, 0.45)',
+                          borderRadius: '4px',
+                          fontSize: '11px',
+                          cursor: onLoadSpecificResults ? 'pointer' : 'default',
+                          transition: 'background-color 0.15s'
+                        }}
+                        onMouseOver={(e) => {
+                          e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.2)';
+                        }}
+                        onMouseOut={(e) => {
+                          e.currentTarget.style.backgroundColor = idx === 0 ? 'rgba(234, 179, 8, 0.15)' : 'rgba(31, 41, 55, 0.45)';
+                        }}
+                      >
                         <span style={{ fontWeight: 'bold', color: idx === 0 ? '#facc15' : '#9ca3af' }}>{rankMedal}</span>
                         <span style={{ fontWeight: 'bold', color: '#ffffff' }}>{r.symbol || symbol} • {r.timeframe || timeframe}</span>
                         {!isMobile && (
