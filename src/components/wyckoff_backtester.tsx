@@ -771,7 +771,9 @@ export default function WyckoffBacktester({
             </button>
           )}
           <button
+            disabled={loadingBacktest}
             onClick={() => {
+              if (loadingBacktest) return;
               console.log(`[Wyckoff Backtester] ${isOptimizeMode ? 'Run Range Optimization' : 'Run Backtest'} clicked at:`, new Date().toLocaleTimeString());
               console.time("Backtest execution duration");
               const rangeParams = {
@@ -797,21 +799,47 @@ export default function WyckoffBacktester({
               alignItems: 'center',
               justifyContent: 'center',
               gap: '6px',
-              backgroundColor: isOptimizeMode ? '#10b981' : '#3b82f6',
+              backgroundColor: loadingBacktest ? '#1e293b' : (isOptimizeMode ? '#10b981' : '#3b82f6'),
               color: '#ffffff',
-              border: 'none',
+              border: loadingBacktest ? '1px solid #3b82f6' : 'none',
               padding: '6px 12px',
               borderRadius: '4px',
-              cursor: 'pointer',
+              cursor: loadingBacktest ? 'not-allowed' : 'pointer',
               fontWeight: 500,
               fontSize: '11px',
               transition: 'background-color 0.2s',
+              opacity: loadingBacktest ? 0.9 : 1
             }}
-            onMouseOver={(e) => e.currentTarget.style.backgroundColor = isOptimizeMode ? '#059669' : '#2563eb'}
-            onMouseOut={(e) => e.currentTarget.style.backgroundColor = isOptimizeMode ? '#10b981' : '#3b82f6'}
+            onMouseOver={(e) => !loadingBacktest && (e.currentTarget.style.backgroundColor = isOptimizeMode ? '#059669' : '#2563eb')}
+            onMouseOut={(e) => !loadingBacktest && (e.currentTarget.style.backgroundColor = isOptimizeMode ? '#10b981' : '#3b82f6')}
           >
-            {isOptimizeMode ? '⚡ Run Range Optimization' : '🔄 Run Backtest'}
+            {loadingBacktest ? `⏳ Running ${backtestProgress}%...` : (isOptimizeMode ? '⚡ Run Range Optimization' : '🔄 Run Backtest')}
           </button>
+          {loadingBacktest && (
+            <button
+              onClick={onCancelBacktest}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '4px',
+                backgroundColor: '#ef4444',
+                color: '#ffffff',
+                border: 'none',
+                padding: '6px 10px',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontWeight: 500,
+                fontSize: '11px',
+                transition: 'background-color 0.2s',
+              }}
+              onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#dc2626'}
+              onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#ef4444'}
+            >
+              🛑 Stop
+            </button>
+          )}
+
           {!isReadOnly && !isOptimizeMode && (
             <button
               onClick={() => setShowDeployModal(true)}
@@ -2783,77 +2811,7 @@ export default function WyckoffBacktester({
 
 
 
-        {loadingBacktest && (
-          <div style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(15, 23, 42, 0.6)',
-            backdropFilter: 'blur(4px)',
-            zIndex: 50,
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            flexDirection: 'column',
-            borderRadius: '8px',
-            pointerEvents: 'all'
-          }}>
-            <div style={{
-              width: '32px',
-              height: '32px',
-              border: '3px solid rgba(255, 255, 255, 0.1)',
-              borderTop: '3px solid #3b82f6',
-              borderRadius: '50%',
-              animation: 'spin 1s linear infinite',
-              marginBottom: '8px'
-            }} />
-            <style>{`
-            @keyframes spin {
-              0% { transform: rotate(0deg); }
-              100% { transform: rotate(360deg); }
-            }
-          `}</style>
-            <span style={{ color: '#ffffff', fontSize: '12px', fontWeight: 500 }}>Running Backtest: {backtestProgress}%</span>
-            <div style={{
-              width: '160px',
-              height: '6px',
-              backgroundColor: 'rgba(255, 255, 255, 0.15)',
-              borderRadius: '3px',
-              marginTop: '8px',
-              marginBottom: '4px',
-              overflow: 'hidden'
-            }}>
-              <div style={{
-                width: `${backtestProgress}%`,
-                height: '100%',
-                backgroundColor: '#3b82f6',
-                borderRadius: '3px',
-                transition: 'width 0.2s ease-out'
-              }} />
-            </div>
-            <button
-              onClick={onCancelBacktest}
-              style={{
-                marginTop: '12px',
-                backgroundColor: '#ef4444',
-                color: '#ffffff',
-                border: 'none',
-                padding: '6px 16px',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontWeight: 500,
-                fontSize: '11px',
-                transition: 'background-color 0.2s',
-              }}
-              onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#dc2626'}
-              onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#ef4444'}
-            >
-              🛑 Stop Backtest
-            </button>
-          </div>
-        )}
+
         {/* Settings Profiles Modal */}
         {showProfileModal && (
           <div style={{
