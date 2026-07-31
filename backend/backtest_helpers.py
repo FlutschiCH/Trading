@@ -187,110 +187,39 @@ def run_trade_simulation(
                     except Exception:
                         pass
 
-        wyckoff_sig = c.get('wyckoff_signal')
-        stage = c.get('wyckoff_stage', 'TRANSITION')
+        from strategy_handler import StrategyHandler
+        state_dict = {
+            'accum_consec_bars': accum_consec_bars,
+            'dist_consec_bars': dist_consec_bars,
+            'pending_buy': pending_buy,
+            'pending_sell': pending_sell,
+            'spring_high': spring_high,
+            'upthrust_low': upthrust_low,
+            'pending_buy_age': pending_buy_age,
+            'pending_sell_age': pending_sell_age
+        }
+        should_buy, should_sell, state_dict = StrategyHandler.evaluate_candle_signal(
+            c=c,
+            state=state_dict,
+            entry_stability_rule=entry_stability_rule,
+            timezone=timezone,
+            sessions=sessions,
+            date_from=date_from,
+            date_to=date_to,
+            daily_retry_limit=daily_retry_limit,
+            daily_trades_count=daily_trades_count
+        )
+        accum_consec_bars = state_dict['accum_consec_bars']
+        dist_consec_bars = state_dict['dist_consec_bars']
+        pending_buy = state_dict['pending_buy']
+        pending_sell = state_dict['pending_sell']
+        spring_high = state_dict['spring_high']
+        upthrust_low = state_dict['upthrust_low']
+        pending_buy_age = state_dict['pending_buy_age']
+        pending_sell_age = state_dict['pending_sell_age']
 
-        # Update stage consecutive bars counter
-        if stage == "ACCUMULATION":
-            accum_consec_bars += 1
-        else:
-            accum_consec_bars = 0
-
-        if stage == "DISTRIBUTION":
-            dist_consec_bars += 1
-        else:
-            dist_consec_bars = 0
-
-        # Increment age and enforce a max age for pending setups (e.g. 15 candles)
-        if pending_buy:
-            pending_buy_age += 1
-            if pending_buy_age > 15:
-                pending_buy = False
-
-        if pending_sell:
-            pending_sell_age += 1
-            if pending_sell_age > 15:
-                pending_sell = False
-
-        # Set up signal triggers
-        if wyckoff_sig == "Spring detected":
-            pending_buy = True
-            spring_high = float(c.get('high', 0))
-            pending_buy_age = 0
-            pending_sell = False  # Cancel opposite signal
-
-        if wyckoff_sig == "Upthrust detected":
-            pending_sell = True
-            upthrust_low = float(c.get('low', 0))
-            pending_sell_age = 0
-            pending_buy = False  # Cancel opposite signal
-
-        should_buy = False
-        should_sell = False
-
-        # Evaluate pending buy trigger
-        if pending_buy:
-            duration_ok = True
-            if entry_stability_rule in ('duration', 'both'):
-                duration_ok = (accum_consec_bars >= 3)
-
-            confirmation_ok = True
-            if entry_stability_rule in ('confirmation', 'both'):
-                confirmation_ok = (float(c.get('close', 0)) > spring_high)
-
-            if duration_ok and confirmation_ok:
-                if stage != "DISTRIBUTION":
-                    should_buy = True
-                    pending_buy = False
-
-            if wyckoff_sig == "Upthrust detected" or stage == "DISTRIBUTION":
-                pending_buy = False
-
-        # Evaluate pending sell trigger
-        if pending_sell:
-            duration_ok = True
-            if entry_stability_rule in ('duration', 'both'):
-                duration_ok = (dist_consec_bars >= 3)
-
-            confirmation_ok = True
-            if entry_stability_rule in ('confirmation', 'both'):
-                confirmation_ok = (float(c.get('close', 0)) < upthrust_low)
-
-            if duration_ok and confirmation_ok:
-                if stage != "ACCUMULATION":
-                    should_sell = True
-                    pending_sell = False
-
-            if wyckoff_sig == "Spring detected" or stage == "ACCUMULATION":
-                pending_sell = False
-
-        # Convert candle time to naive datetime in configured timezone
         candle_time = int(c.get('time', 0))
         dt_curr = get_candle_datetime(candle_time, timezone)
-
-        # Check if current candle time is in session
-        in_session, session_config = is_datetime_in_sessions(dt_curr, sessions)
-        if not in_session:
-            should_buy = False
-            should_sell = False
-
-        # Restrict new entry triggers to selected date range boundaries
-        if date_from is not None and candle_time < int(date_from):
-            should_buy = False
-            should_sell = False
-        if date_to is not None and candle_time > int(date_to):
-            should_buy = False
-            should_sell = False
-
-        # Apply daily retry limit
-        try:
-            date_str = datetime.utcfromtimestamp(candle_time).strftime('%Y-%m-%d')
-        except Exception:
-            date_str = 'unknown'
-        
-        if daily_retry_limit > 0 and daily_trades_count.get(date_str, 0) >= daily_retry_limit:
-            should_buy = False
-            should_sell = False
 
         low_val = float(c.get('low', 0))
         high_val = float(c.get('high', 0))

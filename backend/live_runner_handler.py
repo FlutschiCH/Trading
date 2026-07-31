@@ -346,96 +346,27 @@ class LiveRunner:
         timezone = strategy.get("timezone", "Local")
         sessions = strategy.get("sessions", [])
 
-        pending_buy = False
-        pending_sell = False
-        spring_high = None
-        upthrust_low = None
-        pending_buy_age = 0
-        pending_sell_age = 0
-        accum_consec_bars = 0
-        dist_consec_bars = 0
+        from strategy_handler import StrategyHandler
+        state_dict = {}
 
         # We evaluate sequentially to build the state
         for i, c in enumerate(annotated_candles[:-1]):  # Stop at index -2 (the last completed candle)
-            wyckoff_sig = c.get('wyckoff_signal')
-            stage = c.get('wyckoff_stage', 'TRANSITION')
+            should_buy, should_sell, state_dict = StrategyHandler.evaluate_candle_signal(
+                c=c,
+                state=state_dict,
+                entry_stability_rule=entry_stability_rule,
+                timezone=timezone,
+                sessions=sessions
+            )
 
-            if stage == "ACCUMULATION":
-                accum_consec_bars += 1
-            else:
-                accum_consec_bars = 0
-
-            if stage == "DISTRIBUTION":
-                dist_consec_bars += 1
-            else:
-                dist_consec_bars = 0
-
-            if pending_buy:
-                pending_buy_age += 1
-                if pending_buy_age > 15:
-                    pending_buy = False
-
-            if pending_sell:
-                pending_sell_age += 1
-                if pending_sell_age > 15:
-                    pending_sell = False
-
-            if wyckoff_sig == "Spring detected":
-                pending_buy = True
-                spring_high = float(c.get('high', 0))
-                pending_buy_age = 0
-                pending_sell = False
-
-            if wyckoff_sig == "Upthrust detected":
-                pending_sell = True
-                upthrust_low = float(c.get('low', 0))
-                pending_sell_age = 0
-                pending_buy = False
-
-            should_buy = False
-            should_sell = False
-
-            if pending_buy:
-                duration_ok = True
-                if entry_stability_rule in ('duration', 'both'):
-                    duration_ok = (accum_consec_bars >= 3)
-                confirmation_ok = True
-                if entry_stability_rule in ('confirmation', 'both'):
-                    confirmation_ok = (float(c.get('close', 0)) > spring_high)
-
-                if duration_ok and confirmation_ok:
-                    if stage != "DISTRIBUTION":
-                        should_buy = True
-                        pending_buy = False
-                if wyckoff_sig == "Upthrust detected" or stage == "DISTRIBUTION":
-                    pending_buy = False
-
-            if pending_sell:
-                duration_ok = True
-                if entry_stability_rule in ('duration', 'both'):
-                    duration_ok = (dist_consec_bars >= 3)
-                confirmation_ok = True
-                if entry_stability_rule in ('confirmation', 'both'):
-                    confirmation_ok = (float(c.get('close', 0)) < upthrust_low)
-
-                if duration_ok and confirmation_ok:
-                    if stage != "ACCUMULATION":
-                        should_sell = True
-                        pending_sell = False
-                if wyckoff_sig == "Spring detected" or stage == "ACCUMULATION":
-                    pending_sell = False
-
-            # Check session constraints for the candle time
-            c_time = int(c.get('time', 0))
-            if timezone == 'UTC':
-                dt_curr = datetime.fromtimestamp(c_time, tz=pytimezone.utc).replace(tzinfo=None)
-            else:
-                dt_curr = datetime.fromtimestamp(c_time)
-
-            in_session, _ = is_datetime_in_sessions(dt_curr, sessions)
-            if not in_session:
-                should_buy = False
-                should_sell = False
+        accum_consec_bars = state_dict.get('accum_consec_bars', 0)
+        dist_consec_bars = state_dict.get('dist_consec_bars', 0)
+        pending_buy = state_dict.get('pending_buy', False)
+        pending_sell = state_dict.get('pending_sell', False)
+        spring_high = state_dict.get('spring_high', None)
+        upthrust_low = state_dict.get('upthrust_low', None)
+        pending_buy_age = state_dict.get('pending_buy_age', 0)
+        pending_sell_age = state_dict.get('pending_sell_age', 0)
 
         # Build detailed status message and state info based on the final completed candle's state
         last_c = annotated_candles[-2] if len(annotated_candles) >= 2 else {}
@@ -564,9 +495,29 @@ class LiveRunner:
                         active_pos = p
                         break
 
+                allow_opposite_close = strategy.get("allowOppositeClose", True)
+                direction = "BUY" if should_buy else "SELL"
+
                 if active_pos:
-                    print(f"[Live Runner] Position already open for target {target_acc_id} on {symbol}. Skipping entry.", flush=True)
-                    continue
+                    pos_type = active_pos.get("type", "").upper()
+                    is_opposite = (pos_type == "BUY" and should_sell) or (pos_type == "SELL" and should_buy)
+                    
+                    if is_opposite and allow_opposite_close:
+                        print(f"[Live Runner] Opposite signal detected for target {target_acc_id} on {symbol}. Closing open {pos_type} position...", flush=True)
+                        try:
+                            handler.close_position(active_pos, **target_kwargs)
+                            from discord_handler import send_discord_message
+                            send_discord_message(
+                                f"🔄 **Opposite Signal Position Closed**\n"
+                                f"🎛️ **Strategy ID:** `{strategy_id}`\n"
+                                f"📊 **Symbol:** `{symbol}`\n"
+                                f"🚫 **Closed Position:** `{pos_type}`"
+                            )
+                        except Exception as close_err:
+                            print(f"[Live Runner] Failed to close opposite position: {close_err}", flush=True)
+                    else:
+                        print(f"[Live Runner] Position already open ({pos_type}) for target {target_acc_id} on {symbol}. Skipping entry (allowOppositeClose={allow_opposite_close}).", flush=True)
+                        continue
 
                 # 2. Get Account Info for sizing
                 acct = handler.get_account_info(**target_kwargs)

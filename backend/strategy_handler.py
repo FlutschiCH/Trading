@@ -5,6 +5,153 @@ from trading_handler import TradingHandler
 
 class StrategyHandler:
     @staticmethod
+    def evaluate_candle_signal(
+        c: dict,
+        state: dict,
+        entry_stability_rule: str = 'default',
+        timezone: str = 'Local',
+        sessions: list = None,
+        date_from: float = None,
+        date_to: float = None,
+        daily_retry_limit: int = 0,
+        daily_trades_count: dict = None
+    ) -> tuple:
+        """
+        Pure signal detection logic shared between Backtesting and Live Trading.
+        Updates state dictionary in-place and returns (should_buy, should_sell, state).
+        """
+        if daily_trades_count is None:
+            daily_trades_count = {}
+
+        wyckoff_sig = c.get('wyckoff_signal')
+        stage = c.get('wyckoff_stage', 'TRANSITION')
+
+        accum_consec_bars = state.get('accum_consec_bars', 0)
+        dist_consec_bars = state.get('dist_consec_bars', 0)
+        pending_buy = state.get('pending_buy', False)
+        pending_sell = state.get('pending_sell', False)
+        spring_high = state.get('spring_high', None)
+        upthrust_low = state.get('upthrust_low', None)
+        pending_buy_age = state.get('pending_buy_age', 0)
+        pending_sell_age = state.get('pending_sell_age', 0)
+
+        # Update stage consecutive bars counter
+        if stage == "ACCUMULATION":
+            accum_consec_bars += 1
+        else:
+            accum_consec_bars = 0
+
+        if stage == "DISTRIBUTION":
+            dist_consec_bars += 1
+        else:
+            dist_consec_bars = 0
+
+        # Increment age and enforce a max age for pending setups (15 candles)
+        if pending_buy:
+            pending_buy_age += 1
+            if pending_buy_age > 15:
+                pending_buy = False
+
+        if pending_sell:
+            pending_sell_age += 1
+            if pending_sell_age > 15:
+                pending_sell = False
+
+        # Set up signal triggers
+        if wyckoff_sig == "Spring detected":
+            pending_buy = True
+            spring_high = float(c.get('high', 0))
+            pending_buy_age = 0
+            pending_sell = False
+
+        if wyckoff_sig == "Upthrust detected":
+            pending_sell = True
+            upthrust_low = float(c.get('low', 0))
+            pending_sell_age = 0
+            pending_buy = False
+
+        should_buy = False
+        should_sell = False
+
+        # Evaluate pending buy trigger
+        if pending_buy:
+            duration_ok = True
+            if entry_stability_rule in ('duration', 'both'):
+                duration_ok = (accum_consec_bars >= 3)
+
+            confirmation_ok = True
+            if entry_stability_rule in ('confirmation', 'both'):
+                confirmation_ok = (float(c.get('close', 0)) > spring_high)
+
+            if duration_ok and confirmation_ok:
+                if stage != "DISTRIBUTION":
+                    should_buy = True
+                    pending_buy = False
+
+            if wyckoff_sig == "Upthrust detected" or stage == "DISTRIBUTION":
+                pending_buy = False
+
+        # Evaluate pending sell trigger
+        if pending_sell:
+            duration_ok = True
+            if entry_stability_rule in ('duration', 'both'):
+                duration_ok = (dist_consec_bars >= 3)
+
+            confirmation_ok = True
+            if entry_stability_rule in ('confirmation', 'both'):
+                confirmation_ok = (float(c.get('close', 0)) < upthrust_low)
+
+            if duration_ok and confirmation_ok:
+                if stage != "ACCUMULATION":
+                    should_sell = True
+                    pending_sell = False
+
+            if wyckoff_sig == "Spring detected" or stage == "ACCUMULATION":
+                pending_sell = False
+
+        # Session filtering
+        candle_time = int(c.get('time', 0))
+        from backtest_helpers import get_candle_datetime, is_datetime_in_sessions
+        dt_curr = get_candle_datetime(candle_time, timezone)
+
+        in_session, _ = is_datetime_in_sessions(dt_curr, sessions)
+        if not in_session:
+            should_buy = False
+            should_sell = False
+
+        # Date range filtering
+        if date_from is not None and candle_time < int(date_from):
+            should_buy = False
+            should_sell = False
+        if date_to is not None and candle_time > int(date_to):
+            should_buy = False
+            should_sell = False
+
+        # Daily retry limit
+        try:
+            from datetime import datetime
+            date_str = datetime.utcfromtimestamp(candle_time).strftime('%Y-%m-%d')
+        except Exception:
+            date_str = 'unknown'
+
+        if daily_retry_limit > 0 and daily_trades_count.get(date_str, 0) >= daily_retry_limit:
+            should_buy = False
+            should_sell = False
+
+        state.update({
+            'accum_consec_bars': accum_consec_bars,
+            'dist_consec_bars': dist_consec_bars,
+            'pending_buy': pending_buy,
+            'pending_sell': pending_sell,
+            'spring_high': spring_high,
+            'upthrust_low': upthrust_low,
+            'pending_buy_age': pending_buy_age,
+            'pending_sell_age': pending_sell_age
+        })
+
+        return should_buy, should_sell, state
+
+    @staticmethod
     def analyze_market_data(bars_list: list, lookback: int = 20, progress_callback=None) -> dict:
         """
         Takes raw candlestick data, runs Wyckoff structure analysis,
