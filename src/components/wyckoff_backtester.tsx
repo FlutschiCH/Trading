@@ -344,10 +344,7 @@ export default function WyckoffBacktester({
   const [collapsedSections, setCollapsedSections] = React.useState<{ [key: string]: boolean }>(() => {
     try {
       const saved = localStorage.getItem('wyckoff_backtester_collapsed');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return { ...parsed, trades: false };
-      }
+      if (saved) return JSON.parse(saved);
     } catch (e) {
       console.error(e);
     }
@@ -361,11 +358,6 @@ export default function WyckoffBacktester({
     };
   });
 
-  React.useEffect(() => {
-    if (backtestResults) {
-      setCollapsedSections(prev => ({ ...prev, trades: false }));
-    }
-  }, [backtestResults]);
 
   const toggleSection = (section: string) => {
     setCollapsedSections(prev => {
@@ -2176,11 +2168,17 @@ export default function WyckoffBacktester({
         </div>
       </fieldset>
 
-        {(backtestResults || favouriteCandles.length > 0) && (
-          <CollapsibleCard title="Trades & Results" style={{ marginTop: '16px' }} isCollapsed={collapsedSections.trades} onToggle={() => toggleSection('trades')}>
-            {backtestResults && (
-              <>
-                {backtestResults.dailyLossBreached && (
+        <CollapsibleCard title="Trades & Results" style={{ marginTop: '16px' }} isCollapsed={collapsedSections.trades} onToggle={() => toggleSection('trades')}>
+          {!backtestResults && favouriteCandles.length === 0 ? (
+            <div style={{ color: '#9ca3af', padding: '16px', fontSize: '11px', textAlign: 'center', fontStyle: 'italic' }}>
+              No backtest results yet. Click "Run Backtest" above to generate trade analytics.
+            </div>
+          ) : (
+            <>
+              {backtestResults && (
+                <>
+                  {backtestResults.dailyLossBreached && (
+
                   <div style={{
                     backgroundColor: 'rgba(239, 68, 68, 0.15)',
                     border: '1px solid #ef4444',
@@ -2734,12 +2732,13 @@ export default function WyckoffBacktester({
                         }}
                       />
                     </div>
-                  </div>
                 );
               })}
             </div>
-          </CollapsibleCard>
-        )}
+            </>
+          )}
+        </CollapsibleCard>
+
 
         {loadingBacktest && (
           <div style={{
