@@ -291,16 +291,26 @@ export default function WyckoffBacktester({
   const [activeResultCombo, setActiveResultCombo] = React.useState<{ symbol: string; timeframe: string } | null>(null);
   const currentCombo = activeResultCombo || { symbol: effectiveSymbols[0], timeframe: effectiveTimeframes[0] };
 
-  // Range states for SL, RR, and BE
-  const [slRangeMode, setSLRangeMode] = React.useState<boolean>(false);
-  const [slStart, setSLStart] = React.useState<string>('10');
-  const [slEnd, setSLEnd] = React.useState<string>('20');
-  const [slStep, setSLStep] = React.useState<string>('1');
+  // Range states for SL, RR, and BE (persisted in localStorage)
+  const [slRangeMode, setSLRangeMode] = React.useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('wyckoff_backtester_sl_range_mode');
+      return saved !== null ? JSON.parse(saved) : false;
+    } catch { return false; }
+  });
+  const [slStart, setSLStart] = React.useState<string>(() => localStorage.getItem('wyckoff_backtester_sl_start') || '10');
+  const [slEnd, setSLEnd] = React.useState<string>(() => localStorage.getItem('wyckoff_backtester_sl_end') || '20');
+  const [slStep, setSLStep] = React.useState<string>(() => localStorage.getItem('wyckoff_backtester_sl_step') || '1');
 
-  const [rrRangeMode, setRRRangeMode] = React.useState<boolean>(false);
-  const [internalRRStart, setInternalRRStart] = React.useState<string>('0.5');
-  const [internalRREnd, setInternalRREnd] = React.useState<string>('5.0');
-  const [internalRRStep, setInternalRRStep] = React.useState<string>('0.1');
+  const [rrRangeMode, setRRRangeMode] = React.useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('wyckoff_backtester_rr_range_mode');
+      return saved !== null ? JSON.parse(saved) : false;
+    } catch { return false; }
+  });
+  const [internalRRStart, setInternalRRStart] = React.useState<string>(() => localStorage.getItem('wyckoff_backtester_rr_start') || '0.5');
+  const [internalRREnd, setInternalRREnd] = React.useState<string>(() => localStorage.getItem('wyckoff_backtester_rr_end') || '5.0');
+  const [internalRRStep, setInternalRRStep] = React.useState<string>(() => localStorage.getItem('wyckoff_backtester_rr_step') || '0.1');
 
   const activeRRStart = rrStart ?? internalRRStart;
   const setActiveRRStart = setRRStart ?? setInternalRRStart;
@@ -309,10 +319,37 @@ export default function WyckoffBacktester({
   const activeRRStep = rrStep ?? internalRRStep;
   const setActiveRRStep = setRRStep ?? setInternalRRStep;
 
-  const [beRangeMode, setBERangeMode] = React.useState<boolean>(false);
-  const [beStart, setBEStart] = React.useState<string>('1.0');
-  const [beEnd, setBEEnd] = React.useState<string>('3.0');
-  const [beStep, setBEStep] = React.useState<string>('0.5');
+  const [beRangeMode, setBERangeMode] = React.useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('wyckoff_backtester_be_range_mode');
+      return saved !== null ? JSON.parse(saved) : false;
+    } catch { return false; }
+  });
+  const [beStart, setBEStart] = React.useState<string>(() => localStorage.getItem('wyckoff_backtester_be_start') || '1.0');
+  const [beEnd, setBEEnd] = React.useState<string>(() => localStorage.getItem('wyckoff_backtester_be_end') || '3.0');
+  const [beStep, setBEStep] = React.useState<string>(() => localStorage.getItem('wyckoff_backtester_be_step') || '0.5');
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('wyckoff_backtester_sl_range_mode', JSON.stringify(slRangeMode));
+      localStorage.setItem('wyckoff_backtester_sl_start', slStart);
+      localStorage.setItem('wyckoff_backtester_sl_end', slEnd);
+      localStorage.setItem('wyckoff_backtester_sl_step', slStep);
+
+      localStorage.setItem('wyckoff_backtester_rr_range_mode', JSON.stringify(rrRangeMode));
+      localStorage.setItem('wyckoff_backtester_rr_start', internalRRStart);
+      localStorage.setItem('wyckoff_backtester_rr_end', internalRREnd);
+      localStorage.setItem('wyckoff_backtester_rr_step', internalRRStep);
+
+      localStorage.setItem('wyckoff_backtester_be_range_mode', JSON.stringify(beRangeMode));
+      localStorage.setItem('wyckoff_backtester_be_start', beStart);
+      localStorage.setItem('wyckoff_backtester_be_end', beEnd);
+      localStorage.setItem('wyckoff_backtester_be_step', beStep);
+    } catch (e) {
+      console.error(e);
+    }
+  }, [slRangeMode, slStart, slEnd, slStep, rrRangeMode, internalRRStart, internalRREnd, internalRRStep, beRangeMode, beStart, beEnd, beStep]);
+
 
   const calcStepCount = (startStr: string, endStr: string, stepStr: string) => {
     const start = parseFloat(startStr) || 0;
