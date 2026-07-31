@@ -94,6 +94,38 @@ class SessionBoxPrimitive implements ISeriesPrimitive {
   }
 }
 
+const findCandleTimeForTimestamp = (ts: number | string | undefined | null, candles: any[]): number | null => {
+  if (!ts || !candles || candles.length === 0) return null;
+  let normalizedTs = Number(ts);
+  if (isNaN(normalizedTs)) return null;
+  if (normalizedTs > 2000000000) normalizedTs = Math.floor(normalizedTs / 1000);
+
+  const exact = candles.find(c => Number(c.time) === normalizedTs);
+  if (exact) return Number(exact.time);
+
+  for (let i = 0; i < candles.length; i++) {
+    const candleTime = Number(candles[i].time);
+    const nextCandleTime = i < candles.length - 1 ? Number(candles[i + 1].time) : candleTime + 86400;
+    if (normalizedTs >= candleTime && normalizedTs < nextCandleTime) {
+      return candleTime;
+    }
+  }
+
+  let closest = candles[0];
+  let minDiff = Math.abs(Number(closest.time) - normalizedTs);
+  for (const c of candles) {
+    const diff = Math.abs(Number(c.time) - normalizedTs);
+    if (diff < minDiff) {
+      minDiff = diff;
+      closest = c;
+    }
+  }
+  if (minDiff <= 86400 * 7) {
+    return Number(closest.time);
+  }
+  return null;
+};
+
 const isLocal = typeof window !== 'undefined' &&
   (window.location.hostname === 'localhost' ||
     window.location.hostname === '127.0.0.1' ||
@@ -1498,8 +1530,49 @@ export default function TVChart({
         })
         .filter((m) => m !== null) : [];
 
+      let openPositionsList: any[] = [];
+      if (Array.isArray(openPositions) && openPositions.length > 0) {
+        openPositionsList = openPositions;
+      } else {
+        try {
+          const stored = localStorage.getItem('wyckoff_active_positions');
+          if (stored) openPositionsList = JSON.parse(stored);
+        } catch (e) {}
+      }
+
+      const currentSymbolClean = (symbol || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+      const matchingOpenPositions = (openPositionsList || []).filter((p) => {
+        if (!p || !p.symbol) return false;
+        const posSymbolClean = String(p.symbol).replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+        return posSymbolClean.includes(currentSymbolClean) || currentSymbolClean.includes(posSymbolClean);
+      });
+
+      const openPositionMarkers: any[] = [];
+      if (chartSettings.showPositions !== false) {
+        matchingOpenPositions.forEach((pos) => {
+          const rawTs = pos.entry_timestamp ?? pos.entryTimestamp ?? pos.timestamp ?? pos.open_time ?? pos.openTime ?? pos.time;
+          const matchedTime = findCandleTimeForTimestamp(rawTs, activeCandles);
+          if (matchedTime !== null) {
+            const isBuy = (pos.trade_side || pos.side || pos.type || 'BUY').toUpperCase() === 'BUY';
+            const baseColor = isBuy ? '#3b82f6' : '#ec4899';
+            const volume = pos.volume !== undefined ? pos.volume : '';
+            const entryPriceVal = parseFloat(pos.entry_price ?? pos.entryPrice ?? 0);
+            const priceText = entryPriceVal > 0 ? ` @ ${entryPriceVal.toFixed(2)}` : '';
+
+            openPositionMarkers.push({
+              time: matchedTime as any,
+              position: (isBuy ? 'belowBar' : 'aboveBar') as any,
+              color: baseColor,
+              shape: (isBuy ? 'arrowUp' : 'arrowDown') as any,
+              text: `ENTRY ${isBuy ? 'BUY' : 'SELL'} ${volume}${priceText}`,
+              size: 2,
+            });
+          }
+        });
+      }
+
       const validCandleTimes = new Set(activeCandles.flatMap(c => [c.time, Number(c.time)]));
-      const allMarkers = [...entryMarkers, ...exitMarkers]
+      const allMarkers = [...entryMarkers, ...exitMarkers, ...openPositionMarkers]
         .filter((m) => m && m.time != null && m.time !== '' && validCandleTimes.has(m.time) && m.position != null && m.color != null && m.shape != null)
         .sort((a, b) => {
           const timeA = typeof a.time === 'number' ? a.time : new Date(a.time).getTime();
@@ -2717,8 +2790,34 @@ export default function TVChart({
                 const activeSlY = activeSlPrice > 0 && candlestickSeriesRef.current ? candlestickSeriesRef.current.priceToCoordinate(activeSlPrice) : slY;
                 const activeTpY = activeTpPrice > 0 && candlestickSeriesRef.current ? candlestickSeriesRef.current.priceToCoordinate(activeTpPrice) : tpY;
 
+                const entryTs = pos.entry_timestamp ?? pos.entryTimestamp ?? pos.timestamp ?? pos.open_time ?? pos.openTime ?? pos.time;
+                const matchedCandleTime = entryTs ? findCandleTimeForTimestamp(entryTs, activeCandles) : null;
+                const entryX = matchedCandleTime && chartRef.current ? chartRef.current.timeScale().timeToCoordinate(matchedCandleTime) : null;
+
                 return (
                   <g key={`svg-pos-badge-${pos.position_id}`}>
+                    {/* Entry Triangle Indicator on Candle */}
+                    {entryX !== null && entryX > 0 && entryX < plotWidth && entryY !== null && entryY > 0 && entryY < chartHeight - 26 && (
+                      <g style={{ pointerEvents: 'none' }}>
+                        <polygon
+                          points={isBuy
+                            ? `${entryX},${entryY - 12} ${entryX - 7},${entryY + 2} ${entryX + 7},${entryY + 2}`
+                            : `${entryX},${entryY + 12} ${entryX - 7},${entryY - 2} ${entryX + 7},${entryY - 2}`}
+                          fill={isBuy ? '#2563eb' : '#db2777'}
+                          stroke="#ffffff"
+                          strokeWidth={1.5}
+                        />
+                        <circle
+                          cx={entryX}
+                          cy={entryY}
+                          r={3}
+                          fill="#ffffff"
+                          stroke={isBuy ? '#2563eb' : '#db2777'}
+                          strokeWidth={1.5}
+                        />
+                      </g>
+                    )}
+
                     {/* Entry Badge - Opens Trade Info */}
                     {(chartSettings.showPositionsEntry !== false) && entryY !== null && entryY > 0 && entryY < chartHeight - 26 && (
                       <g
