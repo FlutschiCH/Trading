@@ -373,16 +373,25 @@ def get_backtest_results():
     results_path = os.path.join(base_dir, 'backtest_results.json')
     
     if broker and symbol:
-        if timeframe and sl and rr and be:
-            specific_filename = f"backtest_results_{broker.lower()}_{symbol.lower()}_{timeframe}_sl{sl}_rr{rr}_be{be}.json"
-            specific_path = os.path.join(base_dir, specific_filename)
-            if os.path.exists(specific_path):
-                results_path = specific_path
-        else:
-            specific_filename = f"backtest_results_{broker.lower()}_{symbol.upper()}.json"
-            specific_path = os.path.join(base_dir, specific_filename)
-            if os.path.exists(specific_path):
-                results_path = specific_path
+        be_str = str(be).lower() if be is not None else "off"
+        rr_str = str(rr)
+        try:
+            rr_fmt = f"{float(rr):.1f}"
+        except Exception:
+            rr_fmt = rr_str
+
+        possible_filenames = [
+            f"backtest_results_{broker.lower()}_{symbol.lower()}_{timeframe}_sl{sl}_rr{rr_str}_be{be_str}.json",
+            f"backtest_results_{broker.lower()}_{symbol.lower()}_{timeframe}_sl{sl}_rr{rr_fmt}_be{be_str}.json",
+            f"backtest_results_{broker.lower()}_{symbol.lower()}_{timeframe}_sl{sl}_rr{rr_str}_be{be}.json",
+            f"backtest_results_{broker.lower()}_{symbol.upper()}.json",
+        ]
+        for fname in possible_filenames:
+            path = os.path.join(base_dir, fname)
+            if os.path.exists(path):
+                results_path = path
+                break
+
             
     if os.path.exists(results_path):
         try:

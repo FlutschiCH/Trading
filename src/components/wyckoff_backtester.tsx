@@ -289,7 +289,9 @@ export default function WyckoffBacktester({
   const [showTfDropdown, setShowTfDropdown] = React.useState(false);
 
   const [activeResultCombo, setActiveResultCombo] = React.useState<{ symbol: string; timeframe: string } | null>(null);
+  const [selectedLeaderboardCombo, setSelectedLeaderboardCombo] = React.useState<any | null>(null);
   const currentCombo = activeResultCombo || { symbol: effectiveSymbols[0], timeframe: effectiveTimeframes[0] };
+
 
   // Range states for SL, RR, and BE (persisted in localStorage)
   const [slRangeMode, setSLRangeMode] = React.useState<boolean>(() => {
@@ -2174,10 +2176,18 @@ export default function WyckoffBacktester({
                   return sortedList.map((r, idx) => {
                     const isProfit = (r.netPnl ?? 0) >= 0;
                     const rankMedal = idx === 0 ? '🏆 #1' : (idx === 1 ? '🥈 #2' : (idx === 2 ? '🥉 #3' : `#${idx + 1}`));
+                    const isSelected = selectedLeaderboardCombo &&
+                      selectedLeaderboardCombo.symbol === (r.symbol || symbol) &&
+                      selectedLeaderboardCombo.timeframe === (r.timeframe || timeframe) &&
+                      String(selectedLeaderboardCombo.sl) === String(r.sl) &&
+                      String(selectedLeaderboardCombo.rr) === String(r.rr);
+
                     return (
                       <div
                         key={idx}
                         onClick={async () => {
+                          setSelectedLeaderboardCombo(r);
+                          setCollapsedSections(prev => ({ ...prev, trades: false }));
                           if (onLoadSpecificResults) {
                             const beVal = r.be !== undefined && r.be !== null ? r.be : 'off';
                             await onLoadSpecificResults(
@@ -2195,21 +2205,22 @@ export default function WyckoffBacktester({
                           gridTemplateColumns: isMobile ? '35px 1fr 1fr 1fr' : '35px 1.1fr 1.6fr 1fr 0.9fr 0.9fr 0.9fr',
                           padding: '8px 8px',
                           alignItems: 'center',
-                          borderLeft: `4px solid ${idx === 0 ? '#eab308' : (isProfit ? '#10b981' : '#ef4444')}`,
-                          backgroundColor: idx === 0 ? 'rgba(234, 179, 8, 0.15)' : 'rgba(31, 41, 55, 0.45)',
+                          borderLeft: `4px solid ${isSelected ? '#3b82f6' : (idx === 0 ? '#eab308' : (isProfit ? '#10b981' : '#ef4444'))}`,
+                          backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.25)' : (idx === 0 ? 'rgba(234, 179, 8, 0.15)' : 'rgba(31, 41, 55, 0.45)'),
+                          border: isSelected ? '1px solid #3b82f6' : '1px solid transparent',
                           borderRadius: '4px',
                           fontSize: '11px',
-                          cursor: onLoadSpecificResults ? 'pointer' : 'default',
-                          transition: 'background-color 0.15s'
+                          cursor: 'pointer',
+                          transition: 'all 0.15s'
                         }}
                         onMouseOver={(e) => {
-                          e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.2)';
+                          if (!isSelected) e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.2)';
                         }}
                         onMouseOut={(e) => {
-                          e.currentTarget.style.backgroundColor = idx === 0 ? 'rgba(234, 179, 8, 0.15)' : 'rgba(31, 41, 55, 0.45)';
+                          if (!isSelected) e.currentTarget.style.backgroundColor = idx === 0 ? 'rgba(234, 179, 8, 0.15)' : 'rgba(31, 41, 55, 0.45)';
                         }}
                       >
-                        <span style={{ fontWeight: 'bold', color: idx === 0 ? '#facc15' : '#9ca3af' }}>{rankMedal}</span>
+                        <span style={{ fontWeight: 'bold', color: isSelected ? '#38bdf8' : (idx === 0 ? '#facc15' : '#9ca3af') }}>{rankMedal}</span>
                         <span style={{ fontWeight: 'bold', color: '#ffffff' }}>{r.symbol || symbol} • {r.timeframe || timeframe}</span>
                         {!isMobile && (
                           <span style={{ color: '#cbd5e1', fontSize: '10px' }}>
@@ -2227,6 +2238,7 @@ export default function WyckoffBacktester({
                       </div>
                     );
                   });
+
                 })()}
               </div>
             </div>
@@ -2241,9 +2253,37 @@ export default function WyckoffBacktester({
           ) : (
 
             <>
+              {selectedLeaderboardCombo && (
+                <div style={{
+                  backgroundColor: '#0f172a',
+                  border: '1px solid #3b82f6',
+                  borderRadius: '6px',
+                  padding: '8px 12px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginTop: '4px',
+                  marginBottom: '8px',
+                  flexWrap: 'wrap',
+                  gap: '6px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#38bdf8' }}>
+                      🔍 Config: {selectedLeaderboardCombo.symbol || symbol} ({selectedLeaderboardCombo.timeframe || timeframe})
+                    </span>
+                    <span style={{ fontSize: '10px', color: '#cbd5e1', backgroundColor: '#1e293b', padding: '2px 6px', borderRadius: '4px' }}>
+                      SL: {selectedLeaderboardCombo.sl ?? backtestSL}{selectedLeaderboardCombo.slType === 'price' ? 'p' : '%'} | RR: 1:{selectedLeaderboardCombo.rr} | BE: {selectedLeaderboardCombo.be ? `${selectedLeaderboardCombo.be}R` : 'Off'}
+                    </span>
+                  </div>
+                  <span style={{ fontSize: '11px', color: (selectedLeaderboardCombo.netPnl ?? 0) >= 0 ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>
+                    PnL: ${(selectedLeaderboardCombo.netPnl ?? 0).toFixed(2)} | WR: {(selectedLeaderboardCombo.winRate ?? 0).toFixed(1)}% | PF: {(selectedLeaderboardCombo.profitFactor ?? 0).toFixed(2)}
+                  </span>
+                </div>
+              )}
               {backtestResults && (
                 <>
                   {backtestResults.dailyLossBreached && (
+
 
                   <div style={{
                     backgroundColor: 'rgba(239, 68, 68, 0.15)',
