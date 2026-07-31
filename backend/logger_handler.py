@@ -21,7 +21,6 @@ class LoggerHandler:
     ]
     DISABLED_CATEGORIES = [
         "SQLHandler",
-        "Flask API"
     ]
 
     _settings_cache = {}
