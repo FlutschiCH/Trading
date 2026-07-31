@@ -8,6 +8,20 @@ import threading
 from datetime import datetime
 
 class LoggerHandler:
+    # Manual log visibility overrides (Set DB checks aside for manual control)
+    ENABLED_CATEGORIES = [
+        "LiveRunner",
+        "LiveStrategy",
+        "TradingHandler",
+        "MetaTraderHandler",
+        "CTraderHandler",
+        "App",
+        "System"
+    ]
+    DISABLED_CATEGORIES = [
+        "SQLHandler"
+    ]
+
     _settings_cache = {}
     _last_cache_time = 0
     _file_lock = threading.Lock()
@@ -16,9 +30,9 @@ class LoggerHandler:
     @classmethod
     def log(cls, msg: str, category: str = None, level: str = "INFO"):
         """
-        Unified structured logging helper with DB settings check.
+        Unified structured logging helper.
         Automatically infers caller module name if category is not provided.
-        Checks system_log_settings in MySQL to determine if category is enabled.
+        Checks ENABLED_CATEGORIES and DISABLED_CATEGORIES lists at class level.
         Appends log entry to logs.json.
         """
         if category is None:
@@ -30,21 +44,12 @@ class LoggerHandler:
             elif '.' in category:
                 category = category.split('.')[-1]
 
-        if category == "SQLHandler":
+        # 1. Check explicit manual disable list
+        if category in cls.DISABLED_CATEGORIES:
             return
 
-        # Refresh cache from DB every 2 seconds for high performance
-        now = time.time()
-        if now - cls._last_cache_time > 2.0:
-            try:
-                from sql_handler import SQLHandler
-                cls._settings_cache = SQLHandler.get_log_settings()
-                cls._last_cache_time = now
-            except Exception:
-                pass
-
-        # If category is explicitly set to disabled (0) in DB, suppress the print
-        if cls._settings_cache and cls._settings_cache.get(category) is False:
+        # 2. Check explicit manual enable list (if populated, only allow listed categories)
+        if cls.ENABLED_CATEGORIES and category not in cls.ENABLED_CATEGORIES:
             return
 
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
