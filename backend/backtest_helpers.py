@@ -523,20 +523,31 @@ def run_trade_simulation(
 
     reversed_trades = list(reversed(completed_trades))
     
-    # Save backtest trades to JSON for analysis
+    # Save backtest trades to JSON for analysis (config-specific filename)
     try:
         import json, os
-        bt_file = os.path.join(os.path.dirname(__file__), "backtest_trades.json")
+        be_str = f"be{be_trigger_r}" if use_break_even else "be_off"
+        clean_sym = str(symbol).replace('/', '_').replace('.', '_').lower()
+        config_filename = f"backtest_trades_{clean_sym}_sl{sl_val}_rr{rr}_{be_str}.json"
+        bt_file = os.path.join(os.path.dirname(__file__), config_filename)
+        latest_file = os.path.join(os.path.dirname(__file__), "backtest_trades.json")
+        payload = {
+            "saved_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "symbol": symbol,
+            "sl_val": sl_val,
+            "rr": rr,
+            "be_trigger_r": be_trigger_r if use_break_even else None,
+            "total_trades": len(completed_trades),
+            "trades": completed_trades
+        }
         with open(bt_file, "w", encoding="utf-8") as f:
-            json.dump({
-                "saved_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "symbol": symbol,
-                "total_trades": len(completed_trades),
-                "trades": completed_trades
-            }, f, indent=2, ensure_ascii=False)
-        print(f"[Trade Simulation] Saved {len(completed_trades)} backtest trades to {bt_file}", flush=True)
+            json.dump(payload, f, indent=2, ensure_ascii=False)
+        with open(latest_file, "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2, ensure_ascii=False)
+        print(f"[Trade Simulation] Saved {len(completed_trades)} backtest trades to {config_filename}", flush=True)
     except Exception as bt_err:
         print(f"[Trade Simulation] Failed to save backtest trades to JSON: {bt_err}", flush=True)
+
 
     return {
         "trades": reversed_trades,
