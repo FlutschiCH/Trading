@@ -220,6 +220,11 @@ def run_trade_simulation(
 
         candle_time = int(c.get('time', 0))
         dt_curr = get_candle_datetime(candle_time, timezone)
+        try:
+            from datetime import datetime
+            date_str = datetime.utcfromtimestamp(candle_time).strftime('%Y-%m-%d')
+        except Exception:
+            date_str = 'unknown'
 
         low_val = float(c.get('low', 0))
         high_val = float(c.get('high', 0))
