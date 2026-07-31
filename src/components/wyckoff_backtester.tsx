@@ -374,7 +374,18 @@ export default function WyckoffBacktester({
 
   const totalRunCombinations = symbolCount * timeframeCount * slCount * rrCount * beCount;
 
-  const [optSortBy, setOptSortBy] = React.useState<'netPnl' | 'winRate' | 'profitFactor' | 'maxDrawdown'>('netPnl');
+  const [optSortBy, setOptSortBy] = React.useState<'netPnl' | 'winRate' | 'profitFactor' | 'maxDrawdown' | 'totalTrades'>('netPnl');
+  const [optSortDir, setOptSortDir] = React.useState<'asc' | 'desc'>('desc');
+
+  const handleHeaderSort = (column: 'netPnl' | 'winRate' | 'profitFactor' | 'maxDrawdown' | 'totalTrades') => {
+    if (optSortBy === column) {
+      setOptSortDir(prev => prev === 'desc' ? 'asc' : 'desc');
+    } else {
+      setOptSortBy(column);
+      setOptSortDir(column === 'maxDrawdown' ? 'asc' : 'desc');
+    }
+  };
+
 
   React.useEffect(() => {
     const handleResize = () => {
@@ -2158,15 +2169,40 @@ export default function WyckoffBacktester({
                 color: '#9ca3af',
                 borderBottom: '1px solid #1e293b',
                 backgroundColor: '#1e293b',
-                borderRadius: '4px 4px 0 0'
+                borderRadius: '4px 4px 0 0',
+                userSelect: 'none'
               }}>
                 <span>Rank</span>
                 <span>Symbol/TF</span>
                 {!isMobile && <span>Params (SL / RR / BE)</span>}
-                <span style={{ textAlign: 'right', color: '#38bdf8' }}>Net Profit</span>
-                <span style={{ textAlign: 'center' }}>Win Rate</span>
-                {!isMobile && <span style={{ textAlign: 'center' }}>Prof. Fact</span>}
-                {!isMobile && <span style={{ textAlign: 'right' }}>Max DD</span>}
+                <span
+                  onClick={() => handleHeaderSort('netPnl')}
+                  style={{ textAlign: 'right', color: optSortBy === 'netPnl' ? '#38bdf8' : '#9ca3af', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '3px' }}
+                >
+                  Net Profit {optSortBy === 'netPnl' ? (optSortDir === 'desc' ? '▼' : '▲') : ''}
+                </span>
+                <span
+                  onClick={() => handleHeaderSort('winRate')}
+                  style={{ textAlign: 'center', color: optSortBy === 'winRate' ? '#38bdf8' : '#9ca3af', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}
+                >
+                  Win Rate {optSortBy === 'winRate' ? (optSortDir === 'desc' ? '▼' : '▲') : ''}
+                </span>
+                {!isMobile && (
+                  <span
+                    onClick={() => handleHeaderSort('profitFactor')}
+                    style={{ textAlign: 'center', color: optSortBy === 'profitFactor' ? '#38bdf8' : '#9ca3af', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}
+                  >
+                    Prof. Fact {optSortBy === 'profitFactor' ? (optSortDir === 'desc' ? '▼' : '▲') : ''}
+                  </span>
+                )}
+                {!isMobile && (
+                  <span
+                    onClick={() => handleHeaderSort('maxDrawdown')}
+                    style={{ textAlign: 'right', color: optSortBy === 'maxDrawdown' ? '#38bdf8' : '#9ca3af', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '3px' }}
+                  >
+                    Max DD {optSortBy === 'maxDrawdown' ? (optSortDir === 'desc' ? '▼' : '▲') : ''}
+                  </span>
+                )}
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '420px', overflowY: 'auto' }}>
@@ -2180,12 +2216,18 @@ export default function WyckoffBacktester({
                       ];
 
                   const sortedList = [...rawList].sort((a, b) => {
-                    if (optSortBy === 'netPnl') return (b.netPnl ?? 0) - (a.netPnl ?? 0);
-                    if (optSortBy === 'winRate') return (b.winRate ?? 0) - (a.winRate ?? 0);
-                    if (optSortBy === 'profitFactor') return (b.profitFactor ?? 0) - (a.profitFactor ?? 0);
-                    if (optSortBy === 'maxDrawdown') return (a.maxDrawdown ?? 0) - (b.maxDrawdown ?? 0);
-                    return 0;
+                    let valA = 0;
+                    let valB = 0;
+                    if (optSortBy === 'netPnl') { valA = a.netPnl ?? 0; valB = b.netPnl ?? 0; }
+                    else if (optSortBy === 'winRate') { valA = a.winRate ?? 0; valB = b.winRate ?? 0; }
+                    else if (optSortBy === 'profitFactor') { valA = a.profitFactor ?? 0; valB = b.profitFactor ?? 0; }
+                    else if (optSortBy === 'maxDrawdown') { valA = a.maxDrawdown ?? 0; valB = b.maxDrawdown ?? 0; }
+                    else if (optSortBy === 'totalTrades') { valA = a.totalTrades ?? 0; valB = b.totalTrades ?? 0; }
+
+                    if (valA === valB) return 0;
+                    return optSortDir === 'desc' ? (valB > valA ? 1 : -1) : (valA > valB ? 1 : -1);
                   });
+
 
                   return sortedList.map((r, idx) => {
                     const isProfit = (r.netPnl ?? 0) >= 0;
