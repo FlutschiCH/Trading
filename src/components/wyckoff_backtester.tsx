@@ -95,6 +95,8 @@ interface WyckoffBacktesterProps {
   onSaveSettings?: () => void;
   isReadOnly?: boolean;
   broker?: string;
+  hiddenStages?: string[];
+  setHiddenStages?: React.Dispatch<React.SetStateAction<string[]>>;
 }
 
 interface CollapsibleCardProps {
@@ -1888,7 +1890,7 @@ export default function WyckoffBacktester({
                     if (setHiddenStages) {
                       setHiddenStages(
                         isHidden
-                          ? hiddenStages.filter(s => s !== stage.id)
+                          ? hiddenStages.filter((s: string) => s !== stage.id)
                           : [...hiddenStages, stage.id]
                       );
                     }

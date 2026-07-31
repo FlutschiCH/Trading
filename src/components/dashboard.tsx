@@ -1281,7 +1281,7 @@ export default function Dashboard() {
   // Fetch symbols and timeframes metadata dynamically based on selected candleSource
   useEffect(() => {
     const loadMetadata = async () => {
-      const sourcePath = candleSource === 'yfinance' ? 'yfinance' : (candleSource === 'metatrader' ? 'metatrader' : 'ctrader');
+      const sourcePath = (candleSource as string) === 'yfinance' ? 'yfinance' : (candleSource === 'metatrader' ? 'metatrader' : 'ctrader');
       try {
         const symData = await apiService.fetchMetadataSymbols(sourcePath);
         if (symData.status === 'success' && symData.data) {

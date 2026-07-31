@@ -887,8 +887,9 @@ export default function TVChart({
     const visibleRange = timeScale.getVisibleLogicalRange();
     const currentFvgs = fvgsRef.current;
     if (currentFvgs && currentFvgs.length > 0 && candlesRef.current) {
+      const candles = candlesRef.current;
       const getCoordinateForTime = (time: number) => {
-        const idx = candlesRef.current.findIndex(c => Number(c.time) === Number(time));
+        const idx = candles.findIndex(c => Number(c.time) === Number(time));
         if (idx !== -1) {
           return timeScale.logicalToCoordinate(idx as any);
         }
@@ -897,8 +898,8 @@ export default function TVChart({
 
       const filteredFvgs = visibleRange
         ? currentFvgs.filter(fvg => {
-          const idxStart = candlesRef.current.findIndex(c => Number(c.time) === Number(fvg.timeStart));
-          const idxEnd = candlesRef.current.findIndex(c => Number(c.time) === Number(fvg.timeEnd));
+          const idxStart = candles.findIndex(c => Number(c.time) === Number(fvg.timeStart));
+          const idxEnd = candles.findIndex(c => Number(c.time) === Number(fvg.timeEnd));
           if (idxStart === -1 && idxEnd === -1) return false;
           const startLogical = idxStart !== -1 ? idxStart : idxEnd;
           const endLogical = idxEnd !== -1 ? idxEnd : idxStart;
@@ -923,6 +924,7 @@ export default function TVChart({
       const startIdxLimit = visibleRange ? Math.max(0, Math.floor(visibleRange.from) - 5) : 0;
       const endIdxLimit = visibleRange ? Math.min(candlesRef.current.length - 1, Math.ceil(visibleRange.to) + 5) : candlesRef.current.length - 1;
 
+      const currentCandles = candlesRef.current;
       currentSessions.forEach(session => {
         const [startH, startM] = session.start.split(':').map(Number);
         const [endH, endM] = session.end.split(':').map(Number);
@@ -951,7 +953,8 @@ export default function TVChart({
         };
 
         for (let i = startIdxLimit; i <= endIdxLimit; i++) {
-          const candle = candlesRef.current[i];
+          const candle = currentCandles[i];
+          if (!candle) continue;
           const minutes = getSessionMinutes(candle.time);
           const weekday = getSessionWeekday(candle.time);
 
@@ -981,8 +984,8 @@ export default function TVChart({
 
           if (willCloseSession && sessionActiveStartIdx !== null) {
             const endIdx = isInSession ? i : i - 1;
-            const t1 = candlesRef.current[sessionActiveStartIdx].time;
-            const t2 = candlesRef.current[endIdx].time;
+            const t1 = currentCandles[sessionActiveStartIdx]?.time;
+            const t2 = currentCandles[endIdx]?.time;
 
             const x1 = timeScale.timeToCoordinate(t1);
             const x2 = timeScale.timeToCoordinate(t2);
@@ -1978,7 +1981,7 @@ export default function TVChart({
           .then(res => res.json())
           .then(data => {
             if (data.status === 'success' || data.success) {
-              onRefresh();
+              onRefresh?.();
             } else {
               alert(`Failed to update ${label}: ${data.message || 'Unknown error'}`);
             }
@@ -2251,7 +2254,7 @@ export default function TVChart({
                     LIVE
                   </button>
                 )}
-                <button onClick={() => onRefresh()} style={styles.refreshBtn} title="Refresh chart data"><RefreshCw size={14} className={loadingStrategy ? 'animate-spin' : ''} /></button>
+                <button onClick={() => onRefresh?.()} style={styles.refreshBtn} title="Refresh chart data"><RefreshCw size={14} className={loadingStrategy ? 'animate-spin' : ''} /></button>
                 <div style={{ position: 'relative' }}>
                   <button onClick={() => setShowSettingsDropdown(!showSettingsDropdown)} style={styles.refreshBtn} title="Chart Visibility Settings"><Settings size={14} /></button>
                   {showSettingsDropdown && (
@@ -2386,7 +2389,7 @@ export default function TVChart({
                   </button>
                 </div>
               )}
-              <button onClick={() => onRefresh()} style={styles.refreshBtn} title="Refresh chart data"><RefreshCw size={14} className={loadingStrategy ? 'animate-spin' : ''} /></button>
+              <button onClick={() => onRefresh?.()} style={styles.refreshBtn} title="Refresh chart data"><RefreshCw size={14} className={loadingStrategy ? 'animate-spin' : ''} /></button>
               <button onClick={() => { if (replayToolActive) { setReplayTime(null); setIsPlaying(false); if (onSelectCandleRef.current) { onSelectCandleRef.current(null); } } setReplayToolActive(!replayToolActive); }} style={{ ...styles.refreshBtn, backgroundColor: replayToolActive ? '#2563eb' : '#1f2937', color: replayToolActive ? '#ffffff' : '#9ca3af', display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '11px', fontWeight: 'bold' }} title="Toggle Replay Tool">
                 <Play size={12} fill={replayToolActive ? "#ffffff" : "none"} />
                 Replay
