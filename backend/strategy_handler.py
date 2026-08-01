@@ -291,6 +291,8 @@ class StrategyHandler:
             "candles": annotated_data,
             "monthlyBreakdown": sim_result["monthlyBreakdown"],
             "weeklyBreakdown": sim_result["weeklyBreakdown"],
+            "dateFrom": sim_result.get("dateFrom"),
+            "dateTo": sim_result.get("dateTo"),
             "fvgs": []
         }
 

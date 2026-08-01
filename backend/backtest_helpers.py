@@ -554,6 +554,9 @@ def run_trade_simulation(
         print(f"[Trade Simulation] Failed to save backtest trades to JSON: {bt_err}", flush=True)
 
 
+    first_ts = int(annotated_data[0].get('time', 0)) if annotated_data else 0
+    last_ts = int(annotated_data[-1].get('time', 0)) if annotated_data else 0
+
     return {
         "trades": reversed_trades,
         "completed_trades_raw": completed_trades,
@@ -565,5 +568,7 @@ def run_trade_simulation(
         "maxDailyLoss": float(max_daily_loss),
         "dailyLossBreached": bool(daily_loss_breached),
         "monthlyBreakdown": monthly_breakdown,
-        "weeklyBreakdown": weekly_breakdown
+        "weeklyBreakdown": weekly_breakdown,
+        "dateFrom": first_ts,
+        "dateTo": last_ts
     }

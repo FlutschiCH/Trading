@@ -895,23 +895,52 @@ export default function WyckoffBacktester({
           )}
         </div>
 
-        {backtestResults && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              backgroundColor: '#1e293b',
-              padding: '6px 12px',
-              borderRadius: '6px',
-              border: '1px solid #334155',
-              fontSize: '11px',
-              fontWeight: 500,
-              color: '#9ca3af'
-            }}>
-              <span>Backtest Overview</span>
-              <span style={{ color: '#38bdf8', fontWeight: 'bold' }}>{broker.toUpperCase()} • {symbol} • {timeframe}</span>
-            </div>
+        {backtestResults && (() => {
+          const formatDateExact = (val: any) => {
+            if (!val) return null;
+            let d: Date | null = null;
+            if (typeof val === 'number') {
+              d = new Date(val * (val < 1e11 ? 1000 : 1));
+            } else if (typeof val === 'string') {
+              d = new Date(val);
+            }
+            if (!d || isNaN(d.getTime())) return null;
+            const pad = (n: number) => n.toString().padStart(2, '0');
+            return `${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+          };
+
+          const rawFrom = backtestResults?.dateFrom ?? backtestResults?.candles?.[0]?.time;
+          const rawTo = backtestResults?.dateTo ?? backtestResults?.candles?.[backtestResults?.candles?.length - 1]?.time;
+          const fromFormatted = formatDateExact(rawFrom);
+          const toFormatted = formatDateExact(rawTo);
+          const dateRangeStr = (fromFormatted && toFormatted) ? `${fromFormatted} to ${toFormatted}` : null;
+
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                backgroundColor: '#1e293b',
+                padding: '6px 12px',
+                borderRadius: '6px',
+                border: '1px solid #334155',
+                fontSize: '11px',
+                fontWeight: 500,
+                color: '#9ca3af',
+                flexWrap: 'wrap',
+                gap: '4px'
+              }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  <span>Backtest Overview</span>
+                  {dateRangeStr && (
+                    <span style={{ fontSize: '10px', color: '#cbd5e1', fontWeight: 'normal' }}>
+                      📅 {dateRangeStr}
+                    </span>
+                  )}
+                </div>
+                <span style={{ color: '#38bdf8', fontWeight: 'bold' }}>{broker.toUpperCase()} • {symbol} • {timeframe}</span>
+              </div>
             <div style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(3, 1fr)',
@@ -954,7 +983,8 @@ export default function WyckoffBacktester({
 
           </div>
           </div>
-        )}
+          );
+        })()}
         {/* Collapsible Cards */}
         {/* Multi-Asset & Timeframe Selection */}
         <CollapsibleCard
