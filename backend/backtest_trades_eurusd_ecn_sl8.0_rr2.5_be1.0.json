@@ -1,0 +1,1210 @@
+{
+  "saved_at": "2026-07-31 19:53:26",
+  "symbol": "EURUSD.ecn",
+  "sl_val": 8.0,
+  "rr": 2.5,
+  "be_trigger_r": 1.0,
+  "total_trades": 40,
+  "trades": [
+    {
+      "id": 1,
+      "type": "BUY",
+      "entryPrice": 1.14066,
+      "exitPrice": 1.13986,
+      "pnl": -100.07499999998899,
+      "fees": 0.075,
+      "outcome": "LOSS",
+      "time": "2026-07-01 07:00:00",
+      "timestamp": 1782889200,
+      "slPrice": 1.13986,
+      "originalSlPrice": 1.13986,
+      "tpPrice": 1.14266,
+      "entryTimestamp": 1782871800,
+      "exitTimestamp": 1782889200,
+      "exitReason": "Hit Stop Loss",
+      "duration": 59,
+      "qty": 1.25,
+      "triggerReason": {
+        "vsa_patterns": "None",
+        "sweep_level": 1.14026,
+        "weis_wave_volume": 0.0,
+        "entry_candle": {
+          "open": 1.14044,
+          "high": 1.14068,
+          "low": 1.14036,
+          "close": 1.14066
+        }
+      }
+    },
+    {
+      "id": 2,
+      "type": "BUY",
+      "entryPrice": 1.13982,
+      "exitPrice": 1.1390200000000001,
+      "pnl": -99.0734994374892,
+      "fees": 0.07424943750000007,
+      "outcome": "LOSS",
+      "time": "2026-07-01 09:30:00",
+      "timestamp": 1782898200,
+      "slPrice": 1.1390200000000001,
+      "originalSlPrice": 1.1390200000000001,
+      "tpPrice": 1.14182,
+      "entryTimestamp": 1782891300,
+      "exitTimestamp": 1782898200,
+      "exitReason": "Hit Stop Loss",
+      "duration": 24,
+      "qty": 1.2374906250000013,
+      "triggerReason": {
+        "vsa_patterns": "None",
+        "sweep_level": 1.13931,
+        "weis_wave_volume": 0.0,
+        "entry_candle": {
+          "open": 1.13968,
+          "high": 1.13987,
+          "low": 1.1396600000000001,
+          "close": 1.13982
+        }
+      }
+    },
+    {
+      "id": 3,
+      "type": "BUY",
+      "entryPrice": 1.13894,
+      "exitPrice": 1.13934,
+      "pnl": 48.93075111655299,
+      "fees": 0.0735063862542189,
+      "outcome": "WIN",
+      "time": "2026-07-01 11:10:00",
+      "timestamp": 1782904200,
+      "slPrice": 1.13934,
+      "originalSlPrice": 1.1381400000000002,
+      "tpPrice": 1.14094,
+      "entryTimestamp": 1782900600,
+      "exitTimestamp": 1782904200,
+      "exitReason": "Hit Break Even",
+      "duration": 13,
+      "qty": 1.2251064375703151,
+      "triggerReason": {
+        "vsa_patterns": "None",
+        "sweep_level": 1.13852,
+        "weis_wave_volume": 0.0,
+        "entry_candle": {
+          "open": 1.13888,
+          "high": 1.13894,
+          "low": 1.13879,
+          "close": 1.13894
+        }
+      }
+    },
+    {
+      "id": 4,
+      "type": "SELL",
+      "entryPrice": 1.1393,
+      "exitPrice": 1.1401,
+      "pnl": -98.5716958836675,
+      "fees": 0.07387336688759306,
+      "outcome": "LOSS",
+      "time": "2026-07-02 07:25:00",
+      "timestamp": 1782977100,
+      "slPrice": 1.1401,
+      "originalSlPrice": 1.1401,
+      "tpPrice": 1.1373,
+      "entryTimestamp": 1782975600,
+      "exitTimestamp": 1782977100,
+      "exitReason": "Hit Stop Loss",
+      "duration": 6,
+      "qty": 1.2312227814598844,
+      "triggerReason": {
+        "vsa_patterns": "None",
+        "sweep_level": 1.14044,
+        "weis_wave_volume": 0.0,
+        "entry_candle": {
+          "open": 1.13948,
+          "high": 1.13949,
+          "low": 1.13918,
+          "close": 1.1393
+        }
+      }
+    },
+    {
+      "id": 5,
+      "type": "SELL",
+      "entryPrice": 1.14116,
+      "exitPrice": 1.14076,
+      "pnl": 48.682918699803196,
+      "fees": 0.07313407916846555,
+      "outcome": "WIN",
+      "time": "2026-07-02 10:45:00",
+      "timestamp": 1782989100,
+      "slPrice": 1.14076,
+      "originalSlPrice": 1.1419599999999999,
+      "tpPrice": 1.13916,
+      "entryTimestamp": 1782983100,
+      "exitTimestamp": 1782989100,
+      "exitReason": "Hit Break Even",
+      "duration": 21,
+      "qty": 1.2189013194744258,
+      "triggerReason": {
+        "vsa_patterns": "None",
+        "sweep_level": 1.14211,
+        "weis_wave_volume": 0.0,
+        "entry_candle": {
+          "open": 1.1415,
+          "high": 1.14157,
+          "low": 1.141,
+          "close": 1.14116
+        }
+      }
+    },
+    {
+      "id": 6,
+      "type": "SELL",
+      "entryPrice": 1.14562,
+      "exitPrice": 1.14536,
+      "pnl": 31.776154591068973,
+      "fees": 0.07349920105871408,
+      "outcome": "WIN",
+      "time": "2026-07-03 07:45:00",
+      "timestamp": 1783064700,
+      "slPrice": 1.1452200000000001,
+      "originalSlPrice": 1.14642,
+      "tpPrice": 1.14362,
+      "entryTimestamp": 1783061400,
+      "exitTimestamp": 1783064700,
+      "exitReason": "Closed by opposite sweep signal",
+      "duration": 12,
+      "qty": 1.2249866843119013,
+      "triggerReason": {
+        "vsa_patterns": "None",
+        "sweep_level": 1.14624,
+        "weis_wave_volume": 0.0,
+        "entry_candle": {
+          "open": 1.14594,
+          "high": 1.14594,
+          "low": 1.14558,
+          "close": 1.14562
+        }
+      }
+    },
+    {
+      "id": 7,
+      "type": "BUY",
+      "entryPrice": 1.14536,
+      "exitPrice": 1.14456,
+      "pnl": -98.39043381307015,
+      "fees": 0.07373752221814711,
+      "outcome": "LOSS",
+      "time": "2026-07-03 09:45:00",
+      "timestamp": 1783071900,
+      "slPrice": 1.14456,
+      "originalSlPrice": 1.14456,
+      "tpPrice": 1.14736,
+      "entryTimestamp": 1783064700,
+      "exitTimestamp": 1783071900,
+      "exitReason": "Hit Stop Loss",
+      "duration": 25,
+      "qty": 1.2289587036357852,
+      "triggerReason": {
+        "vsa_patterns": "None",
+        "sweep_level": 1.14475,
+        "weis_wave_volume": 0.0,
+        "entry_candle": {
+          "open": 1.14514,
+          "high": 1.14537,
+          "low": 1.14506,
+          "close": 1.14536
+        }
+      }
+    },
+    {
+      "id": 8,
+      "type": "BUY",
+      "entryPrice": 1.14255,
+      "exitPrice": 1.14175,
+      "pnl": -97.40579154668592,
+      "fees": 0.07299959396454907,
+      "outcome": "LOSS",
+      "time": "2026-07-06 08:10:00",
+      "timestamp": 1783325400,
+      "slPrice": 1.14175,
+      "originalSlPrice": 1.14175,
+      "tpPrice": 1.14455,
+      "entryTimestamp": 1783321800,
+      "exitTimestamp": 1783325400,
+      "exitReason": "Hit Stop Loss",
+      "duration": 13,
+      "qty": 1.216659899409151,
+      "triggerReason": {
+        "vsa_patterns": "None",
+        "sweep_level": 1.14166,
+        "weis_wave_volume": 0.0,
+        "entry_candle": {
+          "open": 1.14184,
+          "high": 1.14255,
+          "low": 1.14176,
+          "close": 1.14255
+        }
+      }
+    },
+    {
+      "id": 9,
+      "type": "SELL",
+      "entryPrice": 1.1428,
+      "exitPrice": 1.1436,
+      "pnl": -96.43100308778257,
+      "fees": 0.07226905052794894,
+      "outcome": "LOSS",
+      "time": "2026-07-07 11:15:00",
+      "timestamp": 1783422900,
+      "slPrice": 1.1436,
+      "originalSlPrice": 1.1436,
+      "tpPrice": 1.1408,
+      "entryTimestamp": 1783414200,
+      "exitTimestamp": 1783422900,
+      "exitReason": "Hit Stop Loss",
+      "duration": 30,
+      "qty": 1.2044841754658155,
+      "triggerReason": {
+        "vsa_patterns": "None",
+        "sweep_level": 1.14358,
+        "weis_wave_volume": 0.0,
+        "entry_candle": {
+          "open": 1.14316,
+          "high": 1.14316,
+          "low": 1.14275,
+          "close": 1.1428
+        }
+      }
+    },
+    {
+      "id": 10,
+      "type": "SELL",
+      "entryPrice": 1.14178,
+      "exitPrice": 1.14258,
+      "pnl": -95.46596982438172,
+      "fees": 0.07154581800479057,
+      "outcome": "LOSS",
+      "time": "2026-07-08 07:20:00",
+      "timestamp": 1783495200,
+      "slPrice": 1.14258,
+      "originalSlPrice": 1.14258,
+      "tpPrice": 1.13978,
+      "entryTimestamp": 1783491000,
+      "exitTimestamp": 1783495200,
+      "exitReason": "Hit Stop Loss",
+      "duration": 15,
+      "qty": 1.1924303000798429,
+      "triggerReason": {
+        "vsa_patterns": "None",
+        "sweep_level": 1.14236,
+        "weis_wave_volume": 0.0,
+        "entry_candle": {
+          "open": 1.14195,
+          "high": 1.14195,
+          "low": 1.14173,
+          "close": 1.14178
+        }
+      }
+    },
+    {
+      "id": 11,
+      "type": "SELL",
+      "entryPrice": 1.1442,
+      "exitPrice": 1.1438000000000001,
+      "pnl": 47.1490523308355,
+      "fees": 0.0708298232311077,
+      "outcome": "WIN",
+      "time": "2026-07-10 12:10:00",
+      "timestamp": 1783685400,
+      "slPrice": 1.1438000000000001,
+      "originalSlPrice": 1.145,
+      "tpPrice": 1.1422,
+      "entryTimestamp": 1783664700,
+      "exitTimestamp": 1783685400,
+      "exitReason": "Hit Break Even",
+      "duration": 70,
+      "qty": 1.1804970538517952,
+      "triggerReason": {
+        "vsa_patterns": "None",
+        "sweep_level": 1.14475,
+        "weis_wave_volume": 0.0,
+        "entry_candle": {
+          "open": 1.14457,
+          "high": 1.14459,
+          "low": 1.1442,
+          "close": 1.1442
+        }
+      }
+    },
+    {
+      "id": 12,
+      "type": "BUY",
+      "entryPrice": 1.13999,
+      "exitPrice": 1.14199,
+      "pnl": 237.2069536375065,
+      "fees": 0.07118344112358896,
+      "outcome": "WIN",
+      "time": "2026-07-13 07:35:00",
+      "timestamp": 1783928100,
+      "slPrice": 1.14039,
+      "originalSlPrice": 1.1391900000000001,
+      "tpPrice": 1.14199,
+      "entryTimestamp": 1783923300,
+      "exitTimestamp": 1783928100,
+      "exitReason": "Hit Take Profit",
+      "duration": 17,
+      "qty": 1.1863906853931494,
+      "triggerReason": {
+        "vsa_patterns": "None",
+        "sweep_level": 1.13958,
+        "weis_wave_volume": 0.0,
+        "entry_candle": {
+          "open": 1.1396600000000001,
+          "high": 1.13999,
+          "low": 1.1396600000000001,
+          "close": 1.13999
+        }
+      }
+    },
+    {
+      "id": 13,
+      "type": "BUY",
+      "entryPrice": 1.13898,
+      "exitPrice": 1.1381800000000002,
+      "pnl": -97.35628686109216,
+      "fees": 0.07296249327587025,
+      "outcome": "LOSS",
+      "time": "2026-07-13 19:15:00",
+      "timestamp": 1783970100,
+      "slPrice": 1.1381800000000002,
+      "originalSlPrice": 1.1381800000000002,
+      "tpPrice": 1.14098,
+      "entryTimestamp": 1783960800,
+      "exitTimestamp": 1783970100,
+      "exitReason": "Hit Stop Loss",
+      "duration": 32,
+      "qty": 1.2160415545978376,
+      "triggerReason": {
+        "vsa_patterns": "None",
+        "sweep_level": 1.13828,
+        "weis_wave_volume": 0.0,
+        "entry_candle": {
+          "open": 1.13874,
+          "high": 1.13904,
+          "low": 1.13847,
+          "close": 1.13898
+        }
+      }
+    },
+    {
+      "id": 14,
+      "type": "SELL",
+      "entryPrice": 1.13929,
+      "exitPrice": 1.13919,
+      "pnl": 11.966487866276275,
+      "fees": 0.07223232112441207,
+      "outcome": "WIN",
+      "time": "2026-07-14 06:30:00",
+      "timestamp": 1784010600,
+      "slPrice": 1.1400899999999998,
+      "originalSlPrice": 1.1400899999999998,
+      "tpPrice": 1.13729,
+      "entryTimestamp": 1784007300,
+      "exitTimestamp": 1784010600,
+      "exitReason": "Closed by opposite sweep signal",
+      "duration": 12,
+      "qty": 1.2038720187402012,
+      "triggerReason": {
+        "vsa_patterns": "None",
+        "sweep_level": 1.13959,
+        "weis_wave_volume": 0.0,
+        "entry_candle": {
+          "open": 1.1395,
+          "high": 1.13959,
+          "low": 1.13926,
+          "close": 1.13929
+        }
+      }
+    },
+    {
+      "id": 15,
+      "type": "BUY",
+      "entryPrice": 1.13919,
+      "exitPrice": 1.1395899999999999,
+      "pnl": 48.14239111915071,
+      "fees": 0.07232206978340915,
+      "outcome": "WIN",
+      "time": "2026-07-14 09:40:00",
+      "timestamp": 1784022000,
+      "slPrice": 1.1395899999999999,
+      "originalSlPrice": 1.13839,
+      "tpPrice": 1.14119,
+      "entryTimestamp": 1784010600,
+      "exitTimestamp": 1784022000,
+      "exitReason": "Hit Break Even",
+      "duration": 39,
+      "qty": 1.2053678297234858,
+      "triggerReason": {
+        "vsa_patterns": "None",
+        "sweep_level": 1.13861,
+        "weis_wave_volume": 0.0,
+        "entry_candle": {
+          "open": 1.13872,
+          "high": 1.13939,
+          "low": 1.13866,
+          "close": 1.13919
+        }
+      }
+    },
+    {
+      "id": 16,
+      "type": "BUY",
+      "entryPrice": 1.1421000000000001,
+      "exitPrice": 1.14359,
+      "pnl": 180.4237755256757,
+      "fees": 0.07268313771680276,
+      "outcome": "WIN",
+      "time": "2026-07-15 01:25:00",
+      "timestamp": 1784078700,
+      "slPrice": 1.1425,
+      "originalSlPrice": 1.1413000000000002,
+      "tpPrice": 1.1441000000000001,
+      "entryTimestamp": 1784055000,
+      "exitTimestamp": 1784078700,
+      "exitReason": "Closed by opposite sweep signal",
+      "duration": 80,
+      "qty": 1.2113856286133795,
+      "triggerReason": {
+        "vsa_patterns": "None",
+        "sweep_level": 1.1416,
+        "weis_wave_volume": 0.0,
+        "entry_candle": {
+          "open": 1.14201,
+          "high": 1.14211,
+          "low": 1.14192,
+          "close": 1.1421000000000001
+        }
+      }
+    },
+    {
+      "id": 17,
+      "type": "SELL",
+      "entryPrice": 1.14359,
+      "exitPrice": 1.14159,
+      "pnl": 246.7136837947848,
+      "fees": 0.07403631603324534,
+      "outcome": "WIN",
+      "time": "2026-07-15 10:05:00",
+      "timestamp": 1784109900,
+      "slPrice": 1.1431900000000002,
+      "originalSlPrice": 1.14439,
+      "tpPrice": 1.14159,
+      "entryTimestamp": 1784078700,
+      "exitTimestamp": 1784109900,
+      "exitReason": "Hit Take Profit",
+      "duration": 105,
+      "qty": 1.233938600554089,
+      "triggerReason": {
+        "vsa_patterns": "None",
+        "sweep_level": 1.14375,
+        "weis_wave_volume": 0.0,
+        "entry_candle": {
+          "open": 1.14361,
+          "high": 1.14371,
+          "low": 1.14351,
+          "close": 1.14359
+        }
+      }
+    },
+    {
+      "id": 18,
+      "type": "BUY",
+      "entryPrice": 1.14656,
+      "exitPrice": 1.14696,
+      "pnl": 50.51522577247021,
+      "fees": 0.07588666866170624,
+      "outcome": "WIN",
+      "time": "2026-07-16 07:55:00",
+      "timestamp": 1784188500,
+      "slPrice": 1.14696,
+      "originalSlPrice": 1.1457600000000001,
+      "tpPrice": 1.14856,
+      "entryTimestamp": 1784181600,
+      "exitTimestamp": 1784188500,
+      "exitReason": "Hit Break Even",
+      "duration": 24,
+      "qty": 1.2647778110284373,
+      "triggerReason": {
+        "vsa_patterns": "None",
+        "sweep_level": 1.14622,
+        "weis_wave_volume": 0.0,
+        "entry_candle": {
+          "open": 1.14633,
+          "high": 1.14678,
+          "low": 1.14633,
+          "close": 1.14656
+        }
+      }
+    },
+    {
+      "id": 19,
+      "type": "SELL",
+      "entryPrice": 1.1448800000000001,
+      "exitPrice": 1.1444800000000002,
+      "pnl": 50.767423037139245,
+      "fees": 0.07626553285499976,
+      "outcome": "WIN",
+      "time": "2026-07-17 08:10:00",
+      "timestamp": 1784275800,
+      "slPrice": 1.1444800000000002,
+      "originalSlPrice": 1.14568,
+      "tpPrice": 1.1428800000000001,
+      "entryTimestamp": 1784270700,
+      "exitTimestamp": 1784275800,
+      "exitReason": "Hit Break Even",
+      "duration": 18,
+      "qty": 1.271092214249996,
+      "triggerReason": {
+        "vsa_patterns": "None",
+        "sweep_level": 1.14516,
+        "weis_wave_volume": 0.0,
+        "entry_candle": {
+          "open": 1.14495,
+          "high": 1.14512,
+          "low": 1.14484,
+          "close": 1.1448800000000001
+        }
+      }
+    },
+    {
+      "id": 20,
+      "type": "SELL",
+      "entryPrice": 1.14435,
+      "exitPrice": 1.14395,
+      "pnl": 51.02087939665213,
+      "fees": 0.0766462885277783,
+      "outcome": "WIN",
+      "time": "2026-07-20 06:45:00",
+      "timestamp": 1784529900,
+      "slPrice": 1.14395,
+      "originalSlPrice": 1.14515,
+      "tpPrice": 1.14235,
+      "entryTimestamp": 1784523600,
+      "exitTimestamp": 1784529900,
+      "exitReason": "Hit Break Even",
+      "duration": 22,
+      "qty": 1.2774381421296384,
+      "triggerReason": {
+        "vsa_patterns": "None",
+        "sweep_level": 1.14451,
+        "weis_wave_volume": 0.0,
+        "entry_candle": {
+          "open": 1.14446,
+          "high": 1.1445,
+          "low": 1.14431,
+          "close": 1.14435
+        }
+      }
+    },
+    {
+      "id": 21,
+      "type": "SELL",
+      "entryPrice": 1.14206,
+      "exitPrice": 1.14286,
+      "pnl": -102.78228910944954,
+      "fees": 0.07702894512325319,
+      "outcome": "LOSS",
+      "time": "2026-07-21 09:35:00",
+      "timestamp": 1784626500,
+      "slPrice": 1.14286,
+      "originalSlPrice": 1.14286,
+      "tpPrice": 1.14006,
+      "entryTimestamp": 1784616600,
+      "exitTimestamp": 1784626500,
+      "exitReason": "Hit Stop Loss",
+      "duration": 34,
+      "qty": 1.28381575205422,
+      "triggerReason": {
+        "vsa_patterns": "None",
+        "sweep_level": 1.14238,
+        "weis_wave_volume": 0.0,
+        "entry_candle": {
+          "open": 1.14226,
+          "high": 1.14227,
+          "low": 1.14205,
+          "close": 1.14206
+        }
+      }
+    },
+    {
+      "id": 22,
+      "type": "BUY",
+      "entryPrice": 1.14011,
+      "exitPrice": 1.14051,
+      "pnl": 50.76246055866102,
+      "fees": 0.07625807795493232,
+      "outcome": "WIN",
+      "time": "2026-07-22 03:10:00",
+      "timestamp": 1784689800,
+      "slPrice": 1.14051,
+      "originalSlPrice": 1.13931,
+      "tpPrice": 1.14211,
+      "entryTimestamp": 1784684400,
+      "exitTimestamp": 1784689800,
+      "exitReason": "Hit Break Even",
+      "duration": 19,
+      "qty": 1.2709679659155388,
+      "triggerReason": {
+        "vsa_patterns": "None",
+        "sweep_level": 1.13988,
+        "weis_wave_volume": 0.0,
+        "entry_candle": {
+          "open": 1.14006,
+          "high": 1.14012,
+          "low": 1.14001,
+          "close": 1.14011
+        }
+      }
+    },
+    {
+      "id": 23,
+      "type": "SELL",
+      "entryPrice": 1.14111,
+      "exitPrice": 1.1407100000000001,
+      "pnl": 51.0158921430001,
+      "fees": 0.07663879640912229,
+      "outcome": "WIN",
+      "time": "2026-07-22 10:20:00",
+      "timestamp": 1784715600,
+      "slPrice": 1.1407100000000001,
+      "originalSlPrice": 1.14191,
+      "tpPrice": 1.13911,
+      "entryTimestamp": 1784705700,
+      "exitTimestamp": 1784715600,
+      "exitReason": "Hit Break Even",
+      "duration": 34,
+      "qty": 1.2773132734853714,
+      "triggerReason": {
+        "vsa_patterns": "None",
+        "sweep_level": 1.1418300000000001,
+        "weis_wave_volume": 0.0,
+        "entry_candle": {
+          "open": 1.14139,
+          "high": 1.14151,
+          "low": 1.14111,
+          "close": 1.14111
+        }
+      }
+    },
+    {
+      "id": 24,
+      "type": "SELL",
+      "entryPrice": 1.14308,
+      "exitPrice": 1.14269,
+      "pnl": 49.98689872454085,
+      "fees": 0.07702141560019478,
+      "outcome": "WIN",
+      "time": "2026-07-23 07:10:00",
+      "timestamp": 1784790600,
+      "slPrice": 1.1426800000000001,
+      "originalSlPrice": 1.14388,
+      "tpPrice": 1.14108,
+      "entryTimestamp": 1784780100,
+      "exitTimestamp": 1784790600,
+      "exitReason": "Closed by opposite sweep signal",
+      "duration": 36,
+      "qty": 1.2836902600032463,
+      "triggerReason": {
+        "vsa_patterns": "None",
+        "sweep_level": 1.14356,
+        "weis_wave_volume": 0.0,
+        "entry_candle": {
+          "open": 1.14339,
+          "high": 1.1434199999999999,
+          "low": 1.14307,
+          "close": 1.14308
+        }
+      }
+    },
+    {
+      "id": 25,
+      "type": "BUY",
+      "entryPrice": 1.14269,
+      "exitPrice": 1.14189,
+      "pnl": -103.27248610483437,
+      "fees": 0.07739631734062882,
+      "outcome": "LOSS",
+      "time": "2026-07-23 08:15:00",
+      "timestamp": 1784794500,
+      "slPrice": 1.14189,
+      "originalSlPrice": 1.14189,
+      "tpPrice": 1.14469,
+      "entryTimestamp": 1784790600,
+      "exitTimestamp": 1784794500,
+      "exitReason": "Hit Stop Loss",
+      "duration": 14,
+      "qty": 1.2899386223438138,
+      "triggerReason": {
+        "vsa_patterns": "None",
+        "sweep_level": 1.1421999999999999,
+        "weis_wave_volume": 0.0,
+        "entry_candle": {
+          "open": 1.14236,
+          "high": 1.1427,
+          "low": 1.1423,
+          "close": 1.14269
+        }
+      }
+    },
+    {
+      "id": 26,
+      "type": "BUY",
+      "entryPrice": 1.13799,
+      "exitPrice": 1.13999,
+      "pnl": 255.32929054244732,
+      "fees": 0.07662177369484258,
+      "outcome": "WIN",
+      "time": "2026-07-24 07:30:00",
+      "timestamp": 1784878200,
+      "slPrice": 1.13839,
+      "originalSlPrice": 1.1371900000000001,
+      "tpPrice": 1.13999,
+      "entryTimestamp": 1784873400,
+      "exitTimestamp": 1784878200,
+      "exitReason": "Hit Take Profit",
+      "duration": 17,
+      "qty": 1.2770295615807097,
+      "triggerReason": {
+        "vsa_patterns": "None",
+        "sweep_level": 1.13765,
+        "weis_wave_volume": 0.0,
+        "entry_candle": {
+          "open": 1.13788,
+          "high": 1.13799,
+          "low": 1.13777,
+          "close": 1.13799
+        }
+      }
+    },
+    {
+      "id": 27,
+      "type": "BUY",
+      "entryPrice": 1.13846,
+      "exitPrice": 1.1376600000000001,
+      "pnl": -104.79419457524364,
+      "fees": 0.07853674337391094,
+      "outcome": "LOSS",
+      "time": "2026-07-24 11:50:00",
+      "timestamp": 1784893800,
+      "slPrice": 1.1376600000000001,
+      "originalSlPrice": 1.1376600000000001,
+      "tpPrice": 1.14046,
+      "entryTimestamp": 1784890800,
+      "exitTimestamp": 1784893800,
+      "exitReason": "Hit Stop Loss",
+      "duration": 11,
+      "qty": 1.3089457228985157,
+      "triggerReason": {
+        "vsa_patterns": "None",
+        "sweep_level": 1.1381000000000001,
+        "weis_wave_volume": 0.0,
+        "entry_candle": {
+          "open": 1.1383,
+          "high": 1.1385,
+          "low": 1.13815,
+          "close": 1.13846
+        }
+      }
+    },
+    {
+      "id": 28,
+      "type": "SELL",
+      "entryPrice": 1.14113,
+      "exitPrice": 1.14073,
+      "pnl": 51.75610715614411,
+      "fees": 0.07775078691459662,
+      "outcome": "WIN",
+      "time": "2026-07-27 05:15:00",
+      "timestamp": 1785129300,
+      "slPrice": 1.14073,
+      "originalSlPrice": 1.14193,
+      "tpPrice": 1.13913,
+      "entryTimestamp": 1785117900,
+      "exitTimestamp": 1785129300,
+      "exitReason": "Hit Break Even",
+      "duration": 39,
+      "qty": 1.2958464485766104,
+      "triggerReason": {
+        "vsa_patterns": "None",
+        "sweep_level": 1.14144,
+        "weis_wave_volume": 0.0,
+        "entry_candle": {
+          "open": 1.14121,
+          "high": 1.14131,
+          "low": 1.1411,
+          "close": 1.14113
+        }
+      }
+    },
+    {
+      "id": 29,
+      "type": "BUY",
+      "entryPrice": 1.13988,
+      "exitPrice": 1.13908,
+      "pnl": -104.26341591539706,
+      "fees": 0.0781389577182677,
+      "outcome": "LOSS",
+      "time": "2026-07-27 11:45:00",
+      "timestamp": 1785152700,
+      "slPrice": 1.13908,
+      "originalSlPrice": 1.13908,
+      "tpPrice": 1.14188,
+      "entryTimestamp": 1785141600,
+      "exitTimestamp": 1785152700,
+      "exitReason": "Hit Stop Loss",
+      "duration": 38,
+      "qty": 1.3023159619711284,
+      "triggerReason": {
+        "vsa_patterns": "None",
+        "sweep_level": 1.13948,
+        "weis_wave_volume": 0.0,
+        "entry_candle": {
+          "open": 1.13985,
+          "high": 1.14014,
+          "low": 1.13983,
+          "close": 1.13988
+        }
+      }
+    },
+    {
+      "id": 30,
+      "type": "SELL",
+      "entryPrice": 1.13697,
+      "exitPrice": 1.1360000000000001,
+      "pnl": 124.98309741111547,
+      "fees": 0.07735698209890224,
+      "outcome": "WIN",
+      "time": "2026-07-28 10:30:00",
+      "timestamp": 1785234600,
+      "slPrice": 1.13657,
+      "originalSlPrice": 1.13777,
+      "tpPrice": 1.13497,
+      "entryTimestamp": 1785220800,
+      "exitTimestamp": 1785234600,
+      "exitReason": "Closed by opposite sweep signal",
+      "duration": 47,
+      "qty": 1.289283034981704,
+      "triggerReason": {
+        "vsa_patterns": "None",
+        "sweep_level": 1.13729,
+        "weis_wave_volume": 0.0,
+        "entry_candle": {
+          "open": 1.13704,
+          "high": 1.13716,
+          "low": 1.13689,
+          "close": 1.13697
+        }
+      }
+    },
+    {
+      "id": 31,
+      "type": "BUY",
+      "entryPrice": 1.1360000000000001,
+      "exitPrice": 1.1380000000000001,
+      "pnl": 260.9028900762894,
+      "fees": 0.07829435532948559,
+      "outcome": "WIN",
+      "time": "2026-07-28 14:50:00",
+      "timestamp": 1785250200,
+      "slPrice": 1.1364,
+      "originalSlPrice": 1.1352000000000002,
+      "tpPrice": 1.1380000000000001,
+      "entryTimestamp": 1785234600,
+      "exitTimestamp": 1785250200,
+      "exitReason": "Hit Take Profit",
+      "duration": 53,
+      "qty": 1.3049059221580932,
+      "triggerReason": {
+        "vsa_patterns": "None",
+        "sweep_level": 1.13533,
+        "weis_wave_volume": 0.0,
+        "entry_candle": {
+          "open": 1.13564,
+          "high": 1.13602,
+          "low": 1.13561,
+          "close": 1.1360000000000001
+        }
+      }
+    },
+    {
+      "id": 32,
+      "type": "SELL",
+      "entryPrice": 1.13973,
+      "exitPrice": 1.13933,
+      "pnl": 53.420500209694225,
+      "fees": 0.08025112700505777,
+      "outcome": "WIN",
+      "time": "2026-07-28 21:40:00",
+      "timestamp": 1785274800,
+      "slPrice": 1.13933,
+      "originalSlPrice": 1.1405299999999998,
+      "tpPrice": 1.13773,
+      "entryTimestamp": 1785257100,
+      "exitTimestamp": 1785274800,
+      "exitReason": "Hit Break Even",
+      "duration": 60,
+      "qty": 1.3375187834176294,
+      "triggerReason": {
+        "vsa_patterns": "None",
+        "sweep_level": 1.14052,
+        "weis_wave_volume": 0.0,
+        "entry_candle": {
+          "open": 1.1400299999999999,
+          "high": 1.14009,
+          "low": 1.13973,
+          "close": 1.13973
+        }
+      }
+    },
+    {
+      "id": 33,
+      "type": "SELL",
+      "entryPrice": 1.13893,
+      "exitPrice": 1.13973,
+      "pnl": -107.6163594562521,
+      "fees": 0.08065178075663047,
+      "outcome": "LOSS",
+      "time": "2026-07-29 03:15:00",
+      "timestamp": 1785294900,
+      "slPrice": 1.13973,
+      "originalSlPrice": 1.13973,
+      "tpPrice": 1.13693,
+      "entryTimestamp": 1785287100,
+      "exitTimestamp": 1785294900,
+      "exitReason": "Hit Stop Loss",
+      "duration": 27,
+      "qty": 1.3441963459438413,
+      "triggerReason": {
+        "vsa_patterns": "None",
+        "sweep_level": 1.13917,
+        "weis_wave_volume": 0.0,
+        "entry_candle": {
+          "open": 1.13904,
+          "high": 1.13913,
+          "low": 1.13889,
+          "close": 1.13893
+        }
+      }
+    },
+    {
+      "id": 34,
+      "type": "SELL",
+      "entryPrice": 1.13991,
+      "exitPrice": 1.13951,
+      "pnl": 53.14992738240582,
+      "fees": 0.07984465806070859,
+      "outcome": "WIN",
+      "time": "2026-07-29 07:05:00",
+      "timestamp": 1785308700,
+      "slPrice": 1.13951,
+      "originalSlPrice": 1.14071,
+      "tpPrice": 1.13791,
+      "entryTimestamp": 1785300600,
+      "exitTimestamp": 1785308700,
+      "exitReason": "Hit Break Even",
+      "duration": 28,
+      "qty": 1.3307443010118098,
+      "triggerReason": {
+        "vsa_patterns": "None",
+        "sweep_level": 1.1403699999999999,
+        "weis_wave_volume": 0.0,
+        "entry_candle": {
+          "open": 1.13994,
+          "high": 1.1400299999999999,
+          "low": 1.1399,
+          "close": 1.13991
+        }
+      }
+    },
+    {
+      "id": 35,
+      "type": "BUY",
+      "entryPrice": 1.14579,
+      "exitPrice": 1.1449900000000002,
+      "pnl": -107.07128663727316,
+      "fees": 0.08024328251607664,
+      "outcome": "LOSS",
+      "time": "2026-07-30 03:20:00",
+      "timestamp": 1785381600,
+      "slPrice": 1.1449900000000002,
+      "originalSlPrice": 1.1449900000000002,
+      "tpPrice": 1.14779,
+      "entryTimestamp": 1785375000,
+      "exitTimestamp": 1785381600,
+      "exitReason": "Hit Stop Loss",
+      "duration": 23,
+      "qty": 1.3373880419346107,
+      "triggerReason": {
+        "vsa_patterns": "None",
+        "sweep_level": 1.14535,
+        "weis_wave_volume": 0.0,
+        "entry_candle": {
+          "open": 1.14552,
+          "high": 1.14592,
+          "low": 1.14539,
+          "close": 1.14579
+        }
+      }
+    },
+    {
+      "id": 36,
+      "type": "SELL",
+      "entryPrice": 1.14541,
+      "exitPrice": 1.14501,
+      "pnl": 52.88072499632594,
+      "fees": 0.0794402478662971,
+      "outcome": "WIN",
+      "time": "2026-07-30 06:50:00",
+      "timestamp": 1785394200,
+      "slPrice": 1.14501,
+      "originalSlPrice": 1.14621,
+      "tpPrice": 1.14341,
+      "entryTimestamp": 1785389400,
+      "exitTimestamp": 1785394200,
+      "exitReason": "Hit Break Even",
+      "duration": 17,
+      "qty": 1.3240041311049517,
+      "triggerReason": {
+        "vsa_patterns": "None",
+        "sweep_level": 1.14567,
+        "weis_wave_volume": 0.0,
+        "entry_candle": {
+          "open": 1.14557,
+          "high": 1.1456,
+          "low": 1.14538,
+          "close": 1.14541
+        }
+      }
+    },
+    {
+      "id": 37,
+      "type": "BUY",
+      "entryPrice": 1.15294,
+      "exitPrice": 1.1521400000000002,
+      "pnl": -106.52897459165146,
+      "fees": 0.07983685330376956,
+      "outcome": "LOSS",
+      "time": "2026-07-31 00:05:00",
+      "timestamp": 1785456300,
+      "slPrice": 1.1521400000000002,
+      "originalSlPrice": 1.1521400000000002,
+      "tpPrice": 1.15494,
+      "entryTimestamp": 1785433200,
+      "exitTimestamp": 1785456300,
+      "exitReason": "Hit Stop Loss",
+      "duration": 78,
+      "qty": 1.3306142217294927,
+      "triggerReason": {
+        "vsa_patterns": "None",
+        "sweep_level": 1.15137,
+        "weis_wave_volume": 0.0,
+        "entry_candle": {
+          "open": 1.1525,
+          "high": 1.153,
+          "low": 1.15226,
+          "close": 1.15294
+        }
+      }
+    },
+    {
+      "id": 38,
+      "type": "BUY",
+      "entryPrice": 1.15124,
+      "exitPrice": 1.1504400000000001,
+      "pnl": -105.46288587842562,
+      "fees": 0.07903788599433216,
+      "outcome": "LOSS",
+      "time": "2026-07-31 04:45:00",
+      "timestamp": 1785473100,
+      "slPrice": 1.1504400000000001,
+      "originalSlPrice": 1.1504400000000001,
+      "tpPrice": 1.15324,
+      "entryTimestamp": 1785463200,
+      "exitTimestamp": 1785473100,
+      "exitReason": "Hit Stop Loss",
+      "duration": 34,
+      "qty": 1.3172980999055361,
+      "triggerReason": {
+        "vsa_patterns": "None",
+        "sweep_level": 1.151,
+        "weis_wave_volume": 0.0,
+        "entry_candle": {
+          "open": 1.15102,
+          "high": 1.1513,
+          "low": 1.15101,
+          "close": 1.15124
+        }
+      }
+    },
+    {
+      "id": 39,
+      "type": "SELL",
+      "entryPrice": 1.15127,
+      "exitPrice": 1.15207,
+      "pnl": -104.40746604799739,
+      "fees": 0.07824691435024397,
+      "outcome": "LOSS",
+      "time": "2026-07-31 06:50:00",
+      "timestamp": 1785480600,
+      "slPrice": 1.15207,
+      "originalSlPrice": 1.15207,
+      "tpPrice": 1.14927,
+      "entryTimestamp": 1785479700,
+      "exitTimestamp": 1785480600,
+      "exitReason": "Hit Stop Loss",
+      "duration": 4,
+      "qty": 1.304115239170733,
+      "triggerReason": {
+        "vsa_patterns": "None",
+        "sweep_level": 1.15216,
+        "weis_wave_volume": 0.0,
+        "entry_candle": {
+          "open": 1.1515,
+          "high": 1.1516,
+          "low": 1.1510799999999999,
+          "close": 1.15127
+        }
+      }
+    },
+    {
+      "id": 40,
+      "type": "SELL",
+      "entryPrice": 1.15171,
+      "exitPrice": 1.15131,
+      "pnl": 51.565108378228764,
+      "fees": 0.077463858354884,
+      "outcome": "WIN",
+      "time": "2026-07-31 08:05:00",
+      "timestamp": 1785485100,
+      "slPrice": 1.15131,
+      "originalSlPrice": 1.15251,
+      "tpPrice": 1.14971,
+      "entryTimestamp": 1785480900,
+      "exitTimestamp": 1785485100,
+      "exitReason": "Hit Break Even",
+      "duration": 15,
+      "qty": 1.2910643059147333,
+      "triggerReason": {
+        "vsa_patterns": "None",
+        "sweep_level": 1.15222,
+        "weis_wave_volume": 0.0,
+        "entry_candle": {
+          "open": 1.15189,
+          "high": 1.1519300000000001,
+          "low": 1.15165,
+          "close": 1.15171
+        }
+      }
+    }
+  ]
+}

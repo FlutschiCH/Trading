@@ -5,16 +5,21 @@ export interface TargetOption {
   url: string;
 }
 
+export const LAPTOP_LIVE_URL = 'https://flugrok-production.up.railway.app';
+
 export const TARGET_OPTIONS: TargetOption[] = [
   { label: 'Local Host (Debug)', url: 'http://localhost:8751' },
-  { label: 'Laptop (Live Proxy)', url: 'https://flugrok-production.up.railway.app' },
+  { label: 'Laptop (Live Proxy)', url: LAPTOP_LIVE_URL },
   { label: 'Laptop (Direct IP)', url: 'http://89.217.138.51:8751' },
 ];
 
-export const DEFAULT_TARGET_URL = 'https://flugrok-production.up.railway.app';
+export const DEFAULT_TARGET_URL = LAPTOP_LIVE_URL;
 export const STORAGE_KEY = 'wyckoff_api_target';
 
 export const getApiBaseUrl = (): string => {
+  if (import.meta.env.PROD) {
+    return LAPTOP_LIVE_URL;
+  }
   if (typeof window === 'undefined') return DEFAULT_TARGET_URL;
   return localStorage.getItem(STORAGE_KEY) || DEFAULT_TARGET_URL;
 };
@@ -25,6 +30,7 @@ export const isLocalTarget = (): boolean => {
 };
 
 export const setApiBaseUrl = (url: string): void => {
+  if (import.meta.env.PROD) return;
   if (typeof window !== 'undefined') {
     localStorage.setItem(STORAGE_KEY, url);
     window.location.reload();
@@ -37,16 +43,41 @@ interface TargetSwitcherProps {
 
 export const TargetSwitcher: React.FC<TargetSwitcherProps> = ({ compact = false }) => {
   const [currentUrl, setCurrentUrl] = useState<string>(DEFAULT_TARGET_URL);
+  const isProd = import.meta.env.PROD;
 
   useEffect(() => {
     setCurrentUrl(getApiBaseUrl());
   }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    if (isProd) return;
     const val = e.target.value;
     setCurrentUrl(val);
     setApiBaseUrl(val);
   };
+
+  if (isProd) {
+    return (
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          backgroundColor: '#1e293b',
+          border: '1px solid #334155',
+          borderRadius: '6px',
+          padding: compact ? '4px 8px' : '6px 12px',
+        }}
+      >
+        <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 'bold' }}>
+          Target API:
+        </span>
+        <span style={{ fontSize: '11px', color: '#38bdf8', fontWeight: 'bold' }}>
+          Laptop (Live Proxy)
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -90,3 +121,4 @@ export const TargetSwitcher: React.FC<TargetSwitcherProps> = ({ compact = false 
     </div>
   );
 };
+
