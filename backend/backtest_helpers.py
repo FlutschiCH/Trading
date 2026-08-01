@@ -525,12 +525,16 @@ def run_trade_simulation(
     
     # Save backtest trades to JSON for analysis (config-specific filename)
     try:
-        import json, os
+        date_str = datetime.now().strftime("%Y-%m-%d")
+        folder_path = os.path.join(os.path.dirname(__file__), "backtestTrades", date_str)
+        os.makedirs(folder_path, exist_ok=True)
+        
         be_str = f"be{be_trigger_r}" if use_break_even else "be_off"
         clean_sym = str(symbol).replace('/', '_').replace('.', '_').lower()
         config_filename = f"backtest_trades_{clean_sym}_sl{sl_val}_rr{rr}_{be_str}.json"
-        bt_file = os.path.join(os.path.dirname(__file__), config_filename)
-        latest_file = os.path.join(os.path.dirname(__file__), "backtest_trades.json")
+        
+        bt_file = os.path.join(folder_path, config_filename)
+        latest_file = os.path.join(os.path.dirname(__file__), "backtestTrades", "backtest_trades.json")
         payload = {
             "saved_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "symbol": symbol,
@@ -544,7 +548,7 @@ def run_trade_simulation(
             json.dump(payload, f, indent=2, ensure_ascii=False)
         with open(latest_file, "w", encoding="utf-8") as f:
             json.dump(payload, f, indent=2, ensure_ascii=False)
-        print(f"[Trade Simulation] Saved {len(completed_trades)} backtest trades to {config_filename}", flush=True)
+        print(f"[Trade Simulation] Saved {len(completed_trades)} backtest trades to {bt_file}", flush=True)
     except Exception as bt_err:
         print(f"[Trade Simulation] Failed to save backtest trades to JSON: {bt_err}", flush=True)
 
