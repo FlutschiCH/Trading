@@ -525,6 +525,7 @@ def run_trade_simulation(
     
     # Save backtest trades to JSON for analysis (config-specific filename)
     try:
+        import os, json
         date_str = datetime.now().strftime("%Y-%m-%d")
         folder_path = os.path.join(os.path.dirname(__file__), "backtestTrades", date_str)
         os.makedirs(folder_path, exist_ok=True)
