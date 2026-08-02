@@ -794,7 +794,7 @@ export default function WyckoffBacktester({
             disabled={loadingBacktest}
             onClick={() => {
               if (loadingBacktest) return;
-              console.log(`[Wyckoff Backtester] ${isOptimizeMode ? 'Run Range Optimization' : 'Run Backtest'} clicked at:`, new Date().toLocaleTimeString());
+              console.log(`[Wyckoff Backtester] Run Backtest clicked (Combinations: ${totalRunCombinations}) at:`, new Date().toLocaleTimeString());
               console.time("Backtest execution duration");
               const rangeParams = {
                 slRangeMode,
@@ -808,7 +808,7 @@ export default function WyckoffBacktester({
                 symbols: effectiveSymbols,
                 timeframes: effectiveTimeframes
               };
-              if (isOptimizeMode) {
+              if (totalRunCombinations > 1 || isOptimizeMode) {
                 onRunOptimization(rangeParams);
               } else {
                 onRunBacktest(rangeParams);
@@ -819,7 +819,7 @@ export default function WyckoffBacktester({
               alignItems: 'center',
               justifyContent: 'center',
               gap: '6px',
-              backgroundColor: loadingBacktest ? '#1e293b' : (isOptimizeMode ? '#10b981' : '#3b82f6'),
+              backgroundColor: loadingBacktest ? '#1e293b' : '#3b82f6',
               color: '#ffffff',
               border: loadingBacktest ? '1px solid #3b82f6' : 'none',
               padding: '6px 12px',
@@ -830,16 +830,17 @@ export default function WyckoffBacktester({
               transition: 'background-color 0.2s',
               opacity: loadingBacktest ? 0.9 : 1
             }}
-            onMouseOver={(e) => !loadingBacktest && (e.currentTarget.style.backgroundColor = isOptimizeMode ? '#059669' : '#2563eb')}
-            onMouseOut={(e) => !loadingBacktest && (e.currentTarget.style.backgroundColor = isOptimizeMode ? '#10b981' : '#3b82f6')}
+            onMouseOver={(e) => !loadingBacktest && (e.currentTarget.style.backgroundColor = '#2563eb')}
+            onMouseOut={(e) => !loadingBacktest && (e.currentTarget.style.backgroundColor = '#3b82f6')}
           >
             {loadingBacktest ? (
               backtestRunInfo && backtestRunInfo.total > 1
                 ? `⏳ Run ${backtestRunInfo.current}/${backtestRunInfo.total} (${backtestProgress}%)`
                 : `⏳ Running ${backtestProgress}%...`
             ) : (
-              isOptimizeMode ? '⚡ Run Range Optimization' : '🔄 Run Backtest'
+              '🔄 Run Backtest'
             )}
+
 
           </button>
           {loadingBacktest && (
