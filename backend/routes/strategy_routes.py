@@ -278,11 +278,10 @@ def backtest_optimize():
     import threading
     from flask import Response
     import json
-    from concurrent.futures import ProcessPoolExecutor
 
     q = queue.Queue()
 
-    def run_optimization_in_process():
+    def run_optimization_in_thread():
         try:
             def cb(pct, current_run=None, total_runs=None):
                 payload = {"progress": int(pct)}
@@ -291,55 +290,52 @@ def backtest_optimize():
                     payload["totalRuns"] = total_runs
                 q.put(payload)
 
-            with ProcessPoolExecutor(max_workers=1) as executor:
-                future = executor.submit(
-                    StrategyHandler.run_optimization,
-                    symbol=symbol,
-                    sl_val=sl_val,
-                    sl_type=sl_type,
-                    size=size,
-                    initial_balance=initial_balance,
-                    use_risk_sizing=use_risk_sizing,
-                    risk_pct=risk_pct,
-                    use_break_even=use_break_even,
-                    be_trigger_r=be_trigger_r,
-                    lookback_window=lookback_window,
-                    rr_start=rr_start,
-                    rr_end=rr_end,
-                    rr_step=rr_step,
-                    fees_percent=fees_percent,
-                    daily_retry_limit=daily_retry_limit,
-                    allow_opposite_close=allow_opposite_close,
-                    check_cancelled=None,
-                    date_from=date_from,
-                    date_to=date_to,
-                    timezone=timezone,
-                    sessions=sessions,
-                    use_global_close=use_global_close,
-                    global_close_time=global_close_time,
-                    progress_callback=None,
-                    entry_stability_rule=entry_stability_rule,
-                    candle_source=candle_source,
-                    limit=limit,
-                    symbols=symbols,
-                    timeframes=timeframes,
-                    sl_range_mode=sl_range_mode,
-                    sl_start=sl_start,
-                    sl_end=sl_end,
-                    sl_step=sl_step,
-                    be_range_mode=be_range_mode,
-                    be_start=be_start,
-                    be_end=be_end,
-                    be_step=be_step
-                )
-                res = future.result()
-                q.put({"status": "success", "data": res})
+            res = StrategyHandler.run_optimization(
+                symbol=symbol,
+                sl_val=sl_val,
+                sl_type=sl_type,
+                size=size,
+                initial_balance=initial_balance,
+                use_risk_sizing=use_risk_sizing,
+                risk_pct=risk_pct,
+                use_break_even=use_break_even,
+                be_trigger_r=be_trigger_r,
+                lookback_window=lookback_window,
+                rr_start=rr_start,
+                rr_end=rr_end,
+                rr_step=rr_step,
+                fees_percent=fees_percent,
+                daily_retry_limit=daily_retry_limit,
+                allow_opposite_close=allow_opposite_close,
+                check_cancelled=check_cancelled,
+                date_from=date_from,
+                date_to=date_to,
+                timezone=timezone,
+                sessions=sessions,
+                use_global_close=use_global_close,
+                global_close_time=global_close_time,
+                progress_callback=cb,
+                entry_stability_rule=entry_stability_rule,
+                candle_source=candle_source,
+                limit=limit,
+                symbols=symbols,
+                timeframes=timeframes,
+                sl_range_mode=sl_range_mode,
+                sl_start=sl_start,
+                sl_end=sl_end,
+                sl_step=sl_step,
+                be_range_mode=be_range_mode,
+                be_start=be_start,
+                be_end=be_end,
+                be_step=be_step
+            )
+            q.put({"status": "success", "data": res})
         except Exception as e:
             q.put({"status": "error", "message": str(e)})
         finally:
             q.put(None)
 
-    t = threading.Thread(target=run_optimization_in_process, daemon=True)
+    t = threading.Thread(target=run_optimization_in_thread, daemon=True)
     t.start()
 
     def generate():
@@ -353,6 +349,7 @@ def backtest_optimize():
             except Exception as e:
                 yield json.dumps({"status": "error", "message": str(e)}) + "\n"
                 break
+
         
         if backtest_id and str(backtest_id) in cancelled_backtests:
             try:
