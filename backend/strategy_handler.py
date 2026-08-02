@@ -265,9 +265,9 @@ class StrategyHandler:
                     "dailyLossBreached": sim_result["dailyLossBreached"],
                     "candleCount": len(annotated_data)
                 },
-                "trades": sim_result["completed_trades_raw"],
-                "candles": annotated_data
+                "trades": sim_result["completed_trades_raw"]
             }
+
 
             # Auto-persist single backtest run to MySQL database
             try:
@@ -581,8 +581,7 @@ class StrategyHandler:
                     "candleCount": len(annotated_data),
                     "executionTimeSec": round(run_duration, 3)
                 },
-                "trades": sim_result["completed_trades_raw"],
-                "candles": annotated_data
+                "trades": sim_result["completed_trades_raw"]
             }
 
             try:
@@ -608,6 +607,12 @@ class StrategyHandler:
                 print(f"[SQLHandler] Saved iteration [{idx+1}/{total_runs}] ({backtest_id_str}) to MySQL DB.", flush=True)
             except Exception as e:
                 print(f"[SQLHandler] Failed auto-persisting backtest run to MySQL DB for {s} {tf}: {e}", flush=True)
+
+            # Periodically release unreferenced memory
+            if (idx + 1) % 25 == 0:
+                import gc
+                gc.collect()
+
 
 
 
