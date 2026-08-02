@@ -170,6 +170,14 @@ def run_trade_simulation(
     for i, c in enumerate(annotated_data):
         if check_cancelled and check_cancelled():
             break
+
+        if i % 500 == 0:
+            try:
+                import gevent
+                gevent.sleep(0)
+            except ImportError:
+                pass
+
             
         # Progress logging (maps 50% to 100% of the backtest progress)
         if total_candles > 0:

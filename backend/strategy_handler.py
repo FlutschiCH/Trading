@@ -418,9 +418,16 @@ class StrategyHandler:
         recent_durations = []
 
         for idx, combo in enumerate(matrix):
+            try:
+                import gevent
+                gevent.sleep(0)
+            except ImportError:
+                pass
+
             if check_cancelled and check_cancelled():
                 print(f"[Optimization] Optimization cancelled by user at run {idx}/{total_runs}.", flush=True)
                 break
+
 
             run_start_time = time.time()
             elapsed_sec = run_start_time - overall_start_time
