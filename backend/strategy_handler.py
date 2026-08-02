@@ -397,16 +397,15 @@ class StrategyHandler:
         results = []
         total_runs = len(matrix)
 
+        recent_durations = []
+
         for idx, combo in enumerate(matrix):
             if check_cancelled and check_cancelled():
                 print(f"[Optimization] Optimization cancelled by user at run {idx}/{total_runs}.", flush=True)
                 break
 
-            recent_durations = getattr(self, "_recent_durations", [])
-            if not hasattr(self, "_recent_durations"):
-                self._recent_durations = recent_durations
-
             eta_str = "Calculating..."
+
             if idx >= 3 and len(recent_durations) >= 3:
                 avg_duration = sum(recent_durations[-4:]) / len(recent_durations[-4:])
                 remaining_runs = total_runs - idx
