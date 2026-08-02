@@ -1027,6 +1027,7 @@ export default function Dashboard() {
       setBacktestRunInfo(null);
       setOptimizationResults(null);
       const bounds = calculateDateBounds(dateRangeOption, customFrom, customTo);
+      console.log(`[Optimization] Sending request to ${API_BASE_URL}/api/backtest/optimize...`);
       const response = await fetch(`${API_BASE_URL}/api/backtest/optimize`, {
         method: 'POST',
         headers: {
@@ -1065,6 +1066,13 @@ export default function Dashboard() {
         }),
       });
 
+      if (!response.ok) {
+        const errText = await response.text();
+        console.error(`[Optimization Error] Server returned HTTP ${response.status}:`, errText);
+        alert(`Optimization HTTP Error (${response.status}): ${errText}`);
+        throw new Error(`Server returned status ${response.status}: ${errText}`);
+      }
+
       if (!response.body) {
         throw new Error("No response body available for streaming");
       }
@@ -1096,9 +1104,11 @@ export default function Dashboard() {
                   const resData = parsed.data;
                   if (resData.results) {
                     setOptimizationResults(resData.results);
+                    console.log(`[Optimization Complete] Finished ${resData.results.length} backtests successfully.`);
                   }
-
                 } else if (parsed.status === 'error') {
+                  console.error("[Optimization Stream Error]", parsed.message);
+                  alert(`Optimization Error: ${parsed.message}`);
                   throw new Error(parsed.message || "Unknown optimization error");
                 }
               } catch (parseErr) {
@@ -1113,6 +1123,7 @@ export default function Dashboard() {
         console.log("Optimization aborted by user.");
       } else {
         console.error("Failed to run optimization on backend:", e);
+        alert(`Optimization Failed: ${e.message || 'Network/Server Error'}`);
       }
     } finally {
       console.timeEnd("Backtest execution duration");
