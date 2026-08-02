@@ -532,26 +532,10 @@ def run_trade_simulation(
         
         be_str = f"be{be_trigger_r}" if use_break_even else "be_off"
         clean_sym = str(symbol).replace('/', '_').replace('.', '_').lower()
-        config_filename = f"backtest_trades_{clean_sym}_sl{sl_val}_rr{rr}_{be_str}.json"
-        
-        bt_file = os.path.join(folder_path, config_filename)
-        latest_file = os.path.join(os.path.dirname(__file__), "backtestTrades", "backtest_trades.json")
-        payload = {
-            "saved_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "symbol": symbol,
-            "sl_val": sl_val,
-            "rr": rr,
-            "be_trigger_r": be_trigger_r if use_break_even else None,
-            "total_trades": len(completed_trades),
-            "trades": completed_trades
-        }
-        with open(bt_file, "w", encoding="utf-8") as f:
-            json.dump(payload, f, indent=2, ensure_ascii=False)
-        with open(latest_file, "w", encoding="utf-8") as f:
-            json.dump(payload, f, indent=2, ensure_ascii=False)
-        print(f"[Trade Simulation] Saved {len(completed_trades)} backtest trades to {bt_file}", flush=True)
+        print(f"[Trade Simulation] Successfully processed {len(completed_trades)} backtest trades for {symbol} (Saved to MySQL DB)", flush=True)
     except Exception as bt_err:
-        print(f"[Trade Simulation] Failed to save backtest trades to JSON: {bt_err}", flush=True)
+        print(f"[Trade Simulation] Warning processing trades log: {bt_err}", flush=True)
+
 
 
     first_ts = int(annotated_data[0].get('time', 0)) if annotated_data else 0

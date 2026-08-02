@@ -267,16 +267,6 @@ class StrategyHandler:
                 },
                 "trades": sim_result["completed_trades_raw"],
                 "candles": annotated_data
-            }
-            results_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'backtest_results.json')
-            with open(results_path, 'w') as f:
-                json.dump(results_to_save, f, indent=4)
-            # Save specific backtest results for broker + symbol
-            specific_filename = f"backtest_results_{broker.lower()}_{symbol.upper()}.json"
-            specific_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), specific_filename)
-            with open(specific_path, 'w') as f:
-                json.dump(results_to_save, f, indent=4)
-
             # Auto-persist single backtest run to MySQL database
             try:
                 from sql_handler import SQLHandler
@@ -297,10 +287,12 @@ class StrategyHandler:
                     max_drawdown=sim_result["maxDrawdown"],
                     payload_dict=results_to_save
                 )
+                print(f"[SQLHandler] Successfully saved backtest run '{backtest_id_str}' to MySQL DB.", flush=True)
             except Exception as sql_err:
                 print(f"[SQLHandler] Failed auto-persisting single backtest run: {sql_err}", flush=True)
         except Exception as e:
-            print(f"Failed to save backtest results to JSON: {e}", flush=True)
+            print(f"Failed to process backtest results: {e}", flush=True)
+
 
 
         return {
@@ -584,13 +576,7 @@ class StrategyHandler:
                 "candles": annotated_data
             }
 
-            be_file_str = str(be) if be is not None else "off"
-            specific_filename = f"backtest_results_{candle_source.lower()}_{s.lower()}_{tf}_sl{sl}_rr{rr}_be{be_file_str}.json"
-            specific_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), specific_filename)
             try:
-                with open(specific_path, 'w') as f:
-                    json.dump(results_to_save, f, indent=4)
-
                 # Auto-persist iteration run to MySQL database
                 from sql_handler import SQLHandler
                 backtest_id_str = f"bt_{s.lower()}_{tf}_sl{sl}_rr{rr}_be{be_file_str}_{int(time.time())}"
@@ -610,8 +596,10 @@ class StrategyHandler:
                     max_drawdown=sim_result["maxDrawdown"],
                     payload_dict=results_to_save
                 )
+                print(f"[SQLHandler] Saved iteration [{idx+1}/{total_runs}] ({backtest_id_str}) to MySQL DB.", flush=True)
             except Exception as e:
-                print(f"Failed to save detailed backtest results for {s} {tf}: {e}", flush=True)
+                print(f"[SQLHandler] Failed auto-persisting backtest run to MySQL DB for {s} {tf}: {e}", flush=True)
+
 
 
             results.append({
