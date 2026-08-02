@@ -1,4 +1,5 @@
 import os
+import queue
 import threading
 import time
 from dotenv import load_dotenv
@@ -24,6 +25,8 @@ class SQLHandler:
     _lock = threading.RLock()
     _exec_lock = threading.RLock()
     _conn = None
+    _db_queue = queue.Queue()
+    _worker_thread = None
 
     @classmethod
     def get_mysql_connection(cls):
@@ -100,6 +103,27 @@ class SQLHandler:
         except Exception as e:
             print(f"[SQLHandler] Error saving log setting for {category}: {e}", flush=True)
 
+    _db_queue = queue.Queue()
+    _worker_thread = None
+
+    @classmethod
+    def _start_async_worker(cls):
+        if cls._worker_thread is None or not cls._worker_thread.is_alive():
+            def _worker():
+                while True:
+                    try:
+                        item = cls._db_queue.get()
+                        if item is None:
+                            break
+                        query, params = item
+                        cls.execute_query(query, params)
+
+                    except Exception as err:
+                        print(f"[SQLHandler Async Worker] Error: {err}", flush=True)
+
+            cls._worker_thread = threading.Thread(target=_worker, daemon=True)
+            cls._worker_thread.start()
+
     @classmethod
     def init_saved_backtests_db(cls):
         """Creates table for persisting complete backtest runs."""
@@ -134,7 +158,7 @@ class SQLHandler:
                           sl_val: float, sl_type: str, rr: float, be_trigger_r: float,
                           net_pnl: float, win_rate: float, trades_cnt: int,
                           profit_factor: float, max_drawdown: float, payload_dict: dict):
-        """Saves or updates a complete backtest run using ON DUPLICATE KEY UPDATE."""
+        """Asynchronously queues backtest run persistence to keep backtesting thread unblocked."""
         import json
         cls.init_saved_backtests_db()
         payload_bytes = json.dumps(payload_dict).encode('utf-8')
@@ -164,10 +188,9 @@ class SQLHandler:
             be_trigger_r, net_pnl, win_rate, trades_cnt, profit_factor,
             max_drawdown, payload_bytes
         )
-        try:
-            cls.execute_query(query, params)
-        except Exception as e:
-            print(f"[SQLHandler] Error saving backtest run {backtest_id}: {e}", flush=True)
+        cls._start_async_worker()
+        cls._db_queue.put((query, params))
+
 
     @classmethod
     def get_saved_backtests(cls, symbol: str = None, timeframe: str = None) -> list:
