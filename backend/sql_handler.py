@@ -101,6 +101,137 @@ class SQLHandler:
             print(f"[SQLHandler] Error saving log setting for {category}: {e}", flush=True)
 
     @classmethod
+    def init_saved_backtests_db(cls):
+        """Creates table for persisting complete backtest runs."""
+        query = """
+        CREATE TABLE IF NOT EXISTS saved_backtests (
+            id VARCHAR(64) PRIMARY KEY,
+            symbol VARCHAR(32) NOT NULL,
+            timeframe VARCHAR(16) NOT NULL,
+            broker VARCHAR(32) DEFAULT 'metatrader',
+            sl_val FLOAT,
+            sl_type VARCHAR(16),
+            rr FLOAT,
+            be_trigger_r FLOAT,
+            net_pnl FLOAT,
+            win_rate FLOAT,
+            trades_cnt INT,
+            profit_factor FLOAT,
+            max_drawdown FLOAT,
+            payload LONGBLOB NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_symbol (symbol),
+            INDEX idx_created (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        """
+        try:
+            cls.execute_query(query)
+        except Exception as e:
+            print(f"[SQLHandler] Error initializing saved_backtests table: {e}", flush=True)
+
+    @classmethod
+    def save_backtest_run(cls, backtest_id: str, symbol: str, timeframe: str, broker: str,
+                          sl_val: float, sl_type: str, rr: float, be_trigger_r: float,
+                          net_pnl: float, win_rate: float, trades_cnt: int,
+                          profit_factor: float, max_drawdown: float, payload_dict: dict):
+        """Saves or updates a complete backtest run using ON DUPLICATE KEY UPDATE."""
+        import json
+        cls.init_saved_backtests_db()
+        payload_bytes = json.dumps(payload_dict).encode('utf-8')
+        query = """
+        INSERT INTO saved_backtests (
+            id, symbol, timeframe, broker, sl_val, sl_type, rr, be_trigger_r,
+            net_pnl, win_rate, trades_cnt, profit_factor, max_drawdown, payload, created_at
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+        ON DUPLICATE KEY UPDATE
+            symbol = VALUES(symbol),
+            timeframe = VALUES(timeframe),
+            broker = VALUES(broker),
+            sl_val = VALUES(sl_val),
+            sl_type = VALUES(sl_type),
+            rr = VALUES(rr),
+            be_trigger_r = VALUES(be_trigger_r),
+            net_pnl = VALUES(net_pnl),
+            win_rate = VALUES(win_rate),
+            trades_cnt = VALUES(trades_cnt),
+            profit_factor = VALUES(profit_factor),
+            max_drawdown = VALUES(max_drawdown),
+            payload = VALUES(payload),
+            created_at = NOW()
+        """
+        params = (
+            backtest_id, symbol, timeframe, broker, sl_val, sl_type, rr,
+            be_trigger_r, net_pnl, win_rate, trades_cnt, profit_factor,
+            max_drawdown, payload_bytes
+        )
+        try:
+            cls.execute_query(query, params)
+        except Exception as e:
+            print(f"[SQLHandler] Error saving backtest run {backtest_id}: {e}", flush=True)
+
+    @classmethod
+    def get_saved_backtests(cls, symbol: str = None, timeframe: str = None) -> list:
+        """Returns list of saved backtest summary metadata ordered by created_at DESC."""
+        cls.init_saved_backtests_db()
+        query = """
+        SELECT id, symbol, timeframe, broker, sl_val, sl_type, rr, be_trigger_r,
+               net_pnl, win_rate, trades_cnt, profit_factor, max_drawdown, created_at
+        FROM saved_backtests
+        """
+        conditions = []
+        params = []
+        if symbol:
+            conditions.append("symbol = %s")
+            params.append(symbol)
+        if timeframe:
+            conditions.append("timeframe = %s")
+            params.append(timeframe)
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+        query += " ORDER BY created_at DESC LIMIT 500"
+        try:
+            rows = cls.execute_query(query, tuple(params))
+            if isinstance(rows, list):
+                for row in rows:
+                    if 'created_at' in row and row['created_at']:
+                        row['created_at'] = str(row['created_at'])
+                return rows
+        except Exception as e:
+            print(f"[SQLHandler] Error fetching saved backtests: {e}", flush=True)
+        return []
+
+    @classmethod
+    def get_saved_backtest_by_id(cls, backtest_id: str) -> dict:
+        """Fetches full saved backtest run payload by ID."""
+        import json
+        cls.init_saved_backtests_db()
+        query = "SELECT payload FROM saved_backtests WHERE id = %s"
+        try:
+            rows = cls.execute_query(query, (backtest_id,))
+            if rows and isinstance(rows, list) and len(rows) > 0:
+                raw_payload = rows[0].get('payload')
+                if isinstance(raw_payload, (bytes, bytearray)):
+                    return json.loads(raw_payload.decode('utf-8'))
+                elif isinstance(raw_payload, str):
+                    return json.loads(raw_payload)
+        except Exception as e:
+            print(f"[SQLHandler] Error fetching backtest payload for {backtest_id}: {e}", flush=True)
+        return None
+
+    @classmethod
+    def delete_saved_backtest(cls, backtest_id: str) -> bool:
+        """Deletes a saved backtest by ID."""
+        cls.init_saved_backtests_db()
+        query = "DELETE FROM saved_backtests WHERE id = %s"
+        try:
+            cls.execute_query(query, (backtest_id,))
+            return True
+        except Exception as e:
+            print(f"[SQLHandler] Error deleting saved backtest {backtest_id}: {e}", flush=True)
+            return False
+
+
+    @classmethod
     def execute_query(cls, query: str, params: tuple = None) -> list:
         """
         Executes a query with thread lock safety using single persistent connection.

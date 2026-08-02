@@ -276,8 +276,32 @@ class StrategyHandler:
             specific_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), specific_filename)
             with open(specific_path, 'w') as f:
                 json.dump(results_to_save, f, indent=4)
+
+            # Auto-persist single backtest run to MySQL database
+            try:
+                from sql_handler import SQLHandler
+                backtest_id_str = f"bt_{symbol.lower()}_{tf}_sl{sl_val}_rr{rr}_be{be_trigger_r}_{int(time.time())}"
+                SQLHandler.save_backtest_run(
+                    backtest_id=backtest_id_str,
+                    symbol=symbol,
+                    timeframe=tf,
+                    broker=broker,
+                    sl_val=sl_val,
+                    sl_type=sl_type,
+                    rr=rr,
+                    be_trigger_r=be_trigger_r,
+                    net_pnl=sim_result["netPnl"],
+                    win_rate=sim_result["winRate"],
+                    trades_cnt=sim_result["totalTrades"],
+                    profit_factor=sim_result["profitFactor"],
+                    max_drawdown=sim_result["maxDrawdown"],
+                    payload_dict=results_to_save
+                )
+            except Exception as sql_err:
+                print(f"[SQLHandler] Failed auto-persisting single backtest run: {sql_err}", flush=True)
         except Exception as e:
             print(f"Failed to save backtest results to JSON: {e}", flush=True)
+
 
         return {
             "trades": sim_result["trades"],
@@ -566,8 +590,29 @@ class StrategyHandler:
             try:
                 with open(specific_path, 'w') as f:
                     json.dump(results_to_save, f, indent=4)
+
+                # Auto-persist iteration run to MySQL database
+                from sql_handler import SQLHandler
+                backtest_id_str = f"bt_{s.lower()}_{tf}_sl{sl}_rr{rr}_be{be_file_str}_{int(time.time())}"
+                SQLHandler.save_backtest_run(
+                    backtest_id=backtest_id_str,
+                    symbol=s,
+                    timeframe=tf,
+                    broker=candle_source,
+                    sl_val=sl,
+                    sl_type=sl_type,
+                    rr=rr,
+                    be_trigger_r=be if be is not None else 0.0,
+                    net_pnl=sim_result["netPnl"],
+                    win_rate=sim_result["winRate"],
+                    trades_cnt=sim_result["totalTrades"],
+                    profit_factor=sim_result["profitFactor"],
+                    max_drawdown=sim_result["maxDrawdown"],
+                    payload_dict=results_to_save
+                )
             except Exception as e:
-                print(f"Failed to save detailed backtest results to {specific_filename}: {e}", flush=True)
+                print(f"Failed to save detailed backtest results for {s} {tf}: {e}", flush=True)
+
 
             results.append({
                 "symbol": s,
