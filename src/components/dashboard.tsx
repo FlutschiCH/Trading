@@ -523,6 +523,14 @@ export default function Dashboard() {
       rrStart,
       rrEnd,
       rrStep,
+      slRangeMode: localStorage.getItem('wyckoff_backtester_sl_range_mode') === 'true',
+      slStart: localStorage.getItem('wyckoff_backtester_sl_start'),
+      slEnd: localStorage.getItem('wyckoff_backtester_sl_end'),
+      slStep: localStorage.getItem('wyckoff_backtester_sl_step'),
+      beRangeMode: localStorage.getItem('wyckoff_backtester_be_range_mode') === 'true',
+      beStart: localStorage.getItem('wyckoff_backtester_be_start'),
+      beEnd: localStorage.getItem('wyckoff_backtester_be_end'),
+      beStep: localStorage.getItem('wyckoff_backtester_be_step'),
     };
   };
 
@@ -566,7 +574,7 @@ export default function Dashboard() {
     }
     if (settings.useBreakEven !== undefined) {
       setUseBreakEven(settings.useBreakEven);
-      localStorage.setItem('wyckoff_backtest_use_be', String(settings.useBreakEven));
+      localStorage.setItem('wyckoff_backtest_use_break_even', String(settings.useBreakEven));
     }
     if (settings.backtestFees !== undefined) {
       setBacktestFees(settings.backtestFees);
@@ -621,6 +629,30 @@ export default function Dashboard() {
     if (settings.rrStep !== undefined) {
       setRRStep(settings.rrStep);
       localStorage.setItem('wyckoff_rr_step', settings.rrStep);
+    }
+    if (settings.slRangeMode !== undefined) {
+      localStorage.setItem('wyckoff_backtester_sl_range_mode', String(settings.slRangeMode));
+    }
+    if (settings.slStart !== undefined) {
+      localStorage.setItem('wyckoff_backtester_sl_start', String(settings.slStart));
+    }
+    if (settings.slEnd !== undefined) {
+      localStorage.setItem('wyckoff_backtester_sl_end', String(settings.slEnd));
+    }
+    if (settings.slStep !== undefined) {
+      localStorage.setItem('wyckoff_backtester_sl_step', String(settings.slStep));
+    }
+    if (settings.beRangeMode !== undefined) {
+      localStorage.setItem('wyckoff_backtester_be_range_mode', String(settings.beRangeMode));
+    }
+    if (settings.beStart !== undefined) {
+      localStorage.setItem('wyckoff_backtester_be_start', String(settings.beStart));
+    }
+    if (settings.beEnd !== undefined) {
+      localStorage.setItem('wyckoff_backtester_be_end', String(settings.beEnd));
+    }
+    if (settings.beStep !== undefined) {
+      localStorage.setItem('wyckoff_backtester_be_step', String(settings.beStep));
     }
   };
 
