@@ -404,7 +404,26 @@ class StrategyHandler:
                 print(f"[Optimization] Optimization cancelled by user at run {idx}/{total_runs}.", flush=True)
                 break
 
-            eta_str = "Calculating..."
+            run_start_time = time.time()
+            elapsed_sec = run_start_time - overall_start_time
+            if elapsed_sec >= 60:
+                elapsed_str = f"{int(elapsed_sec // 60)}m {elapsed_sec % 60:.1f}s"
+            else:
+                elapsed_str = f"{elapsed_sec:.1f}s"
+
+            pct = int((idx / total_runs) * 100)
+            if progress_callback:
+                try:
+                    progress_callback(pct, idx + 1, total_runs)
+                except TypeError:
+                    progress_callback(pct)
+
+            s = combo["symbol"]
+            tf = combo["timeframe"]
+            sl = combo["sl"]
+            rr = combo["rr"]
+            be = combo["be"]
+            be_str = f"{be}R" if be is not None else "Off"
 
             if idx >= 3 and len(recent_durations) >= 3:
                 avg_duration = sum(recent_durations[-4:]) / len(recent_durations[-4:])
@@ -424,6 +443,7 @@ class StrategyHandler:
                 eta_str = f"Rem: {fmt_time(rem_sec)} | Est Total: {fmt_time(tot_sec)} (~{avg_duration:.1f}s/run)"
 
             print(f"[Optimization] [{idx+1}/{total_runs}] ({pct}%) [Elapsed: {elapsed_str} | {eta_str}] Testing {s} ({tf}) | SL: {sl}{sl_type} | RR: 1:{rr} | BE: {be_str}...", flush=True)
+
 
 
 
