@@ -267,6 +267,8 @@ class StrategyHandler:
                 },
                 "trades": sim_result["completed_trades_raw"],
                 "candles": annotated_data
+            }
+
             # Auto-persist single backtest run to MySQL database
             try:
                 from sql_handler import SQLHandler
