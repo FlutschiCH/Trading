@@ -402,29 +402,30 @@ class StrategyHandler:
                 print(f"[Optimization] Optimization cancelled by user at run {idx}/{total_runs}.", flush=True)
                 break
 
-            run_start_time = time.time()
-            elapsed_sec = run_start_time - overall_start_time
-            if elapsed_sec >= 60:
-                elapsed_str = f"{int(elapsed_sec // 60)}m {elapsed_sec % 60:.1f}s"
-            else:
-                elapsed_str = f"{elapsed_sec:.1f}s"
+            recent_durations = getattr(self, "_recent_durations", [])
+            if not hasattr(self, "_recent_durations"):
+                self._recent_durations = recent_durations
 
-            pct = int((idx / total_runs) * 100)
-            if progress_callback:
-                try:
-                    progress_callback(pct, idx + 1, total_runs)
-                except TypeError:
-                    progress_callback(pct)
+            eta_str = "Calculating..."
+            if idx >= 3 and len(recent_durations) >= 3:
+                avg_duration = sum(recent_durations[-4:]) / len(recent_durations[-4:])
+                remaining_runs = total_runs - idx
+                rem_sec = remaining_runs * avg_duration
+                tot_sec = total_runs * avg_duration
 
+                def fmt_time(s_val):
+                    m, s_rem = divmod(int(s_val), 60)
+                    h, m = divmod(m, 60)
+                    if h > 0:
+                        return f"{h}h {m}m {s_rem}s"
+                    elif m > 0:
+                        return f"{m}m {s_rem}s"
+                    return f"{s_rem}s"
 
-            s = combo["symbol"]
-            tf = combo["timeframe"]
-            sl = combo["sl"]
-            rr = combo["rr"]
-            be = combo["be"]
-            be_str = f"{be}R" if be is not None else "Off"
+                eta_str = f"Rem: {fmt_time(rem_sec)} | Est Total: {fmt_time(tot_sec)} (~{avg_duration:.1f}s/run)"
 
-            print(f"[Optimization] [{idx+1}/{total_runs}] ({pct}%) [Elapsed: {elapsed_str}] Testing {s} ({tf}) | SL: {sl}{sl_type} | RR: 1:{rr} | BE: {be_str}...", flush=True)
+            print(f"[Optimization] [{idx+1}/{total_runs}] ({pct}%) [Elapsed: {elapsed_str} | {eta_str}] Testing {s} ({tf}) | SL: {sl}{sl_type} | RR: 1:{rr} | BE: {be_str}...", flush=True)
+
 
 
             cache_key = (s, tf)
@@ -491,6 +492,11 @@ class StrategyHandler:
             pf = sim_result["profitFactor"]
             pnl_str = f"+${pnl:.2f}" if pnl >= 0 else f"-${abs(pnl):.2f}"
             print(f"[Optimization] [{idx+1}/{total_runs}] -> Result ({run_duration:.2f}s): Net PnL: {pnl_str} | Win Rate: {win_rate:.1f}% | Trades: {trades_cnt} | PF: {pf:.2f}", flush=True)
+
+            recent_durations.append(run_duration)
+            if len(recent_durations) > 10:
+                recent_durations.pop(0)
+
 
             # Save detailed combo results
             results_to_save = {
