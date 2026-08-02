@@ -425,7 +425,9 @@ class StrategyHandler:
             be = combo["be"]
             be_str = f"{be}R" if be is not None else "Off"
 
+            eta_str = "Calculating..."
             if idx >= 3 and len(recent_durations) >= 3:
+
                 avg_duration = sum(recent_durations[-4:]) / len(recent_durations[-4:])
                 remaining_runs = total_runs - idx
                 rem_sec = remaining_runs * avg_duration
