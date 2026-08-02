@@ -10,8 +10,8 @@ export const LAPTOP_LIVE_URL = 'https://flugrok-production.up.railway.app';
 export const TARGET_OPTIONS: TargetOption[] = [
   { label: 'Local Host (Debug)', url: 'http://localhost:8751' },
   { label: 'Laptop (Live Proxy)', url: LAPTOP_LIVE_URL },
-  { label: 'Laptop (Direct IP)', url: 'http://89.217.138.51:8751' },
 ];
+
 
 export const DEFAULT_TARGET_URL = LAPTOP_LIVE_URL;
 export const STORAGE_KEY = 'wyckoff_api_target';
