@@ -427,24 +427,23 @@ class StrategyHandler:
 
             eta_str = "Calculating..."
             if idx >= 3 and len(recent_durations) >= 3:
-
                 avg_duration = sum(recent_durations[-4:]) / len(recent_durations[-4:])
                 remaining_runs = total_runs - idx
                 rem_sec = remaining_runs * avg_duration
                 tot_sec = total_runs * avg_duration
 
-                def fmt_time(s_val):
-                    m, s_rem = divmod(int(s_val), 60)
-                    h, m = divmod(m, 60)
-                    if h > 0:
-                        return f"{h}h {m}m {s_rem}s"
-                    elif m > 0:
-                        return f"{m}m {s_rem}s"
-                    return f"{s_rem}s"
+                rem_m, rem_s = divmod(int(rem_sec), 60)
+                rem_h, rem_m = divmod(rem_m, 60)
+                rem_formatted = f"{rem_h}h {rem_m}m {rem_s}s" if rem_h > 0 else (f"{rem_m}m {rem_s}s" if rem_m > 0 else f"{rem_s}s")
 
-                eta_str = f"Rem: {fmt_time(rem_sec)} | Est Total: {fmt_time(tot_sec)} (~{avg_duration:.1f}s/run)"
+                tot_m, tot_s = divmod(int(tot_sec), 60)
+                tot_h, tot_m = divmod(tot_m, 60)
+                tot_formatted = f"{tot_h}h {tot_m}m {tot_s}s" if tot_h > 0 else (f"{tot_m}m {tot_s}s" if tot_m > 0 else f"{tot_s}s")
+
+                eta_str = f"Rem: {rem_formatted} | Est Total: {tot_formatted} (~{avg_duration:.1f}s/run)"
 
             print(f"[Optimization] [{idx+1}/{total_runs}] ({pct}%) [Elapsed: {elapsed_str} | {eta_str}] Testing {s} ({tf}) | SL: {sl}{sl_type} | RR: 1:{rr} | BE: {be_str}...", flush=True)
+
 
 
 
