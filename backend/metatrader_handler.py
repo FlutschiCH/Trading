@@ -20,8 +20,9 @@ class MetaTraderHandler(BaseBrokerHandler):
         import os
         import shutil
 
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        mt5_dir = os.path.join(base_dir, "mt5")
+        backend_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(backend_dir)
+        mt5_dir = os.path.join(project_root, "mt5")
         
         target_dir = os.path.join(mt5_dir, f"mt5_{login}") if login else None
         path = terminal_path or (os.path.join(target_dir, "terminal64.exe") if target_dir else None)
