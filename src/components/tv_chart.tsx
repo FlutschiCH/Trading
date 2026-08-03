@@ -1541,7 +1541,10 @@ export default function TVChart({
       const openPositionMarkers: any[] = [];
       if (chartSettings.showPositions !== false) {
         matchingOpenPositions.forEach((pos) => {
-          const rawTs = pos.entry_timestamp ?? pos.entryTimestamp ?? pos.timestamp ?? pos.open_time ?? pos.openTime ?? pos.time;
+          let rawTs = pos.entry_timestamp ?? pos.entryTimestamp ?? pos.timestamp ?? pos.open_time ?? pos.openTime ?? pos.time;
+          if (rawTs && Number(rawTs) > 2000000000) {
+            rawTs = Math.floor(Number(rawTs) / 1000);
+          }
           const matchedTime = findCandleTimeForTimestamp(rawTs, activeCandles);
 
           const formatHHMM = (ts: number | string | null | undefined, isUtc = false) => {
