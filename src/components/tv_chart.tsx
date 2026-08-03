@@ -1567,15 +1567,9 @@ export default function TVChart({
           console.log('[DEBUG Position Marker]', {
             position: pos,
             rawTimestamp: rawTs,
-            positionTimeHHMM_UTC: formatHHMM(rawTs, true),
-            positionTimeHHMM_Local: formatHHMM(rawTs, false),
             positionTimeUTC: posDateUtc,
-            positionTimeLocal: posDateLocal,
             matchedCandleTimestamp: matchedTime,
-            matchedCandleHHMM_UTC: formatHHMM(matchedTime, true),
-            matchedCandleHHMM_Local: formatHHMM(matchedTime, false),
             matchedCandleUTC: matchedDateUtc,
-            matchedCandleLocal: matchedDateLocal
           });
 
           if (matchedTime !== null) {
