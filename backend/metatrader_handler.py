@@ -12,14 +12,17 @@ class MetaTraderHandler(BaseBrokerHandler):
     _connection_states = {}
 
     @staticmethod
-    def _initialize_mt5(login: int = None, password: str = None, server: str = None) -> bool:
+    def _initialize_mt5(login: int = None, password: str = None, server: str = None, terminal_path: str = None) -> bool:
         if not MT5_AVAILABLE:
             return False
 
         # First ensure basic terminal initialization
         try:
             if mt5.terminal_info() is None:
-                mt5.initialize()
+                if terminal_path:
+                    mt5.initialize(path=terminal_path)
+                else:
+                    mt5.initialize()
         except Exception:
             pass
 
@@ -36,10 +39,14 @@ class MetaTraderHandler(BaseBrokerHandler):
             is_first_attempt = login_str not in MetaTraderHandler._connection_states
             
             # Login to specific account
-            success = mt5.login(login=int(login), password=password or "", server=server or "") if (password or server) else mt5.initialize(login=int(login), password=password or "", server=server or "")
+            init_kwargs = {"login": int(login), "password": password or "", "server": server or ""}
+            if terminal_path:
+                init_kwargs["path"] = terminal_path
+
+            success = mt5.login(login=int(login), password=password or "", server=server or "") if (password or server) else mt5.initialize(**init_kwargs)
             if not success:
                 # Try initialize with credentials if login failed
-                success = mt5.initialize(login=int(login), password=password or "", server=server or "")
+                success = mt5.initialize(**init_kwargs)
             
             if not success:
                 error_code, error_desc = mt5.last_error()

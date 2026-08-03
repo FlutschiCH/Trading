@@ -16,6 +16,8 @@ def add_account():
     account_id = payload.get('account_id')
     password = payload.get('password')
     server = payload.get('server')
+    terminal_path = payload.get('terminal_path')
+    plugin_path = payload.get('plugin_path')
 
     if not name or not broker_type or not account_id:
         return jsonify({"status": "error", "message": "Missing required fields (name, broker_type, account_id)"}), 400
@@ -29,7 +31,9 @@ def add_account():
             broker_type=broker_type,
             account_id=account_id,
             password=password,
-            server=server
+            server=server,
+            terminal_path=terminal_path,
+            plugin_path=plugin_path
         )
         return jsonify({"status": "success", "message": "Account saved successfully"})
     except Exception as e:
