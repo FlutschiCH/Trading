@@ -67,9 +67,15 @@ class MetaTraderHandler(BaseBrokerHandler):
         if mt5_module is None or not hasattr(mt5_module, "initialize"):
             mt5_module = mt5
 
+        if not login or not password or not server:
+            print(f"[MetaTrader Initialization Skipped] Missing required credentials (login={login}, password={'***' if password else None}, server={server})", flush=True)
+            return False
+
+        print(f"[MetaTrader Connecting] Account: {login} | Server: {server} | Path: {path}", flush=True)
+
         success = False
         try:
-            success = mt5_module.initialize(path=path, login=int(login) if login else 0, password=password or "", server=server or "", portable=True)
+            success = mt5_module.initialize(path=path, login=int(login), password=password, server=server, portable=True, timeout=10000)
             if not success:
                 err_code, err_desc = mt5_module.last_error() if hasattr(mt5_module, "last_error") else ("unknown", "unknown")
                 print(f"[MetaTrader Initialization Failure] Account: {login} | Path: {path} | Error: {err_code} ({err_desc})", flush=True)
@@ -84,6 +90,7 @@ class MetaTraderHandler(BaseBrokerHandler):
 
         if success and login:
             MetaTraderHandler._mt5_instances[str(login)] = mt5_module
+            print(f"[MetaTrader Connected] Account: {login} | Server: {server} | Status: Successfully logged in", flush=True)
         return success
 
     @staticmethod
