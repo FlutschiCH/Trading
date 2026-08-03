@@ -1543,6 +1543,22 @@ export default function TVChart({
         matchingOpenPositions.forEach((pos) => {
           const rawTs = pos.entry_timestamp ?? pos.entryTimestamp ?? pos.timestamp ?? pos.open_time ?? pos.openTime ?? pos.time;
           const matchedTime = findCandleTimeForTimestamp(rawTs, activeCandles);
+
+          const posDateUtc = rawTs ? new Date(Number(rawTs) * 1000).toISOString() : 'N/A';
+          const posDateLocal = rawTs ? new Date(Number(rawTs) * 1000).toLocaleString() : 'N/A';
+          const matchedDateUtc = matchedTime ? new Date(Number(matchedTime) * 1000).toISOString() : 'N/A';
+          const matchedDateLocal = matchedTime ? new Date(Number(matchedTime) * 1000).toLocaleString() : 'N/A';
+
+          console.log('[DEBUG Position Marker]', {
+            position: pos,
+            rawTimestamp: rawTs,
+            positionTimeUTC: posDateUtc,
+            positionTimeLocal: posDateLocal,
+            matchedCandleTimestamp: matchedTime,
+            matchedCandleUTC: matchedDateUtc,
+            matchedCandleLocal: matchedDateLocal
+          });
+
           if (matchedTime !== null) {
             const isBuy = (pos.trade_side || pos.side || pos.type || 'BUY').toUpperCase() === 'BUY';
             const baseColor = isBuy ? '#3b82f6' : '#ec4899';
