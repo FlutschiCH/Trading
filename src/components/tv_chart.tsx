@@ -1544,6 +1544,21 @@ export default function TVChart({
           const rawTs = pos.entry_timestamp ?? pos.entryTimestamp ?? pos.timestamp ?? pos.open_time ?? pos.openTime ?? pos.time;
           const matchedTime = findCandleTimeForTimestamp(rawTs, activeCandles);
 
+          const formatHHMM = (ts: number | string | null | undefined, isUtc = false) => {
+            if (!ts) return 'N/A';
+            const d = new Date(Number(ts) * 1000);
+            if (isNaN(d.getTime())) return 'N/A';
+            if (isUtc) {
+              const h = String(d.getUTCHours()).padStart(2, '0');
+              const m = String(d.getUTCMinutes()).padStart(2, '0');
+              return `${h}:${m}`;
+            } else {
+              const h = String(d.getHours()).padStart(2, '0');
+              const m = String(d.getMinutes()).padStart(2, '0');
+              return `${h}:${m}`;
+            }
+          };
+
           const posDateUtc = rawTs ? new Date(Number(rawTs) * 1000).toISOString() : 'N/A';
           const posDateLocal = rawTs ? new Date(Number(rawTs) * 1000).toLocaleString() : 'N/A';
           const matchedDateUtc = matchedTime ? new Date(Number(matchedTime) * 1000).toISOString() : 'N/A';
@@ -1552,9 +1567,13 @@ export default function TVChart({
           console.log('[DEBUG Position Marker]', {
             position: pos,
             rawTimestamp: rawTs,
+            positionTimeHHMM_UTC: formatHHMM(rawTs, true),
+            positionTimeHHMM_Local: formatHHMM(rawTs, false),
             positionTimeUTC: posDateUtc,
             positionTimeLocal: posDateLocal,
             matchedCandleTimestamp: matchedTime,
+            matchedCandleHHMM_UTC: formatHHMM(matchedTime, true),
+            matchedCandleHHMM_Local: formatHHMM(matchedTime, false),
             matchedCandleUTC: matchedDateUtc,
             matchedCandleLocal: matchedDateLocal
           });
