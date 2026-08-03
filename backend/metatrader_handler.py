@@ -10,6 +10,7 @@ from base_broker_handler import BaseBrokerHandler
 
 class MetaTraderHandler(BaseBrokerHandler):
     _connection_states = {}
+    _mt5_instances = {}
 
     @staticmethod
     def _initialize_mt5(login: int = None, password: str = None, server: str = None, terminal_path: str = None) -> bool:
@@ -18,7 +19,18 @@ class MetaTraderHandler(BaseBrokerHandler):
 
         import os
         path = terminal_path or (os.path.join(os.path.dirname(os.path.abspath(__file__)), "mt5", f"mt5_{login}", "terminal64.exe") if login else None)
-        return mt5.initialize(path=path, login=int(login) if login else 0, password=password or "", server=server or "", portable=True)
+        success = mt5.initialize(path=path, login=int(login) if login else 0, password=password or "", server=server or "", portable=True)
+        if success and login:
+            MetaTraderHandler._mt5_instances[str(login)] = mt5
+        return success
+
+    @staticmethod
+    def get_mt5_instance(account_id: str = None):
+        if account_id:
+            acc_str = str(account_id)
+            if acc_str in MetaTraderHandler._mt5_instances:
+                return MetaTraderHandler._mt5_instances[acc_str]
+        return mt5 if MT5_AVAILABLE else None
 
     @staticmethod
     def _resolve_credentials(login=None, password=None, server=None, **kwargs):
