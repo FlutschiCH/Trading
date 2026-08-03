@@ -1,731 +1,5 @@
 [
   {
-    "timestamp": "2026-08-03 03:24:09",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation] Starting simulation for EURUSD.ecn on 6611 candles..."
-  },
-  {
-    "timestamp": "2026-08-03 03:24:09",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |--------------------| 0% (1/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:09",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |#-------------------| 5% (331/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:10",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |##------------------| 10% (662/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:10",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |###-----------------| 15% (992/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:11",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |####----------------| 20% (1323/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:11",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |#####---------------| 25% (1653/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:11",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |######--------------| 30% (1984/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:12",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |#######-------------| 35% (2314/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:12",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |########------------| 40% (2645/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:12",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |#########-----------| 45% (2975/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:13",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |##########----------| 50% (3306/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:13",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |###########---------| 55% (3637/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:13",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |############--------| 60% (3967/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:14",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |#############-------| 65% (4298/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:14",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |##############------| 70% (4628/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:14",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |###############-----| 75% (4959/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:15",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |################----| 80% (5289/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:15",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |#################---| 85% (5620/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:15",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |##################--| 90% (5950/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:16",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |###################-| 95% (6281/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:16",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |####################| 100% (6611/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:16",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation] Successfully processed 37 backtest trades for EURUSD.ecn (Saved to MySQL DB)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:17",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Optimization] [641/720] -> Result (8.30s): Net PnL: +$481.40 | Win Rate: 64.9% | Trades: 37 | PF: 1.39"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:17",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Optimization] [642/720] (89%) [Elapsed: 86m 29.2s | Rem: 10m 56s | Est Total: 1h 39m 40s (~8.3s/run)] Testing EURUSD.ecn (5m) | SL: 19.0price | RR: 1:2.0 | BE: 1.5R..."
-  },
-  {
-    "timestamp": "2026-08-03 03:24:18",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation] Starting simulation for EURUSD.ecn on 6611 candles..."
-  },
-  {
-    "timestamp": "2026-08-03 03:24:18",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |--------------------| 0% (1/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:18",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |#-------------------| 5% (331/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:18",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |##------------------| 10% (662/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:19",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |###-----------------| 15% (992/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:19",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |####----------------| 20% (1323/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:19",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |#####---------------| 25% (1653/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:20",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |######--------------| 30% (1984/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:20",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |#######-------------| 35% (2314/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:20",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |########------------| 40% (2645/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:21",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |#########-----------| 45% (2975/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:21",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |##########----------| 50% (3306/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:22",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |###########---------| 55% (3637/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:22",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |############--------| 60% (3967/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:22",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |#############-------| 65% (4298/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:22",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |##############------| 70% (4628/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:23",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |###############-----| 75% (4959/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:23",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |################----| 80% (5289/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:23",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |#################---| 85% (5620/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:24",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |##################--| 90% (5950/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:24",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |###################-| 95% (6281/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:24",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |####################| 100% (6611/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:25",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation] Successfully processed 35 backtest trades for EURUSD.ecn (Saved to MySQL DB)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:25",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Optimization] [642/720] -> Result (7.58s): Net PnL: +$148.12 | Win Rate: 57.1% | Trades: 35 | PF: 1.10"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:25",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Optimization] [643/720] (89%) [Elapsed: 86m 37.1s | Rem: 10m 37s | Est Total: 1h 38m 9s (~8.2s/run)] Testing EURUSD.ecn (5m) | SL: 19.0price | RR: 1:2.0 | BE: 2.0R..."
-  },
-  {
-    "timestamp": "2026-08-03 03:24:26",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation] Starting simulation for EURUSD.ecn on 6611 candles..."
-  },
-  {
-    "timestamp": "2026-08-03 03:24:26",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |--------------------| 0% (1/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:26",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |#-------------------| 5% (331/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:26",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |##------------------| 10% (662/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:27",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |###-----------------| 15% (992/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:27",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |####----------------| 20% (1323/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:27",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |#####---------------| 25% (1653/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:28",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |######--------------| 30% (1984/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:28",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |#######-------------| 35% (2314/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:28",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |########------------| 40% (2645/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:29",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |#########-----------| 45% (2975/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:29",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |##########----------| 50% (3306/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:29",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |###########---------| 55% (3637/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:29",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |############--------| 60% (3967/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:30",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |#############-------| 65% (4298/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:30",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |##############------| 70% (4628/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:31",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |###############-----| 75% (4959/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:31",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |################----| 80% (5289/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:31",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |#################---| 85% (5620/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:31",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |##################--| 90% (5950/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:32",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |###################-| 95% (6281/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:32",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |####################| 100% (6611/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:32",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation] Successfully processed 34 backtest trades for EURUSD.ecn (Saved to MySQL DB)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:33",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Optimization] [643/720] -> Result (7.66s): Net PnL: +$246.09 | Win Rate: 52.9% | Trades: 34 | PF: 1.16"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:33",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Optimization] [644/720] (89%) [Elapsed: 86m 45.0s | Rem: 10m 20s | Est Total: 1h 36m 38s (~8.1s/run)] Testing EURUSD.ecn (5m) | SL: 19.0price | RR: 1:2.0 | BE: 2.5R..."
-  },
-  {
-    "timestamp": "2026-08-03 03:24:33",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation] Starting simulation for EURUSD.ecn on 6611 candles..."
-  },
-  {
-    "timestamp": "2026-08-03 03:24:33",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |--------------------| 0% (1/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:34",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |#-------------------| 5% (331/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:34",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |##------------------| 10% (662/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:35",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |###-----------------| 15% (992/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:35",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |####----------------| 20% (1323/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:35",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |#####---------------| 25% (1653/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:35",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |######--------------| 30% (1984/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:36",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |#######-------------| 35% (2314/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:36",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |########------------| 40% (2645/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:37",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |#########-----------| 45% (2975/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:37",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |##########----------| 50% (3306/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:37",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |###########---------| 55% (3637/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:37",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |############--------| 60% (3967/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:38",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |#############-------| 65% (4298/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:38",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |##############------| 70% (4628/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:38",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |###############-----| 75% (4959/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:39",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |################----| 80% (5289/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:39",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |#################---| 85% (5620/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:39",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |##################--| 90% (5950/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:40",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |###################-| 95% (6281/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:40",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |####################| 100% (6611/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:40",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation] Successfully processed 34 backtest trades for EURUSD.ecn (Saved to MySQL DB)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:41",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Optimization] [644/720] -> Result (7.86s): Net PnL: +$246.09 | Win Rate: 52.9% | Trades: 34 | PF: 1.16"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:41",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Optimization] [645/720] (89%) [Elapsed: 86m 53.1s | Rem: 9m 56s | Est Total: 1h 34m 11s (~7.8s/run)] Testing EURUSD.ecn (5m) | SL: 19.0price | RR: 1:2.0 | BE: 3.0R..."
-  },
-  {
-    "timestamp": "2026-08-03 03:24:41",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation] Starting simulation for EURUSD.ecn on 6611 candles..."
-  },
-  {
-    "timestamp": "2026-08-03 03:24:42",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |--------------------| 0% (1/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:42",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |#-------------------| 5% (331/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:42",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |##------------------| 10% (662/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:43",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |###-----------------| 15% (992/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:43",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |####----------------| 20% (1323/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:43",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |#####---------------| 25% (1653/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:44",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |######--------------| 30% (1984/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:44",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |#######-------------| 35% (2314/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:44",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |########------------| 40% (2645/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:45",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |#########-----------| 45% (2975/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:45",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |##########----------| 50% (3306/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:45",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |###########---------| 55% (3637/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:46",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |############--------| 60% (3967/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:46",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |#############-------| 65% (4298/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:46",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |##############------| 70% (4628/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:46",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |###############-----| 75% (4959/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:47",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |################----| 80% (5289/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:47",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |#################---| 85% (5620/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:48",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |##################--| 90% (5950/6611)"
-  },
-  {
-    "timestamp": "2026-08-03 03:24:48",
-    "level": "INFO",
-    "category": "Terminal",
-    "message": "[Trade Simulation Progress] |###################-| 95% (6281/6611)"
-  },
-  {
     "timestamp": "2026-08-03 03:24:48",
     "level": "INFO",
     "category": "Terminal",
@@ -11998,5 +11272,731 @@
     "level": "INFO",
     "category": "Terminal",
     "message": "[Optimization] Completed grid matrix optimization (720 runs) in 97m 8.61s. Best Net PnL: +$1696.09 (EURUSD.ecn 5m SL:5.0 RR:3.0)"
+  },
+  {
+    "timestamp": "2026-08-03 18:37:47",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "[TerminalHandler] Output redirection initialized successfully."
+  },
+  {
+    "timestamp": "2026-08-03 18:37:53",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "[Position Manager] Started background position manager thread."
+  },
+  {
+    "timestamp": "2026-08-03 18:37:54",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "Background Session Auto-Closer thread started."
+  },
+  {
+    "timestamp": "2026-08-03 18:37:55",
+    "level": "INFO",
+    "category": "LiveRunner",
+    "message": "Started background execution thread."
+  },
+  {
+    "timestamp": "2026-08-03 18:37:55",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "MetaTrader 5 startup skipped on this deployment configuration."
+  },
+  {
+    "timestamp": "2026-08-03 18:37:55",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "Started! Port: 8751..."
+  },
+  {
+    "timestamp": "2026-08-03 18:38:15",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "[MetaTrader Connection Success] Account: 1200290776 | Server: JustMarkets-Demo3 | Status: Logged in successfully"
+  },
+  {
+    "timestamp": "2026-08-03 18:38:40",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "[TerminalHandler] Output redirection initialized successfully."
+  },
+  {
+    "timestamp": "2026-08-03 18:38:44",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "[Position Manager] Started background position manager thread."
+  },
+  {
+    "timestamp": "2026-08-03 18:38:44",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "Background Session Auto-Closer thread started."
+  },
+  {
+    "timestamp": "2026-08-03 18:38:45",
+    "level": "INFO",
+    "category": "LiveRunner",
+    "message": "Started background execution thread."
+  },
+  {
+    "timestamp": "2026-08-03 18:38:45",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "MetaTrader 5 startup skipped on this deployment configuration."
+  },
+  {
+    "timestamp": "2026-08-03 18:38:46",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "Started! Port: 8751..."
+  },
+  {
+    "timestamp": "2026-08-03 18:39:14",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "[MetaTrader Connection Success] Account: 1200290776 | Server: JustMarkets-Demo3 | Status: Logged in successfully"
+  },
+  {
+    "timestamp": "2026-08-03 18:40:48",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "[TerminalHandler] Output redirection initialized successfully."
+  },
+  {
+    "timestamp": "2026-08-03 18:40:51",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "[Position Manager] Started background position manager thread."
+  },
+  {
+    "timestamp": "2026-08-03 18:40:52",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "Background Session Auto-Closer thread started."
+  },
+  {
+    "timestamp": "2026-08-03 18:40:53",
+    "level": "INFO",
+    "category": "LiveRunner",
+    "message": "Started background execution thread."
+  },
+  {
+    "timestamp": "2026-08-03 18:40:53",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "MetaTrader 5 startup skipped on this deployment configuration."
+  },
+  {
+    "timestamp": "2026-08-03 18:40:53",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "Started! Port: 8751..."
+  },
+  {
+    "timestamp": "2026-08-03 18:42:59",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "[TerminalHandler] Output redirection initialized successfully."
+  },
+  {
+    "timestamp": "2026-08-03 18:43:02",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "[Position Manager] Started background position manager thread."
+  },
+  {
+    "timestamp": "2026-08-03 18:43:03",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "Background Session Auto-Closer thread started."
+  },
+  {
+    "timestamp": "2026-08-03 18:43:04",
+    "level": "INFO",
+    "category": "LiveRunner",
+    "message": "Started background execution thread."
+  },
+  {
+    "timestamp": "2026-08-03 18:43:04",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "MetaTrader 5 startup skipped on this deployment configuration."
+  },
+  {
+    "timestamp": "2026-08-03 18:43:04",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "Started! Port: 8751..."
+  },
+  {
+    "timestamp": "2026-08-03 18:45:19",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "[TerminalHandler] Output redirection initialized successfully."
+  },
+  {
+    "timestamp": "2026-08-03 18:45:22",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "[Position Manager] Started background position manager thread."
+  },
+  {
+    "timestamp": "2026-08-03 18:45:23",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "Background Session Auto-Closer thread started."
+  },
+  {
+    "timestamp": "2026-08-03 18:45:24",
+    "level": "INFO",
+    "category": "LiveRunner",
+    "message": "Started background execution thread."
+  },
+  {
+    "timestamp": "2026-08-03 18:45:24",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "MetaTrader 5 startup skipped on this deployment configuration."
+  },
+  {
+    "timestamp": "2026-08-03 18:45:25",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "Started! Port: 8751..."
+  },
+  {
+    "timestamp": "2026-08-03 18:50:21",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "[TerminalHandler] Output redirection initialized successfully."
+  },
+  {
+    "timestamp": "2026-08-03 18:50:24",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "[Position Manager] Started background position manager thread."
+  },
+  {
+    "timestamp": "2026-08-03 18:50:25",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "Background Session Auto-Closer thread started."
+  },
+  {
+    "timestamp": "2026-08-03 18:50:26",
+    "level": "INFO",
+    "category": "LiveRunner",
+    "message": "Started background execution thread."
+  },
+  {
+    "timestamp": "2026-08-03 18:50:26",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "MetaTrader 5 startup skipped on this deployment configuration."
+  },
+  {
+    "timestamp": "2026-08-03 18:50:26",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "Started! Port: 8751..."
+  },
+  {
+    "timestamp": "2026-08-03 18:52:55",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "[TerminalHandler] Output redirection initialized successfully."
+  },
+  {
+    "timestamp": "2026-08-03 18:52:59",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "[Position Manager] Started background position manager thread."
+  },
+  {
+    "timestamp": "2026-08-03 18:52:59",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "Background Session Auto-Closer thread started."
+  },
+  {
+    "timestamp": "2026-08-03 18:53:00",
+    "level": "INFO",
+    "category": "LiveRunner",
+    "message": "Started background execution thread."
+  },
+  {
+    "timestamp": "2026-08-03 18:53:00",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "MetaTrader 5 startup skipped on this deployment configuration."
+  },
+  {
+    "timestamp": "2026-08-03 18:53:01",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "Started! Port: 8751..."
+  },
+  {
+    "timestamp": "2026-08-03 19:16:29",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "[TerminalHandler] Output redirection initialized successfully."
+  },
+  {
+    "timestamp": "2026-08-03 19:16:32",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "[Position Manager] Started background position manager thread."
+  },
+  {
+    "timestamp": "2026-08-03 19:16:33",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "Background Session Auto-Closer thread started."
+  },
+  {
+    "timestamp": "2026-08-03 19:16:34",
+    "level": "INFO",
+    "category": "LiveRunner",
+    "message": "Started background execution thread."
+  },
+  {
+    "timestamp": "2026-08-03 19:16:34",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "MetaTrader 5 startup skipped on this deployment configuration."
+  },
+  {
+    "timestamp": "2026-08-03 19:16:34",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "Started! Port: 8751..."
+  },
+  {
+    "timestamp": "2026-08-03 19:18:44",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "[TerminalHandler] Output redirection initialized successfully."
+  },
+  {
+    "timestamp": "2026-08-03 19:18:48",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "[Position Manager] Started background position manager thread."
+  },
+  {
+    "timestamp": "2026-08-03 19:18:49",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "Background Session Auto-Closer thread started."
+  },
+  {
+    "timestamp": "2026-08-03 19:18:50",
+    "level": "INFO",
+    "category": "LiveRunner",
+    "message": "Started background execution thread."
+  },
+  {
+    "timestamp": "2026-08-03 19:18:50",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "MetaTrader 5 startup skipped on this deployment configuration."
+  },
+  {
+    "timestamp": "2026-08-03 19:18:50",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "Started! Port: 8751..."
+  },
+  {
+    "timestamp": "2026-08-03 19:19:13",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "[MetaTrader Provisioning] Copying mt5_base to d:\\Coding\\trading\\mt5\\mt5_1200290776..."
+  },
+  {
+    "timestamp": "2026-08-03 19:23:31",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "[TerminalHandler] Output redirection initialized successfully."
+  },
+  {
+    "timestamp": "2026-08-03 19:23:35",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "[Position Manager] Started background position manager thread."
+  },
+  {
+    "timestamp": "2026-08-03 19:23:35",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "Background Session Auto-Closer thread started."
+  },
+  {
+    "timestamp": "2026-08-03 19:23:36",
+    "level": "INFO",
+    "category": "LiveRunner",
+    "message": "Started background execution thread."
+  },
+  {
+    "timestamp": "2026-08-03 19:23:36",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "MetaTrader 5 startup skipped on this deployment configuration."
+  },
+  {
+    "timestamp": "2026-08-03 19:23:37",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "Started! Port: 8751..."
+  },
+  {
+    "timestamp": "2026-08-03 19:24:36",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "[TerminalHandler] Output redirection initialized successfully."
+  },
+  {
+    "timestamp": "2026-08-03 19:24:39",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "[Position Manager] Started background position manager thread."
+  },
+  {
+    "timestamp": "2026-08-03 19:24:40",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "Background Session Auto-Closer thread started."
+  },
+  {
+    "timestamp": "2026-08-03 19:24:41",
+    "level": "INFO",
+    "category": "LiveRunner",
+    "message": "Started background execution thread."
+  },
+  {
+    "timestamp": "2026-08-03 19:24:41",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "MetaTrader 5 startup skipped on this deployment configuration."
+  },
+  {
+    "timestamp": "2026-08-03 19:24:41",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "Started! Port: 8751..."
+  },
+  {
+    "timestamp": "2026-08-03 19:24:56",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "[MetaTrader Provisioning] Copying mt5_base to d:\\Coding\\trading\\mt5\\mt5_1200290776..."
+  },
+  {
+    "timestamp": "2026-08-03 19:24:57",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "[MetaTrader Provisioning] Copying mt5_plugin_base to d:\\Coding\\trading\\mt5\\mt5_plugin_1200290776..."
+  },
+  {
+    "timestamp": "2026-08-03 19:25:30",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "[TerminalHandler] Output redirection initialized successfully."
+  },
+  {
+    "timestamp": "2026-08-03 19:25:34",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "[Position Manager] Started background position manager thread."
+  },
+  {
+    "timestamp": "2026-08-03 19:25:35",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "Background Session Auto-Closer thread started."
+  },
+  {
+    "timestamp": "2026-08-03 19:25:36",
+    "level": "INFO",
+    "category": "LiveRunner",
+    "message": "Started background execution thread."
+  },
+  {
+    "timestamp": "2026-08-03 19:25:36",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "MetaTrader 5 startup skipped on this deployment configuration."
+  },
+  {
+    "timestamp": "2026-08-03 19:25:36",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "Started! Port: 8751..."
+  },
+  {
+    "timestamp": "2026-08-03 19:26:57",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "[TerminalHandler] Output redirection initialized successfully."
+  },
+  {
+    "timestamp": "2026-08-03 19:27:01",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "[Position Manager] Started background position manager thread."
+  },
+  {
+    "timestamp": "2026-08-03 19:27:02",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "Background Session Auto-Closer thread started."
+  },
+  {
+    "timestamp": "2026-08-03 19:27:02",
+    "level": "INFO",
+    "category": "LiveRunner",
+    "message": "Started background execution thread."
+  },
+  {
+    "timestamp": "2026-08-03 19:27:03",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "MetaTrader 5 startup skipped on this deployment configuration."
+  },
+  {
+    "timestamp": "2026-08-03 19:27:03",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "Started! Port: 8751..."
+  },
+  {
+    "timestamp": "2026-08-03 19:27:34",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "[TerminalHandler] Output redirection initialized successfully."
+  },
+  {
+    "timestamp": "2026-08-03 19:27:38",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "[Position Manager] Started background position manager thread."
+  },
+  {
+    "timestamp": "2026-08-03 19:27:38",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "Background Session Auto-Closer thread started."
+  },
+  {
+    "timestamp": "2026-08-03 19:27:39",
+    "level": "INFO",
+    "category": "LiveRunner",
+    "message": "Started background execution thread."
+  },
+  {
+    "timestamp": "2026-08-03 19:27:39",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "MetaTrader 5 startup skipped on this deployment configuration."
+  },
+  {
+    "timestamp": "2026-08-03 19:27:40",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "Started! Port: 8751..."
+  },
+  {
+    "timestamp": "2026-08-03 19:30:49",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "[TerminalHandler] Output redirection initialized successfully."
+  },
+  {
+    "timestamp": "2026-08-03 19:30:53",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "[Position Manager] Started background position manager thread."
+  },
+  {
+    "timestamp": "2026-08-03 19:30:54",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "Background Session Auto-Closer thread started."
+  },
+  {
+    "timestamp": "2026-08-03 19:30:54",
+    "level": "INFO",
+    "category": "LiveRunner",
+    "message": "Started background execution thread."
+  },
+  {
+    "timestamp": "2026-08-03 19:30:55",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "MetaTrader 5 startup skipped on this deployment configuration."
+  },
+  {
+    "timestamp": "2026-08-03 19:30:55",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "Started! Port: 8751..."
+  },
+  {
+    "timestamp": "2026-08-03 19:35:21",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "[TerminalHandler] Output redirection initialized successfully."
+  },
+  {
+    "timestamp": "2026-08-03 19:35:25",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "[Position Manager] Started background position manager thread."
+  },
+  {
+    "timestamp": "2026-08-03 19:35:25",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "Background Session Auto-Closer thread started."
+  },
+  {
+    "timestamp": "2026-08-03 19:35:26",
+    "level": "INFO",
+    "category": "LiveRunner",
+    "message": "Started background execution thread."
+  },
+  {
+    "timestamp": "2026-08-03 19:35:26",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "MetaTrader 5 startup skipped on this deployment configuration."
+  },
+  {
+    "timestamp": "2026-08-03 19:35:27",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "Started! Port: 8751..."
+  },
+  {
+    "timestamp": "2026-08-03 19:37:21",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "[TerminalHandler] Output redirection initialized successfully."
+  },
+  {
+    "timestamp": "2026-08-03 19:37:25",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "[Position Manager] Started background position manager thread."
+  },
+  {
+    "timestamp": "2026-08-03 19:37:26",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "Background Session Auto-Closer thread started."
+  },
+  {
+    "timestamp": "2026-08-03 19:37:26",
+    "level": "INFO",
+    "category": "LiveRunner",
+    "message": "Started background execution thread."
+  },
+  {
+    "timestamp": "2026-08-03 19:37:27",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "MetaTrader 5 startup skipped on this deployment configuration."
+  },
+  {
+    "timestamp": "2026-08-03 19:37:27",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "Started! Port: 8751..."
+  },
+  {
+    "timestamp": "2026-08-03 19:38:48",
+    "level": "ERROR",
+    "category": "Terminal",
+    "message": "[MetaTrader Initialization Failure] Account: 1200290776 | Path: d:\\Coding\\trading\\mt5\\mt5_1200290776\\terminal64.exe | Error: -10005 (IPC timeout)"
+  },
+  {
+    "timestamp": "2026-08-03 19:39:35",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "[TerminalHandler] Output redirection initialized successfully."
+  },
+  {
+    "timestamp": "2026-08-03 19:39:38",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "[Position Manager] Started background position manager thread."
+  },
+  {
+    "timestamp": "2026-08-03 19:39:39",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "Background Session Auto-Closer thread started."
+  },
+  {
+    "timestamp": "2026-08-03 19:39:40",
+    "level": "INFO",
+    "category": "LiveRunner",
+    "message": "Started background execution thread."
+  },
+  {
+    "timestamp": "2026-08-03 19:39:40",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "MetaTrader 5 startup skipped on this deployment configuration."
+  },
+  {
+    "timestamp": "2026-08-03 19:39:40",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "Started! Port: 8751..."
+  },
+  {
+    "timestamp": "2026-08-03 19:46:39",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "[TerminalHandler] Output redirection initialized successfully."
+  },
+  {
+    "timestamp": "2026-08-03 19:46:42",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "[Position Manager] Started background position manager thread."
+  },
+  {
+    "timestamp": "2026-08-03 19:46:43",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "Background Session Auto-Closer thread started."
+  },
+  {
+    "timestamp": "2026-08-03 19:46:44",
+    "level": "INFO",
+    "category": "LiveRunner",
+    "message": "Started background execution thread."
+  },
+  {
+    "timestamp": "2026-08-03 19:46:44",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "MetaTrader 5 startup skipped on this deployment configuration."
+  },
+  {
+    "timestamp": "2026-08-03 19:46:44",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "Started! Port: 8751..."
+  },
+  {
+    "timestamp": "2026-08-03 19:46:59",
+    "level": "INFO",
+    "category": "Terminal",
+    "message": "[MetaTrader Connecting] Account: 1200290776 | Server: JustMarkets-Demo3 | Path: d:\\Coding\\trading\\mt5\\mt5_1200290776\\terminal64.exe"
   }
 ]
