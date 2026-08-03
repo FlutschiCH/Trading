@@ -1578,14 +1578,15 @@ export default function TVChart({
             matchedCandleUTC: matchedDateUtc,
           });
 
-          const positionMarkerTime = rawTs ? Number(rawTs) : matchedTime;
+          const positionMarkerTime = matchedTime ?? (rawTs ? Number(rawTs) : null);
+          const matchedCandle = activeCandles.find(c => Number(c.time) === positionMarkerTime);
 
           if (positionMarkerTime !== null) {
             const isBuy = (pos.trade_side || pos.side || pos.type || 'BUY').toUpperCase() === 'BUY';
             const baseColor = isBuy ? '#3b82f6' : '#ec4899';
             const volume = pos.volume !== undefined ? pos.volume : '';
-            const entryPriceVal = parseFloat(pos.entry_price ?? pos.entryPrice ?? 0);
-            const priceText = entryPriceVal > 0 ? ` @ ${entryPriceVal.toFixed(2)}` : '';
+            const displayPriceVal = matchedCandle ? matchedCandle.high : parseFloat(pos.entry_price ?? pos.entryPrice ?? 0);
+            const priceText = displayPriceVal > 0 ? ` @ ${displayPriceVal.toFixed(2)}` : '';
 
             openPositionMarkers.push({
               time: positionMarkerTime as any,
@@ -2831,15 +2832,19 @@ export default function TVChart({
                 const matchedCandleTime = entryTs ? findCandleTimeForTimestamp(entryTs, activeCandles) : null;
                 const entryX = matchedCandleTime && chartRef.current ? chartRef.current.timeScale().timeToCoordinate(matchedCandleTime) : null;
 
+                const matchedCandleObj = activeCandles.find(c => Number(c.time) === matchedCandleTime);
+                const candleHighPrice = matchedCandleObj ? matchedCandleObj.high : entryPrice;
+                const candleHighY = candleHighPrice > 0 && candlestickSeriesRef.current ? candlestickSeriesRef.current.priceToCoordinate(candleHighPrice) : entryY;
+
                 return (
                   <g key={`svg-pos-badge-${pos.position_id}`}>
-                    {/* Entry Triangle Indicator on Candle */}
-                    {entryX !== null && entryX > 0 && entryX < plotWidth && entryY !== null && entryY > 0 && entryY < chartHeight - 26 && (
+                    {/* Entry Triangle Indicator on Candle High */}
+                    {entryX !== null && entryX > 0 && entryX < plotWidth && candleHighY !== null && candleHighY > 0 && candleHighY < chartHeight - 26 && (
                       <g style={{ pointerEvents: 'none' }}>
                         <polygon
                           points={isBuy
-                            ? `${entryX},${entryY - 12} ${entryX - 7},${entryY + 2} ${entryX + 7},${entryY + 2}`
-                            : `${entryX},${entryY + 12} ${entryX - 7},${entryY - 2} ${entryX + 7},${entryY - 2}`}
+                            ? `${entryX},${candleHighY - 12} ${entryX - 7},${candleHighY + 2} ${entryX + 7},${candleHighY + 2}`
+                            : `${entryX},${candleHighY + 12} ${entryX - 7},${candleHighY - 2} ${entryX + 7},${candleHighY - 2}`}
                           fill={isBuy ? '#2563eb' : '#db2777'}
                           stroke="#ffffff"
                           strokeWidth={1.5}
