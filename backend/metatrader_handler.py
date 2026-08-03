@@ -25,9 +25,10 @@ class MetaTraderHandler(BaseBrokerHandler):
         mt5_dir = os.path.join(project_root, "mt5")
         
         target_dir = os.path.join(mt5_dir, f"mt5_{login}") if login else None
+        target_plugin_dir = os.path.join(mt5_dir, f"mt5_plugin_{login}") if login else None
         path = terminal_path or (os.path.join(target_dir, "terminal64.exe") if target_dir else None)
 
-        # Check if target account folder exists; if not, copy from mt5_base to provision instance
+        # Check if target account terminal folder exists; if not, copy from mt5_base to provision instance
         if target_dir and not os.path.exists(target_dir):
             base_template = os.path.join(mt5_dir, "mt5_base")
             if os.path.exists(base_template):
@@ -35,7 +36,17 @@ class MetaTraderHandler(BaseBrokerHandler):
                     print(f"[MetaTrader Provisioning] Copying mt5_base to {target_dir}...", flush=True)
                     shutil.copytree(base_template, target_dir)
                 except Exception as e:
-                    print(f"[MetaTrader Provisioning Error] Account {login}: {e}", flush=True)
+                    print(f"[MetaTrader Terminal Provisioning Error] Account {login}: {e}", flush=True)
+
+        # Check if target account plugin folder exists; if not, copy from mt5_plugin_base
+        if target_plugin_dir and not os.path.exists(target_plugin_dir):
+            base_plugin_template = os.path.join(mt5_dir, "mt5_plugin_base")
+            if os.path.exists(base_plugin_template):
+                try:
+                    print(f"[MetaTrader Provisioning] Copying mt5_plugin_base to {target_plugin_dir}...", flush=True)
+                    shutil.copytree(base_plugin_template, target_plugin_dir)
+                except Exception as e:
+                    print(f"[MetaTrader Plugin Provisioning Error] Account {login}: {e}", flush=True)
 
         success = mt5.initialize(path=path, login=int(login) if login else 0, password=password or "", server=server or "", portable=True)
 
