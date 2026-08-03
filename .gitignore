@@ -30,7 +30,3 @@ __pycache__/
 venv/
 backend/.venv/
 *.db
-
-# MT5 binaries
-mt5/
-*.exe
