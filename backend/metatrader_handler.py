@@ -18,8 +18,26 @@ class MetaTraderHandler(BaseBrokerHandler):
             return False
 
         import os
-        path = terminal_path or (os.path.join(os.path.dirname(os.path.abspath(__file__)), "mt5", f"mt5_{login}", "terminal64.exe") if login else None)
+        import shutil
+
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        mt5_dir = os.path.join(base_dir, "mt5")
+        
+        target_dir = os.path.join(mt5_dir, f"mt5_{login}") if login else None
+        path = terminal_path or (os.path.join(target_dir, "terminal64.exe") if target_dir else None)
+
         success = mt5.initialize(path=path, login=int(login) if login else 0, password=password or "", server=server or "", portable=True)
+        
+        # If initialization failed, check if target directory exists; if missing, provision from default template and retry
+        if not success and target_dir and not os.path.exists(target_dir):
+            default_terminal = os.path.join(mt5_dir, "mt5_default")
+            if os.path.exists(default_terminal):
+                try:
+                    shutil.copytree(default_terminal, target_dir)
+                    success = mt5.initialize(path=path, login=int(login) if login else 0, password=password or "", server=server or "", portable=True)
+                except Exception as e:
+                    print(f"[MetaTrader Auto-Provision Error] Account {login}: {e}", flush=True)
+
         if success and login:
             MetaTraderHandler._mt5_instances[str(login)] = mt5
         return success
