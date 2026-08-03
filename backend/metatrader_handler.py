@@ -17,59 +17,8 @@ class MetaTraderHandler(BaseBrokerHandler):
             return False
 
         import os
-        if not terminal_path and login:
-            base_dir = os.path.dirname(os.path.abspath(__file__))
-            terminal_path = os.path.join(base_dir, "mt5", f"mt5_{login}", "terminal64.exe")
-
-        # First ensure basic terminal initialization
-        try:
-            if mt5.terminal_info() is None:
-                if terminal_path:
-                    mt5.initialize(path=terminal_path)
-                else:
-                    mt5.initialize()
-        except Exception:
-            pass
-
-        # If credentials provided, check if current MT5 session matches, else perform login
-        if login:
-            try:
-                acc_info = mt5.account_info()
-                if acc_info is not None and str(acc_info.login) == str(login):
-                    return True
-            except Exception:
-                pass
-
-            login_str = str(login)
-            is_first_attempt = login_str not in MetaTraderHandler._connection_states
-            
-            # Login to specific account
-            init_kwargs = {"login": int(login), "password": password or "", "server": server or ""}
-            if terminal_path:
-                init_kwargs["path"] = terminal_path
-
-            success = mt5.login(login=int(login), password=password or "", server=server or "") if (password or server) else mt5.initialize(**init_kwargs)
-            if not success:
-                # Try initialize with credentials if login failed
-                success = mt5.initialize(**init_kwargs)
-            
-            if not success:
-                error_code, error_desc = mt5.last_error()
-                if is_first_attempt or MetaTraderHandler._connection_states.get(login_str) != "failed":
-                    print(f"[MetaTrader Connection Failure] Account: {login_str} | Server: {server} | Reason: Login failed | Error Code: {error_code} | Details: {error_desc}", flush=True)
-                    MetaTraderHandler._connection_states[login_str] = "failed"
-                return False
-                
-            if is_first_attempt or MetaTraderHandler._connection_states.get(login_str) != "connected":
-                print(f"[MetaTrader Connection Success] Account: {login_str} | Server: {server} | Status: Logged in successfully", flush=True)
-                MetaTraderHandler._connection_states[login_str] = "connected"
-            return True
-
-        # Fallback check terminal info
-        try:
-            return mt5.terminal_info() is not None
-        except Exception:
-            return False
+        path = terminal_path or (os.path.join(os.path.dirname(os.path.abspath(__file__)), "mt5", f"mt5_{login}", "terminal64.exe") if login else None)
+        return mt5.initialize(path=path, login=int(login) if login else 0, password=password or "", server=server or "", portable=True)
 
     @staticmethod
     def _resolve_credentials(login=None, password=None, server=None, **kwargs):
