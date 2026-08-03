@@ -19,6 +19,8 @@ class MetaTraderHandler(BaseBrokerHandler):
 
         import os
         import shutil
+        import sys
+        import importlib.util
 
         backend_dir = os.path.dirname(os.path.abspath(__file__))
         project_root = os.path.dirname(backend_dir)
@@ -48,10 +50,33 @@ class MetaTraderHandler(BaseBrokerHandler):
                 except Exception as e:
                     print(f"[MetaTrader Plugin Provisioning Error] Account {login}: {e}", flush=True)
 
-        success = mt5.initialize(path=path, login=int(login) if login else 0, password=password or "", server=server or "", portable=True)
+        # Dynamically import isolated MetaTrader5 module per account from its dedicated plugin folder
+        acc_key = str(login) if login else "default"
+        mt5_module = None
+
+        if target_plugin_dir and os.path.exists(target_plugin_dir):
+            if target_plugin_dir not in sys.path:
+                sys.path.insert(0, target_plugin_dir)
+            module_name = f"MetaTrader5_acc_{acc_key}"
+            try:
+                # Attempt importing package directly from target_plugin_dir
+                spec = importlib.util.spec_from_file_location(
+                    module_name,
+                    os.path.join(target_plugin_dir, "MetaTrader5", "__init__.py")
+                )
+                if spec and spec.loader:
+                    mt5_module = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(mt5_module)
+            except Exception:
+                pass
+
+        if mt5_module is None:
+            mt5_module = mt5
+
+        success = mt5_module.initialize(path=path, login=int(login) if login else 0, password=password or "", server=server or "", portable=True)
 
         if success and login:
-            MetaTraderHandler._mt5_instances[str(login)] = mt5
+            MetaTraderHandler._mt5_instances[str(login)] = mt5_module
         return success
 
     @staticmethod
