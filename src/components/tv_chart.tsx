@@ -1546,7 +1546,7 @@ export default function TVChart({
             rawTs = Math.floor(Number(rawTs) / 1000);
           }
           if (rawTs) {
-            rawTs = Number(rawTs) - 7200;
+            rawTs = Number(rawTs) - 10800;
           }
           const matchedTime = findCandleTimeForTimestamp(rawTs, activeCandles);
 
@@ -2827,7 +2827,7 @@ export default function TVChart({
 
                 let entryTs = pos.entry_timestamp ?? pos.entryTimestamp ?? pos.timestamp ?? pos.open_time ?? pos.openTime ?? pos.time;
                 if (entryTs && Number(entryTs) > 2000000000) entryTs = Math.floor(Number(entryTs) / 1000);
-                if (entryTs) entryTs = Number(entryTs) - 7200;
+                if (entryTs) entryTs = Number(entryTs) - 10800;
                 const matchedCandleTime = entryTs ? findCandleTimeForTimestamp(entryTs, activeCandles) : null;
                 const entryX = matchedCandleTime && chartRef.current ? chartRef.current.timeScale().timeToCoordinate(matchedCandleTime) : null;
 
