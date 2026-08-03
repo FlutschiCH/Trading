@@ -57,11 +57,13 @@ class AccountHandler:
         import shutil
         
         base_dir = os.path.dirname(os.path.abspath(__file__))
-        default_terminal = os.path.join(base_dir, "mt5_default")
-        default_plugin = os.path.join(base_dir, "mt5_plugin_default")
+        mt5_dir = os.path.join(base_dir, "mt5")
         
-        target_terminal = os.path.join(base_dir, f"mt5_{account_id}")
-        target_plugin = os.path.join(base_dir, f"mt5_plugin_{account_id}")
+        default_terminal = os.path.join(mt5_dir, "mt5_default")
+        default_plugin = os.path.join(mt5_dir, "mt5_plugin_default")
+        
+        target_terminal = os.path.join(mt5_dir, f"mt5_{account_id}")
+        target_plugin = os.path.join(mt5_dir, f"mt5_plugin_{account_id}")
         
         if os.path.exists(default_terminal) and not os.path.exists(target_terminal):
             try:
@@ -75,7 +77,8 @@ class AccountHandler:
             except Exception as e:
                 print(f"Error provisioning plugin folder for {account_id}: {e}", flush=True)
                 
-        return target_terminal, target_plugin
+        terminal_exe = os.path.join(target_terminal, "terminal64.exe")
+        return terminal_exe if os.path.exists(terminal_exe) else target_terminal, target_plugin
 
     @staticmethod
     def get_accounts():

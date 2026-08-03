@@ -16,6 +16,11 @@ class MetaTraderHandler(BaseBrokerHandler):
         if not MT5_AVAILABLE:
             return False
 
+        import os
+        if not terminal_path and login:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            terminal_path = os.path.join(base_dir, "mt5", f"mt5_{login}", "terminal64.exe")
+
         # First ensure basic terminal initialization
         try:
             if mt5.terminal_info() is None:
