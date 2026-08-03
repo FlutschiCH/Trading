@@ -59,7 +59,7 @@ class AccountHandler:
         base_dir = os.path.dirname(os.path.abspath(__file__))
         mt5_dir = os.path.join(base_dir, "mt5")
         
-        default_terminal = os.path.join(mt5_dir, "mt5_default")
+        default_terminal = os.path.join(mt5_dir, "mt5_base")
         default_plugin = os.path.join(mt5_dir, "mt5_plugin_default")
         
         target_terminal = os.path.join(mt5_dir, f"mt5_{account_id}")

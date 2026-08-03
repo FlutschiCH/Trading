@@ -26,17 +26,17 @@ class MetaTraderHandler(BaseBrokerHandler):
         target_dir = os.path.join(mt5_dir, f"mt5_{login}") if login else None
         path = terminal_path or (os.path.join(target_dir, "terminal64.exe") if target_dir else None)
 
-        success = mt5.initialize(path=path, login=int(login) if login else 0, password=password or "", server=server or "", portable=True)
-        
-        # If initialization failed, check if target directory exists; if missing, provision from default template and retry
-        if not success and target_dir and not os.path.exists(target_dir):
-            default_terminal = os.path.join(mt5_dir, "mt5_default")
-            if os.path.exists(default_terminal):
+        # Check if target account folder exists; if not, copy from mt5_base to provision instance
+        if target_dir and not os.path.exists(target_dir):
+            base_template = os.path.join(mt5_dir, "mt5_base")
+            if os.path.exists(base_template):
                 try:
-                    shutil.copytree(default_terminal, target_dir)
-                    success = mt5.initialize(path=path, login=int(login) if login else 0, password=password or "", server=server or "", portable=True)
+                    print(f"[MetaTrader Provisioning] Copying mt5_base to {target_dir}...", flush=True)
+                    shutil.copytree(base_template, target_dir)
                 except Exception as e:
-                    print(f"[MetaTrader Auto-Provision Error] Account {login}: {e}", flush=True)
+                    print(f"[MetaTrader Provisioning Error] Account {login}: {e}", flush=True)
+
+        success = mt5.initialize(path=path, login=int(login) if login else 0, password=password or "", server=server or "", portable=True)
 
         if success and login:
             MetaTraderHandler._mt5_instances[str(login)] = mt5
