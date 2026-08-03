@@ -262,6 +262,30 @@ class MetaTraderHandler(BaseBrokerHandler):
         if positions is None:
             return []
         
+        # Calculate server to UTC offset
+        offset = 0
+        try:
+            sample_sym = positions[0].symbol if len(positions) > 0 else "EURUSD"
+            tick = mt5.symbol_info_tick(sample_sym)
+            if tick:
+                import time as pytime
+                import datetime
+                current_time = int(pytime.time())
+                if current_time - tick.time < 3600:
+                    diff = tick.time - current_time
+                    offset = int(round(diff / 1800.0) * 1800)
+                else:
+                    tick_dt = datetime.datetime.fromtimestamp(tick.time, datetime.timezone.utc)
+                    year = tick_dt.year
+                    dst_start = datetime.datetime(year, 3, 31) - datetime.timedelta(days=(datetime.datetime(year, 3, 31).weekday() + 1) % 7)
+                    dst_end = datetime.datetime(year, 10, 31) - datetime.timedelta(days=(datetime.datetime(year, 10, 31).weekday() + 1) % 7)
+                    if dst_start.date() <= tick_dt.date() < dst_end.date():
+                        offset = 10800
+                    else:
+                        offset = 7200
+        except Exception:
+            offset = 7200
+
         from symbol_mapping_handler import SymbolMappingHandler
         broker_key = f"metatrader:{server}"
 
@@ -277,7 +301,7 @@ class MetaTraderHandler(BaseBrokerHandler):
                 "unrealized_profit": p.profit,
                 "stop_loss": float(p.sl) if p.sl > 0 else 0.0,
                 "take_profit": float(p.tp) if p.tp > 0 else 0.0,
-                "entry_timestamp": int(p.time)
+                "entry_timestamp": int(p.time) - offset
             })
         return res
 
