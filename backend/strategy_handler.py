@@ -198,6 +198,11 @@ class StrategyHandler:
         """
         print(f"\n[Backtest] Starting Wyckoff Structure Analysis backtest for {symbol} on {len(candles)} candles...", flush=True)
         
+        # Sanitize Break-Even vs RR (Break-Even cannot be >= RR)
+        if use_break_even and be_trigger_r >= rr:
+            print(f"[Backtest] Warning: Break-Even trigger ({be_trigger_r}R) >= RR ({rr}R). Disabling Break-Even to prevent non-sensical simulation.", flush=True)
+            use_break_even = False
+
         # 1. Run Market Data Analysis (0% to 50% progress)
         wrapped_cb = None
         if progress_callback:
@@ -394,11 +399,15 @@ class StrategyHandler:
 
         # Build combination matrix
         matrix = []
+        skipped_invalid_combos = 0
         for s in symbols_list:
             for tf in timeframes_list:
                 for sl in sl_values:
                     for rr in rr_values:
                         for be in be_values:
+                            if use_break_even and be is not None and be >= rr:
+                                skipped_invalid_combos += 1
+                                continue
                             matrix.append({
                                 "symbol": s,
                                 "timeframe": tf,
@@ -409,7 +418,7 @@ class StrategyHandler:
 
         import time
         overall_start_time = time.time()
-        print(f"\n[Optimization] Starting grid matrix optimization with {len(matrix)} combinations...", flush=True)
+        print(f"\n[Optimization] Starting grid matrix optimization with {len(matrix)} combinations (skipped {skipped_invalid_combos} invalid combinations where BE >= RR)...", flush=True)
 
         analysis_cache = {}
         results = []
