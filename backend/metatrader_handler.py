@@ -57,20 +57,14 @@ class MetaTraderHandler(BaseBrokerHandler):
         if target_plugin_dir and os.path.exists(target_plugin_dir):
             if target_plugin_dir not in sys.path:
                 sys.path.insert(0, target_plugin_dir)
-            module_name = f"MetaTrader5_acc_{acc_key}"
             try:
-                # Attempt importing package directly from target_plugin_dir
-                spec = importlib.util.spec_from_file_location(
-                    module_name,
-                    os.path.join(target_plugin_dir, "MetaTrader5", "__init__.py")
-                )
-                if spec and spec.loader:
-                    mt5_module = importlib.util.module_from_spec(spec)
-                    spec.loader.exec_module(mt5_module)
-            except Exception:
-                pass
+                # Attempt importing MetaTrader5 module directly from the isolated plugin directory sys.path entry
+                import MetaTrader5 as imported_mt5
+                mt5_module = imported_mt5
+            except Exception as e:
+                print(f"[MetaTrader Plugin Import Warning] Account {login}: {e}", flush=True)
 
-        if mt5_module is None:
+        if mt5_module is None or not hasattr(mt5_module, "initialize"):
             mt5_module = mt5
 
         success = False
