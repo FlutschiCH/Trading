@@ -103,27 +103,18 @@ const findCandleTimeForTimestamp = (ts: number | string | undefined | null, cand
   const exact = candles.find(c => Number(c.time) === normalizedTs);
   if (exact) return Number(exact.time);
 
+  let closest = candles[0];
+  let minDiff = Math.abs(Number(closest.time) - normalizedTs);
   for (let i = 0; i < candles.length; i++) {
-    const candleTime = Number(candles[i].time);
-    const nextCandleTime = i < candles.length - 1 ? Number(candles[i + 1].time) : candleTime + 86400;
-    if (normalizedTs >= candleTime && normalizedTs < nextCandleTime) {
-      return candleTime;
+    const cTime = Number(candles[i].time);
+    const diff = Math.abs(cTime - normalizedTs);
+    if (diff < minDiff) {
+      minDiff = diff;
+      closest = candles[i];
     }
   }
 
-  let closest = candles[0];
-  let minDiff = Math.abs(Number(closest.time) - normalizedTs);
-  for (const c of candles) {
-    const diff = Math.abs(Number(c.time) - normalizedTs);
-    if (diff < minDiff) {
-      minDiff = diff;
-      closest = c;
-    }
-  }
-  if (minDiff <= 86400 * 7) {
-    return Number(closest.time);
-  }
-  return null;
+  return Number(closest.time);
 };
 
 const isLocal = typeof window !== 'undefined' &&
