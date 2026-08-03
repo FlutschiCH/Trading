@@ -1575,7 +1575,9 @@ export default function TVChart({
             matchedCandleUTC: matchedDateUtc,
           });
 
-          if (matchedTime !== null) {
+          const positionMarkerTime = rawTs ? Number(rawTs) : matchedTime;
+
+          if (positionMarkerTime !== null) {
             const isBuy = (pos.trade_side || pos.side || pos.type || 'BUY').toUpperCase() === 'BUY';
             const baseColor = isBuy ? '#3b82f6' : '#ec4899';
             const volume = pos.volume !== undefined ? pos.volume : '';
@@ -1583,7 +1585,7 @@ export default function TVChart({
             const priceText = entryPriceVal > 0 ? ` @ ${entryPriceVal.toFixed(2)}` : '';
 
             openPositionMarkers.push({
-              time: matchedTime as any,
+              time: positionMarkerTime as any,
               position: (isBuy ? 'belowBar' : 'aboveBar') as any,
               color: baseColor,
               shape: (isBuy ? 'arrowUp' : 'arrowDown') as any,
@@ -1595,8 +1597,15 @@ export default function TVChart({
       }
 
       const validCandleTimes = new Set(activeCandles.flatMap(c => [c.time, Number(c.time)]));
+      const minCandleTime = activeCandles.length > 0 ? Number(activeCandles[0].time) : 0;
+      const maxCandleTime = activeCandles.length > 0 ? Number(activeCandles[activeCandles.length - 1].time) : Infinity;
+
       const allMarkers = [...entryMarkers, ...exitMarkers, ...openPositionMarkers]
-        .filter((m) => m && m.time != null && m.time !== '' && validCandleTimes.has(m.time) && m.position != null && m.color != null && m.shape != null)
+        .filter((m) => {
+          if (!m || m.time == null || m.time === '' || m.position == null || m.color == null || m.shape == null) return false;
+          const t = Number(m.time);
+          return validCandleTimes.has(m.time) || validCandleTimes.has(t) || (t >= minCandleTime && t <= maxCandleTime + 86400);
+        })
         .sort((a, b) => {
           const timeA = typeof a.time === 'number' ? a.time : new Date(a.time).getTime();
           const timeB = typeof b.time === 'number' ? b.time : new Date(b.time).getTime();
