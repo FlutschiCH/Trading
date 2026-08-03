@@ -117,26 +117,14 @@ class CandleCollectorHandler:
     def sync_candles_for_symbol(cls, symbol: str, limit: int = 50) -> dict:
         symbol = symbol.strip().upper()
         try:
-            # Determine active MetaTrader server credentials
-            login, password, server = MetaTraderHandler._resolve_credentials()
-        except Exception as e:
-            logPrint(f"Cannot resolve MT5 credentials: {e}", category="CandleCollectorHandler", level="ERROR")
-            return {"status": "error", "message": f"MetaTrader credentials not available: {e}"}
-
-        server_name = server or "MetaTrader"
-        try:
-            # Fetch candles from MetaTrader
+            # Fetch candles using current MT5 session handled by MetaTraderHandler
             candles = MetaTraderHandler.fetch_candles(
                 symbol=symbol,
                 timeframe='1m',
-                limit=limit,
-                login=login,
-                password=password,
-                server=server
+                limit=limit
             )
-
             if not candles:
-                logPrint(f"No candles returned for {symbol} on server {server_name}", category="CandleCollectorHandler", level="WARNING")
+                logPrint(f"No candles returned for {symbol}", category="CandleCollectorHandler", level="WARNING")
                 return {"status": "warning", "message": f"No candles returned for {symbol}."}
 
             # Batch insert/upsert into mt5_1m_candles
@@ -151,6 +139,7 @@ class CandleCollectorHandler:
                 volume = VALUES(volume)
             """
 
+            server_name = "MetaTrader"
             records = []
             for c in candles:
                 ts = int(c.get('timestamp') or c.get('time') or 0)
