@@ -73,7 +73,20 @@ class MetaTraderHandler(BaseBrokerHandler):
         if mt5_module is None:
             mt5_module = mt5
 
-        success = mt5_module.initialize(path=path, login=int(login) if login else 0, password=password or "", server=server or "", portable=True)
+        success = False
+        try:
+            success = mt5_module.initialize(path=path, login=int(login) if login else 0, password=password or "", server=server or "", portable=True)
+            if not success:
+                err_code, err_desc = mt5_module.last_error() if hasattr(mt5_module, "last_error") else ("unknown", "unknown")
+                print(f"[MetaTrader Initialization Failure] Account: {login} | Path: {path} | Error: {err_code} ({err_desc})", flush=True)
+        except Exception as e:
+            err_code, err_desc = ("exception", str(e))
+            if hasattr(mt5_module, "last_error"):
+                try:
+                    err_code, err_desc = mt5_module.last_error()
+                except Exception:
+                    pass
+            print(f"[MetaTrader Initialization Exception] Account: {login} | Path: {path} | Error: {err_code} ({err_desc})", flush=True)
 
         if success and login:
             MetaTraderHandler._mt5_instances[str(login)] = mt5_module
