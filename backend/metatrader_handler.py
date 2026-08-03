@@ -15,66 +15,76 @@ class MetaTraderHandler(BaseBrokerHandler):
     def _initialize_mt5(login: int = None, password: str = None, server: str = None) -> bool:
         if not MT5_AVAILABLE:
             return False
-        
-        # Check if already connected/initialized to MT5 terminal
+
+        # First ensure basic terminal initialization
         try:
-            term_info = mt5.terminal_info()
-            if term_info is not None:
-                return True
+            if mt5.terminal_info() is None:
+                mt5.initialize()
         except Exception:
             pass
 
-        # Try initializing with current terminal session
-        if mt5.initialize():
-            return True
+        # If credentials provided, check if current MT5 session matches, else perform login
+        if login:
+            try:
+                acc_info = mt5.account_info()
+                if acc_info is not None and str(acc_info.login) == str(login):
+                    return True
+            except Exception:
+                pass
 
-        if login and password and server:
             login_str = str(login)
             is_first_attempt = login_str not in MetaTraderHandler._connection_states
             
-            success = mt5.initialize(login=int(login), password=password, server=server)
+            # Login to specific account
+            success = mt5.login(login=int(login), password=password or "", server=server or "") if (password or server) else mt5.initialize(login=int(login), password=password or "", server=server or "")
+            if not success:
+                # Try initialize with credentials if login failed
+                success = mt5.initialize(login=int(login), password=password or "", server=server or "")
+            
             if not success:
                 error_code, error_desc = mt5.last_error()
                 if is_first_attempt or MetaTraderHandler._connection_states.get(login_str) != "failed":
-                    print(f"[MetaTrader Connection Failure] Account: {login_str} | Server: {server} | Reason: Initialization failed | Error Code: {error_code} | Details: {error_desc}", flush=True)
+                    print(f"[MetaTrader Connection Failure] Account: {login_str} | Server: {server} | Reason: Login failed | Error Code: {error_code} | Details: {error_desc}", flush=True)
                     MetaTraderHandler._connection_states[login_str] = "failed"
                 return False
                 
             if is_first_attempt or MetaTraderHandler._connection_states.get(login_str) != "connected":
-                print(f"[MetaTrader Connection Success] Account: {login_str} | Server: {server} | Status: Initialized successfully", flush=True)
+                print(f"[MetaTrader Connection Success] Account: {login_str} | Server: {server} | Status: Logged in successfully", flush=True)
                 MetaTraderHandler._connection_states[login_str] = "connected"
             return True
 
-        return False
+        # Fallback check terminal info
+        try:
+            return mt5.terminal_info() is not None
+        except Exception:
+            return False
 
     @staticmethod
     def _resolve_credentials(login=None, password=None, server=None, **kwargs):
-        # If MT5 terminal is already initialized and active, skip DB queries entirely
-        if MT5_AVAILABLE:
-            try:
-                term_info = mt5.terminal_info()
-                if term_info is not None:
-                    acc_info = mt5.account_info()
-                    if acc_info is not None:
-                        return acc_info.login, password or "", acc_info.server or ""
-            except Exception:
-                pass
-
-        # Check if login looks like the default mock/placeholder value
+        # Check if login looks like the default mock/placeholder value or not provided
         is_default_mock = str(login) == "2002061314" or login is None
 
-        # Load the active account from DB if default mock or not provided
+        # Load active account from DB
         if is_default_mock:
             from account_handler import AccountHandler
             active_acc = AccountHandler.get_active_account()
             if active_acc and active_acc.get("broker_type") == "metatrader":
                 return int(active_acc["account_id"]), active_acc.get("password"), active_acc.get("server")
         
-        # Otherwise use the explicitly passed login/server/password
+        # Use explicitly passed credentials if valid
         if login is not None and str(login) != "2002061314":
             return int(login), password, server
 
-        raise RuntimeError("MetaTrader 5 terminal is not initialized. Please start MT5 terminal or connect an account.")
+        # If DB had no account, check currently active MT5 terminal account as final fallback
+        if MT5_AVAILABLE:
+            try:
+                acc_info = mt5.account_info()
+                if acc_info is not None:
+                    return acc_info.login, password or "", acc_info.server or ""
+            except Exception:
+                pass
+
+        raise RuntimeError("No active MetaTrader account found in DB and MT5 terminal is not logged in.")
 
     @staticmethod
     def fetch_candles(symbol: str, timeframe: str, limit: int = 1000, date_from: int = None, date_to: int = None, login: int = None, password: str = None, server: str = None, **kwargs) -> list:
