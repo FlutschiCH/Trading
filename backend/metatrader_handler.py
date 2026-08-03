@@ -75,12 +75,7 @@ class MetaTraderHandler(BaseBrokerHandler):
 
         success = False
         try:
-            success = mt5_module.initialize(path=path, login=int(login), password=password, server=server, portable=True)
-            if not success:
-                # If portable mode IPC times out or fails, fallback to standard path initialization
-                print(f"[MetaTrader Retry] Retrying initialize without portable mode for account {login}...", flush=True)
-                success = mt5_module.initialize(path=path, login=int(login), password=password, server=server)
-
+            success = mt5_module.initialize(path=path, login=int(login), password=password, server=server, portable=True, timeout=30000)
             if not success:
                 err_code, err_desc = mt5_module.last_error() if hasattr(mt5_module, "last_error") else ("unknown", "unknown")
                 print(f"[MetaTrader Initialization Failure] Account: {login} | Path: {path} | Error: {err_code} ({err_desc})", flush=True)
