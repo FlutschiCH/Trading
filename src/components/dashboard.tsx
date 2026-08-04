@@ -489,7 +489,6 @@ export default function Dashboard() {
     if (!window.confirm("Are you sure you want to update and restart the backend server on the Laptop?")) return;
     try {
       const laptopUrl = 'https://flugrok-production.up.railway.app';
-      console.log(`[Dashboard] Sending update & restart request to laptop server: ${laptopUrl}/api/system/restart`);
       await fetch(`${laptopUrl}/api/system/restart`, {
         method: 'POST'
       });
@@ -1035,7 +1034,7 @@ export default function Dashboard() {
       }
     } catch (e: any) {
       if (e.name === 'AbortError') {
-        console.log("Backtest aborted by user.");
+        // Aborted by user
       } else {
         console.error("Failed to run backtest on backend:", e);
       }
@@ -1070,7 +1069,6 @@ export default function Dashboard() {
       setBacktestRunInfo(null);
       setOptimizationResults(null);
       const bounds = calculateDateBounds(dateRangeOption, customFrom, customTo);
-      console.log(`[Optimization] Sending request to ${API_BASE_URL}/api/backtest/optimize...`);
       const response = await fetch(`${API_BASE_URL}/api/backtest/optimize`, {
         method: 'POST',
         headers: {
@@ -1148,7 +1146,6 @@ export default function Dashboard() {
                   const resData = parsed.data;
                   if (resData.results) {
                     setOptimizationResults(resData.results);
-                    console.log(`[Optimization Complete] Finished ${resData.results.length} backtests successfully.`);
                   }
                 } else if (parsed.status === 'error') {
                   console.error("[Optimization Stream Error]", parsed.message);
@@ -1164,7 +1161,7 @@ export default function Dashboard() {
       }
     } catch (e: any) {
       if (e.name === 'AbortError') {
-        console.log("Optimization aborted by user.");
+        // Aborted by user
       } else {
         console.error("Failed to run optimization on backend:", e);
         alert(`Optimization Failed: ${e.message || 'Network/Server Error'}`);
@@ -1432,7 +1429,6 @@ export default function Dashboard() {
   const fetchAccountData = async (overrideBroker?: string, overrideAccId?: string) => {
     const accId = overrideAccId || getSelectedAccountId();
     const broker = overrideBroker || candleSource;
-    console.log(`[Dashboard] fetchAccountData for broker=${broker}, account_id=${accId}`);
     try {
       const response = await fetch(`${API_BASE_URL}/api/trade/account`, {
         method: 'POST',
@@ -1440,7 +1436,6 @@ export default function Dashboard() {
         body: JSON.stringify({ broker: broker, account_id: accId })
       });
       const result = await response.json();
-      console.log(`[Dashboard] fetchAccountData result for account_id=${accId}:`, result);
       if (result.status === 'success') {
         setAccountInfo(result.data);
       }
@@ -1452,7 +1447,6 @@ export default function Dashboard() {
   const fetchPositionData = async (overrideBroker?: string, overrideAccId?: string) => {
     const accId = overrideAccId || getSelectedAccountId();
     const broker = overrideBroker || candleSource;
-    console.log(`[Dashboard] fetchPositionData for broker=${broker}, account_id=${accId}`);
     try {
       const response = await fetch(`${API_BASE_URL}/api/trade/positions`, {
         method: 'POST',
@@ -1460,7 +1454,6 @@ export default function Dashboard() {
         body: JSON.stringify({ broker: broker, account_id: accId })
       });
       const result = await response.json();
-      console.log(`[Dashboard] fetchPositionData result for account_id=${accId}:`, result);
       if (result.status === 'success') {
         const positions = Array.isArray(result.data) ? result.data : [];
         setOpenPositions(positions);
@@ -1504,10 +1497,8 @@ export default function Dashboard() {
     try {
       const res = await fetch(`${API_BASE_URL}/api/accounts`);
       const data = await res.json();
-      console.log("[Dashboard] Loaded accounts:", data);
       if (data.status === 'success') {
         const list = data.data || [];
-        console.log("[Dashboard] Accounts list:", list);
         setAccounts(list);
         localStorage.setItem('wyckoff_accounts', JSON.stringify(list));
       }
@@ -1520,12 +1511,10 @@ export default function Dashboard() {
     try {
       const res = await fetch(`${API_BASE_URL}/api/accounts/active`);
       const data = await res.json();
-      console.log("[Dashboard] fetchActiveAccount raw response:", data);
       if (data.status === 'success' && data.data) {
         setActiveAccount(data.data);
         localStorage.setItem('wyckoff_active_account', JSON.stringify(data.data));
         localStorage.setItem('wyckoff_active_account_id', data.data.account_id);
-        console.log(`[Dashboard] Active account set & persisted: account_id=${data.data.account_id}, name="${data.data.name}", broker=${data.data.broker_type}`);
         return data.data;
       } else {
         console.warn("[Dashboard] No active account returned from API.");
@@ -1541,7 +1530,6 @@ export default function Dashboard() {
   };
 
   const handleSwitchAccount = async (accountId: string) => {
-    console.log(`[Dashboard] handleSwitchAccount triggered for account_id: "${accountId}"`);
     setAccountInfo(null);
     try {
       const res = await fetch(`${API_BASE_URL}/api/accounts/active`, {
@@ -1550,10 +1538,8 @@ export default function Dashboard() {
         body: JSON.stringify({ account_id: accountId })
       });
       const data = await res.json();
-      console.log(`[Dashboard] POST /api/accounts/active result for account_id "${accountId}":`, data);
       if (data.status === 'success') {
         const newActive = await fetchActiveAccount();
-        console.log("[Dashboard] Account switch complete. New active account:", newActive);
         const switchedAccId = newActive ? newActive.account_id : accountId;
         if (newActive) {
           localStorage.setItem('wyckoff_active_account', JSON.stringify(newActive));
