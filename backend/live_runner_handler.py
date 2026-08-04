@@ -186,6 +186,30 @@ class LiveRunner:
 
             date_from, date_to = calculate_date_bounds(opt, custom_from, custom_to)
             
+            strat_name = strategy.get("name") or strategy_id
+            raw_targets = strategy.get("targets", [])
+            if isinstance(raw_targets, list) and len(raw_targets) > 0:
+                targets_formatted = ", ".join([f"{t.get('broker', broker_name)} (Account: {t.get('account_id', 'N/A')})" for t in raw_targets])
+            else:
+                targets_formatted = f"{broker_name} (Account: {strat_acc_id or 'default'})"
+
+            params_formatted = (
+                f"SL={strategy.get('slVal')}{strategy.get('slType')}, RR={strategy.get('rr')}, "
+                f"Size={strategy.get('size')}, RiskSizing={strategy.get('useRiskSizing')}({strategy.get('riskPct')}%), "
+                f"BreakEven={strategy.get('useBreakEven')}({strategy.get('beTriggerR')}R), Lookback={lookback}, "
+                f"Rule={strategy.get('entryStabilityRule', 'default')}"
+            )
+
+            print(
+                f"\n[Live Runner] 🚀 Starting Strategy Execution:\n"
+                f"   • Strategy: '{strat_name}' (ID: {strategy_id})\n"
+                f"   • Symbol / Timeframe: {symbol} ({timeframe})\n"
+                f"   • Source Broker: {broker_name}\n"
+                f"   • Target(s): {targets_formatted}\n"
+                f"   • Parameters: {params_formatted}\n",
+                flush=True
+            )
+            
             print(f"[Live Runner] Warm-up: Fetching candles for strategy {strategy_id} ({symbol} {timeframe}) from broker='{broker_name}' (Account ID: '{strat_acc_id}') using backtest settings: opt={opt}, limit={limit}, date_from={date_from}, date_to={date_to}", flush=True)
             candles = handler.fetch_candles(
                 symbol=symbol,
