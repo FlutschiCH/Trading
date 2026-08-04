@@ -92,6 +92,9 @@ def run_force_git_update():
         # Ensure local branch tracks remote branch cleanly
         subprocess.run(["git", "checkout", "-B", branch, f"origin/{branch}"], capture_output=True, text=True)
         
+        # Restore any manually deleted tracked files/folders (e.g. mt5/)
+        subprocess.run(["git", "checkout", "HEAD", "--", "."], capture_output=True, text=True)
+        
         res = subprocess.run(["git", "reset", "--hard", f"origin/{branch}"], capture_output=True, text=True, check=True)
         print("Git reset output:", res.stdout, flush=True)
         
