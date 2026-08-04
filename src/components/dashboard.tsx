@@ -1369,8 +1369,13 @@ export default function Dashboard() {
         const symData = await apiService.fetchMetadataSymbols(sourcePath);
         if (symData.status === 'success' && symData.data) {
           setAvailableSymbols(symData.data);
-          if (symData.data.length > 0 && !symData.data.includes(symbol)) {
-            setSymbol(symData.data[0]);
+          const savedSymbol = localStorage.getItem('wyckoff_symbol');
+          const targetSym = savedSymbol || symbol;
+          const matchedSym = symData.data.find((s: string) => s.toLowerCase() === targetSym.toLowerCase());
+          if (matchedSym) {
+            setSymbol(matchedSym);
+          } else if (savedSymbol) {
+            setSymbol(savedSymbol);
           }
         }
       } catch (e) {

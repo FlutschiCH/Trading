@@ -490,6 +490,9 @@ export default function TVChart({
       if (filteredSymbols.length > 0 && highlightedIndex >= 0 && highlightedIndex < filteredSymbols.length) {
         onSymbolChange(filteredSymbols[highlightedIndex]);
         setShowSymbolDropdown(false);
+      } else if (symbolSearch.trim()) {
+        onSymbolChange(symbolSearch.trim().toUpperCase());
+        setShowSymbolDropdown(false);
       }
     } else if (e.key === 'Escape') {
       setShowSymbolDropdown(false);
