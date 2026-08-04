@@ -84,6 +84,15 @@ def restart_updater():
 def run_force_git_update():
     print("Checking for updates from Git (Force Update)...", flush=True)
     try:
+        # Remove stale .git/index.lock if left behind by interrupted git operations
+        git_lock_file = os.path.join(".git", "index.lock")
+        if os.path.exists(git_lock_file):
+            try:
+                os.remove(git_lock_file)
+                print("[Git Cleanup] Removed stale .git/index.lock file.", flush=True)
+            except Exception as e:
+                print(f"[Git Warning] Failed to remove .git/index.lock: {e}", flush=True)
+
         subprocess.run(["git", "fetch", "--all"], capture_output=True, text=True, check=True)
         branch_res = subprocess.run(["git", "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True, check=True)
         branch = branch_res.stdout.strip()
