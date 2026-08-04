@@ -122,6 +122,7 @@ class MetaTraderHandler(BaseBrokerHandler):
         return mt5 if MT5_AVAILABLE else None
 
     @staticmethod
+    def _resolve_credentials(login=None, password=None, server=None, **kwargs):
         kw_acc = kwargs.get('account_id') or kwargs.get('account') or kwargs.get('login')
         req_login = kw_acc if kw_acc is not None else login
         req_server = kwargs.get('server') or server
