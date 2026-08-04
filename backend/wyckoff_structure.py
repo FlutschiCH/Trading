@@ -214,8 +214,9 @@ class WyckoffStructure:
         cols_to_drop = ['rolling_low', 'rolling_high', 'avg_volume', 'sma50', 'is_spring', 'is_upthrust']
         df = df.drop(columns=[col for col in cols_to_drop if col in df.columns], errors='ignore')
         
-        # Replace NaN values with None/nan for JSON compatibility
-        df = df.replace({np.nan: None})
+        # Replace NaN values with None for JSON compatibility
+        df = df.where(pd.notnull(df), None)
         
         from candle_sanitizer import sanitize_and_fill_candles
         return sanitize_and_fill_candles(df.to_dict(orient='records'))
+

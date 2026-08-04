@@ -10,10 +10,12 @@ interface CandleContextType {
   timeframe: string;
   candleSource: 'ctrader' | 'metatrader';
   candleLimit: number;
+  activeStrategyId: string | null;
   setSymbol: (sym: string) => void;
   setTimeframe: (tf: string) => void;
   setCandleSource: (source: 'ctrader' | 'metatrader') => void;
   setCandleLimit: (limit: number) => void;
+  setActiveStrategyId: (strategyId: string | null) => void;
   fetchCandles: (forceFullRefresh?: boolean, isBackground?: boolean) => Promise<void>;
 }
 
@@ -28,14 +30,21 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [candleLimit, setCandleLimitState] = useState<number>(
     () => parseInt(localStorage.getItem('wyckoff_candle_limit') || '5000', 10)
   );
+  const [activeStrategyId, setActiveStrategyId] = useState<string | null>(null);
 
   const [candles, setCandles] = useState<Candle[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
   const candlesRef = useRef<Candle[]>([]);
+  const activeStrategyIdRef = useRef<string | null>(null);
+
   useEffect(() => {
     candlesRef.current = candles;
   }, [candles]);
+
+  useEffect(() => {
+    activeStrategyIdRef.current = activeStrategyId;
+  }, [activeStrategyId]);
 
   const setSymbol = (sym: string) => {
     localStorage.setItem('wyckoff_symbol', sym);
@@ -64,47 +73,55 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (isFetchingRef.current) return;
 
     isFetchingRef.current = true;
-    const fetchStartTime = performance.now();
-    const startIsoTime = new Date().toISOString();
 
     if (!isBackground) {
       setLoading(true);
     }
 
+    const currentStrategyId = activeStrategyIdRef.current;
     const isIncremental = !forceFullRefresh && candlesRef.current.length >= 50;
-    const reqLimit = isIncremental ? 2 : Math.min(candleLimit, 500);
+    const reqLimit = isIncremental ? 50 : Math.min(candleLimit, 5000);
 
     try {
-      const endpoint = `${API_BASE_URL}/api/trade/candles`;
-      let activeAccId: string | undefined = undefined;
-      try {
-        const savedAcc = localStorage.getItem('wyckoff_active_account');
-        if (savedAcc) {
-          const parsed = JSON.parse(savedAcc);
-          activeAccId = parsed?.account_id || parsed?.id;
-        }
-      } catch (e) {}
-      if (!activeAccId) {
-        activeAccId = localStorage.getItem('wyckoff_active_account_id') || localStorage.getItem('active_account_id') || undefined;
-      }
-
-      const payload = {
-        broker: candleSource,
-        symbol: symbol,
-        interval: timeframe,
-        limit: reqLimit,
-        account_id: activeAccId
-      };
-
-      const marketResult = await apiService.fetchTradeCandles(payload);
-
       let rawCandles: Candle[] = [];
-      if (marketResult && marketResult.status === 'success' && Array.isArray(marketResult.candles)) {
-        rawCandles = marketResult.candles.sort((a: Candle, b: Candle) => a.time - b.time);
-      } else if (marketResult && Array.isArray(marketResult.data)) {
-        rawCandles = marketResult.data.sort((a: Candle, b: Candle) => a.time - b.time);
-      } else if (Array.isArray(marketResult)) {
-        rawCandles = marketResult.sort((a: Candle, b: Candle) => a.time - b.time);
+
+      if (currentStrategyId) {
+        // Fetch Wyckoff-annotated live strategy candles
+        const res = await fetch(`${API_BASE_URL}/api/live-strategies/${currentStrategyId}/candles?limit=${reqLimit}`);
+        const data = await res.json();
+        if (data && data.status === 'success' && Array.isArray(data.candles)) {
+          rawCandles = data.candles.sort((a: Candle, b: Candle) => a.time - b.time);
+        }
+      } else {
+        // Fetch standard market candles
+        let activeAccId: string | undefined = undefined;
+        try {
+          const savedAcc = localStorage.getItem('wyckoff_active_account');
+          if (savedAcc) {
+            const parsed = JSON.parse(savedAcc);
+            activeAccId = parsed?.account_id || parsed?.id;
+          }
+        } catch (e) {}
+        if (!activeAccId) {
+          activeAccId = localStorage.getItem('wyckoff_active_account_id') || localStorage.getItem('active_account_id') || undefined;
+        }
+
+        const payload = {
+          broker: candleSource,
+          symbol: symbol,
+          interval: timeframe,
+          limit: reqLimit,
+          account_id: activeAccId
+        };
+
+        const marketResult = await apiService.fetchTradeCandles(payload);
+        if (marketResult && marketResult.status === 'success' && Array.isArray(marketResult.candles)) {
+          rawCandles = marketResult.candles.sort((a: Candle, b: Candle) => a.time - b.time);
+        } else if (marketResult && Array.isArray(marketResult.data)) {
+          rawCandles = marketResult.data.sort((a: Candle, b: Candle) => a.time - b.time);
+        } else if (Array.isArray(marketResult)) {
+          rawCandles = marketResult.sort((a: Candle, b: Candle) => a.time - b.time);
+        }
       }
 
       if (rawCandles.length > 0) {
@@ -143,7 +160,7 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       isCancelled = true;
       clearInterval(interval);
     };
-  }, [symbol, timeframe, candleLimit, candleSource]);
+  }, [symbol, timeframe, candleLimit, candleSource, activeStrategyId]);
 
   return (
     <CandleContext.Provider
@@ -154,10 +171,12 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         timeframe,
         candleSource,
         candleLimit,
+        activeStrategyId,
         setSymbol,
         setTimeframe,
         setCandleSource,
         setCandleLimit,
+        setActiveStrategyId,
         fetchCandles,
       }}
     >
@@ -173,3 +192,4 @@ export const useCandleStore = () => {
   }
   return context;
 };
+

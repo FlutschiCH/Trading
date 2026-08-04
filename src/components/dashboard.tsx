@@ -207,12 +207,15 @@ export default function Dashboard() {
     timeframe,
     candleSource,
     candleLimit,
+    activeStrategyId,
     setSymbol,
     setTimeframe,
     setCandleSource,
     setCandleLimit,
+    setActiveStrategyId,
     fetchCandles: storeFetchCandles,
   } = useCandleStore();
+
 
   const [availableSymbols, setAvailableSymbols] = useState<string[]>([
     'BTCUSD', 'ETHUSD', 'EURUSD', 'GBPUSD', 'USDJPY',
@@ -702,6 +705,15 @@ export default function Dashboard() {
   const [liveStrategies, setLiveStrategies] = useState<any[]>([]);
   const [selectedStrategyId, setSelectedStrategyId] = useState<string>(() => localStorage.getItem('wyckoff_selected_live_strategy_id') || '');
   const [isDeploying, setIsDeploying] = useState(false);
+
+  useEffect(() => {
+    if (selectedStrategyId) {
+      setActiveStrategyId(selectedStrategyId);
+    } else {
+      setActiveStrategyId(null);
+    }
+  }, [selectedStrategyId, setActiveStrategyId]);
+
 
   const lastNotifiedSignalRef = useRef<number>(0);
   const backtestAbortControllerRef = useRef<AbortController | null>(null);
