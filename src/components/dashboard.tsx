@@ -1488,8 +1488,10 @@ export default function Dashboard() {
     try {
       const res = await fetch(`${API_BASE_URL}/api/accounts`);
       const data = await res.json();
+      console.log("[Dashboard] Loaded accounts:", data);
       if (data.status === 'success') {
         const list = data.data || [];
+        console.log("[Dashboard] Accounts list:", list);
         setAccounts(list);
         localStorage.setItem('wyckoff_accounts', JSON.stringify(list));
       }
