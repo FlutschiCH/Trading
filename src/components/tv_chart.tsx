@@ -285,7 +285,7 @@ export default function TVChart({
           from: idx - 30,
           to: idx + 30
         });
-      } catch (e) {}
+      } catch (e) { }
     }
   };
   useEffect(() => {
@@ -1369,7 +1369,7 @@ export default function TVChart({
       const cBg = isL ? '#ffffff' : '#111827';
       const tCol = isL ? '#0f172a' : '#d1d5db';
       const gCol = isL ? '#e2e8f0' : '#1f2937';
-      
+
       mainChart.applyOptions({
         layout: {
           background: { type: ColorType.Solid, color: cBg },
@@ -1531,7 +1531,7 @@ export default function TVChart({
         try {
           const stored = localStorage.getItem('wyckoff_active_positions');
           if (stored) openPositionsList = JSON.parse(stored);
-        } catch (e) {}
+        } catch (e) { }
       }
 
       const currentSymbolClean = (symbol || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
@@ -1547,9 +1547,6 @@ export default function TVChart({
           let rawTs = pos.entry_timestamp ?? pos.entryTimestamp ?? pos.timestamp ?? pos.open_time ?? pos.openTime ?? pos.time;
           if (rawTs && Number(rawTs) > 2000000000) {
             rawTs = Math.floor(Number(rawTs) / 1000);
-          }
-          if (rawTs) {
-            rawTs = Number(rawTs) - 10800;
           }
           const matchedTime = findCandleTimeForTimestamp(rawTs, activeCandles);
 
@@ -1572,14 +1569,6 @@ export default function TVChart({
           const posDateLocal = rawTs ? new Date(Number(rawTs) * 1000).toLocaleString() : 'N/A';
           const matchedDateUtc = matchedTime ? new Date(Number(matchedTime) * 1000).toISOString() : 'N/A';
           const matchedDateLocal = matchedTime ? new Date(Number(matchedTime) * 1000).toLocaleString() : 'N/A';
-
-          console.log('[DEBUG Position Marker]', {
-            position: pos,
-            rawTimestamp: rawTs,
-            positionTimeUTC: posDateUtc,
-            matchedCandleTimestamp: matchedTime,
-            matchedCandleUTC: matchedDateUtc,
-          });
 
           const positionMarkerTime = matchedTime ?? (rawTs ? Number(rawTs) : null);
           const matchedCandle = activeCandles.find(c => Number(c.time) === positionMarkerTime);
@@ -1886,7 +1875,7 @@ export default function TVChart({
         if (stored) {
           positionsList = JSON.parse(stored);
         }
-      } catch (e) {}
+      } catch (e) { }
     }
 
     if (!Array.isArray(positionsList) || positionsList.length === 0) {
@@ -1898,7 +1887,7 @@ export default function TVChart({
             } else if (item.type === 'lineSeries' && chartRef.current) {
               chartRef.current.removeSeries(item.line);
             }
-          } catch (e) {}
+          } catch (e) { }
         });
         activePositionsRef.current = [];
       }
@@ -1915,7 +1904,7 @@ export default function TVChart({
           } else if (item.type === 'lineSeries' && chartRef.current) {
             chartRef.current.removeSeries(item.line);
           }
-        } catch (e) {}
+        } catch (e) { }
       });
       activePositionsRef.current = [];
     }
@@ -2119,7 +2108,7 @@ export default function TVChart({
             const parsed = JSON.parse(saved);
             if (parsed && parsed.broker_type) activeBroker = parsed.broker_type;
           }
-        } catch (e) {}
+        } catch (e) { }
 
         const payload: any = {
           position_id: pos.position_id,
@@ -2755,7 +2744,7 @@ export default function TVChart({
                 try {
                   const stored = localStorage.getItem('wyckoff_active_positions');
                   if (stored) positionsList = JSON.parse(stored);
-                } catch (e) {}
+                } catch (e) { }
               }
 
               if (!Array.isArray(positionsList) || positionsList.length === 0 || !candlestickSeriesRef.current) return null;
@@ -2846,7 +2835,6 @@ export default function TVChart({
 
                 let entryTs = pos.entry_timestamp ?? pos.entryTimestamp ?? pos.timestamp ?? pos.open_time ?? pos.openTime ?? pos.time;
                 if (entryTs && Number(entryTs) > 2000000000) entryTs = Math.floor(Number(entryTs) / 1000);
-                if (entryTs) entryTs = Number(entryTs) - 10800;
                 const matchedCandleTime = entryTs ? findCandleTimeForTimestamp(entryTs, activeCandles) : null;
                 const entryX = matchedCandleTime && chartRef.current ? chartRef.current.timeScale().timeToCoordinate(matchedCandleTime) : null;
 
