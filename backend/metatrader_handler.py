@@ -116,38 +116,40 @@ class MetaTraderHandler(BaseBrokerHandler):
     @staticmethod
     def get_mt5_instance(account_id: str = None):
         print(f"[get_mt5_instance] Requested account_id: {account_id}", flush=True)
-        instances = getattr(builtins, '_GLOBAL_MT5_INSTANCES', MetaTraderHandler._mt5_instances)
-        if account_id:
-            acc_str = str(account_id)
-            if acc_str in instances:
-                inst = instances[acc_str]
-                try:
-                    info = inst.account_info()
-                    if info is not None:
-                        print(f"[get_mt5_instance] Matched '{acc_str}' -> account_info.login: {getattr(info, 'login', None)}, balance: {getattr(info, 'balance', None)}", flush=True)
-                        if getattr(info, 'balance', 0.0) > 0:
-                            return inst
-                    else:
-                        print(f"[get_mt5_instance] Matched '{acc_str}' but account_info is None", flush=True)
-                except Exception as e:
-                    print(f"[get_mt5_instance] Exception for '{acc_str}': {e}", flush=True)
-                return inst
-            else:
-                print(f"[get_mt5_instance] account_id '{acc_str}' NOT in known instances {list(instances.keys())}", flush=True)
+        if not account_id:
+            return mt5 if MT5_AVAILABLE else None
 
-        if MT5_AVAILABLE:
+        acc_str = str(account_id)
+        instances = getattr(builtins, '_GLOBAL_MT5_INSTANCES', MetaTraderHandler._mt5_instances)
+        inst = instances.get(acc_str) or (mt5 if MT5_AVAILABLE else None)
+
+        if inst and hasattr(inst, 'account_info'):
             try:
-                info = mt5.account_info()
+                info = inst.account_info()
                 if info is not None:
-                    print(f"[get_mt5_instance] Fallback default mt5 -> account_info.login: {getattr(info, 'login', None)}, balance: {getattr(info, 'balance', None)}", flush=True)
-                    if getattr(info, 'balance', 0.0) > 0:
-                        return mt5
-                else:
-                    print(f"[get_mt5_instance] Fallback default mt5 account_info is None", flush=True)
+                    curr_login = str(getattr(info, 'login', ''))
+                    print(f"[get_mt5_instance] Account check for '{acc_str}' -> currently logged into: '{curr_login}', balance: {getattr(info, 'balance', None)}", flush=True)
+                    if curr_login == acc_str and getattr(info, 'balance', 0.0) > 0:
+                        return inst
             except Exception as e:
-                print(f"[get_mt5_instance] Fallback default mt5 exception: {e}", flush=True)
-            return mt5
-        return None
+                print(f"[get_mt5_instance] Error checking account_info for '{acc_str}': {e}", flush=True)
+
+        # Login mismatch or disconnected: re-initialize MT5 connection for requested account_id
+        print(f"[get_mt5_instance] Account login mismatch/disconnected. Re-initializing MT5 for account_id '{acc_str}'...", flush=True)
+        from sql_handler import SQLHandler
+        rows = SQLHandler.execute_query("SELECT * FROM accounts WHERE account_id = %s", (acc_str,))
+        if rows:
+            acc = rows[0]
+            MetaTraderHandler._initialize_mt5(
+                login=acc.get("account_id"),
+                password=acc.get("password"),
+                server=acc.get("server"),
+                terminal_path=acc.get("terminal_path")
+            )
+            inst = getattr(builtins, '_GLOBAL_MT5_INSTANCES', {}).get(acc_str) or (mt5 if MT5_AVAILABLE else None)
+            return inst
+
+        return inst
 
     @staticmethod
     def _resolve_credentials(login=None, password=None, server=None, **kwargs):
