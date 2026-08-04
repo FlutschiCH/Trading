@@ -1034,7 +1034,7 @@ export default function Dashboard() {
       }
     } catch (e: any) {
       if (e.name === 'AbortError') {
-        // Aborted by user
+        console.log("Backtest aborted by user.");
       } else {
         console.error("Failed to run backtest on backend:", e);
       }
@@ -1069,6 +1069,7 @@ export default function Dashboard() {
       setBacktestRunInfo(null);
       setOptimizationResults(null);
       const bounds = calculateDateBounds(dateRangeOption, customFrom, customTo);
+      console.log(`[Optimization] Sending request to ${API_BASE_URL}/api/backtest/optimize...`);
       const response = await fetch(`${API_BASE_URL}/api/backtest/optimize`, {
         method: 'POST',
         headers: {
@@ -1146,6 +1147,7 @@ export default function Dashboard() {
                   const resData = parsed.data;
                   if (resData.results) {
                     setOptimizationResults(resData.results);
+                    console.log(`[Optimization Complete] Finished ${resData.results.length} backtests successfully.`);
                   }
                 } else if (parsed.status === 'error') {
                   console.error("[Optimization Stream Error]", parsed.message);
@@ -1161,7 +1163,7 @@ export default function Dashboard() {
       }
     } catch (e: any) {
       if (e.name === 'AbortError') {
-        // Aborted by user
+        console.log("Optimization aborted by user.");
       } else {
         console.error("Failed to run optimization on backend:", e);
         alert(`Optimization Failed: ${e.message || 'Network/Server Error'}`);
@@ -1421,7 +1423,7 @@ export default function Dashboard() {
           return parsed.account_id || parsed.id;
         }
       }
-    } catch (e) {}
+    } catch (e) { }
     return undefined;
   };
 
@@ -1440,7 +1442,6 @@ export default function Dashboard() {
         setAccountInfo(result.data);
       }
     } catch (error) {
-      console.error('[Dashboard] Account data error:', error);
     }
   };
 
@@ -1463,10 +1464,9 @@ export default function Dashboard() {
           } else {
             localStorage.removeItem('wyckoff_active_positions');
           }
-        } catch (e) {}
+        } catch (e) { }
       }
     } catch (error) {
-      console.error('[Dashboard] Positions data error:', error);
     }
   };
 
@@ -1517,14 +1517,12 @@ export default function Dashboard() {
         localStorage.setItem('wyckoff_active_account_id', data.data.account_id);
         return data.data;
       } else {
-        console.warn("[Dashboard] No active account returned from API.");
         setActiveAccount(null);
         localStorage.removeItem('wyckoff_active_account');
         localStorage.removeItem('wyckoff_active_account_id');
         return null;
       }
     } catch (e) {
-      console.error("[Dashboard] Failed to load active account:", e);
       return null;
     }
   };
@@ -1557,7 +1555,6 @@ export default function Dashboard() {
         alert("Failed to switch account: " + data.message);
       }
     } catch (e: any) {
-      console.error("[Dashboard] Error switching account:", e);
       alert("Error switching account: " + e.message);
     }
   };
