@@ -91,63 +91,7 @@ export default function HeaderBar({
 
 
 
-const triggerPWAEventNotification = (title: string, body: string, soundType: string = 'alert') => {
-  fetch(`${API_BASE_URL}/api/notification/trigger`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message: `${title}: ${body}`, sound_type: soundType })
-  }).catch(err => console.error("Failed to trigger local backend sound:", err));
 
-  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-    navigator.serviceWorker.controller.postMessage({
-      type: 'SHOW_NOTIFICATION',
-      payload: { title, body }
-    });
-  } else if ('Notification' in window && Notification.permission === 'granted') {
-    new Notification(title, { body, icon: '/favicon.svg' });
-  }
-};
-
-interface Account {
-  account_id: string;
-  name: string;
-  broker_type: string;
-}
-
-interface HeaderBarProps {
-  isMobile: boolean;
-
-  theme: 'dark' | 'light';
-  toggleTheme: () => void;
-  connectionMode: string;
-  currentConnected: boolean;
-  activeAccount: Account | null;
-  accountInfo: AccountInfo | null;
-  accounts: Account[];
-  handleSwitchAccount: (accId: string) => void;
-  setShowAccountModal: (show: boolean) => void;
-  handleRestartServer: () => void;
-  setView: (view: string) => void;
-  styles: any;
-}
-
-export default function HeaderBar({
-  isMobile,
-  theme,
-  toggleTheme,
-  connectionMode,
-  currentConnected,
-  activeAccount,
-  accountInfo,
-  accounts,
-  handleSwitchAccount,
-  setShowAccountModal,
-  handleRestartServer,
-  setView,
-  styles,
-}: HeaderBarProps) {
-  const [showMobileNav, setShowMobileNav] = useState(false);
-  const [showMenu, setShowMenu] = useState(false);
 
   return (
     <header style={{
