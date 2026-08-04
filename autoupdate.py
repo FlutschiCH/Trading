@@ -70,16 +70,7 @@ def restart_updater():
     print("Restarting autoupdater process...", flush=True)
     executable = sys.executable
     args = [sys.executable] + sys.argv
-    if os.name == 'nt':
-        quoted_args = []
-        for arg in args:
-            if ' ' in arg and not (arg.startswith('"') and arg.endswith('"')):
-                quoted_args.append(f'"{arg}"')
-            else:
-                quoted_args.append(arg)
-        os.execv(executable, quoted_args)
-    else:
-        os.execv(executable, args)
+    os.execv(executable, args)
 
 def run_force_git_update():
     print("Checking for updates from Git (Force Update)...", flush=True)
@@ -93,9 +84,11 @@ def run_force_git_update():
             except Exception as e:
                 print(f"[Git Warning] Failed to remove .git/index.lock: {e}", flush=True)
 
-        subprocess.run(["git", "fetch", "--all"], capture_output=True, text=True, check=True)
-        branch_res = subprocess.run(["git", "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True, check=True)
-        branch = branch_res.stdout.strip()
+        subprocess.run(["git", "fetch", "--all"], capture_output=True, text=True)
+        branch_res = subprocess.run(["git", "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True)
+        branch = branch_res.stdout.strip() if branch_res.returncode == 0 else "stable"
+        if not branch or branch == "HEAD":
+            branch = "stable"
         print(f"Current branch detected: {branch}", flush=True)
         
         # Ensure remote origin/branch exists before resetting
@@ -104,10 +97,10 @@ def run_force_git_update():
             print(f"[Git Warning] Remote branch origin/{branch} not found. Attempting origin/main...", flush=True)
             branch = "main"
 
+        subprocess.run(["git", "reset", "--hard"], capture_output=True, text=True)
         subprocess.run(["git", "checkout", "-B", branch, f"origin/{branch}"], capture_output=True, text=True)
-        subprocess.run(["git", "checkout", "HEAD", "--", "."], capture_output=True, text=True)
         
-        res = subprocess.run(["git", "reset", "--hard", f"origin/{branch}"], capture_output=True, text=True, check=True)
+        res = subprocess.run(["git", "reset", "--hard", f"origin/{branch}"], capture_output=True, text=True)
         if res.stdout:
             print("Git reset output:", res.stdout.strip(), flush=True)
         
@@ -115,29 +108,50 @@ def run_force_git_update():
         print("Checking Git LFS large files...", flush=True)
         lfs_res = subprocess.run(["git", "lfs", "pull"], capture_output=True, text=True)
         if lfs_res.returncode != 0:
-            print(f"[ERROR] Git LFS pull failed: {lfs_res.stderr or lfs_res.stdout}", flush=True)
-            print("[ERROR] Failed to fetch large files via Git LFS! Stopping autoupdater.", flush=True)
-            sys.exit(1)
+            print(f"[Git Warning] Git LFS pull returned warning/error: {lfs_res.stderr or lfs_res.stdout}", flush=True)
         else:
-            print("Git LFS large files downloaded successfully.", flush=True)
+            print("Git LFS large files checked successfully.", flush=True)
 
-        commit_info = subprocess.run(["git", "log", "-1", "--format=%h - %s (%cr) <%an>"], capture_output=True, text=True, check=True)
+        commit_info = subprocess.run(["git", "log", "-1", "--format=%h - %s (%cr) <%an>"], capture_output=True, text=True)
         GREEN = "\033[92m"
         CYAN = "\033[96m"
         BOLD = "\033[1m"
         RESET = "\033[0m"
+        commit_str = commit_info.stdout.strip() if commit_info.returncode == 0 else "Unknown"
         print(f"\n{BOLD}{GREEN}======================================================================={RESET}", flush=True)
-        print(f"{BOLD}{CYAN}[Git Update Complete] Active Commit: {commit_info.stdout.strip()}{RESET}", flush=True)
+        print(f"{BOLD}{CYAN}[Git Update Complete] Active Commit: {commit_str}{RESET}", flush=True)
         print(f"{BOLD}{GREEN}=======================================================================\n{RESET}", flush=True)
         return True
-    except SystemExit:
-        raise
     except Exception as e:
-        if isinstance(e, subprocess.CalledProcessError) and e.stderr:
-            print(f"Git force update failed: {e} | stderr: {e.stderr.strip()}", flush=True)
-        else:
-            print(f"Git force update failed: {e}", flush=True)
+        print(f"Git force update warning/error: {e}", flush=True)
         return False
+
+def periodic_update_checker():
+    """Background thread to poll git for remote updates every 30 seconds."""
+    while True:
+        try:
+            time.sleep(30)
+            branch_res = subprocess.run(["git", "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True)
+            branch = branch_res.stdout.strip() if branch_res.returncode == 0 else "stable"
+            if not branch or branch == "HEAD":
+                branch = "stable"
+
+            subprocess.run(["git", "fetch", "--all"], capture_output=True, text=True)
+
+            local_commit_res = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True)
+            remote_commit_res = subprocess.run(["git", "rev-parse", f"origin/{branch}"], capture_output=True, text=True)
+
+            if local_commit_res.returncode == 0 and remote_commit_res.returncode == 0:
+                local_hash = local_commit_res.stdout.strip()
+                remote_hash = remote_commit_res.stdout.strip()
+                if local_hash and remote_hash and local_hash != remote_hash:
+                    print(f"\n[AutoUpdater] New commit detected on remote origin/{branch} ({local_hash[:7]} -> {remote_hash[:7]}). Triggering update & restart...", flush=True)
+                    global current_backend_process
+                    with process_lock:
+                        if current_backend_process and current_backend_process.poll() is None:
+                            current_backend_process.terminate()
+        except Exception as e:
+            pass
 
 def check_and_install_dependencies(python_exe):
     req_path = os.path.join("backend", "requirements.txt")
@@ -160,6 +174,10 @@ def main():
     updater_thread = threading.Thread(target=start_control_server, daemon=True)
     updater_thread.start()
 
+    # Start background thread to poll git for new commits
+    poll_thread = threading.Thread(target=periodic_update_checker, daemon=True)
+    poll_thread.start()
+
     if os.path.exists("backend/.venv/Scripts/python.exe"):
         python_exe = os.path.abspath("backend/.venv/Scripts/python.exe")
     elif os.path.exists("backend/venv/Scripts/python.exe"):
@@ -171,16 +189,13 @@ def main():
 
     print(f"Using Python interpreter: {python_exe}", flush=True)
 
-    commit_before = get_git_commit()
-    run_force_git_update()
-    commit_after = get_git_commit()
-    
-    check_and_install_dependencies(python_exe)
-    
-    if commit_before and commit_after and commit_before != commit_after:
-        restart_updater()
-
     while True:
+        commit_before = get_git_commit()
+        run_force_git_update()
+        commit_after = get_git_commit()
+        
+        check_and_install_dependencies(python_exe)
+
         print("Starting backend server (backend/app.py)...", flush=True)
         try:
             env = os.environ.copy()
@@ -214,4 +229,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
