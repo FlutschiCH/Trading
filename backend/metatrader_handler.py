@@ -15,6 +15,7 @@ if not hasattr(builtins, "_GLOBAL_MT5_INSTANCES"):
     builtins._GLOBAL_MT5_INSTANCES = {}
 
 class MetaTraderHandler(BaseBrokerHandler):
+    DEBUG_LOGGING = False
     _connection_states = builtins._GLOBAL_MT5_CONNECTION_STATES
     _mt5_instances = builtins._GLOBAL_MT5_INSTANCES
 
@@ -121,7 +122,8 @@ class MetaTraderHandler(BaseBrokerHandler):
 
     @staticmethod
     def get_mt5_instance(account_id: str = None):
-        print(f"[get_mt5_instance] Requested account_id: {account_id}", flush=True)
+        if MetaTraderHandler.DEBUG_LOGGING:
+            print(f"[get_mt5_instance] Requested account_id: {account_id}", flush=True)
         if not account_id:
             return mt5 if MT5_AVAILABLE else None
 
@@ -134,15 +136,19 @@ class MetaTraderHandler(BaseBrokerHandler):
                 info = inst.account_info()
                 if info is not None:
                     curr_login = str(getattr(info, 'login', ''))
-                    print(f"[get_mt5_instance] Account '{acc_str}' -> currently logged into: '{curr_login}', balance: {getattr(info, 'balance', None)}", flush=True)
+                    if MetaTraderHandler.DEBUG_LOGGING:
+                        print(f"[get_mt5_instance] Account '{acc_str}' -> currently logged into: '{curr_login}', balance: {getattr(info, 'balance', None)}", flush=True)
                     return inst
                 else:
-                    print(f"[get_mt5_instance] Account '{acc_str}' matched instance but account_info returned None", flush=True)
+                    if MetaTraderHandler.DEBUG_LOGGING:
+                        print(f"[get_mt5_instance] Account '{acc_str}' matched instance but account_info returned None", flush=True)
             except Exception as e:
-                print(f"[get_mt5_instance] Error checking account_info for '{acc_str}': {e}", flush=True)
+                if MetaTraderHandler.DEBUG_LOGGING:
+                    print(f"[get_mt5_instance] Error checking account_info for '{acc_str}': {e}", flush=True)
             return inst
 
-        print(f"[get_mt5_instance] No isolated instance found for '{acc_str}' in keys {list(instances.keys())}, returning default mt5", flush=True)
+        if MetaTraderHandler.DEBUG_LOGGING:
+            print(f"[get_mt5_instance] No isolated instance found for '{acc_str}' in keys {list(instances.keys())}, returning default mt5", flush=True)
         return mt5 if MT5_AVAILABLE else None
 
     @staticmethod
