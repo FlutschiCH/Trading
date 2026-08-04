@@ -84,19 +84,23 @@ def restart_updater():
 def run_force_git_update():
     print("Checking for updates from Git (Force Update)...", flush=True)
     try:
-        subprocess.run(["git", "fetch", "--all"], check=True)
+        subprocess.run(["git", "fetch", "--all"], capture_output=True, text=True, check=True)
         branch_res = subprocess.run(["git", "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True, check=True)
         branch = branch_res.stdout.strip()
         print(f"Current branch detected: {branch}", flush=True)
         
-        # Ensure local branch tracks remote branch cleanly
+        # Ensure remote origin/branch exists before resetting
+        remote_check = subprocess.run(["git", "rev-parse", "--verify", f"origin/{branch}"], capture_output=True, text=True)
+        if remote_check.returncode != 0:
+            print(f"[Git Warning] Remote branch origin/{branch} not found. Attempting origin/main...", flush=True)
+            branch = "main"
+
         subprocess.run(["git", "checkout", "-B", branch, f"origin/{branch}"], capture_output=True, text=True)
-        
-        # Restore any manually deleted tracked files/folders (e.g. mt5/)
         subprocess.run(["git", "checkout", "HEAD", "--", "."], capture_output=True, text=True)
         
         res = subprocess.run(["git", "reset", "--hard", f"origin/{branch}"], capture_output=True, text=True, check=True)
-        print("Git reset output:", res.stdout, flush=True)
+        if res.stdout:
+            print("Git reset output:", res.stdout.strip(), flush=True)
         
         # Verify and pull Git LFS large files
         print("Checking Git LFS large files...", flush=True)
