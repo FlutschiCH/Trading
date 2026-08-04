@@ -2255,11 +2255,51 @@ export default function Dashboard() {
                   <X size={16} />
                 </button>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                     <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#f1f5f9' }}>
                       🔍 Selected Candle Details
                     </span>
+                    {selectedCandle.wyckoff_stage && (
+                      <span style={{
+                        fontSize: '10px',
+                        fontWeight: 'bold',
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        textTransform: 'uppercase',
+                        backgroundColor:
+                          selectedCandle.wyckoff_stage === 'ACCUMULATION' ? 'rgba(59, 130, 246, 0.2)' :
+                          selectedCandle.wyckoff_stage === 'DISTRIBUTION' ? 'rgba(245, 158, 11, 0.2)' :
+                          selectedCandle.wyckoff_stage === 'MARKUP' ? 'rgba(16, 185, 129, 0.2)' :
+                          selectedCandle.wyckoff_stage === 'MARKDOWN' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(148, 163, 184, 0.2)',
+                        color:
+                          selectedCandle.wyckoff_stage === 'ACCUMULATION' ? '#3b82f6' :
+                          selectedCandle.wyckoff_stage === 'DISTRIBUTION' ? '#f59e0b' :
+                          selectedCandle.wyckoff_stage === 'MARKUP' ? '#10b981' :
+                          selectedCandle.wyckoff_stage === 'MARKDOWN' ? '#ef4444' : '#94a3b8',
+                        border: `1px solid ${
+                          selectedCandle.wyckoff_stage === 'ACCUMULATION' ? '#3b82f6' :
+                          selectedCandle.wyckoff_stage === 'DISTRIBUTION' ? '#f59e0b' :
+                          selectedCandle.wyckoff_stage === 'MARKUP' ? '#10b981' :
+                          selectedCandle.wyckoff_stage === 'MARKDOWN' ? '#ef4444' : '#94a3b8'
+                        }`
+                      }}>
+                        Stage: {selectedCandle.wyckoff_stage}
+                      </span>
+                    )}
+                    {selectedCandle.wyckoff_signal && (
+                      <span style={{
+                        fontSize: '10px',
+                        fontWeight: 'bold',
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        backgroundColor: selectedCandle.wyckoff_signal.includes('Spring') ? 'rgba(6, 182, 212, 0.25)' : 'rgba(245, 158, 11, 0.25)',
+                        color: selectedCandle.wyckoff_signal.includes('Spring') ? '#06b6d4' : '#f59e0b',
+                        border: `1px solid ${selectedCandle.wyckoff_signal.includes('Spring') ? '#06b6d4' : '#f59e0b'}`
+                      }}>
+                        ⚡ {selectedCandle.wyckoff_signal}
+                      </span>
+                    )}
                     <span style={{
                       fontSize: '9px',
                       fontWeight: 'bold',
@@ -2271,9 +2311,54 @@ export default function Dashboard() {
                       {timeframe === '1m' ? '1m Candle Supported' : '1m Only (Read Only)'}
                     </span>
                   </div>
+
                   <span style={{ fontSize: '11px', color: '#94a3b8' }}>
                     Time: {formatDateTime(selectedCandle.time)} | Open: {formatPrice(selectedCandle.open, symbol)} | High: {formatPrice(selectedCandle.high, symbol)} | Low: {formatPrice(selectedCandle.low, symbol)} | Close: {formatPrice(selectedCandle.close, symbol)} | Vol: {selectedCandle.volume.toFixed(1)}
                   </span>
+
+                  {/* Level & Wyckoff Condition Breakdown */}
+                  <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', fontSize: '11px', marginTop: '2px', backgroundColor: '#1e293b', padding: '8px 12px', borderRadius: '6px' }}>
+                    {selectedCandle.support_level != null && (
+                      <span style={{ color: '#60a5fa' }}>
+                        <strong>Support:</strong> {formatPrice(selectedCandle.support_level, symbol)}
+                      </span>
+                    )}
+                    {selectedCandle.resistance_level != null && (
+                      <span style={{ color: '#fbbf24' }}>
+                        <strong>Resistance:</strong> {formatPrice(selectedCandle.resistance_level, symbol)}
+                      </span>
+                    )}
+                    {selectedCandle.sma_20 != null && (
+                      <span style={{ color: '#34d399' }}>
+                        <strong>SMA20:</strong> {formatPrice(selectedCandle.sma_20, symbol)}
+                      </span>
+                    )}
+
+                    {/* Check status of Spring / Upthrust conditions */}
+                    {selectedCandle.support_level != null && selectedCandle.resistance_level != null && (
+                      <div style={{ display: 'flex', gap: '10px', width: '100%', flexWrap: 'wrap', paddingTop: '4px', borderTop: '1px solid #334155', color: '#cbd5e1' }}>
+                        <div>
+                          <strong>Spring Check:</strong>{' '}
+                          <span style={{ color: selectedCandle.low < selectedCandle.support_level ? '#10b981' : '#ef4444' }}>
+                            Low &lt; Sup {selectedCandle.low < selectedCandle.support_level ? '✓' : '✗'}
+                          </span>,{' '}
+                          <span style={{ color: selectedCandle.close > selectedCandle.support_level ? '#10b981' : '#ef4444' }}>
+                            Close &gt; Sup {selectedCandle.close > selectedCandle.support_level ? '✓' : '✗'}
+                          </span>
+                        </div>
+                        <div>
+                          <strong>Upthrust Check:</strong>{' '}
+                          <span style={{ color: selectedCandle.high > selectedCandle.resistance_level ? '#10b981' : '#ef4444' }}>
+                            High &gt; Res {selectedCandle.high > selectedCandle.resistance_level ? '✓' : '✗'}
+                          </span>,{' '}
+                          <span style={{ color: selectedCandle.close < selectedCandle.resistance_level ? '#10b981' : '#ef4444' }}>
+                            Close &lt; Res {selectedCandle.close < selectedCandle.resistance_level ? '✓' : '✗'}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   {selectedCandle.vsa_patterns && selectedCandle.vsa_patterns.length > 0 && (
                     <span style={{ fontSize: '11px', color: '#f59e0b', fontWeight: '500' }}>
                       VSA Patterns: {selectedCandle.vsa_patterns.join(', ')}
