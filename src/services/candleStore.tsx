@@ -76,13 +76,24 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     try {
       const endpoint = `${API_BASE_URL}/api/trade/candles`;
-      const activeAccId = localStorage.getItem('wyckoff_active_account_id') || localStorage.getItem('active_account_id');
+      let activeAccId: string | undefined = undefined;
+      try {
+        const savedAcc = localStorage.getItem('wyckoff_active_account');
+        if (savedAcc) {
+          const parsed = JSON.parse(savedAcc);
+          activeAccId = parsed?.account_id || parsed?.id;
+        }
+      } catch (e) {}
+      if (!activeAccId) {
+        activeAccId = localStorage.getItem('wyckoff_active_account_id') || localStorage.getItem('active_account_id') || undefined;
+      }
+
       const payload = {
         broker: candleSource,
         symbol: symbol,
         interval: timeframe,
         limit: reqLimit,
-        account_id: activeAccId || undefined
+        account_id: activeAccId
       };
 
       const marketResult = await apiService.fetchTradeCandles(payload);

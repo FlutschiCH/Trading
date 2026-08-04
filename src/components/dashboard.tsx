@@ -1402,7 +1402,7 @@ export default function Dashboard() {
       const response = await fetch(`${API_BASE_URL}/api/trade/account`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ broker: overrideBroker || candleSource })
+        body: JSON.stringify({ broker: overrideBroker || candleSource, account_id: activeAccount?.account_id })
       });
       const result = await response.json();
       if (result.status === 'success') {
@@ -1418,7 +1418,7 @@ export default function Dashboard() {
       const response = await fetch(`${API_BASE_URL}/api/trade/positions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ broker: overrideBroker || candleSource })
+        body: JSON.stringify({ broker: overrideBroker || candleSource, account_id: activeAccount?.account_id })
       });
       const result = await response.json();
       if (result.status === 'success') {
@@ -1444,7 +1444,7 @@ export default function Dashboard() {
       const res = await fetch(`${API_BASE_URL}/api/trade/history`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ broker: overrideBroker || candleSource })
+        body: JSON.stringify({ broker: overrideBroker || candleSource, account_id: activeAccount?.account_id })
       });
       const data = await res.json();
       if (data.status === 'success') {
@@ -1480,10 +1480,12 @@ export default function Dashboard() {
       if (data.status === 'success' && data.data) {
         setActiveAccount(data.data);
         localStorage.setItem('wyckoff_active_account', JSON.stringify(data.data));
+        localStorage.setItem('wyckoff_active_account_id', data.data.account_id);
         return data.data;
       } else {
         setActiveAccount(null);
         localStorage.removeItem('wyckoff_active_account');
+        localStorage.removeItem('wyckoff_active_account_id');
         return null;
       }
     } catch (e) {
