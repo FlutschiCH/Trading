@@ -186,16 +186,17 @@ class LiveRunner:
 
             date_from, date_to = calculate_date_bounds(opt, custom_from, custom_to)
             
-            print(f"[Live Runner] Warm-up: Fetching candles for strategy {strategy_id} ({symbol} {timeframe}) using backtest settings: opt={opt}, limit={limit}, date_from={date_from}, date_to={date_to}", flush=True)
+            print(f"[Live Runner] Warm-up: Fetching candles for strategy {strategy_id} ({symbol} {timeframe}) from broker='{broker_name}' (Account ID: '{strat_acc_id}') using backtest settings: opt={opt}, limit={limit}, date_from={date_from}, date_to={date_to}", flush=True)
             candles = handler.fetch_candles(
                 symbol=symbol,
                 timeframe=timeframe,
                 limit=limit,
                 date_from=date_from,
                 date_to=date_to,
-                login=strat_acc_id
+                login=strat_acc_id,
+                account_id=strat_acc_id
             )
-            print(f"[Live Runner DEBUG] Warm-up: Fetch returned {len(candles) if candles else 0} candles for strategy {strategy_id}", flush=True)
+            print(f"[Live Runner DEBUG] Warm-up: Fetch returned {len(candles) if candles else 0} candles for strategy {strategy_id} (Broker: '{broker_name}', Account ID: '{strat_acc_id}')", flush=True)
             if candles:
                 # Run backtest logic to initialize candles and trades cache
                 from strategy_handler import StrategyHandler
@@ -231,11 +232,13 @@ class LiveRunner:
                 annotated_candles = []
         else:
             # Incremental fetch: fetch the last 10 candles and append/merge into full historical cache
+            print(f"[Live Runner] Incremental fetch: Fetching candles for strategy {strategy_id} ({symbol} {timeframe}) from broker='{broker_name}' (Account ID: '{strat_acc_id}')", flush=True)
             new_candles = handler.fetch_candles(
                 symbol=symbol,
                 timeframe=timeframe,
                 limit=10,
-                login=strat_acc_id
+                login=strat_acc_id,
+                account_id=strat_acc_id
             )
             if new_candles:
                 # Merge new raw candles with the entire cached history to maintain full 5,000 candle context
