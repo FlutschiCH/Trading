@@ -106,14 +106,17 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const isFetchingRef = useRef<boolean>(false);
 
+  const hasFetchedFullLiveRef = useRef<Set<string>>(new Set());
+
   const saveCandlesToCache = (sym: string, tf: string, candleList: Candle[]) => {
     if (!sym || !tf || !candleList || candleList.length === 0) return;
     const cacheKey = `wyckoff_candles_${sym}_${tf}`;
     try {
-      // Save recent 1000 candles to preserve localStorage space
-      localStorage.setItem(cacheKey, JSON.stringify(candleList.slice(-1000)));
+      localStorage.setItem(cacheKey, JSON.stringify(candleList.slice(-5000)));
     } catch (e) {
-      // Catch quota exceeded exceptions
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify(candleList.slice(-2000)));
+      } catch (e2) {}
     }
   };
 
@@ -128,7 +131,16 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     const currentStrategyId = activeStrategyIdRef.current;
-    const isIncremental = !forceFullRefresh && candlesRef.current.length >= 50;
+    
+    // For live strategy: require a full fetch (5000 candles) at least once per strategy
+    let isIncremental = false;
+    if (currentStrategyId) {
+      const hasFull = hasFetchedFullLiveRef.current.has(currentStrategyId);
+      isIncremental = !forceFullRefresh && hasFull && candlesRef.current.length >= 50;
+    } else {
+      isIncremental = !forceFullRefresh && candlesRef.current.length >= 50;
+    }
+
     const reqLimit = isIncremental ? 50 : Math.min(candleLimit, 5000);
 
     try {
@@ -140,6 +152,9 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const data = await res.json();
         if (data && data.status === 'success' && Array.isArray(data.candles)) {
           rawCandles = data.candles.sort((a: Candle, b: Candle) => a.time - b.time);
+          if (!isIncremental && rawCandles.length > 0) {
+            hasFetchedFullLiveRef.current.add(currentStrategyId);
+          }
         }
       } else {
         // Fetch standard market candles
@@ -179,7 +194,10 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           if (isIncremental && prev.length > 0) {
             const map = new Map<number, Candle>();
             prev.forEach(c => map.set(c.time, c));
-            rawCandles.forEach(c => map.set(c.time, c));
+            rawCandles.forEach(c => {
+              const existing = map.get(c.time);
+              map.set(c.time, existing ? { ...existing, ...c } : c);
+            });
             updated = Array.from(map.values()).sort((a, b) => a.time - b.time);
           } else {
             updated = rawCandles;
@@ -217,7 +235,9 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setCandles([]);
     }
 
-    fetchCandles(true, false);
+    const isLive = Boolean(activeStrategyId);
+    const forceRefresh = isLive && !hasFetchedFullLiveRef.current.has(activeStrategyId!);
+    fetchCandles(forceRefresh, false);
 
     const interval = setInterval(() => {
       if (!isCancelled) {
