@@ -71,6 +71,15 @@ class MetaTraderHandler(BaseBrokerHandler):
             print(f"[MetaTrader Initialization Skipped] Missing required credentials (login={login}, password={'***' if password else None}, server={server})", flush=True)
             return False
 
+        try:
+            acc_info = mt5_module.account_info()
+            term_info = mt5_module.terminal_info()
+            if term_info is not None and acc_info is not None and str(acc_info.login) == str(login):
+                MetaTraderHandler._mt5_instances[str(login)] = mt5_module
+                return True
+        except Exception:
+            pass
+
         print(f"[MetaTrader Connecting] Account: {login} | Server: {server} | Path: {path}", flush=True)
 
         success = False
