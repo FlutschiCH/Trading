@@ -126,33 +126,6 @@ def run_force_git_update():
         print(f"Git force update warning/error: {e}", flush=True)
         return False
 
-def periodic_update_checker():
-    """Background thread to poll git for remote updates every 30 seconds."""
-    while True:
-        try:
-            time.sleep(30)
-            branch_res = subprocess.run(["git", "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True)
-            branch = branch_res.stdout.strip() if branch_res.returncode == 0 else "stable"
-            if not branch or branch == "HEAD":
-                branch = "stable"
-
-            subprocess.run(["git", "fetch", "--all"], capture_output=True, text=True)
-
-            local_commit_res = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True)
-            remote_commit_res = subprocess.run(["git", "rev-parse", f"origin/{branch}"], capture_output=True, text=True)
-
-            if local_commit_res.returncode == 0 and remote_commit_res.returncode == 0:
-                local_hash = local_commit_res.stdout.strip()
-                remote_hash = remote_commit_res.stdout.strip()
-                if local_hash and remote_hash and local_hash != remote_hash:
-                    print(f"\n[AutoUpdater] New commit detected on remote origin/{branch} ({local_hash[:7]} -> {remote_hash[:7]}). Triggering update & restart...", flush=True)
-                    global current_backend_process
-                    with process_lock:
-                        if current_backend_process and current_backend_process.poll() is None:
-                            current_backend_process.terminate()
-        except Exception as e:
-            pass
-
 def check_and_install_dependencies(python_exe):
     req_path = os.path.join("backend", "requirements.txt")
     if os.path.exists(req_path):
@@ -174,10 +147,6 @@ def main():
     updater_thread = threading.Thread(target=start_control_server, daemon=True)
     updater_thread.start()
 
-    # Start background thread to poll git for new commits
-    poll_thread = threading.Thread(target=periodic_update_checker, daemon=True)
-    poll_thread.start()
-
     if os.path.exists("backend/.venv/Scripts/python.exe"):
         python_exe = os.path.abspath("backend/.venv/Scripts/python.exe")
     elif os.path.exists("backend/venv/Scripts/python.exe"):
@@ -190,10 +159,8 @@ def main():
     print(f"Using Python interpreter: {python_exe}", flush=True)
 
     while True:
-        commit_before = get_git_commit()
+        # Force git update every time backend is restarted
         run_force_git_update()
-        commit_after = get_git_commit()
-        
         check_and_install_dependencies(python_exe)
 
         print("Starting backend server (backend/app.py)...", flush=True)
@@ -212,12 +179,6 @@ def main():
                 print("Exit code 99 received. Stopping autoupdater.", flush=True)
                 break
             
-            if exit_code == 12:
-                print("Exit code 12 received. Performing force update and restarting autoupdater...", flush=True)
-                run_force_git_update()
-                check_and_install_dependencies(python_exe)
-                restart_updater()
-                
             print("Restarting backend in 3 seconds...", flush=True)
             time.sleep(3)
         except KeyboardInterrupt:
