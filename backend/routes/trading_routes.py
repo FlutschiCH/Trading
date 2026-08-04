@@ -118,7 +118,10 @@ def candles():
     from broker_handler import BrokerHandler
     handler = BrokerHandler.get_handler(broker_name)
     try:
-        candles_data = handler.fetch_candles(symbol, timeframe, limit, date_from, date_to, **payload)
+        p = payload.copy() if isinstance(payload, dict) else {}
+        for k in ('symbol', 'interval', 'timeframe', 'limit', 'date_from', 'date_to'):
+            p.pop(k, None)
+        candles_data = handler.fetch_candles(symbol, timeframe, limit, date_from, date_to, **p)
     except (ValueError, RuntimeError) as e:
         return jsonify({"status": "error", "message": str(e)}), 400
 

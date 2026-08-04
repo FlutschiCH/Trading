@@ -96,6 +96,8 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         account_id: activeAccId
       };
 
+      console.log(`[CandleStore] Fetching candles for account: ${activeAccId || 'NONE'} (${candleSource} ${symbol} ${timeframe})`, payload);
+
       const marketResult = await apiService.fetchTradeCandles(payload);
 
       let rawCandles: Candle[] = [];

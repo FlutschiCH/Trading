@@ -171,6 +171,12 @@ class LiveRunner:
                 cls._cache_configs = {}
             cls._cache_configs[strategy_id] = (symbol, timeframe, lookback, broker_name, opt, custom_from, custom_to, limit)
 
+        strat_acc_id = strategy.get("account_id")
+        if not strat_acc_id and strategy.get("targets"):
+            targets = strategy.get("targets")
+            if isinstance(targets, list) and len(targets) > 0:
+                strat_acc_id = targets[0].get("account_id")
+
         if not cached_candles:
             # First fetch: warm up using backtest settings saved in strategy configuration
             opt = strategy.get("dateRangeOption", "last_candles")
@@ -186,7 +192,8 @@ class LiveRunner:
                 timeframe=timeframe,
                 limit=limit,
                 date_from=date_from,
-                date_to=date_to
+                date_to=date_to,
+                login=strat_acc_id
             )
             print(f"[Live Runner DEBUG] Warm-up: Fetch returned {len(candles) if candles else 0} candles for strategy {strategy_id}", flush=True)
             if candles:
@@ -227,7 +234,8 @@ class LiveRunner:
             new_candles = handler.fetch_candles(
                 symbol=symbol,
                 timeframe=timeframe,
-                limit=10
+                limit=10,
+                login=strat_acc_id
             )
             if new_candles:
                 # Merge new raw candles with the entire cached history to maintain full 5,000 candle context
