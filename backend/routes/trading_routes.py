@@ -117,7 +117,10 @@ def candles():
 
     from broker_handler import BrokerHandler
     handler = BrokerHandler.get_handler(broker_name)
-    candles_data = handler.fetch_candles(symbol, timeframe, limit, date_from, date_to, **payload)
+    try:
+        candles_data = handler.fetch_candles(symbol, timeframe, limit, date_from, date_to, **payload)
+    except (ValueError, RuntimeError) as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
 
     return jsonify({
         "status": "success",

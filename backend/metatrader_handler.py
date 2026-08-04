@@ -168,14 +168,11 @@ class MetaTraderHandler(BaseBrokerHandler):
 
         acc_login = login or kwargs.get('account_id') or kwargs.get('account') or kwargs.get('login')
         if not acc_login:
-            from account_handler import AccountHandler
-            active_acc = AccountHandler.get_active_account()
-            if active_acc:
-                acc_login = active_acc.get("account_id")
+            raise ValueError("No account selected")
 
-        mt5_inst = MetaTraderHandler.get_mt5_instance(acc_login) if acc_login else None
+        mt5_inst = MetaTraderHandler.get_mt5_instance(acc_login)
         if mt5_inst is None:
-            mt5_inst = mt5
+            raise RuntimeError(f"MetaTrader account {acc_login} is not connected.")
 
         # Map timeframe string to MT5 timeframe constants
         tf_map = {
