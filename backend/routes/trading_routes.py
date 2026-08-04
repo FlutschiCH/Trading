@@ -95,7 +95,8 @@ def modify_position():
         return jsonify({"status": "error", "message": "Missing position_id"}), 400
 
     handler = _get_handler(payload)
-    result = handler.modify_position(position_id, stop_loss=stop_loss, take_profit=take_profit, symbol=symbol, **payload)
+    kwargs = {k: v for k, v in payload.items() if k not in ('position_id', 'stop_loss', 'take_profit', 'symbol')}
+    result = handler.modify_position(position_id, stop_loss=stop_loss, take_profit=take_profit, symbol=symbol, **kwargs)
     return jsonify(result)
 
 @trading_routes.route('/trade/candles', methods=['POST'])
