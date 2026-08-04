@@ -84,11 +84,9 @@ class MetaTraderHandler(BaseBrokerHandler):
             acc_info = mt5_module.account_info()
             term_info = mt5_module.terminal_info()
             if term_info is not None and acc_info is not None and str(acc_info.login) == str(login):
-                balance = getattr(acc_info, 'balance', 0.0)
-                if balance > 0:
-                    builtins._GLOBAL_MT5_INSTANCES[str(login)] = mt5_module
-                    builtins._GLOBAL_MT5_CONNECTION_STATES[str(login)] = True
-                    return True
+                builtins._GLOBAL_MT5_INSTANCES[str(login)] = mt5_module
+                builtins._GLOBAL_MT5_CONNECTION_STATES[str(login)] = True
+                return True
         except Exception:
             pass
 
@@ -110,27 +108,36 @@ class MetaTraderHandler(BaseBrokerHandler):
             print(f"[MetaTrader Initialization Exception] Account: {login} | Path: {path} | Error: {err_code} ({err_desc})", flush=True)
 
         if success and login:
-            acc_info = mt5_module.account_info()
-            balance = getattr(acc_info, 'balance', 0.0) if acc_info else 0.0
             builtins._GLOBAL_MT5_INSTANCES[str(login)] = mt5_module
             builtins._GLOBAL_MT5_CONNECTION_STATES[str(login)] = True
-            is_valid = acc_info is not None and balance > 0
-            print(f"[MetaTrader Connected] Account: {login} | Server: {server} | Balance: {balance} | Valid (>0): {is_valid}", flush=True)
-            return True
+            print(f"[MetaTrader Connected] Account: {login} | Server: {server} | Status: Successfully logged in", flush=True)
         return success
 
     @staticmethod
     def get_mt5_instance(account_id: str = None):
+        instances = getattr(builtins, '_GLOBAL_MT5_INSTANCES', MetaTraderHandler._mt5_instances)
         if account_id:
             acc_str = str(account_id)
-            instances = getattr(builtins, '_GLOBAL_MT5_INSTANCES', MetaTraderHandler._mt5_instances)
             if acc_str in instances:
                 inst = instances[acc_str]
-                acc_info = inst.account_info() if hasattr(inst, 'account_info') else None
-                if acc_info is not None and getattr(acc_info, 'balance', 0.0) > 0:
-                    return inst
+                try:
+                    info = inst.account_info()
+                    if info is not None and getattr(info, 'balance', 0.0) > 0:
+                        return inst
+                except Exception:
+                    pass
                 return inst
-        return mt5 if MT5_AVAILABLE else None
+        
+        # Fallback to default MT5 instance with balance check
+        if MT5_AVAILABLE:
+            try:
+                info = mt5.account_info()
+                if info is not None and getattr(info, 'balance', 0.0) > 0:
+                    return mt5
+            except Exception:
+                pass
+            return mt5
+        return None
 
     @staticmethod
     def _resolve_credentials(login=None, password=None, server=None, **kwargs):
