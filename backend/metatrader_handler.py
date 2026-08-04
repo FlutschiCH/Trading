@@ -115,6 +115,7 @@ class MetaTraderHandler(BaseBrokerHandler):
 
     @staticmethod
     def get_mt5_instance(account_id: str = None):
+        print(f"[get_mt5_instance] Requested account_id: {account_id}", flush=True)
         instances = getattr(builtins, '_GLOBAL_MT5_INSTANCES', MetaTraderHandler._mt5_instances)
         if account_id:
             acc_str = str(account_id)
@@ -122,20 +123,29 @@ class MetaTraderHandler(BaseBrokerHandler):
                 inst = instances[acc_str]
                 try:
                     info = inst.account_info()
-                    if info is not None and getattr(info, 'balance', 0.0) > 0:
-                        return inst
-                except Exception:
-                    pass
+                    if info is not None:
+                        print(f"[get_mt5_instance] Matched '{acc_str}' -> account_info.login: {getattr(info, 'login', None)}, balance: {getattr(info, 'balance', None)}", flush=True)
+                        if getattr(info, 'balance', 0.0) > 0:
+                            return inst
+                    else:
+                        print(f"[get_mt5_instance] Matched '{acc_str}' but account_info is None", flush=True)
+                except Exception as e:
+                    print(f"[get_mt5_instance] Exception for '{acc_str}': {e}", flush=True)
                 return inst
-        
-        # Fallback to default MT5 instance with balance check
+            else:
+                print(f"[get_mt5_instance] account_id '{acc_str}' NOT in known instances {list(instances.keys())}", flush=True)
+
         if MT5_AVAILABLE:
             try:
                 info = mt5.account_info()
-                if info is not None and getattr(info, 'balance', 0.0) > 0:
-                    return mt5
-            except Exception:
-                pass
+                if info is not None:
+                    print(f"[get_mt5_instance] Fallback default mt5 -> account_info.login: {getattr(info, 'login', None)}, balance: {getattr(info, 'balance', None)}", flush=True)
+                    if getattr(info, 'balance', 0.0) > 0:
+                        return mt5
+                else:
+                    print(f"[get_mt5_instance] Fallback default mt5 account_info is None", flush=True)
+            except Exception as e:
+                print(f"[get_mt5_instance] Fallback default mt5 exception: {e}", flush=True)
             return mt5
         return None
 
