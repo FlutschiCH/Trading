@@ -31,7 +31,7 @@ interface HeaderBarProps {
   isMobile: boolean;
   theme: 'dark' | 'light';
   toggleTheme: () => void;
-  connectionMode: 'ws' | 'polling';
+  connectionMode: 'ws' | 'polling' | 'openapi' | 'fix';
   currentConnected: boolean;
   activeAccount: Account | null;
   accountInfo: AccountInfo | null;
