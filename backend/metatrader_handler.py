@@ -8,14 +8,23 @@ except ImportError:
 
 from base_broker_handler import BaseBrokerHandler
 
+import builtins
+if not hasattr(builtins, "_GLOBAL_MT5_CONNECTION_STATES"):
+    builtins._GLOBAL_MT5_CONNECTION_STATES = {}
+if not hasattr(builtins, "_GLOBAL_MT5_INSTANCES"):
+    builtins._GLOBAL_MT5_INSTANCES = {}
+
 class MetaTraderHandler(BaseBrokerHandler):
-    _connection_states = {}
-    _mt5_instances = {}
+    _connection_states = builtins._GLOBAL_MT5_CONNECTION_STATES
+    _mt5_instances = builtins._GLOBAL_MT5_INSTANCES
 
     @staticmethod
     def _initialize_mt5(login: int = None, password: str = None, server: str = None, terminal_path: str = None) -> bool:
         if not MT5_AVAILABLE:
             return False
+
+        if login and builtins._GLOBAL_MT5_CONNECTION_STATES.get(str(login)):
+            return True
 
         import os
         import shutil
@@ -71,15 +80,12 @@ class MetaTraderHandler(BaseBrokerHandler):
             print(f"[MetaTrader Initialization Skipped] Missing required credentials (login={login}, password={'***' if password else None}, server={server})", flush=True)
             return False
 
-        if login and MetaTraderHandler._connection_states.get(str(login)):
-            return True
-
         try:
             acc_info = mt5_module.account_info()
             term_info = mt5_module.terminal_info()
             if term_info is not None and acc_info is not None and str(acc_info.login) == str(login):
-                MetaTraderHandler._mt5_instances[str(login)] = mt5_module
-                MetaTraderHandler._connection_states[str(login)] = True
+                builtins._GLOBAL_MT5_INSTANCES[str(login)] = mt5_module
+                builtins._GLOBAL_MT5_CONNECTION_STATES[str(login)] = True
                 return True
         except Exception:
             pass
@@ -102,8 +108,8 @@ class MetaTraderHandler(BaseBrokerHandler):
             print(f"[MetaTrader Initialization Exception] Account: {login} | Path: {path} | Error: {err_code} ({err_desc})", flush=True)
 
         if success and login:
-            MetaTraderHandler._mt5_instances[str(login)] = mt5_module
-            MetaTraderHandler._connection_states[str(login)] = True
+            builtins._GLOBAL_MT5_INSTANCES[str(login)] = mt5_module
+            builtins._GLOBAL_MT5_CONNECTION_STATES[str(login)] = True
             print(f"[MetaTrader Connected] Account: {login} | Server: {server} | Status: Successfully logged in", flush=True)
         return success
 
