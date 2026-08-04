@@ -108,8 +108,14 @@ def run_force_git_update():
         else:
             print("Git LFS large files downloaded successfully.", flush=True)
 
-        commit_info = subprocess.run(["git", "log", "-1", "--oneline"], capture_output=True, text=True, check=True)
-        print(f"Git Update Complete! Active Commit: {commit_info.stdout.strip()}", flush=True)
+        commit_info = subprocess.run(["git", "log", "-1", "--format=%h - %s (%cr) <%an>"], capture_output=True, text=True, check=True)
+        GREEN = "\033[92m"
+        CYAN = "\033[96m"
+        BOLD = "\033[1m"
+        RESET = "\033[0m"
+        print(f"\n{BOLD}{GREEN}======================================================================={RESET}", flush=True)
+        print(f"{BOLD}{CYAN}[Git Update Complete] Active Commit: {commit_info.stdout.strip()}{RESET}", flush=True)
+        print(f"{BOLD}{GREEN}=======================================================================\n{RESET}", flush=True)
         return True
     except SystemExit:
         raise
