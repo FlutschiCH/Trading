@@ -2107,10 +2107,22 @@ export default function TVChart({
 
       if (confirmed) {
         // Send position modification request to backend
-        const endpoint = isLocal ? 'http://localhost:8751/api/trade/modify_position' : `${API_BASE_URL}/api/trade/modify_position`;
+        const endpoint = `${API_BASE_URL}/api/trade/modify_position`;
+        const activeAccId = localStorage.getItem('wyckoff_active_account_id');
+        let activeBroker = 'metatrader';
+        try {
+          const saved = localStorage.getItem('wyckoff_active_account');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed && parsed.broker_type) activeBroker = parsed.broker_type;
+          }
+        } catch (e) {}
+
         const payload: any = {
           position_id: pos.position_id,
-          symbol: pos.symbol
+          symbol: pos.symbol,
+          account_id: pos.target_acc_id || pos.account_id || activeAccId,
+          broker: pos.broker || pos.target_broker || activeBroker
         };
         if (isSl) {
           payload.stop_loss = active.currentPrice;
