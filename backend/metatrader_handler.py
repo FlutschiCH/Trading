@@ -122,10 +122,10 @@ class MetaTraderHandler(BaseBrokerHandler):
         return mt5 if MT5_AVAILABLE else None
 
     @staticmethod
-    def _resolve_credentials(login=None, password=None, server=None, **kwargs):
-        req_login = login or kwargs.get('account_id') or kwargs.get('account') or kwargs.get('login')
-        req_server = server or kwargs.get('server')
-        req_password = password or kwargs.get('password')
+        kw_acc = kwargs.get('account_id') or kwargs.get('account') or kwargs.get('login')
+        req_login = kw_acc if kw_acc is not None else login
+        req_server = kwargs.get('server') or server
+        req_password = kwargs.get('password') or password
 
         # Check if login looks like the default mock/placeholder value or not provided
         is_default_mock = str(req_login) == "2002061314" or req_login is None

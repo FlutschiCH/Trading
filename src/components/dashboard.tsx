@@ -1415,30 +1415,36 @@ export default function Dashboard() {
   // Unified API endpoints
   const fetchAccountData = async (overrideBroker?: string) => {
     const accId = getSelectedAccountId();
+    const broker = overrideBroker || candleSource;
+    console.log(`[Dashboard] fetchAccountData for broker=${broker}, account_id=${accId}`);
     try {
       const response = await fetch(`${API_BASE_URL}/api/trade/account`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ broker: overrideBroker || candleSource, account_id: accId })
+        body: JSON.stringify({ broker: broker, account_id: accId })
       });
       const result = await response.json();
+      console.log(`[Dashboard] fetchAccountData result for account_id=${accId}:`, result);
       if (result.status === 'success') {
         setAccountInfo(result.data);
       }
     } catch (error) {
-      console.error('Account data error:', error);
+      console.error('[Dashboard] Account data error:', error);
     }
   };
 
   const fetchPositionData = async (overrideBroker?: string) => {
     const accId = getSelectedAccountId();
+    const broker = overrideBroker || candleSource;
+    console.log(`[Dashboard] fetchPositionData for broker=${broker}, account_id=${accId}`);
     try {
       const response = await fetch(`${API_BASE_URL}/api/trade/positions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ broker: overrideBroker || candleSource, account_id: accId })
+        body: JSON.stringify({ broker: broker, account_id: accId })
       });
       const result = await response.json();
+      console.log(`[Dashboard] fetchPositionData result for account_id=${accId}:`, result);
       if (result.status === 'success') {
         const positions = Array.isArray(result.data) ? result.data : [];
         setOpenPositions(positions);
@@ -1451,7 +1457,7 @@ export default function Dashboard() {
         } catch (e) {}
       }
     } catch (error) {
-      console.error('Positions data error:', error);
+      console.error('[Dashboard] Positions data error:', error);
     }
   };
 
