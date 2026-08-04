@@ -1592,11 +1592,41 @@ export default function TVChart({
         });
       }
 
+      const wyckoffMarkers = activeCandles
+        .map((c) => {
+          if (chartSettings.showTrLines === false) return null;
+          const signal = c.wyckoff_signal;
+          if (!signal) return null;
+          const sigLower = String(signal).toLowerCase();
+          if (sigLower.includes('spring')) {
+            return {
+              time: c.time,
+              position: 'belowBar' as const,
+              color: '#06b6d4',
+              shape: 'arrowUp' as const,
+              text: '⚡ SPRING',
+              size: 2,
+            };
+          }
+          if (sigLower.includes('upthrust')) {
+            return {
+              time: c.time,
+              position: 'aboveBar' as const,
+              color: '#f59e0b',
+              shape: 'arrowDown' as const,
+              text: '⚡ UPTHRUST',
+              size: 2,
+            };
+          }
+          return null;
+        })
+        .filter((m) => m !== null);
+
       const validCandleTimes = new Set(activeCandles.flatMap(c => [c.time, Number(c.time)]));
       const minCandleTime = activeCandles.length > 0 ? Number(activeCandles[0].time) : 0;
       const maxCandleTime = activeCandles.length > 0 ? Number(activeCandles[activeCandles.length - 1].time) : Infinity;
 
-      const allMarkers = [...entryMarkers, ...exitMarkers, ...openPositionMarkers]
+      const allMarkers = [...entryMarkers, ...exitMarkers, ...openPositionMarkers, ...wyckoffMarkers]
         .filter((m) => {
           if (!m || m.time == null || m.time === '' || m.position == null || m.color == null || m.shape == null) return false;
           const t = Number(m.time);
