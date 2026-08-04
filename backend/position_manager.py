@@ -117,9 +117,10 @@ class PositionManager:
             for pos in positions:
                 # Check matching magic / symbol
                 pos_magic = pos.get("magic")
-                pos_symbol = pos.get("symbol")
+                pos_symbol = str(pos.get("symbol", "")).upper()
+                strat_symbol = str(symbol).upper()
 
-                if pos_symbol != symbol and pos_magic != magic:
+                if pos_magic != magic and strat_symbol not in pos_symbol and pos_symbol not in strat_symbol:
                     continue
 
                 position_id = pos.get("id") or pos.get("position_id") or pos.get("ticket")
@@ -167,11 +168,22 @@ class PositionManager:
 
                 be_trigger_dist = risk_dist * be_trigger_r
 
+                # Fetch recent candles to check highest high / lowest low since position was opened (handles rapid price spikes)
+                recent_high = current_price
+                recent_low = current_price
+                try:
+                    candles = handler.fetch_candles(symbol=symbol, timeframe=strategy.get("timeframe", "M1"), limit=5)
+                    if candles:
+                        recent_high = max(float(c.get("high", current_price)) for c in candles)
+                        recent_low = min(float(c.get("low", current_price)) for c in candles)
+                except Exception:
+                    pass
+
                 # Check BUY position Break-Even
                 if pos_type in ("BUY", "POSITION_TYPE_BUY", "0"):
-                    if current_price >= (entry_price + be_trigger_dist):
+                    if max(current_price, recent_high) >= (entry_price + be_trigger_dist):
                         if current_sl < (entry_price - (pip_size * 0.5)):
-                            print(f"[Position Manager] Setting BUY position {position_id} to BE on {symbol} (Acc: {target_acc_id}). Entry: {entry_price}, Current: {current_price}, Old SL: {current_sl}", flush=True)
+                            print(f"[Position Manager] Setting BUY position {position_id} to BE on {symbol} (Acc: {target_acc_id}). Entry: {entry_price}, High: {recent_high}, Current: {current_price}, Old SL: {current_sl}", flush=True)
                             mod_res = handler.modify_position(
                                 position_id=position_id,
                                 stop_loss=entry_price,
@@ -186,16 +198,16 @@ class PositionManager:
                                     f"🎛️ **Strategy ID:** `{strategy_id}`\n"
                                     f"🏦 **Target Account:** `{target_acc_id}` ({target_broker})\n"
                                     f"📊 **Symbol:** `{symbol}` | ➡️ **BUY Position ID:** `{position_id}`\n"
-                                    f"💵 **Entry Price:** `{entry_price:.5f}` | 💵 **Current Price:** `{current_price:.5f}`\n"
+                                    f"💵 **Entry Price:** `{entry_price:.5f}` | 💵 **Peak High:** `{recent_high:.5f}`\n"
                                     f"🔒 **New Stop Loss:** `{entry_price:.5f}` (BE Set)",
                                     sound_type="break_even"
                                 )
 
                 # Check SELL position Break-Even
                 elif pos_type in ("SELL", "POSITION_TYPE_SELL", "1"):
-                    if current_price <= (entry_price - be_trigger_dist):
+                    if min(current_price, recent_low) <= (entry_price - be_trigger_dist):
                         if current_sl == 0.0 or current_sl > (entry_price + (pip_size * 0.5)):
-                            print(f"[Position Manager] Setting SELL position {position_id} to BE on {symbol} (Acc: {target_acc_id}). Entry: {entry_price}, Current: {current_price}, Old SL: {current_sl}", flush=True)
+                            print(f"[Position Manager] Setting SELL position {position_id} to BE on {symbol} (Acc: {target_acc_id}). Entry: {entry_price}, Low: {recent_low}, Current: {current_price}, Old SL: {current_sl}", flush=True)
                             mod_res = handler.modify_position(
                                 position_id=position_id,
                                 stop_loss=entry_price,
@@ -210,7 +222,7 @@ class PositionManager:
                                     f"🎛️ **Strategy ID:** `{strategy_id}`\n"
                                     f"🏦 **Target Account:** `{target_acc_id}` ({target_broker})\n"
                                     f"📊 **Symbol:** `{symbol}` | ➡️ **SELL Position ID:** `{position_id}`\n"
-                                    f"💵 **Entry Price:** `{entry_price:.5f}` | 💵 **Current Price:** `{current_price:.5f}`\n"
+                                    f"💵 **Entry Price:** `{entry_price:.5f}` | 💵 **Peak Low:** `{recent_low:.5f}`\n"
                                     f"🔒 **New Stop Loss:** `{entry_price:.5f}` (BE Set)",
                                     sound_type="break_even"
                                 )
