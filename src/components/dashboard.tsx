@@ -1397,6 +1397,10 @@ export default function Dashboard() {
   }, []);
 
   const getSelectedAccountId = () => {
+    const savedId = localStorage.getItem('wyckoff_active_account_id');
+    if (savedId) {
+      return savedId;
+    }
     if (activeAccount && activeAccount.account_id) {
       return activeAccount.account_id;
     }
@@ -1409,12 +1413,12 @@ export default function Dashboard() {
         }
       }
     } catch (e) {}
-    return localStorage.getItem('wyckoff_active_account_id') || undefined;
+    return undefined;
   };
 
   // Unified API endpoints
-  const fetchAccountData = async (overrideBroker?: string) => {
-    const accId = getSelectedAccountId();
+  const fetchAccountData = async (overrideBroker?: string, overrideAccId?: string) => {
+    const accId = overrideAccId || getSelectedAccountId();
     const broker = overrideBroker || candleSource;
     console.log(`[Dashboard] fetchAccountData for broker=${broker}, account_id=${accId}`);
     try {
@@ -1433,8 +1437,8 @@ export default function Dashboard() {
     }
   };
 
-  const fetchPositionData = async (overrideBroker?: string) => {
-    const accId = getSelectedAccountId();
+  const fetchPositionData = async (overrideBroker?: string, overrideAccId?: string) => {
+    const accId = overrideAccId || getSelectedAccountId();
     const broker = overrideBroker || candleSource;
     console.log(`[Dashboard] fetchPositionData for broker=${broker}, account_id=${accId}`);
     try {
@@ -1461,10 +1465,10 @@ export default function Dashboard() {
     }
   };
 
-  const fetchHistoryTrades = async (overrideBroker?: string) => {
+  const fetchHistoryTrades = async (overrideBroker?: string, overrideAccId?: string) => {
     setLoadingHistory(true);
     setHistoryError('');
-    const accId = getSelectedAccountId();
+    const accId = overrideAccId || getSelectedAccountId();
     try {
       const res = await fetch(`${API_BASE_URL}/api/trade/history`, {
         method: 'POST',
@@ -1538,6 +1542,7 @@ export default function Dashboard() {
       if (data.status === 'success') {
         const newActive = await fetchActiveAccount();
         console.log("[Dashboard] Account switch complete. New active account:", newActive);
+        const switchedAccId = newActive ? newActive.account_id : accountId;
         if (newActive) {
           localStorage.setItem('wyckoff_active_account', JSON.stringify(newActive));
           localStorage.setItem('wyckoff_active_account_id', newActive.account_id);
@@ -1547,9 +1552,9 @@ export default function Dashboard() {
         }
         const broker = newActive ? newActive.broker_type : 'metatrader';
         fetchCandles(broker);
-        fetchAccountData(broker);
-        fetchPositionData(broker);
-        fetchHistoryTrades(broker);
+        fetchAccountData(broker, switchedAccId);
+        fetchPositionData(broker, switchedAccId);
+        fetchHistoryTrades(broker, switchedAccId);
       } else {
         alert("Failed to switch account: " + data.message);
       }
