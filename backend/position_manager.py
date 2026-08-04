@@ -193,15 +193,16 @@ class PositionManager:
                             )
                             if mod_res and mod_res.get("status") != "error":
                                 cls._known_positions[pos_key]["sl"] = entry_price
-                                NotificationHandler.send_notification(
+                                msg = (
                                     f"🛡️ **Break-Even Triggered!**\n"
                                     f"🎛️ **Strategy ID:** `{strategy_id}`\n"
                                     f"🏦 **Target Account:** `{target_acc_id}` ({target_broker})\n"
                                     f"📊 **Symbol:** `{symbol}` | ➡️ **BUY Position ID:** `{position_id}`\n"
                                     f"💵 **Entry Price:** `{entry_price:.5f}` | 💵 **Peak High:** `{recent_high:.5f}`\n"
-                                    f"🔒 **New Stop Loss:** `{entry_price:.5f}` (BE Set)",
-                                    sound_type="break_even"
+                                    f"🔒 **New Stop Loss:** `{entry_price:.5f}` (BE Set)"
                                 )
+                                NotificationHandler.send_notification(msg, sound_type="break_even")
+                                send_discord_message(msg)
 
                 # Check SELL position Break-Even
                 elif pos_type in ("SELL", "POSITION_TYPE_SELL", "1"):
@@ -217,15 +218,16 @@ class PositionManager:
                             )
                             if mod_res and mod_res.get("status") != "error":
                                 cls._known_positions[pos_key]["sl"] = entry_price
-                                NotificationHandler.send_notification(
+                                msg = (
                                     f"🛡️ **Break-Even Triggered!**\n"
                                     f"🎛️ **Strategy ID:** `{strategy_id}`\n"
                                     f"🏦 **Target Account:** `{target_acc_id}` ({target_broker})\n"
                                     f"📊 **Symbol:** `{symbol}` | ➡️ **SELL Position ID:** `{position_id}`\n"
                                     f"💵 **Entry Price:** `{entry_price:.5f}` | 💵 **Peak Low:** `{recent_low:.5f}`\n"
-                                    f"🔒 **New Stop Loss:** `{entry_price:.5f}` (BE Set)",
-                                    sound_type="break_even"
+                                    f"🔒 **New Stop Loss:** `{entry_price:.5f}` (BE Set)"
                                 )
+                                NotificationHandler.send_notification(msg, sound_type="break_even")
+                                send_discord_message(msg)
 
             # Check for closed positions (previously known but no longer in positions list)
             known_target_keys = [k for k in cls._known_positions.keys() if k[0] == target_acc_id and cls._known_positions[k]["symbol"] == symbol]
