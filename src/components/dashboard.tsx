@@ -1396,13 +1396,30 @@ export default function Dashboard() {
     loadLiveStrategyAndPerms();
   }, []);
 
+  const getSelectedAccountId = () => {
+    if (activeAccount && activeAccount.account_id) {
+      return activeAccount.account_id;
+    }
+    try {
+      const saved = localStorage.getItem('wyckoff_active_account');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && (parsed.account_id || parsed.id)) {
+          return parsed.account_id || parsed.id;
+        }
+      }
+    } catch (e) {}
+    return localStorage.getItem('wyckoff_active_account_id') || undefined;
+  };
+
   // Unified API endpoints
   const fetchAccountData = async (overrideBroker?: string) => {
+    const accId = getSelectedAccountId();
     try {
       const response = await fetch(`${API_BASE_URL}/api/trade/account`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ broker: overrideBroker || candleSource, account_id: activeAccount?.account_id })
+        body: JSON.stringify({ broker: overrideBroker || candleSource, account_id: accId })
       });
       const result = await response.json();
       if (result.status === 'success') {
@@ -1414,11 +1431,12 @@ export default function Dashboard() {
   };
 
   const fetchPositionData = async (overrideBroker?: string) => {
+    const accId = getSelectedAccountId();
     try {
       const response = await fetch(`${API_BASE_URL}/api/trade/positions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ broker: overrideBroker || candleSource, account_id: activeAccount?.account_id })
+        body: JSON.stringify({ broker: overrideBroker || candleSource, account_id: accId })
       });
       const result = await response.json();
       if (result.status === 'success') {
@@ -1440,11 +1458,12 @@ export default function Dashboard() {
   const fetchHistoryTrades = async (overrideBroker?: string) => {
     setLoadingHistory(true);
     setHistoryError('');
+    const accId = getSelectedAccountId();
     try {
       const res = await fetch(`${API_BASE_URL}/api/trade/history`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ broker: overrideBroker || candleSource, account_id: activeAccount?.account_id })
+        body: JSON.stringify({ broker: overrideBroker || candleSource, account_id: accId })
       });
       const data = await res.json();
       if (data.status === 'success') {

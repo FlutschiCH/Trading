@@ -292,7 +292,8 @@ class MetaTraderHandler(BaseBrokerHandler):
 
         if not MetaTraderHandler._initialize_mt5(login, password, server):
             return {}
-        info = mt5.account_info()
+        mt5_inst = MetaTraderHandler.get_mt5_instance(login) or mt5
+        info = mt5_inst.account_info()
         if info is None:
             return {}
         return {
@@ -323,7 +324,8 @@ class MetaTraderHandler(BaseBrokerHandler):
 
         if not MetaTraderHandler._initialize_mt5(login, password, server):
             return []
-        positions = mt5.positions_get()
+        mt5_inst = MetaTraderHandler.get_mt5_instance(login) or mt5
+        positions = mt5_inst.positions_get()
         if positions is None:
             return []
         
@@ -331,7 +333,7 @@ class MetaTraderHandler(BaseBrokerHandler):
         offset = 0
         try:
             sample_sym = positions[0].symbol if len(positions) > 0 else "EURUSD"
-            tick = mt5.symbol_info_tick(sample_sym)
+            tick = mt5_inst.symbol_info_tick(sample_sym)
             if tick:
                 import time as pytime
                 import datetime
@@ -355,12 +357,13 @@ class MetaTraderHandler(BaseBrokerHandler):
         broker_key = f"metatrader:{server}"
 
         res = []
+        buy_type = getattr(mt5_inst, 'POSITION_TYPE_BUY', 0)
         for p in positions:
             main_symbol = SymbolMappingHandler.map_to_main(p.symbol, broker_key)
             res.append({
                 "position_id": p.ticket,
                 "symbol": main_symbol,
-                "trade_side": "BUY" if p.type == mt5.POSITION_TYPE_BUY else "SELL",
+                "trade_side": "BUY" if p.type == buy_type else "SELL",
                 "volume": p.volume,
                 "entry_price": p.price_open,
                 "unrealized_profit": p.profit,
@@ -382,11 +385,12 @@ class MetaTraderHandler(BaseBrokerHandler):
         if not MetaTraderHandler._initialize_mt5(login, password, server):
             return {"status": "error", "message": "Failed to initialize MT5"}
         
+        mt5_inst = MetaTraderHandler.get_mt5_instance(login) or mt5
         from symbol_mapping_handler import SymbolMappingHandler
         broker_key = f"metatrader:{server}"
         mapped_symbol = SymbolMappingHandler.map_to_broker(symbol, broker_key)
 
-        symbols = mt5.symbols_get()
+        symbols = mt5_inst.symbols_get()
         matched_symbol = mapped_symbol
         if symbols:
             symbol_names = [s.name for s in symbols]
@@ -396,28 +400,27 @@ class MetaTraderHandler(BaseBrokerHandler):
                         matched_symbol = s
                         break
                         
-        mt5.symbol_select(matched_symbol, True)
+        mt5_inst.symbol_select(matched_symbol, True)
         
         is_buy = side.lower() == 'buy'
-        action_type = mt5.ORDER_TYPE_BUY if is_buy else mt5.ORDER_TYPE_SELL
+        action_type = getattr(mt5_inst, 'ORDER_TYPE_BUY', 0) if is_buy else getattr(mt5_inst, 'ORDER_TYPE_SELL', 1)
         
         if price is None:
-            tick = mt5.symbol_info_tick(matched_symbol)
+            tick = mt5_inst.symbol_info_tick(matched_symbol)
             if tick is None:
                 return {"status": "error", "message": f"Failed to get current price tick for {matched_symbol}"}
             price = tick.ask if is_buy else tick.bid
         
-        symbol_info = mt5.symbol_info(matched_symbol)
-        filling_mode = mt5.ORDER_FILLING_IOC
+        symbol_info = mt5_inst.symbol_info(matched_symbol)
+        filling_mode = getattr(mt5_inst, 'ORDER_FILLING_IOC', 1)
         if symbol_info is not None and hasattr(symbol_info, "filling_mode"):
           modes = symbol_info.filling_mode
-          # checking bits: 1 = FOK (ORDER_FILLING_FOK), 2 = IOC (ORDER_FILLING_IOC)
           if modes & 2:
-            filling_mode = mt5.ORDER_FILLING_IOC
+            filling_mode = getattr(mt5_inst, 'ORDER_FILLING_IOC', 1)
           elif modes & 1:
-            filling_mode = mt5.ORDER_FILLING_FOK
+            filling_mode = getattr(mt5_inst, 'ORDER_FILLING_FOK', 0)
           else:
-            filling_mode = mt5.ORDER_FILLING_RETURN
+            filling_mode = getattr(mt5_inst, 'ORDER_FILLING_RETURN', 2)
 
         vol = round(float(volume), 2)
         if symbol_info is not None:
@@ -429,7 +432,7 @@ class MetaTraderHandler(BaseBrokerHandler):
           vol = max(vol_min, min(vol_max, vol))
 
         request_dict = {
-            "action": mt5.TRADE_ACTION_DEAL,
+            "action": getattr(mt5_inst, 'TRADE_ACTION_DEAL', 1),
             "symbol": matched_symbol,
             "volume": float(vol),
             "type": action_type,
@@ -437,7 +440,7 @@ class MetaTraderHandler(BaseBrokerHandler):
             "deviation": 20,
             "magic": int(magic) if magic is not None else 123456,
             "comment": "Wyckoff MT5 Order",
-            "type_time": mt5.ORDER_TIME_GTC,
+            "type_time": getattr(mt5_inst, 'ORDER_TIME_GTC', 0),
             "type_filling": filling_mode,
         }
         
@@ -446,14 +449,15 @@ class MetaTraderHandler(BaseBrokerHandler):
         if take_profit is not None:
             request_dict["tp"] = float(take_profit)
             
-        result = mt5.order_send(request_dict)
+        result = mt5_inst.order_send(request_dict)
         
         from notification_handler import NotificationHandler
         if result is None:
             NotificationHandler.play_sound("error")
             return {"status": "error", "message": "MT5 order_send returned None"}
             
-        if result.retcode != mt5.TRADE_RETCODE_DONE:
+        done_ret = getattr(mt5_inst, 'TRADE_RETCODE_DONE', 10009)
+        if result.retcode != done_ret:
             NotificationHandler.play_sound("error")
             return {"status": "error", "message": f"MT5 order failed: {result.comment} (retcode: {result.retcode})"}
             
@@ -469,24 +473,25 @@ class MetaTraderHandler(BaseBrokerHandler):
         if not MetaTraderHandler._initialize_mt5(login, password, server):
             return {"status": "error", "message": "Failed to initialize MT5"}
             
+        mt5_inst = MetaTraderHandler.get_mt5_instance(login) or mt5
         is_buy = side.upper() == 'BUY'
-        action_type = mt5.ORDER_TYPE_SELL if is_buy else mt5.ORDER_TYPE_BUY
+        action_type = getattr(mt5_inst, 'ORDER_TYPE_SELL', 1) if is_buy else getattr(mt5_inst, 'ORDER_TYPE_BUY', 0)
         
-        tick = mt5.symbol_info_tick(symbol)
+        tick = mt5_inst.symbol_info_tick(symbol)
         if tick is None:
             return {"status": "error", "message": f"Failed to get price tick for {symbol}"}
         price = tick.bid if is_buy else tick.ask
         
-        symbol_info = mt5.symbol_info(symbol)
-        filling_mode = mt5.ORDER_FILLING_IOC
+        symbol_info = mt5_inst.symbol_info(symbol)
+        filling_mode = getattr(mt5_inst, 'ORDER_FILLING_IOC', 1)
         if symbol_info is not None and hasattr(symbol_info, "filling_mode"):
           modes = symbol_info.filling_mode
           if modes & 2:
-            filling_mode = mt5.ORDER_FILLING_IOC
+            filling_mode = getattr(mt5_inst, 'ORDER_FILLING_IOC', 1)
           elif modes & 1:
-            filling_mode = mt5.ORDER_FILLING_FOK
+            filling_mode = getattr(mt5_inst, 'ORDER_FILLING_FOK', 0)
           else:
-            filling_mode = mt5.ORDER_FILLING_RETURN
+            filling_mode = getattr(mt5_inst, 'ORDER_FILLING_RETURN', 2)
 
         vol = round(float(volume), 2)
         if symbol_info is not None:
@@ -498,7 +503,7 @@ class MetaTraderHandler(BaseBrokerHandler):
           vol = max(vol_min, min(vol_max, vol))
 
         request_dict = {
-            "action": mt5.TRADE_ACTION_DEAL,
+            "action": getattr(mt5_inst, 'TRADE_ACTION_DEAL', 1),
             "symbol": symbol,
             "volume": float(vol),
             "type": action_type,
@@ -507,12 +512,13 @@ class MetaTraderHandler(BaseBrokerHandler):
             "deviation": 20,
             "magic": 234000,
             "comment": "Auto-Close Session Position",
-            "type_time": mt5.ORDER_TIME_GTC,
+            "type_time": getattr(mt5_inst, 'ORDER_TIME_GTC', 0),
             "type_filling": filling_mode,
         }
-        result = mt5.order_send(request_dict)
+        result = mt5_inst.order_send(request_dict)
         from notification_handler import NotificationHandler
-        if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
+        done_ret = getattr(mt5_inst, 'TRADE_RETCODE_DONE', 10009)
+        if result is None or result.retcode != done_ret:
             comment = result.comment if result else "None"
             retcode = result.retcode if result else -1
             NotificationHandler.play_sound("error")
@@ -529,16 +535,18 @@ class MetaTraderHandler(BaseBrokerHandler):
         if not MetaTraderHandler._initialize_mt5(login, password, server):
             return {"status": "error", "message": "Failed to initialize MT5"}
             
+        mt5_inst = MetaTraderHandler.get_mt5_instance(login) or mt5
         request_dict = {
-            "action": mt5.TRADE_ACTION_SLTP,
+            "action": getattr(mt5_inst, 'TRADE_ACTION_SLTP', 6),
             "position": int(position_id),
             "symbol": symbol,
             "sl": float(stop_loss) if stop_loss is not None else 0.0,
             "tp": float(take_profit) if take_profit is not None else 0.0,
         }
-        result = mt5.order_send(request_dict)
+        result = mt5_inst.order_send(request_dict)
         from notification_handler import NotificationHandler
-        if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
+        done_ret = getattr(mt5_inst, 'TRADE_RETCODE_DONE', 10009)
+        if result is None or result.retcode != done_ret:
             comment = result.comment if result else "None"
             retcode = result.retcode if result else -1
             NotificationHandler.play_sound("error")
@@ -562,7 +570,8 @@ class MetaTraderHandler(BaseBrokerHandler):
 
         if not MetaTraderHandler._initialize_mt5(login, password, server):
             return ["BTCUSD", "ETHUSD", "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "XAUUSD", "US30", "GER40"]
-        symbols = mt5.symbols_get()
+        mt5_inst = MetaTraderHandler.get_mt5_instance(login) or mt5
+        symbols = mt5_inst.symbols_get()
         if symbols:
             return [s.name for s in symbols if s.visible or s.select]
         return ["BTCUSD", "ETHUSD", "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "XAUUSD", "US30", "GER40"]
@@ -579,6 +588,7 @@ class MetaTraderHandler(BaseBrokerHandler):
         if not MetaTraderHandler._initialize_mt5(login, password, server):
             return []
 
+        mt5_inst = MetaTraderHandler.get_mt5_instance(login) or mt5
         import time
         if date_from is None:
             # Default to 30 days ago
@@ -590,14 +600,16 @@ class MetaTraderHandler(BaseBrokerHandler):
         dt_from = datetime.datetime.fromtimestamp(date_from)
         dt_to = datetime.datetime.fromtimestamp(date_to)
 
-        deals = mt5.history_deals_get(dt_from, dt_to)
+        deals = mt5_inst.history_deals_get(dt_from, dt_to)
         if deals is None:
             return []
 
         res = []
+        deal_entry_out = getattr(mt5_inst, 'DEAL_ENTRY_OUT', 1)
+        deal_entry_inout = getattr(mt5_inst, 'DEAL_ENTRY_INOUT', 2)
         for d in deals:
             # We filter out balance operations, etc. and only keep trade deals
-            if d.entry in (mt5.DEAL_ENTRY_OUT, mt5.DEAL_ENTRY_INOUT) and d.profit != 0:
+            if d.entry in (deal_entry_out, deal_entry_inout) and d.profit != 0:
                 res.append({
                     "ticket": d.ticket,
                     "order": d.order,
