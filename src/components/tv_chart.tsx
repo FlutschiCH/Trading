@@ -2124,11 +2124,14 @@ export default function TVChart({
           account_id: pos.target_acc_id || pos.account_id || activeAccId,
           broker: pos.broker || pos.target_broker || activeBroker
         };
+        const existingSl = pos.stop_loss !== undefined ? pos.stop_loss : (pos.sl !== undefined ? pos.sl : 0);
+        const existingTp = pos.take_profit !== undefined ? pos.take_profit : (pos.tp !== undefined ? pos.tp : 0);
+
         if (isSl) {
           payload.stop_loss = active.currentPrice;
-          payload.take_profit = pos.tp;
+          payload.take_profit = existingTp;
         } else {
-          payload.stop_loss = pos.sl;
+          payload.stop_loss = existingSl;
           payload.take_profit = active.currentPrice;
         }
 

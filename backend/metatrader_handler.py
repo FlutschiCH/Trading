@@ -567,12 +567,32 @@ class MetaTraderHandler(BaseBrokerHandler):
             return {"status": "error", "message": "Failed to initialize MT5"}
             
         mt5_inst = MetaTraderHandler.get_mt5_instance(login) or mt5
+
+        target_sl = float(stop_loss) if stop_loss is not None else None
+        target_tp = float(take_profit) if take_profit is not None else None
+
+        # If either SL or TP is omitted or 0.0, fetch current position to preserve existing setting
+        if target_sl is None or target_tp is None or target_sl == 0.0 or target_tp == 0.0:
+            try:
+                positions = mt5_inst.positions_get(ticket=int(position_id))
+                if positions and len(positions) > 0:
+                    curr_pos = positions[0]
+                    if target_sl is None or (stop_loss is None and target_sl == 0.0):
+                        target_sl = float(curr_pos.sl)
+                    if target_tp is None or (take_profit is None and target_tp == 0.0):
+                        target_tp = float(curr_pos.tp)
+            except Exception:
+                pass
+
+        final_sl = target_sl if target_sl is not None else 0.0
+        final_tp = target_tp if target_tp is not None else 0.0
+
         request_dict = {
             "action": getattr(mt5_inst, 'TRADE_ACTION_SLTP', 6),
             "position": int(position_id),
             "symbol": symbol,
-            "sl": float(stop_loss) if stop_loss is not None else 0.0,
-            "tp": float(take_profit) if take_profit is not None else 0.0,
+            "sl": final_sl,
+            "tp": final_tp,
         }
         result = mt5_inst.order_send(request_dict)
         from notification_handler import NotificationHandler
