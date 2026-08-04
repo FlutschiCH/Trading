@@ -487,13 +487,11 @@ export default function Dashboard() {
     try {
       const laptopUrl = 'https://flugrok-production.up.railway.app';
       console.log(`[Dashboard] Sending update & restart request to laptop server: ${laptopUrl}/api/system/restart`);
-      const res = await fetch(`${laptopUrl}/api/system/restart`, {
+      await fetch(`${laptopUrl}/api/system/restart`, {
         method: 'POST'
       });
-      const data = await res.json();
-      alert(data.message || "Restart command sent. The laptop server should be back in a few seconds.");
     } catch (e) {
-      alert("Error sending restart command. Please verify the laptop server is running and reachable.");
+      console.error("Error sending restart command:", e);
     }
   };
 
