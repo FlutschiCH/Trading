@@ -88,6 +88,10 @@ def run_force_git_update():
         branch_res = subprocess.run(["git", "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True, check=True)
         branch = branch_res.stdout.strip()
         print(f"Current branch detected: {branch}", flush=True)
+        
+        # Ensure local branch tracks remote branch cleanly
+        subprocess.run(["git", "checkout", "-B", branch, f"origin/{branch}"], capture_output=True, text=True)
+        
         res = subprocess.run(["git", "reset", "--hard", f"origin/{branch}"], capture_output=True, text=True, check=True)
         print("Git reset output:", res.stdout, flush=True)
         
@@ -107,7 +111,10 @@ def run_force_git_update():
     except SystemExit:
         raise
     except Exception as e:
-        print(f"Git force update failed: {e}", flush=True)
+        if isinstance(e, subprocess.CalledProcessError) and e.stderr:
+            print(f"Git force update failed: {e} | stderr: {e.stderr.strip()}", flush=True)
+        else:
+            print(f"Git force update failed: {e}", flush=True)
         return False
 
 def check_and_install_dependencies(python_exe):
