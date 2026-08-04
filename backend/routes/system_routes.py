@@ -14,6 +14,15 @@ def get_status():
     res = SystemHandler.get_status()
     return jsonify(res)
 
+@system_routes.route('/system/quickedit', methods=['GET', 'POST'])
+def quick_edit():
+    if request.method == 'POST':
+        payload = request.get_json(silent=True) or {}
+        enabled = bool(payload.get('enabled', False))
+        return jsonify(SystemHandler.set_quick_edit(enabled))
+    else:
+        return jsonify(SystemHandler.get_quick_edit())
+
 @system_routes.route('/system/log-settings', methods=['GET'])
 def get_log_settings():
     from sql_handler import SQLHandler

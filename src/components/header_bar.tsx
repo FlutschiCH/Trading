@@ -1,8 +1,91 @@
-import React, { useState } from 'react';
-import { Activity, X, Menu, ChevronDown, Sun, Moon, RefreshCw, ShieldAlert } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Activity, X, Menu, ChevronDown, Sun, Moon, RefreshCw, ShieldAlert, Terminal } from 'lucide-react';
 import { API_BASE_URL } from '../api';
 import { TargetSwitcher } from './target_switcher';
 import type { AccountInfo } from '../types/trading';
+
+const triggerPWAEventNotification = (title: string, body: string, soundType: string = 'alert') => {
+  fetch(`${API_BASE_URL}/api/notification/trigger`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message: `${title}: ${body}`, sound_type: soundType })
+  }).catch(err => console.error("Failed to trigger local backend sound:", err));
+
+  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage({
+      type: 'SHOW_NOTIFICATION',
+      payload: { title, body }
+    });
+  } else if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification(title, { body, icon: '/favicon.svg' });
+  }
+};
+
+interface Account {
+  account_id: string;
+  name: string;
+  broker_type: string;
+}
+
+interface HeaderBarProps {
+  isMobile: boolean;
+  theme: 'dark' | 'light';
+  toggleTheme: () => void;
+  connectionMode: 'ws' | 'polling';
+  currentConnected: boolean;
+  activeAccount: Account | null;
+  accountInfo: AccountInfo | null;
+  accounts: Account[];
+  handleSwitchAccount: (accId: string) => void;
+  setShowAccountModal: (show: boolean) => void;
+  handleRestartServer: () => void;
+  setView: (view: string) => void;
+  styles: any;
+}
+
+export default function HeaderBar({
+  isMobile,
+  theme,
+  toggleTheme,
+  connectionMode,
+  currentConnected,
+  activeAccount,
+  accountInfo,
+  accounts,
+  handleSwitchAccount,
+  setShowAccountModal,
+  handleRestartServer,
+  setView,
+  styles,
+}: HeaderBarProps) {
+  const [showMobileNav, setShowMobileNav] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [quickEdit, setQuickEdit] = useState<boolean>(false);
+
+  useEffect(() => {
+    const laptopUrl = 'https://flugrok-production.up.railway.app';
+    fetch(`${laptopUrl}/api/system/quickedit`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === 'success') setQuickEdit(!!data.enabled);
+      })
+      .catch(() => {});
+  }, []);
+
+  const toggleQuickEdit = async () => {
+    const laptopUrl = 'https://flugrok-production.up.railway.app';
+    const nextState = !quickEdit;
+    setQuickEdit(nextState);
+    try {
+      await fetch(`${laptopUrl}/api/system/quickedit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: nextState })
+      });
+    } catch (e) {
+      console.error("Failed to toggle QuickEdit:", e);
+    }
+  };
 
 
 
@@ -449,6 +532,29 @@ export default function HeaderBar({
               >
                 <RefreshCw size={12} />
                 Update & Restart Laptop
+              </button>
+
+              <button
+                onClick={toggleQuickEdit}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  backgroundColor: quickEdit ? 'rgba(234, 179, 8, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                  border: `1px solid ${quickEdit ? 'rgba(234, 179, 8, 0.4)' : 'var(--app-card-border)'}`,
+                  cursor: 'pointer',
+                  borderRadius: '6px',
+                  padding: '6px 12px',
+                  color: quickEdit ? '#eab308' : 'var(--app-text-muted)',
+                  fontWeight: 'bold',
+                  fontSize: '11px',
+                  outline: 'none',
+                  transition: 'all 0.2s',
+                }}
+                title="Toggle Windows Console QuickEdit mode on/off in realtime on laptop"
+              >
+                <Terminal size={12} />
+                QuickEdit: {quickEdit ? 'ON' : 'OFF'}
               </button>
 
               <button
