@@ -1477,24 +1477,28 @@ export default function Dashboard() {
     try {
       const res = await fetch(`${API_BASE_URL}/api/accounts/active`);
       const data = await res.json();
+      console.log("[Dashboard] fetchActiveAccount raw response:", data);
       if (data.status === 'success' && data.data) {
         setActiveAccount(data.data);
         localStorage.setItem('wyckoff_active_account', JSON.stringify(data.data));
         localStorage.setItem('wyckoff_active_account_id', data.data.account_id);
+        console.log(`[Dashboard] Active account set & persisted: account_id=${data.data.account_id}, name="${data.data.name}", broker=${data.data.broker_type}`);
         return data.data;
       } else {
+        console.warn("[Dashboard] No active account returned from API.");
         setActiveAccount(null);
         localStorage.removeItem('wyckoff_active_account');
         localStorage.removeItem('wyckoff_active_account_id');
         return null;
       }
     } catch (e) {
-      console.error("Failed to load active account:", e);
+      console.error("[Dashboard] Failed to load active account:", e);
       return null;
     }
   };
 
   const handleSwitchAccount = async (accountId: string) => {
+    console.log(`[Dashboard] handleSwitchAccount triggered for account_id: "${accountId}"`);
     setAccountInfo(null);
     try {
       const res = await fetch(`${API_BASE_URL}/api/accounts/active`, {
@@ -1503,8 +1507,17 @@ export default function Dashboard() {
         body: JSON.stringify({ account_id: accountId })
       });
       const data = await res.json();
+      console.log(`[Dashboard] POST /api/accounts/active result for account_id "${accountId}":`, data);
       if (data.status === 'success') {
         const newActive = await fetchActiveAccount();
+        console.log("[Dashboard] Account switch complete. New active account:", newActive);
+        if (newActive) {
+          localStorage.setItem('wyckoff_active_account', JSON.stringify(newActive));
+          localStorage.setItem('wyckoff_active_account_id', newActive.account_id);
+          if (newActive.broker_type && (newActive.broker_type === 'metatrader' || newActive.broker_type === 'ctrader')) {
+            setCandleSource(newActive.broker_type);
+          }
+        }
         const broker = newActive ? newActive.broker_type : 'metatrader';
         fetchCandles(broker);
         fetchAccountData(broker);
@@ -1514,6 +1527,7 @@ export default function Dashboard() {
         alert("Failed to switch account: " + data.message);
       }
     } catch (e: any) {
+      console.error("[Dashboard] Error switching account:", e);
       alert("Error switching account: " + e.message);
     }
   };
