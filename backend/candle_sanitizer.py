@@ -73,10 +73,22 @@ def sanitize_and_fill_candles(candles: list, timeframe: str = '15m') -> list:
             else:
                 cleaned[field] = None
                 
-        # Preserve other custom attributes
+        # Preserve other custom attributes, converting any NaN/Inf to None for JSON safety
         for k, v in c.items():
             if k not in ['time', 'open', 'high', 'low', 'close', 'volume']:
-                cleaned[k] = v
+                if v is None:
+                    cleaned[k] = None
+                elif isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
+                    cleaned[k] = None
+                else:
+                    try:
+                        import pandas as pd
+                        if pd.isna(v):
+                            cleaned[k] = None
+                        else:
+                            cleaned[k] = v
+                    except Exception:
+                        cleaned[k] = v
                 
         sanitized.append(cleaned)
         

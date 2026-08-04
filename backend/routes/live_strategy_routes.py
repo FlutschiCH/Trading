@@ -131,4 +131,7 @@ def get_strategy_cache(strategy_id):
     if limit and cache:
         cache = cache[-limit:]
 
+    from candle_sanitizer import sanitize_and_fill_candles
+    cache = sanitize_and_fill_candles(cache)
+
     return jsonify({"status": "success", "strategy_id": strategy_id, "candles": cache, "trades": trades})
