@@ -123,8 +123,12 @@ class MetaTraderHandler(BaseBrokerHandler):
 
     @staticmethod
     def _resolve_credentials(login=None, password=None, server=None, **kwargs):
+        req_login = login or kwargs.get('account_id') or kwargs.get('account') or kwargs.get('login')
+        req_server = server or kwargs.get('server')
+        req_password = password or kwargs.get('password')
+
         # Check if login looks like the default mock/placeholder value or not provided
-        is_default_mock = str(login) == "2002061314" or login is None
+        is_default_mock = str(req_login) == "2002061314" or req_login is None
 
         # Load active account from DB
         if is_default_mock:
@@ -133,9 +137,15 @@ class MetaTraderHandler(BaseBrokerHandler):
             if active_acc and active_acc.get("broker_type") == "metatrader":
                 return int(active_acc["account_id"]), active_acc.get("password"), active_acc.get("server")
         
-        # Use explicitly passed credentials if valid
-        if login is not None and str(login) != "2002061314":
-            return int(login), password, server
+        # Load target account from DB if account_id/login passed
+        if req_login is not None and str(req_login) != "2002061314":
+            from account_handler import AccountHandler
+            accounts = AccountHandler.get_accounts()
+            if isinstance(accounts, list):
+                for acc in accounts:
+                    if str(acc.get('account_id')) == str(req_login):
+                        return int(acc['account_id']), acc.get('password') or req_password, acc.get('server') or req_server
+            return int(req_login), req_password, req_server
 
         # If DB had no account, check currently active MT5 terminal account as final fallback
         if MT5_AVAILABLE:
@@ -156,42 +166,33 @@ class MetaTraderHandler(BaseBrokerHandler):
         if not MT5_AVAILABLE:
             raise ImportError("MetaTrader 5 library is not available on this platform.")
 
-        # Check if MT5 is already connected/initialized
-        is_connected = False
-        try:
-            is_connected = mt5.terminal_info() is not None
-        except Exception:
-            pass
+        login, password, server = MetaTraderHandler._resolve_credentials(login, password, server, **kwargs)
+        if not MetaTraderHandler._initialize_mt5(login, password, server):
+            raise RuntimeError(f"Failed to initialize MetaTrader 5 connection for account {login}.")
 
-        if not is_connected:
-            try:
-                login, password, server = MetaTraderHandler._resolve_credentials(login, password, server, **kwargs)
-                if not MetaTraderHandler._initialize_mt5(login, password, server):
-                    raise RuntimeError("Failed to initialize MetaTrader 5 connection.")
-            except Exception as e:
-                raise RuntimeError(f"MetaTrader 5 is not initialized or connected: {e}")
+        mt5_inst = MetaTraderHandler.get_mt5_instance(login) or mt5
 
         # Map timeframe string to MT5 timeframe constants
         tf_map = {
-            '1m': mt5.TIMEFRAME_M1,
-            '3m': mt5.TIMEFRAME_M3,
-            '5m': mt5.TIMEFRAME_M5,
-            '15m': mt5.TIMEFRAME_M15,
-            '30m': mt5.TIMEFRAME_M30,
-            '1h': mt5.TIMEFRAME_H1,
-            '2h': mt5.TIMEFRAME_H2,
-            '4h': mt5.TIMEFRAME_H4,
-            '6h': mt5.TIMEFRAME_H6,
-            '8h': mt5.TIMEFRAME_H8,
-            '12h': mt5.TIMEFRAME_H12,
-            '1d': mt5.TIMEFRAME_D1,
+            '1m': getattr(mt5_inst, 'TIMEFRAME_M1', 1),
+            '3m': getattr(mt5_inst, 'TIMEFRAME_M3', 3),
+            '5m': getattr(mt5_inst, 'TIMEFRAME_M5', 5),
+            '15m': getattr(mt5_inst, 'TIMEFRAME_M15', 15),
+            '30m': getattr(mt5_inst, 'TIMEFRAME_M30', 30),
+            '1h': getattr(mt5_inst, 'TIMEFRAME_H1', 16385),
+            '2h': getattr(mt5_inst, 'TIMEFRAME_H2', 16386),
+            '4h': getattr(mt5_inst, 'TIMEFRAME_H4', 16388),
+            '6h': getattr(mt5_inst, 'TIMEFRAME_H6', 16390),
+            '8h': getattr(mt5_inst, 'TIMEFRAME_H8', 16392),
+            '12h': getattr(mt5_inst, 'TIMEFRAME_H12', 16396),
+            '1d': getattr(mt5_inst, 'TIMEFRAME_D1', 16408),
         }
-        mt5_tf = tf_map.get(timeframe, mt5.TIMEFRAME_M15)
+        mt5_tf = tf_map.get(timeframe, getattr(mt5_inst, 'TIMEFRAME_M15', 15))
 
         # Match symbol: Check MT5 terminal directly first to bypass DB lookup overhead
         matched_symbol = symbol
         broker_key = f"metatrader:{server}"
-        symbols = mt5.symbols_get()
+        symbols = mt5_inst.symbols_get()
         if symbols:
             symbol_names = [s.name for s in symbols]
             if symbol not in symbol_names:
@@ -212,12 +213,12 @@ class MetaTraderHandler(BaseBrokerHandler):
                                 break
 
         # Select symbol in Market Watch
-        mt5.symbol_select(matched_symbol, True)
+        mt5_inst.symbol_select(matched_symbol, True)
 
         # Calculate server to UTC offset
         offset = 0
         try:
-            tick = mt5.symbol_info_tick(matched_symbol)
+            tick = mt5_inst.symbol_info_tick(matched_symbol)
             if tick:
                 import time as pytime
                 import datetime
@@ -247,9 +248,9 @@ class MetaTraderHandler(BaseBrokerHandler):
         if date_from is not None:
             import time
             actual_date_to = date_to if date_to is not None else int(time.time() + 86400)
-            rates = mt5.copy_rates_range(matched_symbol, mt5_tf, int(date_from) + offset, int(actual_date_to) + offset)
+            rates = mt5_inst.copy_rates_range(matched_symbol, mt5_tf, int(date_from) + offset, int(actual_date_to) + offset)
         else:
-            rates = mt5.copy_rates_from_pos(matched_symbol, mt5_tf, 0, limit)
+            rates = mt5_inst.copy_rates_from_pos(matched_symbol, mt5_tf, 0, limit)
 
         if rates is None or len(rates) == 0:
             print(f"Failed to copy rates for {matched_symbol}", flush=True)

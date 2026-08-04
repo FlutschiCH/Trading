@@ -117,7 +117,7 @@ def candles():
 
     from broker_handler import BrokerHandler
     handler = BrokerHandler.get_handler(broker_name)
-    candles_data = handler.fetch_candles(symbol, timeframe, limit, date_from, date_to)
+    candles_data = handler.fetch_candles(symbol, timeframe, limit, date_from, date_to, **payload)
 
     return jsonify({
         "status": "success",
