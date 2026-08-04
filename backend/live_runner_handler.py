@@ -232,7 +232,7 @@ class LiveRunner:
                 annotated_candles = []
         else:
             # Incremental fetch: fetch the last 10 candles and append/merge into full historical cache
-            print(f"[Live Runner] Incremental fetch: Fetching candles for strategy {strategy_id} ({symbol} {timeframe}) from broker='{broker_name}' (Account ID: '{strat_acc_id}')", flush=True)
+            # print(f"[Live Runner] Incremental fetch: Fetching candles for strategy {strategy_id} ({symbol} {timeframe}) from broker='{broker_name}' (Account ID: '{strat_acc_id}')", flush=True)
             new_candles = handler.fetch_candles(
                 symbol=symbol,
                 timeframe=timeframe,
