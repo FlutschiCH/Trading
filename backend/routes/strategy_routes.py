@@ -40,6 +40,16 @@ def backtest():
     date_from = payload.get('date_from')
     date_to = payload.get('date_to')
 
+    account_id = payload.get('account_id') or payload.get('account') or payload.get('login')
+    if not account_id and candle_source == 'metatrader':
+        try:
+            from account_handler import AccountHandler
+            active_acc = AccountHandler.get_active_account()
+            if active_acc:
+                account_id = active_acc.get('account_id')
+        except Exception:
+            pass
+
     # Fetch up-to-date candles on the backend
     from broker_handler import BrokerHandler
     handler = BrokerHandler.get_handler(candle_source)
@@ -48,7 +58,9 @@ def backtest():
         timeframe=timeframe,
         limit=limit,
         date_from=date_from,
-        date_to=date_to
+        date_to=date_to,
+        login=account_id,
+        account_id=account_id
     )
     
     # If running against recent candles (no fixed end date specified), trim off the current in-progress live candle
