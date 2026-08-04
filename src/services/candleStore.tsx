@@ -47,13 +47,51 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [activeStrategyId]);
 
   const setSymbol = (sym: string) => {
+    if (!sym) return;
     localStorage.setItem('wyckoff_symbol', sym);
-    setSymbolState(sym);
+    if (sym !== symbol) {
+      setSymbolState(sym);
+      const cacheKey = `wyckoff_candles_${sym}_${timeframe}`;
+      try {
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setCandles(parsed);
+          } else {
+            setCandles([]);
+          }
+        } else {
+          setCandles([]);
+        }
+      } catch {
+        setCandles([]);
+      }
+    }
   };
 
   const setTimeframe = (tf: string) => {
+    if (!tf) return;
     localStorage.setItem('wyckoff_timeframe', tf);
-    setTimeframeState(tf);
+    if (tf !== timeframe) {
+      setTimeframeState(tf);
+      const cacheKey = `wyckoff_candles_${symbol}_${tf}`;
+      try {
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setCandles(parsed);
+          } else {
+            setCandles([]);
+          }
+        } else {
+          setCandles([]);
+        }
+      } catch {
+        setCandles([]);
+      }
+    }
   };
 
   const setCandleSource = (source: 'ctrader' | 'metatrader') => {
@@ -67,6 +105,17 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const isFetchingRef = useRef<boolean>(false);
+
+  const saveCandlesToCache = (sym: string, tf: string, candleList: Candle[]) => {
+    if (!sym || !tf || !candleList || candleList.length === 0) return;
+    const cacheKey = `wyckoff_candles_${sym}_${tf}`;
+    try {
+      // Save recent 1000 candles to preserve localStorage space
+      localStorage.setItem(cacheKey, JSON.stringify(candleList.slice(-1000)));
+    } catch (e) {
+      // Catch quota exceeded exceptions
+    }
+  };
 
   const fetchCandles = async (forceFullRefresh: boolean = false, isBackground: boolean = false) => {
     if (!symbol) return;
@@ -125,17 +174,19 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
 
       if (rawCandles.length > 0) {
-        if (isIncremental) {
-          setCandles(prev => {
-            if (prev.length === 0) return rawCandles;
+        setCandles(prev => {
+          let updated: Candle[] = [];
+          if (isIncremental && prev.length > 0) {
             const map = new Map<number, Candle>();
             prev.forEach(c => map.set(c.time, c));
             rawCandles.forEach(c => map.set(c.time, c));
-            return Array.from(map.values()).sort((a, b) => a.time - b.time);
-          });
-        } else {
-          setCandles(rawCandles);
-        }
+            updated = Array.from(map.values()).sort((a, b) => a.time - b.time);
+          } else {
+            updated = rawCandles;
+          }
+          saveCandlesToCache(symbol, timeframe, updated);
+          return updated;
+        });
       }
     } catch (err) {
       console.error('[CandleStore] Error fetching candles:', err);
@@ -145,9 +196,27 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  // Immediate fetch on mount or parameter changes + 15s background polling loop
+  // Load cached candles on mount or parameter change + 15s background polling loop
   useEffect(() => {
     let isCancelled = false;
+
+    const cacheKey = `wyckoff_candles_${symbol}_${timeframe}`;
+    try {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setCandles(parsed);
+        } else {
+          setCandles([]);
+        }
+      } else {
+        setCandles([]);
+      }
+    } catch {
+      setCandles([]);
+    }
+
     fetchCandles(true, false);
 
     const interval = setInterval(() => {
