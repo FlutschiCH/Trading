@@ -83,6 +83,7 @@ def live_strategy_compat():
     return jsonify({"status": "success", "strategy": strategy})
 
 @live_strategy_routes.route('/live/strategy/cache/<strategy_id>', methods=['GET'])
+@live_strategy_routes.route('/live-strategies/<strategy_id>/candles', methods=['GET'])
 def get_strategy_cache(strategy_id):
     """
     Retrieve cached annotated candles for a specific live strategy.

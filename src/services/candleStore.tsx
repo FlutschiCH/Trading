@@ -136,7 +136,7 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       if (currentStrategyId) {
         // Fetch Wyckoff-annotated live strategy candles
-        const res = await fetch(`${API_BASE_URL}/api/live-strategies/${currentStrategyId}/candles?limit=${reqLimit}`);
+        const res = await fetch(`${API_BASE_URL}/api/live/strategy/cache/${currentStrategyId}?limit=${reqLimit}`);
         const data = await res.json();
         if (data && data.status === 'success' && Array.isArray(data.candles)) {
           rawCandles = data.candles.sort((a: Candle, b: Candle) => a.time - b.time);
