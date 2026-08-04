@@ -90,9 +90,22 @@ def run_force_git_update():
         print(f"Current branch detected: {branch}", flush=True)
         res = subprocess.run(["git", "reset", "--hard", f"origin/{branch}"], capture_output=True, text=True, check=True)
         print("Git reset output:", res.stdout, flush=True)
+        
+        # Verify and pull Git LFS large files
+        print("Checking Git LFS large files...", flush=True)
+        lfs_res = subprocess.run(["git", "lfs", "pull"], capture_output=True, text=True)
+        if lfs_res.returncode != 0:
+            print(f"[ERROR] Git LFS pull failed: {lfs_res.stderr or lfs_res.stdout}", flush=True)
+            print("[ERROR] Failed to fetch large files via Git LFS! Stopping autoupdater.", flush=True)
+            sys.exit(1)
+        else:
+            print("Git LFS large files downloaded successfully.", flush=True)
+
         commit_info = subprocess.run(["git", "log", "-1", "--oneline"], capture_output=True, text=True, check=True)
         print(f"Git Update Complete! Active Commit: {commit_info.stdout.strip()}", flush=True)
         return True
+    except SystemExit:
+        raise
     except Exception as e:
         print(f"Git force update failed: {e}", flush=True)
         return False
