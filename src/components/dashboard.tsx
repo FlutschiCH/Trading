@@ -2334,29 +2334,153 @@ export default function Dashboard() {
                       </span>
                     )}
 
-                    {/* Check status of Spring / Upthrust conditions */}
-                    {selectedCandle.support_level != null && selectedCandle.resistance_level != null && (
-                      <div style={{ display: 'flex', gap: '10px', width: '100%', flexWrap: 'wrap', paddingTop: '4px', borderTop: '1px solid #334155', color: '#cbd5e1' }}>
-                        <div>
-                          <strong>Spring Check:</strong>{' '}
-                          <span style={{ color: selectedCandle.low < selectedCandle.support_level ? '#10b981' : '#ef4444' }}>
-                            Low &lt; Sup {selectedCandle.low < selectedCandle.support_level ? '✓' : '✗'}
-                          </span>,{' '}
-                          <span style={{ color: selectedCandle.close > selectedCandle.support_level ? '#10b981' : '#ef4444' }}>
-                            Close &gt; Sup {selectedCandle.close > selectedCandle.support_level ? '✓' : '✗'}
-                          </span>
+                    {/* Comprehensive Signal & Session Checklist */}
+                    {(() => {
+                      // Calculate session status
+                      const activeSessions = (tradingSessions || []).filter(s => s && s.active !== false);
+                      let inSession = true;
+                      let matchedSessionName = 'All Hours';
+
+                      if (activeSessions.length > 0) {
+                        const ts = Number(selectedCandle.time);
+                        const d = new Date(ts * 1000);
+                        const day = sessionsTimezone === 'UTC' ? d.getUTCDay() : d.getDay();
+                        const weekdayNum = day === 0 ? 7 : day;
+                        const hours = sessionsTimezone === 'UTC' ? d.getUTCHours() : d.getHours();
+                        const minutes = sessionsTimezone === 'UTC' ? d.getUTCMinutes() : d.getMinutes();
+                        const timeVal = hours * 60 + minutes;
+
+                        inSession = false;
+                        for (const s of activeSessions) {
+                          const wdays = s.weekdays || [];
+                          if (wdays.length > 0 && !wdays.includes(weekdayNum)) continue;
+                          const [sh, sm] = (s.start || "00:00").split(":").map(Number);
+                          const [eh, em] = (s.end || "23:59").split(":").map(Number);
+                          const startVal = sh * 60 + sm;
+                          const endVal = eh * 60 + em;
+
+                          if (startVal <= endVal) {
+                            if (timeVal >= startVal && timeVal <= endVal) {
+                              inSession = true;
+                              matchedSessionName = s.name || 'Session';
+                              break;
+                            }
+                          } else {
+                            if (timeVal >= startVal || timeVal <= endVal) {
+                              inSession = true;
+                              matchedSessionName = s.name || 'Session';
+                              break;
+                            }
+                          }
+                        }
+                      }
+
+                      const sup = selectedCandle.support_level;
+                      const res = selectedCandle.resistance_level;
+                      const stage = selectedCandle.wyckoff_stage || 'TRANSITION';
+
+                      // Spring / BUY checks
+                      const springLowOk = sup != null ? selectedCandle.low < sup : false;
+                      const springCloseOk = sup != null ? selectedCandle.close > sup : false;
+                      const buyStageOk = stage !== 'DISTRIBUTION';
+                      const buyReady = springLowOk && springCloseOk && buyStageOk && inSession;
+
+                      // Upthrust / SELL checks
+                      const utHighOk = res != null ? selectedCandle.high > res : false;
+                      const utCloseOk = res != null ? selectedCandle.close < res : false;
+                      const sellStageOk = stage !== 'ACCUMULATION';
+                      const sellReady = utHighOk && utCloseOk && sellStageOk && inSession;
+
+                      const missingBuy: string[] = [];
+                      if (!springLowOk) missingBuy.push('Low < Support');
+                      if (!springCloseOk) missingBuy.push('Close > Support');
+                      if (!buyStageOk) missingBuy.push('Stage != Distribution');
+                      if (!inSession) missingBuy.push('Outside Trading Session');
+
+                      const missingSell: string[] = [];
+                      if (!utHighOk) missingSell.push('High > Resistance');
+                      if (!utCloseOk) missingSell.push('Close < Resistance');
+                      if (!sellStageOk) missingSell.push('Stage != Accumulation');
+                      if (!inSession) missingSell.push('Outside Trading Session');
+
+                      return (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', paddingTop: '6px', borderTop: '1px solid #334155', color: '#cbd5e1' }}>
+                          {/* Session status row */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <strong>Trading Session:</strong>
+                            <span style={{
+                              padding: '1px 6px',
+                              borderRadius: '4px',
+                              fontSize: '10px',
+                              fontWeight: 'bold',
+                              backgroundColor: inSession ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                              color: inSession ? '#10b981' : '#ef4444',
+                              border: `1px solid ${inSession ? '#10b981' : '#ef4444'}`
+                            }}>
+                              {inSession ? `✓ ${matchedSessionName}` : '✗ Outside Active Sessions'}
+                            </span>
+                          </div>
+
+                          {/* Spring / BUY Breakdown */}
+                          <div style={{ backgroundColor: '#0f172a', padding: '6px 10px', borderRadius: '6px', border: `1px solid ${buyReady ? '#10b981' : '#334155'}` }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                              <strong style={{ color: '#06b6d4' }}>🐂 Spring / Bullish Readiness:</strong>
+                              <span style={{ color: buyReady ? '#10b981' : '#f59e0b', fontWeight: 'bold' }}>
+                                {buyReady ? '✓ ALL CONDITIONS MET' : `Missing ${missingBuy.length} Condition(s)`}
+                              </span>
+                            </div>
+                            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', fontSize: '10px' }}>
+                              <span style={{ color: springLowOk ? '#10b981' : '#ef4444' }}>
+                                Low &lt; Support ({sup != null ? formatPrice(sup, symbol) : 'N/A'}): {springLowOk ? '✓' : '✗'}
+                              </span>
+                              <span style={{ color: springCloseOk ? '#10b981' : '#ef4444' }}>
+                                Close &gt; Support: {springCloseOk ? '✓' : '✗'}
+                              </span>
+                              <span style={{ color: buyStageOk ? '#10b981' : '#ef4444' }}>
+                                Stage ({stage}): {buyStageOk ? '✓' : '✗'}
+                              </span>
+                              <span style={{ color: inSession ? '#10b981' : '#ef4444' }}>
+                                Session: {inSession ? '✓' : '✗'}
+                              </span>
+                            </div>
+                            {!buyReady && (
+                              <div style={{ fontSize: '10px', color: '#fbbf24', marginTop: '3px' }}>
+                                ⚠️ Missing: {missingBuy.join(' • ')}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Upthrust / SELL Breakdown */}
+                          <div style={{ backgroundColor: '#0f172a', padding: '6px 10px', borderRadius: '6px', border: `1px solid ${sellReady ? '#10b981' : '#334155'}` }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                              <strong style={{ color: '#f59e0b' }}>🐻 Upthrust / Bearish Readiness:</strong>
+                              <span style={{ color: sellReady ? '#10b981' : '#f59e0b', fontWeight: 'bold' }}>
+                                {sellReady ? '✓ ALL CONDITIONS MET' : `Missing ${missingSell.length} Condition(s)`}
+                              </span>
+                            </div>
+                            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', fontSize: '10px' }}>
+                              <span style={{ color: utHighOk ? '#10b981' : '#ef4444' }}>
+                                High &gt; Resistance ({res != null ? formatPrice(res, symbol) : 'N/A'}): {utHighOk ? '✓' : '✗'}
+                              </span>
+                              <span style={{ color: utCloseOk ? '#10b981' : '#ef4444' }}>
+                                Close &lt; Resistance: {utCloseOk ? '✓' : '✗'}
+                              </span>
+                              <span style={{ color: sellStageOk ? '#10b981' : '#ef4444' }}>
+                                Stage ({stage}): {sellStageOk ? '✓' : '✗'}
+                              </span>
+                              <span style={{ color: inSession ? '#10b981' : '#ef4444' }}>
+                                Session: {inSession ? '✓' : '✗'}
+                              </span>
+                            </div>
+                            {!sellReady && (
+                              <div style={{ fontSize: '10px', color: '#fbbf24', marginTop: '3px' }}>
+                                ⚠️ Missing: {missingSell.join(' • ')}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                        <div>
-                          <strong>Upthrust Check:</strong>{' '}
-                          <span style={{ color: selectedCandle.high > selectedCandle.resistance_level ? '#10b981' : '#ef4444' }}>
-                            High &gt; Res {selectedCandle.high > selectedCandle.resistance_level ? '✓' : '✗'}
-                          </span>,{' '}
-                          <span style={{ color: selectedCandle.close < selectedCandle.resistance_level ? '#10b981' : '#ef4444' }}>
-                            Close &lt; Res {selectedCandle.close < selectedCandle.resistance_level ? '✓' : '✗'}
-                          </span>
-                        </div>
-                      </div>
-                    )}
+                      );
+                    })()}
                   </div>
 
                   {selectedCandle.vsa_patterns && selectedCandle.vsa_patterns.length > 0 && (
