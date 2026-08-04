@@ -85,17 +85,16 @@ def run_force_git_update():
                 print(f"[Git Warning] Failed to remove .git/index.lock: {e}", flush=True)
 
         subprocess.run(["git", "fetch", "--all"], capture_output=True, text=True)
-        branch_res = subprocess.run(["git", "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True)
-        branch = branch_res.stdout.strip() if branch_res.returncode == 0 else "stable"
-        if not branch or branch == "HEAD":
+        # Prioritize origin/stable branch for active deployment updates
+        stable_check = subprocess.run(["git", "rev-parse", "--verify", "origin/stable"], capture_output=True, text=True)
+        if stable_check.returncode == 0:
             branch = "stable"
+        else:
+            branch_res = subprocess.run(["git", "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True)
+            branch = branch_res.stdout.strip() if branch_res.returncode == 0 else "main"
+            if not branch or branch == "HEAD":
+                branch = "main"
         print(f"Current branch detected: {branch}", flush=True)
-        
-        # Ensure remote origin/branch exists before resetting
-        remote_check = subprocess.run(["git", "rev-parse", "--verify", f"origin/{branch}"], capture_output=True, text=True)
-        if remote_check.returncode != 0:
-            print(f"[Git Warning] Remote branch origin/{branch} not found. Attempting origin/main...", flush=True)
-            branch = "main"
 
         subprocess.run(["git", "reset", "--hard"], capture_output=True, text=True)
         subprocess.run(["git", "checkout", "-B", branch, f"origin/{branch}"], capture_output=True, text=True)
