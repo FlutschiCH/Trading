@@ -25,10 +25,17 @@ dist-ssr
 *.sln
 *.sw?
 
-# Python
 __pycache__/
 *.pyc
 .venv/
 venv/
 backend/.venv/
 *.db
+
+# MetaTrader Instance Directories (Only track base templates)
+mt5/*
+!mt5/mt5_base
+!mt5/mt5_plugin_base
+!mt5/mt5_base/**
+!mt5/mt5_plugin_base/**
+
