@@ -166,11 +166,16 @@ class MetaTraderHandler(BaseBrokerHandler):
         if not MT5_AVAILABLE:
             raise ImportError("MetaTrader 5 library is not available on this platform.")
 
-        login, password, server = MetaTraderHandler._resolve_credentials(login, password, server, **kwargs)
-        if not MetaTraderHandler._initialize_mt5(login, password, server):
-            raise RuntimeError(f"Failed to initialize MetaTrader 5 connection for account {login}.")
+        acc_login = login or kwargs.get('account_id') or kwargs.get('account') or kwargs.get('login')
+        if not acc_login:
+            from account_handler import AccountHandler
+            active_acc = AccountHandler.get_active_account()
+            if active_acc:
+                acc_login = active_acc.get("account_id")
 
-        mt5_inst = MetaTraderHandler.get_mt5_instance(login) or mt5
+        mt5_inst = MetaTraderHandler.get_mt5_instance(acc_login) if acc_login else None
+        if mt5_inst is None:
+            mt5_inst = mt5
 
         # Map timeframe string to MT5 timeframe constants
         tf_map = {
