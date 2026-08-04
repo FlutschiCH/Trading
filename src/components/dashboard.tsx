@@ -2448,6 +2448,11 @@ export default function Dashboard() {
                                 ⚠️ Missing: {missingBuy.join(' • ')}
                               </div>
                             )}
+                            {selectedCandle.wyckoff_signal && selectedCandle.wyckoff_signal.includes('Spring') && (
+                              <div style={{ fontSize: '10px', color: '#38bdf8', marginTop: '4px', paddingTop: '3px', borderTop: '1px dashed #1e293b' }}>
+                                ⏳ <strong>Spring Trap Signal Active:</strong> Pending Buy set up. Trade entry executes when a subsequent candle closes &gt; Spring High ({formatPrice(selectedCandle.high, symbol)}) under rule: <code>{entryStabilityRule}</code>.
+                              </div>
+                            )}
                           </div>
 
                           {/* Upthrust / SELL Breakdown */}
@@ -2475,6 +2480,11 @@ export default function Dashboard() {
                             {!sellReady && (
                               <div style={{ fontSize: '10px', color: '#fbbf24', marginTop: '3px' }}>
                                 ⚠️ Missing: {missingSell.join(' • ')}
+                              </div>
+                            )}
+                            {selectedCandle.wyckoff_signal && selectedCandle.wyckoff_signal.includes('Upthrust') && (
+                              <div style={{ fontSize: '10px', color: '#f59e0b', marginTop: '4px', paddingTop: '3px', borderTop: '1px dashed #1e293b' }}>
+                                ⏳ <strong>Upthrust Trap Signal Active:</strong> Pending Sell set up. Trade entry executes when a subsequent candle closes &lt; Upthrust Low ({formatPrice(selectedCandle.low, symbol)}) under rule: <code>{entryStabilityRule}</code>.
                               </div>
                             )}
                           </div>
