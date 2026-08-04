@@ -64,14 +64,20 @@ class MetaTraderHandler(BaseBrokerHandler):
         mt5_module = None
 
         if target_plugin_dir and os.path.exists(target_plugin_dir):
-            if target_plugin_dir not in sys.path:
-                sys.path.insert(0, target_plugin_dir)
-            try:
-                # Attempt importing MetaTrader5 module directly from the isolated plugin directory sys.path entry
-                import MetaTrader5 as imported_mt5
-                mt5_module = imported_mt5
-            except Exception as e:
-                print(f"[MetaTrader Plugin Import Warning] Account {login}: {e}", flush=True)
+            init_file = os.path.join(target_plugin_dir, "__init__.py")
+            if os.path.exists(init_file):
+                module_name = f"MetaTrader5_acc_{login}"
+                try:
+                    spec = importlib.util.spec_from_file_location(module_name, init_file)
+                    if spec and spec.loader:
+                        mod = importlib.util.module_from_spec(spec)
+                        mod.__path__ = [target_plugin_dir]
+                        sys.modules[module_name] = mod
+                        spec.loader.exec_module(mod)
+                        mt5_module = mod
+                        print(f"[MetaTrader Plugin Loaded] Account {login}: Loaded isolated module '{module_name}' from {target_plugin_dir}", flush=True)
+                except Exception as e:
+                    print(f"[MetaTrader Plugin Import Warning] Account {login}: {e}", flush=True)
 
         if mt5_module is None or not hasattr(mt5_module, "initialize"):
             mt5_module = mt5
@@ -121,35 +127,23 @@ class MetaTraderHandler(BaseBrokerHandler):
 
         acc_str = str(account_id)
         instances = getattr(builtins, '_GLOBAL_MT5_INSTANCES', MetaTraderHandler._mt5_instances)
-        inst = instances.get(acc_str) or (mt5 if MT5_AVAILABLE else None)
+        inst = instances.get(acc_str)
 
         if inst and hasattr(inst, 'account_info'):
             try:
                 info = inst.account_info()
                 if info is not None:
                     curr_login = str(getattr(info, 'login', ''))
-                    print(f"[get_mt5_instance] Account check for '{acc_str}' -> currently logged into: '{curr_login}', balance: {getattr(info, 'balance', None)}", flush=True)
-                    if curr_login == acc_str and getattr(info, 'balance', 0.0) > 0:
-                        return inst
+                    print(f"[get_mt5_instance] Account '{acc_str}' -> currently logged into: '{curr_login}', balance: {getattr(info, 'balance', None)}", flush=True)
+                    return inst
+                else:
+                    print(f"[get_mt5_instance] Account '{acc_str}' matched instance but account_info returned None", flush=True)
             except Exception as e:
                 print(f"[get_mt5_instance] Error checking account_info for '{acc_str}': {e}", flush=True)
-
-        # Login mismatch or disconnected: re-initialize MT5 connection for requested account_id
-        print(f"[get_mt5_instance] Account login mismatch/disconnected. Re-initializing MT5 for account_id '{acc_str}'...", flush=True)
-        from sql_handler import SQLHandler
-        rows = SQLHandler.execute_query("SELECT * FROM accounts WHERE account_id = %s", (acc_str,))
-        if rows:
-            acc = rows[0]
-            MetaTraderHandler._initialize_mt5(
-                login=acc.get("account_id"),
-                password=acc.get("password"),
-                server=acc.get("server"),
-                terminal_path=acc.get("terminal_path")
-            )
-            inst = getattr(builtins, '_GLOBAL_MT5_INSTANCES', {}).get(acc_str) or (mt5 if MT5_AVAILABLE else None)
             return inst
 
-        return inst
+        print(f"[get_mt5_instance] No isolated instance found for '{acc_str}' in keys {list(instances.keys())}, returning default mt5", flush=True)
+        return mt5 if MT5_AVAILABLE else None
 
     @staticmethod
     def _resolve_credentials(login=None, password=None, server=None, **kwargs):
