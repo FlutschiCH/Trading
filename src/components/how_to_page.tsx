@@ -217,6 +217,106 @@ export default function HowToPage() {
           </div>
         </div>
 
+        {/* Section 0.5: Detection vs Execution (Setup vs Confirmation) */}
+        <div style={styles.section}>
+          <h2 style={styles.sectionTitle}>
+            <Flame size={22} style={{ color: '#06b6d4' }} /> Trap Detection vs. Trade Entry Execution (Setup vs. Confirmation)
+          </h2>
+          <div style={styles.rowLayout}>
+            <div style={styles.textContent}>
+              <p style={{ margin: 0 }}>
+                {renderTextWithMarkdown("A common misconception is expecting a **BUY or SELL Trade Entry Arrow** on the exact same candle where a **Spring** or **Upthrust** is detected. In our strategy engine, **Signal Detection ≠ Trade Entry Execution**:")}
+              </p>
+              
+              <div style={{ backgroundColor: '#020617', padding: '14px 18px', borderRadius: '8px', borderLeft: '4px solid #06b6d4' }}>
+                <strong style={{ color: '#38bdf8', fontSize: '14px' }}>Phase 1: Trap Detection (The Setup)</strong>
+                <p style={{ fontSize: '12px', margin: '4px 0 0 0', color: '#cbd5e1' }}>
+                  {renderTextWithMarkdown("On Candle **#1**, price sweeps below Support (**Low < Support**), closes back inside range (**Close > Support**), and volume spikes. The engine flags `wyckoff_signal = 'Spring detected'` and logs the setup trigger price: **`SpringHigh = High_Candle1`**.")}
+                </p>
+              </div>
+
+              <div style={{ backgroundColor: '#020617', padding: '14px 18px', borderRadius: '8px', borderLeft: '4px solid #10b981' }}>
+                <strong style={{ color: '#34d399', fontSize: '14px' }}>Phase 2: Trade Entry Execution (The Confirmation)</strong>
+                <p style={{ fontSize: '12px', margin: '4px 0 0 0', color: '#cbd5e1' }}>
+                  {renderTextWithMarkdown("On Candle **#1** itself, `Close <= High` by definition, so confirmation is **false**. Under the **Confirmation Rule**, the trade entry (**BUY Arrow**) waits for a **subsequent Candle #k** that closes strictly above `SpringHigh` (`Close_k > SpringHigh`).")}
+                </p>
+              </div>
+
+              <div style={styles.grid}>
+                <div style={{ backgroundColor: '#070a13', border: '1px solid #1e293b', borderRadius: '8px', padding: '12px' }}>
+                  <strong style={{ color: '#fbbf24', fontSize: '12px' }}>Rule 1: Confirmation (`confirmation`)</strong>
+                  <p style={{ fontSize: '11px', margin: '4px 0 0 0', color: '#94a3b8' }}>
+                    {renderTextWithMarkdown("Requires a later candle close above `SpringHigh` (`Close > SpringHigh`) or below `UpthrustLow` (`Close < UpthrustLow`).")}
+                  </p>
+                </div>
+                <div style={{ backgroundColor: '#070a13', border: '1px solid #1e293b', borderRadius: '8px', padding: '12px' }}>
+                  <strong style={{ color: '#a78bfa', fontSize: '12px' }}>Rule 2: Duration (`duration`)</strong>
+                  <p style={{ fontSize: '11px', margin: '4px 0 0 0', color: '#94a3b8' }}>
+                    {renderTextWithMarkdown("Requires at least 3 consecutive candles in ACCUMULATION stage (`AccumConsecBars >= 3`).")}
+                  </p>
+                </div>
+                <div style={{ backgroundColor: '#070a13', border: '1px solid #1e293b', borderRadius: '8px', padding: '12px' }}>
+                  <strong style={{ color: '#38bdf8', fontSize: '12px' }}>Rule 3: Both (`both`)</strong>
+                  <p style={{ fontSize: '11px', margin: '4px 0 0 0', color: '#94a3b8' }}>
+                    {renderTextWithMarkdown("Requires BOTH `AccumConsecBars >= 3` AND a breakout close `Close > SpringHigh`.")}
+                  </p>
+                </div>
+                <div style={{ backgroundColor: '#070a13', border: '1px solid #1e293b', borderRadius: '8px', padding: '12px' }}>
+                  <strong style={{ color: '#ef4444', fontSize: '12px' }}>Rule 4: Session & Retry Limits</strong>
+                  <p style={{ fontSize: '11px', margin: '4px 0 0 0', color: '#94a3b8' }}>
+                    {renderTextWithMarkdown("Trade entries are suppressed if candle time is outside active trading session hours or if daily retry limit is exceeded.")}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Graphic Diagram: Candle #1 (Spring) vs Candle #3 (BUY Entry) */}
+            <div style={{ ...styles.visualContent, flexDirection: 'column', gap: '8px' }}>
+              <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#38bdf8' }}>
+                📊 Step-by-Step Visualizing Setup vs. Entry
+              </span>
+              <svg width="340" height="240" viewBox="0 0 340 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+                {/* Background Grid & Support Line */}
+                <line x1="10" y1="160" x2="330" y2="160" stroke="#3b82f6" strokeWidth="1.5" strokeDasharray="4 4" />
+                <text x="15" y="153" fill="#60a5fa" fontSize="9" fontFamily="monospace">Support Boundary ($S_i$)</text>
+
+                {/* Spring High Trigger Line */}
+                <line x1="50" y1="80" x2="330" y2="80" stroke="#eab308" strokeWidth="1.5" strokeDasharray="3 3" />
+                <text x="170" y="75" fill="#eab308" fontSize="9" fontFamily="monospace">Spring High Trigger ($High_1$ = 1.15306)</text>
+
+                {/* --- Candle #1: Spring Trap (09:15) --- */}
+                {/* Wick */}
+                <line x1="75" y1="80" x2="75" y2="185" stroke="#06b6d4" strokeWidth="2" />
+                {/* Body */}
+                <rect x="65" y="110" width="20" height="40" fill="#06b6d4" opacity="0.8" rx="2" />
+                {/* Trap signal marker */}
+                <polygon points="75,200 67,212 83,212" fill="#06b6d4" />
+                <text x="45" y="225" fill="#06b6d4" fontSize="9" fontWeight="bold">⚡ SPRING DETECTED</text>
+                <text x="50" y="65" fill="#94a3b8" fontSize="9" fontFamily="monospace">Candle #1 (Setup)</text>
+
+                {/* --- Candle #2: Inside Range (09:18) --- */}
+                {/* Wick */}
+                <line x1="165" y1="90" x2="165" y2="150" stroke="#cbd5e1" strokeWidth="1.5" />
+                {/* Body */}
+                <rect x="157" y="105" width="16" height="30" fill="#475569" rx="2" />
+                <text x="135" y="175" fill="#ef4444" fontSize="8" fontFamily="monospace">❌ Close ≤ SpringHigh</text>
+                <text x="135" y="187" fill="#ef4444" fontSize="8" fontWeight="bold">No Trade Executed</text>
+
+                {/* --- Candle #3: Confirmation Breakout (09:24) --- */}
+                {/* Wick */}
+                <line x1="265" y1="40" x2="265" y2="130" stroke="#10b981" strokeWidth="2" />
+                {/* Body closing ABOVE Spring High (top at y=50, above y=80 line) */}
+                <rect x="253" y="50" width="24" height="60" fill="#10b981" rx="2" />
+                {/* BUY Entry Arrow */}
+                <polygon points="265,145 255,160 275,160" fill="#10b981" />
+                <rect x="245" y="163" width="40" height="16" fill="#10b981" rx="4" />
+                <text x="249" y="174" fill="#030712" fontSize="9" fontWeight="bold">BUY ENTRY</text>
+                <text x="235" y="30" fill="#10b981" fontSize="9" fontWeight="bold">✓ Close &gt; SpringHigh!</text>
+              </svg>
+            </div>
+          </div>
+        </div>
+
         {/* Section 1: Overview */}
         <div style={styles.section}>
           <h2 style={styles.sectionTitle}>
