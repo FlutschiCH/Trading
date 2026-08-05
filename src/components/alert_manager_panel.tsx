@@ -31,7 +31,7 @@ export const AlertManagerPanel: React.FC<AlertManagerPanelProps> = ({ currentSym
 
   const fetchAlerts = async () => {
     setLoading(true);
-    try:
+    try {
       let url = `${API_BASE_URL}/alerts`;
       if (filterSymbol) {
         url += `?symbol=${encodeURIComponent(filterSymbol)}`;
