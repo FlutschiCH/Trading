@@ -314,6 +314,8 @@ class LiveRunner:
         if should_buy or should_sell:
             direction = "BUY" if should_buy else "SELL"
             close_price = last_completed_candle.get("close", 0)
+            allow_opposite_close = strategy.get("allowOppositeClose", True)
+
             from discord_handler import send_discord_message
             discord_msg = (
                 f"🚨 **New Trade Signal Detected!**\n"
@@ -321,11 +323,12 @@ class LiveRunner:
                 f"📊 **Symbol:** `{symbol}`\n"
                 f"⏱️ **Timeframe:** `{timeframe}`\n"
                 f"➡️ **Direction:** `{direction}`\n"
-                f"💵 **Price:** `{close_price:.5f}`"
+                f"💵 **Price:** `{close_price:.5f}`\n"
+                f"🔄 **Allow Opposite Close:** `{allow_opposite_close}`"
             )
             send_discord_message(discord_msg)
 
-            # Log/Save signal to JSON file for analysis
+            # Log/Save signal to JSON file for analysis (ALWAYS logs all detected signals)
             try:
                 import json, os
                 signals_file = os.path.join(os.path.dirname(__file__), "live_signals.json")
@@ -344,16 +347,18 @@ class LiveRunner:
                     "timeframe": timeframe,
                     "direction": direction,
                     "price": close_price,
+                    "allow_opposite_close": allow_opposite_close,
                     "candle": last_completed_candle,
-                    "state_info": state_info
+                    "state_info": {k: v for k, v in state_info.items() if k != "candles"}
                 }
                 signals_data.append(signal_entry)
                 with open(signals_file, "w", encoding="utf-8") as f:
                     json.dump(signals_data, f, indent=2, ensure_ascii=False)
-                print(f"[Live Runner] Saved signal entry to {signals_file}", flush=True)
+                print(f"[Live Runner] Signal detected & logged to {signals_file}: {direction} on {symbol}", flush=True)
             except Exception as sig_err:
                 print(f"[Live Runner] Failed to save signal to JSON: {sig_err}", flush=True)
 
+            # Pass signal to trade executor (which checks each account position and allowOppositeClose individually)
             cls._execute_trade(strategy, should_buy, should_sell, last_completed_candle)
             
             # Append new simulated trade to cache
