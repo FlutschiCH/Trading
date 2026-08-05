@@ -422,50 +422,6 @@ class LiveRunner:
         if not allowed:
             status_message = f"Outside trading hours: {msg}"
 
-        # Check if position already open on any execution targets
-        targets = strategy.get("targets", [])
-        if not targets:
-            broker_name = strategy.get("broker", "metatrader")
-            targets = [{"broker": broker_name, "account_id": strategy.get("account_id")}]
-            
-        pos_open = False
-        magic = abs(hash(strategy["id"])) & 0x7FFFFFFF
-        from sql_handler import SQLHandler
-        
-        for target in targets:
-            target_broker = target.get("broker") or "metatrader"
-            target_acc_id = target.get("account_id")
-            
-            # Fetch target account details for credentials
-            rows = SQLHandler.execute_query("SELECT * FROM accounts WHERE account_id = %s", (target_acc_id,))
-            target_kwargs = {}
-            if rows:
-                acc_row = rows[0]
-                if target_broker == "metatrader":
-                    target_kwargs = {
-                        "login": int(target_acc_id) if target_acc_id.isdigit() else target_acc_id,
-                        "password": acc_row.get("password"),
-                        "server": acc_row.get("server")
-                    }
-                elif target_broker == "ctrader":
-                    target_kwargs = {
-                        "account_id": target_acc_id,
-                        "password": acc_row.get("password")
-                    }
-            
-            from broker_handler import BrokerHandler
-            handler = BrokerHandler.get_handler(target_broker)
-            try:
-                positions = handler.get_positions(**target_kwargs)
-                if any(p.get("magic") == magic or (p.get("symbol") == strategy["symbol"] and p.get("magic") == magic) or p.get("position_id") == magic for p in positions):
-                    pos_open = True
-                    break
-            except Exception as e:
-                print(f"[Live Runner] Error checking positions for target {target_acc_id}: {e}", flush=True)
-
-        if pos_open:
-            status_message = "Position already open. Monitoring for close condition."
-
         state_info = {
             "stage": final_stage,
             "consec_bars": final_consec,
@@ -526,7 +482,8 @@ class LiveRunner:
                 positions = handler.get_positions(**target_kwargs)
                 active_pos = None
                 for p in positions:
-                    if p.get("symbol") == symbol:
+                    p_magic = p.get("magic")
+                    if p.get("symbol") == symbol and (p_magic == magic or str(p_magic) == str(magic) or p.get("position_id") == magic):
                         active_pos = p
                         break
 

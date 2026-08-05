@@ -120,7 +120,10 @@ class PositionManager:
                 pos_symbol = str(pos.get("symbol", "")).upper()
                 strat_symbol = str(symbol).upper()
 
-                if pos_magic != magic and strat_symbol not in pos_symbol and pos_symbol not in strat_symbol:
+                if pos_symbol != strat_symbol:
+                    continue
+
+                if pos_magic is not None and pos_magic != magic and str(pos_magic) != str(magic):
                     continue
 
                 position_id = pos.get("id") or pos.get("position_id") or pos.get("ticket")
