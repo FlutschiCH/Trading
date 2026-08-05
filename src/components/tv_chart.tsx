@@ -675,10 +675,49 @@ export default function TVChart({
     draggingBadgeRef.current = draggingBadge;
   }, [draggingBadge]);
 
+  // Context menu state for price alert creation
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; price: number } | null>(null);
+
   useEffect(() => {
     chartHeightRef.current = chartHeight;
     weisHeightRef.current = weisHeight;
   }, [chartHeight, weisHeight]);
+
+  const handleChartContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    if (!candlestickSeriesRef.current || !chartContainerRef.current) return;
+    const rect = chartContainerRef.current.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    const price = candlestickSeriesRef.current.coordinateToPrice(y);
+    if (price !== null && !isNaN(price)) {
+      setContextMenu({
+        x: e.clientX,
+        y: e.clientY,
+        price: Number(price)
+      });
+    }
+  };
+
+  const handleCreateContextAlert = async () => {
+    if (!contextMenu) return;
+    const priceToSet = contextMenu.price;
+    setContextMenu(null);
+    try {
+      await fetch(`${API_BASE_URL}/alerts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          symbol: (symbol || 'EURUSD').toUpperCase(),
+          target_price: priceToSet,
+          alert_condition: 'CROSSES',
+          note: `Chart alert on ${symbol}`
+        })
+      });
+    } catch (err) {
+      console.error('Failed to create alert from chart context menu', err);
+    }
+  };
+
 
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -2618,7 +2657,67 @@ export default function TVChart({
 
       <div style={styles.chartWrapper}>
         <div style={{ position: 'relative', height: chartHeight }}>
-          <div ref={chartContainerRef} style={{ width: '100%', height: '100%', touchAction: 'none' }} />
+          <div ref={chartContainerRef} onContextMenu={handleChartContextMenu} style={{ width: '100%', height: '100%', touchAction: 'none' }} />
+
+          {/* Context Menu for Price Alert */}
+          {contextMenu && (
+            <div
+              style={{
+                position: 'fixed',
+                top: contextMenu.y,
+                left: contextMenu.x,
+                zIndex: 9999,
+                backgroundColor: '#0f172a',
+                border: '1px solid #334155',
+                borderRadius: '6px',
+                padding: '4px',
+                boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={handleCreateContextAlert}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  width: '100%',
+                  padding: '6px 12px',
+                  backgroundColor: 'transparent',
+                  border: 'none',
+                  color: '#f59e0b',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  borderRadius: '4px',
+                  textAlign: 'left'
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#1e293b')}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+              >
+                🔔 Set Alert at ${contextMenu.price.toFixed(5)}
+              </button>
+              <button
+                onClick={() => setContextMenu(null)}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  padding: '4px 12px',
+                  backgroundColor: 'transparent',
+                  border: 'none',
+                  color: '#94a3b8',
+                  fontSize: '11px',
+                  cursor: 'pointer',
+                  textAlign: 'left'
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#1e293b')}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+
 
           {replayTime !== null && (
             <div style={{

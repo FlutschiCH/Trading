@@ -40,9 +40,11 @@ from routes import api_blueprint  # Aggregated blueprint
 from live_strategy_handler import LiveStrategyHandler
 from position_manager import PositionManager
 from candle_collector_handler import CandleCollectorHandler
+from alert_handler import AlertHandler
 
 PositionManager.start()
 CandleCollectorHandler.start_background_collector()
+AlertHandler.start_monitoring()
 
 
 app = Flask(__name__)

@@ -378,6 +378,18 @@ export default function HeaderBar({
                   >
                     🔔 Notification Settings
                   </a>
+                  <a
+                    href="#alerts"
+                    className="menu-item"
+                    style={{ padding: '10px 16px', borderBottom: '1px solid var(--app-card-border)', textDecoration: 'none', color: 'var(--app-text)', fontSize: '12px' }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setView('alerts');
+                      setShowMobileNav(false);
+                    }}
+                  >
+                    🎯 Price Alerts
+                  </a>
                   <button
                     onClick={() => {
                       setShowMobileNav(false);

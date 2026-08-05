@@ -13,6 +13,7 @@ import { API_BASE_URL } from '../api';
 import { isLocalTarget } from './target_switcher';
 import * as apiService from '../services/apiService';
 import NotificationSettingsView from './notification_settings_view';
+import { AlertManagerPanel } from './alert_manager_panel';
 import { CandleCollectorPanel } from './candle_collector_panel';
 import LogPanel from './log_panel';
 import AccountInfoPanel from './account_info_panel';
@@ -271,7 +272,8 @@ export default function Dashboard() {
   const [backtestRunInfo, setBacktestRunInfo] = useState<{ current: number; total: number } | null>(null);
 
 
-  const [view, setView] = useState<'dashboard' | 'mappings' | 'trades' | 'computers' | 'notifications'>('dashboard');
+  const [view, setView] = useState<'dashboard' | 'mappings' | 'trades' | 'computers' | 'notifications' | 'alerts'>('dashboard');
+
   const [connectionMode, setConnectionMode] = useState<'openapi' | 'fix'>('fix');
   const [showMobileNav, setShowMobileNav] = useState<boolean>(false);
 
@@ -2201,7 +2203,7 @@ export default function Dashboard() {
         handleSwitchAccount={handleSwitchAccount}
         setShowAccountModal={setShowAccountModal}
         handleRestartServer={handleRestartServer}
-        setView={(v: string) => setView(v as "trades" | "dashboard" | "mappings" | "computers" | "notifications")}
+        setView={(v: string) => setView(v as any)}
         styles={styles}
       />
 
@@ -2222,6 +2224,10 @@ export default function Dashboard() {
         <NotificationSettingsView
           setView={setView}
         />
+      ) : view === 'alerts' ? (
+        <div style={{ padding: '24px', display: 'flex', justifyContent: 'center' }}>
+          <AlertManagerPanel currentSymbol={symbol} />
+        </div>
       ) : (
         <>
           {/* Main Grid View */}
