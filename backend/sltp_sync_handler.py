@@ -57,19 +57,17 @@ class SltpSyncHandler:
                 continue
 
             try:
+                # Query verified account info & balance
+                balance_info = "N/A"
+                acc_res = handler.get_account(account_id=acc_id_str, login=acc_id_str)
+                if isinstance(acc_res, dict) and acc_res.get("status") == "success" and "data" in acc_res:
+                    acc_d = acc_res["data"]
+                    balance_info = f"${acc_d.get('balance', 0):.2f} (Equity: ${acc_d.get('equity', 0):.2f})"
+
                 # Retrieve open positions for this specific account_id
                 acc_positions = handler.get_positions(account_id=acc_id_str, login=acc_id_str) or []
 
-                balance_info = "N/A"
-                if broker_name == "metatrader":
-                    from metatrader_handler import MetaTraderHandler
-                    inst = MetaTraderHandler.get_mt5_instance(acc_id_str)
-                    if inst and hasattr(inst, 'account_info'):
-                        info = inst.account_info()
-                        if info is not None:
-                            balance_info = f"${info.balance:.2f} (Equity: ${info.equity:.2f}, Login: {info.login})"
-
-                print(f"   🔍 Querying positions for account_id={acc_id_str} | Account Balance: {balance_info}...", flush=True)
+                print(f"   💰 Verified Balance for '{acc_name}' ({acc_id_str}): {balance_info}", flush=True)
                 print(f"   📋 Found {len(acc_positions)} position(s) on account '{acc_name}'", flush=True)
 
                 matching_positions = []
