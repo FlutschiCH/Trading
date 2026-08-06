@@ -369,6 +369,18 @@ export default function Dashboard() {
     }
   }, [selectedTrade]);
 
+  useEffect(() => {
+    if (openPositions && openPositions.length > 0) {
+      const totalPnl = openPositions.reduce((sum, pos) => sum + (Number(pos.unrealized_profit) || 0), 0);
+      const pnlSign = totalPnl >= 0 ? '+' : '';
+      const formattedPnl = `${pnlSign}$${totalPnl.toFixed(2)}`;
+      const countStr = openPositions.length > 1 ? ` (${openPositions.length} Pos)` : '';
+      document.title = `${formattedPnl}${countStr} | ${symbol} - Wyckoff`;
+    } else {
+      document.title = `${symbol ? `${symbol} - ` : ''}Wyckoff Trading Platform`;
+    }
+  }, [openPositions, symbol]);
+
   const handleExecuteTradeAgain = async () => {
     if (!selectedTrade) return;
     setExecutingModalOrder(true);
