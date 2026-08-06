@@ -90,10 +90,22 @@ class MetaTraderHandler(BaseBrokerHandler):
         try:
             acc_info = mt5_module.account_info()
             term_info = mt5_module.terminal_info()
-            if term_info is not None and acc_info is not None and str(acc_info.login) == str(login):
-                builtins._GLOBAL_MT5_INSTANCES[str(login)] = mt5_module
-                builtins._GLOBAL_MT5_CONNECTION_STATES[str(login)] = True
-                return True
+            if term_info is not None and acc_info is not None:
+                if str(acc_info.login) == str(login):
+                    builtins._GLOBAL_MT5_INSTANCES[str(login)] = mt5_module
+                    builtins._GLOBAL_MT5_CONNECTION_STATES[str(login)] = True
+                    return True
+                else:
+                    print(f"[MetaTrader Account Switch] Currently on {acc_info.login}, logging into {login} on {server}...", flush=True)
+                    login_ok = mt5_module.login(login=int(login), password=password, server=server)
+                    if login_ok:
+                        builtins._GLOBAL_MT5_INSTANCES[str(login)] = mt5_module
+                        builtins._GLOBAL_MT5_CONNECTION_STATES[str(login)] = True
+                        print(f"[MetaTrader Login Switched] Account: {login} | Server: {server} | Status: Success", flush=True)
+                        return True
+                    else:
+                        err_code, err_desc = mt5_module.last_error() if hasattr(mt5_module, "last_error") else ("unknown", "unknown")
+                        print(f"[MetaTrader Login Switch Failed] Account: {login} | Server: {server} | Error: {err_code} ({err_desc})", flush=True)
         except Exception:
             pass
 
@@ -102,7 +114,9 @@ class MetaTraderHandler(BaseBrokerHandler):
         success = False
         try:
             success = mt5_module.initialize(path=path, login=int(login), password=password, server=server, portable=True, timeout=30000)
-            if not success:
+            if success:
+                mt5_module.login(login=int(login), password=password, server=server)
+            else:
                 err_code, err_desc = mt5_module.last_error() if hasattr(mt5_module, "last_error") else ("unknown", "unknown")
                 print(f"[MetaTrader Initialization Failure] Account: {login} | Path: {path} | Error: {err_code} ({err_desc})", flush=True)
         except Exception as e:
