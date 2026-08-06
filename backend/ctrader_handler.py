@@ -302,6 +302,7 @@ class CTraderHandler(BaseBrokerHandler):
             # Reconcile open positions using payloadType = 2125 (ProtoOAReconcileReq)
             res = CTraderHandler._send_and_receive(2125, {"returnProtectionOrders": True}, account_id=account_id, token=token)
             if res and "payload" in res:
+                acc_id_str = str(account_id or "")
                 positions_list = []
                 for p in res["payload"].get("position", []):
                     positions_list.append({
@@ -313,7 +314,10 @@ class CTraderHandler(BaseBrokerHandler):
                         "unrealized_profit": float(p.get("unrealizedProfit", 0)) / 100.0,
                         "stop_loss": float(p.get("stopLoss", 0)),
                         "take_profit": float(p.get("takeProfit", 0)),
-                        "entry_timestamp": int(p.get("utcLastUpdateTimestamp", time.time() * 1000)) // 1000
+                        "entry_timestamp": int(p.get("utcLastUpdateTimestamp", time.time() * 1000)) // 1000,
+                        "account_id": acc_id_str,
+                        "target_acc_id": acc_id_str,
+                        "broker": "ctrader"
                     })
                 CTraderHandler._cached_positions = positions_list
         except Exception:

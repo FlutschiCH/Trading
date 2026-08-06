@@ -389,6 +389,7 @@ class MetaTraderHandler(BaseBrokerHandler):
 
         res = []
         buy_type = getattr(mt5_inst, 'POSITION_TYPE_BUY', 0)
+        acc_id_str = str(login)
         for p in positions:
             main_symbol = SymbolMappingHandler.map_to_main(p.symbol, broker_key)
             res.append({
@@ -400,7 +401,10 @@ class MetaTraderHandler(BaseBrokerHandler):
                 "unrealized_profit": p.profit,
                 "stop_loss": float(p.sl) if p.sl > 0 else 0.0,
                 "take_profit": float(p.tp) if p.tp > 0 else 0.0,
-                "entry_timestamp": int(p.time) - offset
+                "entry_timestamp": int(p.time) - offset,
+                "account_id": acc_id_str,
+                "target_acc_id": acc_id_str,
+                "broker": "metatrader"
             })
         return res
 

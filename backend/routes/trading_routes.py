@@ -90,13 +90,24 @@ def modify_position():
     stop_loss = payload.get('stop_loss')
     take_profit = payload.get('take_profit')
     symbol = payload.get('symbol', 'EURUSD')
+    broker = payload.get('broker')
+    account_id = payload.get('account_id')
+
+    print(f"\n[Trade Modify Request] Pos ID: {position_id} | Account: {account_id} | Broker: {broker} | Symbol: {symbol} | SL: {stop_loss} | TP: {take_profit}", flush=True)
 
     if position_id is None:
+        print(f"❌ [Trade Modify Failure] Missing position_id in payload: {payload}", flush=True)
         return jsonify({"status": "error", "message": "Missing position_id"}), 400
 
     handler = _get_handler(payload)
     kwargs = {k: v for k, v in payload.items() if k not in ('position_id', 'stop_loss', 'take_profit', 'symbol')}
     result = handler.modify_position(position_id, stop_loss=stop_loss, take_profit=take_profit, symbol=symbol, **kwargs)
+
+    if isinstance(result, dict) and result.get("status") == "error":
+        print(f"❌ [Trade Modify FAILURE] Pos ID: {position_id} (Acc: {account_id}) | Error: {result.get('message')}", flush=True)
+    else:
+        print(f"✅ [Trade Modify SUCCESS] Pos ID: {position_id} (Acc: {account_id}) | Result: {result}", flush=True)
+
     return jsonify(result)
 
 @trading_routes.route('/trade/candles', methods=['POST'])

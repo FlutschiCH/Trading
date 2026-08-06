@@ -767,12 +767,15 @@ export default function TVChart({
     const activeAccId = localStorage.getItem('wyckoff_active_account_id');
 
     accountsToUpdate.forEach((accId) => {
+      const targetAccObj = availableAccounts.find(a => String(a.account_id) === String(accId));
+      const targetBroker = targetAccObj?.broker_type || targetAccObj?.broker || pos.broker || pos.target_broker || 'metatrader';
+
       const accMatchingPositions = positionsList.filter((p) => {
         if (!p) return false;
-        const pAccId = String(p.target_acc_id || p.account_id || '');
+        const pAccId = String(p.target_acc_id || p.account_id || p.login || '');
         const pSymbolClean = String(p.symbol || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
         const pSide = (p.trade_side || p.type || p.side || 'BUY').toUpperCase();
-        return pAccId === String(accId) && (pSymbolClean.includes(targetSymbolClean) || targetSymbolClean.includes(pSymbolClean)) && pSide === posSide;
+        return (pAccId === String(accId) || accountsToUpdate.length === 1) && (pSymbolClean.includes(targetSymbolClean) || targetSymbolClean.includes(pSymbolClean)) && pSide === posSide;
       });
 
       if (accMatchingPositions.length > 0) {
@@ -780,9 +783,13 @@ export default function TVChart({
           const payload: any = {
             position_id: matchingPos.position_id,
             symbol: matchingPos.symbol || pos.symbol,
-            account_id: matchingPos.target_acc_id || matchingPos.account_id || accId,
-            broker: matchingPos.broker || matchingPos.target_broker || 'metatrader'
+            account_id: accId,
+            broker: matchingPos.broker || matchingPos.target_broker || targetBroker
           };
+          if (targetAccObj) {
+            if (targetAccObj.password) payload.password = targetAccObj.password;
+            if (targetAccObj.server) payload.server = targetAccObj.server;
+          }
           const existingSl = matchingPos.stop_loss !== undefined ? matchingPos.stop_loss : (matchingPos.sl !== undefined ? matchingPos.sl : 0);
           const existingTp = matchingPos.take_profit !== undefined ? matchingPos.take_profit : (matchingPos.tp !== undefined ? matchingPos.tp : 0);
 
@@ -799,42 +806,53 @@ export default function TVChart({
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(payload)
-            }).then(res => res.json())
+            }).then(res => res.json().then(data => ({ ...data, accName: targetAccObj?.name || accId, posId: matchingPos.position_id })))
           );
         });
       } else {
-        const payload: any = {
-          position_id: pos.position_id,
-          symbol: pos.symbol,
-          account_id: accId,
-          broker: pos.broker || pos.target_broker || 'metatrader'
-        };
-        const existingSl = pos.stop_loss !== undefined ? pos.stop_loss : (pos.sl !== undefined ? pos.sl : 0);
-        const existingTp = pos.take_profit !== undefined ? pos.take_profit : (pos.tp !== undefined ? pos.tp : 0);
+        if (String(accId) === String(pos.target_acc_id || pos.account_id || activeAccId)) {
+          const payload: any = {
+            position_id: pos.position_id,
+            symbol: pos.symbol,
+            account_id: accId,
+            broker: targetBroker
+          };
+          if (targetAccObj) {
+            if (targetAccObj.password) payload.password = targetAccObj.password;
+            if (targetAccObj.server) payload.server = targetAccObj.server;
+          }
+          const existingSl = pos.stop_loss !== undefined ? pos.stop_loss : (pos.sl !== undefined ? pos.sl : 0);
+          const existingTp = pos.take_profit !== undefined ? pos.take_profit : (pos.tp !== undefined ? pos.tp : 0);
 
-        if (isSl) {
-          payload.stop_loss = targetPrice;
-          payload.take_profit = existingTp;
+          if (isSl) {
+            payload.stop_loss = targetPrice;
+            payload.take_profit = existingTp;
+          } else {
+            payload.stop_loss = existingSl;
+            payload.take_profit = targetPrice;
+          }
+
+          updatePromises.push(
+            fetch(`${API_BASE_URL}/api/trade/modify_position`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            }).then(res => res.json().then(data => ({ ...data, accName: targetAccObj?.name || accId, posId: pos.position_id })))
+          );
         } else {
-          payload.stop_loss = existingSl;
-          payload.take_profit = targetPrice;
+          console.warn(`[SL/TP Sync] Account ${targetAccObj?.name || accId} has no open ${posSide} position on ${pos.symbol}`);
         }
-
-        updatePromises.push(
-          fetch(`${API_BASE_URL}/api/trade/modify_position`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          }).then(res => res.json())
-        );
       }
     });
 
     try {
       const results = await Promise.all(updatePromises);
       const failures = results.filter(r => r && (r.status === 'error' || (r.success === false && !r.status)));
+      const successes = results.filter(r => r && (r.status === 'success' || r.success === true));
+
       if (failures.length > 0) {
-        alert(`Updated position(s), but ${failures.length} request(s) failed: ${failures[0].message || 'Error'}`);
+        const failMsgs = failures.map(f => `• Account "${f.accName}" (Pos #${f.posId}): ${f.message || 'Error'}`).join('\n');
+        alert(`SL/TP Sync Completed:\n\n✅ Success: ${successes.length} account(s)\n❌ Failures (${failures.length}):\n${failMsgs}`);
       }
       setSlTpEditModal(null);
       if (onRefresh) onRefresh();
