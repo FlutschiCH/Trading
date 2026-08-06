@@ -770,123 +770,33 @@ export default function TVChart({
 
     setSlTpEditModal(prev => prev ? { ...prev, isSaving: true } : null);
 
-    const isSl = type === 'sl';
-    const targetSymbolClean = String(pos.symbol || symbol || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-    const posSide = (pos.trade_side || pos.type || pos.side || 'BUY').toUpperCase();
-
     const accountsToUpdate = selectedAccountIds && selectedAccountIds.length > 0
       ? selectedAccountIds
       : [String(pos.target_acc_id || pos.account_id || '')];
 
-    const updatePromises: Promise<any>[] = [];
-
-    for (const accId of accountsToUpdate) {
-      const targetAccObj = availableAccounts.find(a => String(a.account_id) === String(accId));
-      const targetBroker = targetAccObj?.broker_type || targetAccObj?.broker || pos.broker || pos.target_broker || 'metatrader';
-      const accName = targetAccObj?.name || accId;
-
-      try {
-        const fetchPayload: any = {
-          broker: targetBroker,
-          account_id: accId,
-          login: accId
-        };
-        if (targetAccObj) {
-          if (targetAccObj.password) fetchPayload.password = targetAccObj.password;
-          if (targetAccObj.server) fetchPayload.server = targetAccObj.server;
-        }
-
-        const posRes = await fetch(`${API_BASE_URL}/api/trade/positions`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(fetchPayload)
-        });
-        const posData = await posRes.json();
-        const accPositions: any[] = (posData && Array.isArray(posData.data)) ? posData.data : [];
-
-        const matchingPositions = accPositions.filter(p => {
-          if (!p) return false;
-          const pSymbolClean = String(p.symbol || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-          const pSide = (p.trade_side || p.type || p.side || 'BUY').toUpperCase();
-          return (pSymbolClean.includes(targetSymbolClean) || targetSymbolClean.includes(pSymbolClean)) && pSide === posSide;
-        });
-
-        if (matchingPositions.length > 0) {
-          matchingPositions.forEach(matchingPos => {
-            const payload: any = {
-              position_id: matchingPos.position_id,
-              symbol: matchingPos.symbol || pos.symbol,
-              account_id: accId,
-              broker: targetBroker
-            };
-            if (targetAccObj) {
-              if (targetAccObj.password) payload.password = targetAccObj.password;
-              if (targetAccObj.server) payload.server = targetAccObj.server;
-            }
-            const existingSl = matchingPos.stop_loss !== undefined ? matchingPos.stop_loss : (matchingPos.sl !== undefined ? matchingPos.sl : 0);
-            const existingTp = matchingPos.take_profit !== undefined ? matchingPos.take_profit : (matchingPos.tp !== undefined ? matchingPos.tp : 0);
-
-            if (isSl) {
-              payload.stop_loss = targetPrice;
-              payload.take_profit = existingTp;
-            } else {
-              payload.stop_loss = existingSl;
-              payload.take_profit = targetPrice;
-            }
-
-            updatePromises.push(
-              fetch(`${API_BASE_URL}/api/trade/modify_position`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-              }).then(res => res.json().then(data => ({ ...data, accName, posId: matchingPos.position_id })))
-            );
-          });
-        } else if (String(accId) === String(pos.target_acc_id || pos.account_id)) {
-          const payload: any = {
-            position_id: pos.position_id,
-            symbol: pos.symbol,
-            account_id: accId,
-            broker: targetBroker
-          };
-          if (targetAccObj) {
-            if (targetAccObj.password) payload.password = targetAccObj.password;
-            if (targetAccObj.server) payload.server = targetAccObj.server;
-          }
-          const existingSl = pos.stop_loss !== undefined ? pos.stop_loss : (pos.sl !== undefined ? pos.sl : 0);
-          const existingTp = pos.take_profit !== undefined ? pos.take_profit : (pos.tp !== undefined ? pos.tp : 0);
-
-          if (isSl) {
-            payload.stop_loss = targetPrice;
-            payload.take_profit = existingTp;
-          } else {
-            payload.stop_loss = existingSl;
-            payload.take_profit = targetPrice;
-          }
-
-          updatePromises.push(
-            fetch(`${API_BASE_URL}/api/trade/modify_position`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload)
-            }).then(res => res.json().then(data => ({ ...data, accName, posId: pos.position_id })))
-          );
-        } else {
-          console.warn(`[SL/TP Sync] Account ${accName} has no open ${posSide} position on ${pos.symbol}`);
-        }
-      } catch (err: any) {
-        console.error(`Failed fetching positions for account ${accName}:`, err);
-      }
-    }
+    const payload = {
+      symbol: pos.symbol || symbol,
+      target_price: targetPrice,
+      type: type,
+      selected_account_ids: accountsToUpdate,
+      position_id: pos.position_id,
+      trade_side: (pos.trade_side || pos.type || pos.side || 'BUY').toUpperCase()
+    };
 
     try {
-      const results = await Promise.all(updatePromises);
-      const failures = results.filter(r => r && (r.status === 'error' || (r.success === false && !r.status)));
-      const successes = results.filter(r => r && (r.status === 'success' || r.success === true));
+      const res = await fetch(`${API_BASE_URL}/api/trade/sync_sltp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
 
-      if (failures.length > 0) {
-        const failMsgs = failures.map(f => `• Account "${f.accName}" (Pos #${f.posId}): ${f.message || 'Error'}`).join('\n');
-        alert(`SL/TP Sync Completed:\n\n✅ Success: ${successes.length} position(s)\n❌ Failures (${failures.length}):\n${failMsgs}`);
+      if (data.status === 'error') {
+        alert(`SL/TP Sync Failed: ${data.message || 'Unknown error'}`);
+      } else if (data.failure_count > 0) {
+        const failures = (data.results || []).filter((r: any) => r.status === 'error');
+        const failMsgs = failures.map((f: any) => `• Account "${f.account_name}": ${f.message}`).join('\n');
+        alert(`SL/TP Sync Completed:\n\n✅ Success: ${data.success_count} position(s)\n❌ Failures (${data.failure_count}):\n${failMsgs}`);
       }
       setSlTpEditModal(null);
       if (onRefresh) onRefresh();

@@ -18,6 +18,7 @@ from routes.terminal_routes import terminal_routes
 from routes.candle_collector_routes import candle_collector_routes
 from routes.backtest_routes import backtest_routes
 from routes.alert_routes import alert_bp
+from routes.sltp_sync_routes import sltp_sync_routes
 
 # Create consolidated api blueprint
 api_blueprint = Blueprint('api', __name__)
@@ -41,6 +42,7 @@ api_blueprint.register_blueprint(broker_routes)
 api_blueprint.register_blueprint(terminal_routes)
 api_blueprint.register_blueprint(candle_collector_routes)
 api_blueprint.register_blueprint(backtest_routes)
+api_blueprint.register_blueprint(sltp_sync_routes)
 api_blueprint.register_blueprint(alert_bp, url_prefix='/alerts')
 
 
