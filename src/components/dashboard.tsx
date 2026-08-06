@@ -373,9 +373,7 @@ export default function Dashboard() {
     if (openPositions && openPositions.length > 0) {
       const totalPnl = openPositions.reduce((sum, pos) => sum + (Number(pos.unrealized_profit) || 0), 0);
       const pnlSign = totalPnl >= 0 ? '+' : '';
-      const formattedPnl = `${pnlSign}$${totalPnl.toFixed(2)}`;
-      const countStr = openPositions.length > 1 ? ` (${openPositions.length} Pos)` : '';
-      document.title = `${formattedPnl}${countStr} | ${symbol} - Wyckoff`;
+      document.title = `${pnlSign}$${totalPnl.toFixed(2)}`;
     } else {
       document.title = `${symbol ? `${symbol} - ` : ''}Wyckoff Trading Platform`;
     }
