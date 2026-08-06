@@ -90,33 +90,19 @@ class MetaTraderHandler(BaseBrokerHandler):
         try:
             acc_info = mt5_module.account_info()
             term_info = mt5_module.terminal_info()
-            if term_info is not None and acc_info is not None:
-                if str(acc_info.login) == str(login):
-                    builtins._GLOBAL_MT5_INSTANCES[str(login)] = mt5_module
-                    builtins._GLOBAL_MT5_CONNECTION_STATES[str(login)] = True
-                    return True
-                else:
-                    print(f"[MetaTrader Account Switch] Currently on {acc_info.login}, logging into {login} on {server}...", flush=True)
-                    login_ok = mt5_module.login(login=int(login), password=password, server=server)
-                    if login_ok:
-                        builtins._GLOBAL_MT5_INSTANCES[str(login)] = mt5_module
-                        builtins._GLOBAL_MT5_CONNECTION_STATES[str(login)] = True
-                        print(f"[MetaTrader Login Switched] Account: {login} | Server: {server} | Status: Success", flush=True)
-                        return True
-                    else:
-                        err_code, err_desc = mt5_module.last_error() if hasattr(mt5_module, "last_error") else ("unknown", "unknown")
-                        print(f"[MetaTrader Login Switch Failed] Account: {login} | Server: {server} | Error: {err_code} ({err_desc})", flush=True)
+            if term_info is not None and acc_info is not None and str(acc_info.login) == str(login):
+                builtins._GLOBAL_MT5_INSTANCES[str(login)] = mt5_module
+                builtins._GLOBAL_MT5_CONNECTION_STATES[str(login)] = True
+                return True
         except Exception:
             pass
 
-        print(f"[MetaTrader Connecting] Account: {login} | Server: {server} | Path: {path}", flush=True)
+        print(f"[MetaTrader Connecting Instance] Account: {login} | Server: {server} | Path: {path}", flush=True)
 
         success = False
         try:
             success = mt5_module.initialize(path=path, login=int(login), password=password, server=server, portable=True, timeout=30000)
-            if success:
-                mt5_module.login(login=int(login), password=password, server=server)
-            else:
+            if not success:
                 err_code, err_desc = mt5_module.last_error() if hasattr(mt5_module, "last_error") else ("unknown", "unknown")
                 print(f"[MetaTrader Initialization Failure] Account: {login} | Path: {path} | Error: {err_code} ({err_desc})", flush=True)
         except Exception as e:
@@ -131,13 +117,11 @@ class MetaTraderHandler(BaseBrokerHandler):
         if success and login:
             builtins._GLOBAL_MT5_INSTANCES[str(login)] = mt5_module
             builtins._GLOBAL_MT5_CONNECTION_STATES[str(login)] = True
-            print(f"[MetaTrader Connected] Account: {login} | Server: {server} | Status: Successfully logged in", flush=True)
+            print(f"[MetaTrader Connected Instance] Account: {login} | Server: {server} | Path: {path}", flush=True)
         return success
 
     @staticmethod
     def get_mt5_instance(account_id: str = None):
-        if MetaTraderHandler.DEBUG_LOGGING:
-            print(f"[get_mt5_instance] Requested account_id: {account_id}", flush=True)
         if not account_id:
             return mt5 if MT5_AVAILABLE else None
 
@@ -149,21 +133,12 @@ class MetaTraderHandler(BaseBrokerHandler):
             try:
                 info = inst.account_info()
                 if info is not None:
-                    curr_login = str(getattr(info, 'login', ''))
-                    if MetaTraderHandler.DEBUG_LOGGING:
-                        print(f"[get_mt5_instance] Account '{acc_str}' -> currently logged into: '{curr_login}', balance: {getattr(info, 'balance', None)}", flush=True)
                     return inst
-                else:
-                    if MetaTraderHandler.DEBUG_LOGGING:
-                        print(f"[get_mt5_instance] Account '{acc_str}' matched instance but account_info returned None", flush=True)
-            except Exception as e:
-                if MetaTraderHandler.DEBUG_LOGGING:
-                    print(f"[get_mt5_instance] Error checking account_info for '{acc_str}': {e}", flush=True)
+            except Exception:
+                pass
             return inst
 
-        if MetaTraderHandler.DEBUG_LOGGING:
-            print(f"[get_mt5_instance] No isolated instance found for '{acc_str}' in keys {list(instances.keys())}, returning default mt5", flush=True)
-        return mt5 if MT5_AVAILABLE else None
+        return instances.get(acc_str) or (mt5 if MT5_AVAILABLE else None)
 
     @staticmethod
     def _resolve_credentials(login=None, password=None, server=None, **kwargs):
