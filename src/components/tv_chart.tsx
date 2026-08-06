@@ -2901,18 +2901,26 @@ export default function TVChart({
                 const isJpy = (symbol || '').toUpperCase().includes('JPY');
                 const multiplier = isJpy ? 1000 : 100000;
 
+                const activeSlPrice = (draggingBadge?.position?.position_id === pos.position_id && draggingBadge?.type === 'sl')
+                  ? draggingBadge.currentPrice
+                  : slPrice;
+
+                const activeTpPrice = (draggingBadge?.position?.position_id === pos.position_id && draggingBadge?.type === 'tp')
+                  ? draggingBadge.currentPrice
+                  : tpPrice;
+
                 let slLossStr = '';
-                if (slPrice > 0 && volNum > 0) {
-                  const slDiff = isBuy ? (entryPrice - slPrice) : (slPrice - entryPrice);
-                  const estLoss = Math.abs(slDiff * volNum * multiplier);
-                  slLossStr = ` (-$${estLoss.toFixed(2)})`;
+                if (activeSlPrice > 0 && volNum > 0 && entryPrice > 0) {
+                  const slDiff = isBuy ? (activeSlPrice - entryPrice) : (entryPrice - activeSlPrice);
+                  const estLoss = slDiff * volNum * multiplier;
+                  slLossStr = ` (${estLoss >= 0 ? '+' : ''}$${estLoss.toFixed(2)})`;
                 }
 
                 let tpWinStr = '';
-                if (tpPrice > 0 && volNum > 0) {
-                  const tpDiff = isBuy ? (tpPrice - entryPrice) : (entryPrice - tpPrice);
-                  const estWin = Math.abs(tpDiff * volNum * multiplier);
-                  tpWinStr = ` (+$${estWin.toFixed(2)})`;
+                if (activeTpPrice > 0 && volNum > 0 && entryPrice > 0) {
+                  const tpDiff = isBuy ? (activeTpPrice - entryPrice) : (entryPrice - activeTpPrice);
+                  const estWin = tpDiff * volNum * multiplier;
+                  tpWinStr = ` (${estWin >= 0 ? '+' : ''}$${estWin.toFixed(2)})`;
                 }
 
                 const entryY = entryPrice > 0 ? candlestickSeriesRef.current.priceToCoordinate(entryPrice) : null;
@@ -2951,13 +2959,106 @@ export default function TVChart({
                   });
                 };
 
-                const activeSlPrice = (draggingBadge?.position?.position_id === pos.position_id && draggingBadge?.type === 'sl')
-                  ? draggingBadge.currentPrice
-                  : slPrice;
+                const handleBadgeDoubleClick = (e: React.MouseEvent, type: 'sl' | 'tp') => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  setDraggingBadge(null);
 
-                const activeTpPrice = (draggingBadge?.position?.position_id === pos.position_id && draggingBadge?.type === 'tp')
-                  ? draggingBadge.currentPrice
-                  : tpPrice;
+                  const isSl = type === 'sl';
+                  const currentVal = isSl ? slPrice : tpPrice;
+                  const currentEstPnl = (currentVal > 0 && volNum > 0 && entryPrice > 0)
+                    ? (isBuy ? (currentVal - entryPrice) : (entryPrice - currentVal)) * volNum * multiplier
+                    : 0;
+
+                  const promptMessage =
+                    `Set new ${isSl ? 'Stop Loss (SL)' : 'Take Profit (TP)'} for position #${pos.position_id} (${pos.symbol}):\n\n` +
+                    `• Enter Target Price (e.g. ${entryPrice ? (isBuy ? (entryPrice * (isSl ? 0.99 : 1.01)).toFixed(5) : (entryPrice * (isSl ? 1.01 : 0.99)).toFixed(5)) : '1.08500'})\n` +
+                    `• OR enter $ Amount (e.g. -25 for -$25.00 loss, or 50 for +$50.00 profit):`;
+
+                  const defaultValue = currentVal > 0 ? currentVal.toFixed(5) : (currentEstPnl !== 0 ? `${currentEstPnl.toFixed(2)}` : '');
+                  const input = window.prompt(promptMessage, defaultValue);
+                  if (!input || input.trim() === '') return;
+
+                  const cleanInput = input.trim().replace('$', '');
+                  const parsed = parseFloat(cleanInput);
+                  if (isNaN(parsed)) {
+                    alert('Invalid number format.');
+                    return;
+                  }
+
+                  let targetPrice = parsed;
+
+                  if (parsed < 0 || (entryPrice > 0 && Math.abs(parsed) < entryPrice * 0.2)) {
+                    if (volNum <= 0) {
+                      alert('Cannot calculate price from dollar amount: position volume missing.');
+                      return;
+                    }
+                    const priceDiff = parsed / (volNum * multiplier);
+                    targetPrice = isBuy ? (entryPrice + priceDiff) : (entryPrice - priceDiff);
+                  }
+
+                  if (targetPrice <= 0) {
+                    alert('Invalid target price calculated.');
+                    return;
+                  }
+
+                  const label = isSl ? 'Stop Loss (SL)' : 'Take Profit (TP)';
+                  const estDiff = isBuy ? (targetPrice - entryPrice) : (entryPrice - targetPrice);
+                  const estDollarPnl = volNum > 0 ? estDiff * volNum * multiplier : 0;
+                  const estDollarStr = volNum > 0 ? ` (${estDollarPnl >= 0 ? '+' : ''}$${estDollarPnl.toFixed(2)})` : '';
+
+                  const confirmMsg =
+                    `Confirm updating ${label} for position #${pos.position_id}?\n\n` +
+                    `New Price: ${targetPrice.toFixed(5)}${estDollarStr}`;
+
+                  if (!window.confirm(confirmMsg)) return;
+
+                  const endpoint = `${API_BASE_URL}/api/trade/modify_position`;
+                  const activeAccId = localStorage.getItem('wyckoff_active_account_id');
+                  let activeBroker = 'metatrader';
+                  try {
+                    const saved = localStorage.getItem('wyckoff_active_account');
+                    if (saved) {
+                      const parsedAcc = JSON.parse(saved);
+                      if (parsedAcc && parsedAcc.broker_type) activeBroker = parsedAcc.broker_type;
+                    }
+                  } catch (err) { }
+
+                  const payload: any = {
+                    position_id: pos.position_id,
+                    symbol: pos.symbol,
+                    account_id: pos.target_acc_id || pos.account_id || activeAccId,
+                    broker: pos.broker || pos.target_broker || activeBroker
+                  };
+                  const existingSl = pos.stop_loss !== undefined ? pos.stop_loss : (pos.sl !== undefined ? pos.sl : 0);
+                  const existingTp = pos.take_profit !== undefined ? pos.take_profit : (pos.tp !== undefined ? pos.tp : 0);
+
+                  if (isSl) {
+                    payload.stop_loss = targetPrice;
+                    payload.take_profit = existingTp;
+                  } else {
+                    payload.stop_loss = existingSl;
+                    payload.take_profit = targetPrice;
+                  }
+
+                  fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                  })
+                    .then(res => res.json())
+                    .then(data => {
+                      if (data.status === 'success' || data.success) {
+                        if (onRefresh) onRefresh();
+                      } else {
+                        alert(`Failed to update ${label}: ${data.message || 'Unknown error'}`);
+                      }
+                    })
+                    .catch(err => {
+                      console.error(`Error modifying ${label}:`, err);
+                      alert(`Error modifying ${label}: ${err.message}`);
+                    });
+                };
 
                 const activeSlY = activeSlPrice > 0 && candlestickSeriesRef.current ? candlestickSeriesRef.current.priceToCoordinate(activeSlPrice) : slY;
                 const activeTpY = activeTpPrice > 0 && candlestickSeriesRef.current ? candlestickSeriesRef.current.priceToCoordinate(activeTpPrice) : tpY;
@@ -2971,8 +3072,47 @@ export default function TVChart({
                 const candleHighPrice = matchedCandleObj ? matchedCandleObj.high : entryPrice;
                 const candleHighY = candleHighPrice > 0 && candlestickSeriesRef.current ? candlestickSeriesRef.current.priceToCoordinate(candleHighPrice) : entryY;
 
+                const isDraggingThisPos = draggingBadge?.position?.position_id === pos.position_id;
+                const draggingType = isDraggingThisPos ? draggingBadge?.type : null;
+                const activeDragY = draggingType === 'sl' ? activeSlY : (draggingType === 'tp' ? activeTpY : null);
+
                 return (
                   <g key={`svg-pos-badge-${pos.position_id}`}>
+                    {/* Live Dragging Visual Guideline & Floating Indicator */}
+                    {isDraggingThisPos && activeDragY !== null && activeDragY > 0 && activeDragY < chartHeight - 26 && (
+                      <g style={{ pointerEvents: 'none' }}>
+                        <line
+                          x1={0}
+                          y1={activeDragY}
+                          x2={plotWidth}
+                          y2={activeDragY}
+                          stroke={draggingType === 'sl' ? '#ef4444' : '#10b981'}
+                          strokeWidth={2}
+                          strokeDasharray="4 4"
+                        />
+                        <rect
+                          x={plotWidth / 2 - 100}
+                          y={Math.max(10, activeDragY - 34)}
+                          width={200}
+                          height={28}
+                          rx={6}
+                          fill="#0f172a"
+                          stroke={draggingType === 'sl' ? '#ef4444' : '#10b981'}
+                          strokeWidth={2}
+                        />
+                        <text
+                          x={plotWidth / 2}
+                          y={Math.max(28, activeDragY - 15)}
+                          fill="#ffffff"
+                          fontSize="11"
+                          fontWeight="bold"
+                          textAnchor="middle"
+                        >
+                          {draggingType?.toUpperCase()}: {(draggingType === 'sl' ? activeSlPrice : activeTpPrice).toFixed(5)} {draggingType === 'sl' ? slLossStr : tpWinStr}
+                        </text>
+                      </g>
+                    )}
+
                     {/* Entry Triangle Indicator on Candle High */}
                     {entryX !== null && entryX > 0 && entryX < plotWidth && candleHighY !== null && candleHighY > 0 && candleHighY < chartHeight - 26 && (
                       <g style={{ pointerEvents: 'none' }}>
@@ -3025,11 +3165,12 @@ export default function TVChart({
                       </g>
                     )}
 
-                    {/* SL Badge - Drag & Drop New SL */}
+                    {/* SL Badge - Drag & Drop New SL / Double Click to Edit */}
                     {(chartSettings.showPositionsSlTp !== false) && activeSlY !== null && activeSlY > 0 && activeSlY < chartHeight - 26 && (
                       <g
                         style={{ cursor: 'ns-resize', pointerEvents: 'all' }}
                         onMouseDown={handleSlMouseDown}
+                        onDoubleClick={(e) => handleBadgeDoubleClick(e, 'sl')}
                       >
                         <rect
                           x={plotWidth - 145}
@@ -3055,11 +3196,12 @@ export default function TVChart({
                       </g>
                     )}
 
-                    {/* TP Badge - Drag & Drop New TP */}
+                    {/* TP Badge - Drag & Drop New TP / Double Click to Edit */}
                     {(chartSettings.showPositionsSlTp !== false) && activeTpY !== null && activeTpY > 0 && activeTpY < chartHeight - 26 && (
                       <g
                         style={{ cursor: 'ns-resize', pointerEvents: 'all' }}
                         onMouseDown={handleTpMouseDown}
+                        onDoubleClick={(e) => handleBadgeDoubleClick(e, 'tp')}
                       >
                         <rect
                           x={plotWidth - 145}
