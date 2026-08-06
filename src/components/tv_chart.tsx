@@ -678,6 +678,77 @@ export default function TVChart({
   // Context menu state for price alert creation
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; price: number } | null>(null);
 
+  // SL / TP manual edit modal state
+  const [slTpEditModal, setSlTpEditModal] = useState<{
+    position: any;
+    type: 'sl' | 'tp';
+    priceInput: string;
+    dollarInput: string;
+    isSaving?: boolean;
+  } | null>(null);
+
+  const handleConfirmSlTpModal = async () => {
+    if (!slTpEditModal) return;
+    const { position: pos, type, priceInput } = slTpEditModal;
+    const targetPrice = parseFloat(priceInput);
+
+    if (isNaN(targetPrice) || targetPrice <= 0) {
+      alert('Please enter a valid target price.');
+      return;
+    }
+
+    setSlTpEditModal(prev => prev ? { ...prev, isSaving: true } : null);
+
+    const endpoint = `${API_BASE_URL}/api/trade/modify_position`;
+    const activeAccId = localStorage.getItem('wyckoff_active_account_id');
+    let activeBroker = 'metatrader';
+    try {
+      const saved = localStorage.getItem('wyckoff_active_account');
+      if (saved) {
+        const parsedAcc = JSON.parse(saved);
+        if (parsedAcc && parsedAcc.broker_type) activeBroker = parsedAcc.broker_type;
+      }
+    } catch (err) { }
+
+    const isSl = type === 'sl';
+    const payload: any = {
+      position_id: pos.position_id,
+      symbol: pos.symbol,
+      account_id: pos.target_acc_id || pos.account_id || activeAccId,
+      broker: pos.broker || pos.target_broker || activeBroker
+    };
+    const existingSl = pos.stop_loss !== undefined ? pos.stop_loss : (pos.sl !== undefined ? pos.sl : 0);
+    const existingTp = pos.take_profit !== undefined ? pos.take_profit : (pos.tp !== undefined ? pos.tp : 0);
+
+    if (isSl) {
+      payload.stop_loss = targetPrice;
+      payload.take_profit = existingTp;
+    } else {
+      payload.stop_loss = existingSl;
+      payload.take_profit = targetPrice;
+    }
+
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.status === 'success' || data.success) {
+        setSlTpEditModal(null);
+        if (onRefresh) onRefresh();
+      } else {
+        alert(`Failed to update ${type.toUpperCase()}: ${data.message || 'Unknown error'}`);
+      }
+    } catch (err: any) {
+      console.error(`Error modifying ${type.toUpperCase()}:`, err);
+      alert(`Error modifying ${type.toUpperCase()}: ${err.message}`);
+    } finally {
+      setSlTpEditModal(prev => prev ? { ...prev, isSaving: false } : null);
+    }
+  };
+
   useEffect(() => {
     chartHeightRef.current = chartHeight;
     weisHeightRef.current = weisHeight;
@@ -2966,98 +3037,20 @@ export default function TVChart({
 
                   const isSl = type === 'sl';
                   const currentVal = isSl ? slPrice : tpPrice;
-                  const currentEstPnl = (currentVal > 0 && volNum > 0 && entryPrice > 0)
-                    ? (isBuy ? (currentVal - entryPrice) : (entryPrice - currentVal)) * volNum * multiplier
-                    : 0;
+                  let initialPrice = currentVal > 0 ? currentVal.toFixed(5) : '';
+                  let initialDollar = '';
 
-                  const promptMessage =
-                    `Set new ${isSl ? 'Stop Loss (SL)' : 'Take Profit (TP)'} for position #${pos.position_id} (${pos.symbol}):\n\n` +
-                    `• Enter Target Price (e.g. ${entryPrice ? (isBuy ? (entryPrice * (isSl ? 0.99 : 1.01)).toFixed(5) : (entryPrice * (isSl ? 1.01 : 0.99)).toFixed(5)) : '1.08500'})\n` +
-                    `• OR enter $ Amount (e.g. -25 for -$25.00 loss, or 50 for +$50.00 profit):`;
-
-                  const defaultValue = currentVal > 0 ? currentVal.toFixed(5) : (currentEstPnl !== 0 ? `${currentEstPnl.toFixed(2)}` : '');
-                  const input = window.prompt(promptMessage, defaultValue);
-                  if (!input || input.trim() === '') return;
-
-                  const cleanInput = input.trim().replace('$', '');
-                  const parsed = parseFloat(cleanInput);
-                  if (isNaN(parsed)) {
-                    alert('Invalid number format.');
-                    return;
+                  if (currentVal > 0 && entryPrice > 0 && volNum > 0) {
+                    const diff = isBuy ? (currentVal - entryPrice) : (entryPrice - currentVal);
+                    initialDollar = (diff * volNum * multiplier).toFixed(2);
                   }
 
-                  let targetPrice = parsed;
-
-                  if (parsed < 0 || (entryPrice > 0 && Math.abs(parsed) < entryPrice * 0.2)) {
-                    if (volNum <= 0) {
-                      alert('Cannot calculate price from dollar amount: position volume missing.');
-                      return;
-                    }
-                    const priceDiff = parsed / (volNum * multiplier);
-                    targetPrice = isBuy ? (entryPrice + priceDiff) : (entryPrice - priceDiff);
-                  }
-
-                  if (targetPrice <= 0) {
-                    alert('Invalid target price calculated.');
-                    return;
-                  }
-
-                  const label = isSl ? 'Stop Loss (SL)' : 'Take Profit (TP)';
-                  const estDiff = isBuy ? (targetPrice - entryPrice) : (entryPrice - targetPrice);
-                  const estDollarPnl = volNum > 0 ? estDiff * volNum * multiplier : 0;
-                  const estDollarStr = volNum > 0 ? ` (${estDollarPnl >= 0 ? '+' : ''}$${estDollarPnl.toFixed(2)})` : '';
-
-                  const confirmMsg =
-                    `Confirm updating ${label} for position #${pos.position_id}?\n\n` +
-                    `New Price: ${targetPrice.toFixed(5)}${estDollarStr}`;
-
-                  if (!window.confirm(confirmMsg)) return;
-
-                  const endpoint = `${API_BASE_URL}/api/trade/modify_position`;
-                  const activeAccId = localStorage.getItem('wyckoff_active_account_id');
-                  let activeBroker = 'metatrader';
-                  try {
-                    const saved = localStorage.getItem('wyckoff_active_account');
-                    if (saved) {
-                      const parsedAcc = JSON.parse(saved);
-                      if (parsedAcc && parsedAcc.broker_type) activeBroker = parsedAcc.broker_type;
-                    }
-                  } catch (err) { }
-
-                  const payload: any = {
-                    position_id: pos.position_id,
-                    symbol: pos.symbol,
-                    account_id: pos.target_acc_id || pos.account_id || activeAccId,
-                    broker: pos.broker || pos.target_broker || activeBroker
-                  };
-                  const existingSl = pos.stop_loss !== undefined ? pos.stop_loss : (pos.sl !== undefined ? pos.sl : 0);
-                  const existingTp = pos.take_profit !== undefined ? pos.take_profit : (pos.tp !== undefined ? pos.tp : 0);
-
-                  if (isSl) {
-                    payload.stop_loss = targetPrice;
-                    payload.take_profit = existingTp;
-                  } else {
-                    payload.stop_loss = existingSl;
-                    payload.take_profit = targetPrice;
-                  }
-
-                  fetch(endpoint, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                  })
-                    .then(res => res.json())
-                    .then(data => {
-                      if (data.status === 'success' || data.success) {
-                        if (onRefresh) onRefresh();
-                      } else {
-                        alert(`Failed to update ${label}: ${data.message || 'Unknown error'}`);
-                      }
-                    })
-                    .catch(err => {
-                      console.error(`Error modifying ${label}:`, err);
-                      alert(`Error modifying ${label}: ${err.message}`);
-                    });
+                  setSlTpEditModal({
+                    position: pos,
+                    type,
+                    priceInput: initialPrice,
+                    dollarInput: initialDollar
+                  });
                 };
 
                 const activeSlY = activeSlPrice > 0 && candlestickSeriesRef.current ? candlestickSeriesRef.current.priceToCoordinate(activeSlPrice) : slY;
@@ -3393,6 +3386,187 @@ export default function TVChart({
 
         <div ref={weisContainerRef} style={{ width: '100%', height: weisHeight, touchAction: 'none' }} />
       </div>
+
+      {/* Interactive SL / TP Edit Modal */}
+      {slTpEditModal && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px'
+          }}
+          onClick={() => setSlTpEditModal(null)}
+        >
+          <div
+            style={{
+              backgroundColor: '#0f172a',
+              border: `1px solid ${slTpEditModal.type === 'sl' ? '#ef4444' : '#10b981'}`,
+              borderRadius: '12px',
+              padding: '20px',
+              width: '100%',
+              maxWidth: '380px',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.6)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 'bold', color: slTpEditModal.type === 'sl' ? '#ef4444' : '#10b981', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span>{slTpEditModal.type === 'sl' ? '🛑 Set Stop Loss (SL)' : '🎯 Set Take Profit (TP)'}</span>
+              </h3>
+              <button
+                onClick={() => setSlTpEditModal(null)}
+                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ fontSize: '12px', color: '#94a3b8', backgroundColor: '#1e293b', padding: '8px 12px', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>Pos #{slTpEditModal.position.position_id} ({slTpEditModal.position.symbol})</span>
+              <span style={{ fontWeight: 'bold', color: (slTpEditModal.position.trade_side || 'BUY').toUpperCase() === 'BUY' ? '#3b82f6' : '#ec4899' }}>
+                {(slTpEditModal.position.trade_side || 'BUY').toUpperCase()} {slTpEditModal.position.volume}
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#cbd5e1' }}>Price Value:</label>
+                <input
+                  type="number"
+                  step="any"
+                  value={slTpEditModal.priceInput}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const pos = slTpEditModal.position;
+                    const isBuy = (pos.trade_side || 'BUY').toUpperCase() === 'BUY';
+                    const entryPrice = parseFloat(pos.entry_price ?? pos.entryPrice ?? 0);
+                    const volNum = parseFloat(pos.volume as any) || 0;
+                    const isJpy = (symbol || '').toUpperCase().includes('JPY');
+                    const multiplier = isJpy ? 1000 : 100000;
+
+                    let estDollar = '';
+                    const priceNum = parseFloat(val);
+                    if (!isNaN(priceNum) && entryPrice > 0 && volNum > 0) {
+                      const diff = isBuy ? (priceNum - entryPrice) : (entryPrice - priceNum);
+                      estDollar = (diff * volNum * multiplier).toFixed(2);
+                    }
+                    setSlTpEditModal({
+                      ...slTpEditModal,
+                      priceInput: val,
+                      dollarInput: estDollar
+                    });
+                  }}
+                  placeholder="e.g. 1.08500"
+                  style={{
+                    backgroundColor: '#1e293b',
+                    border: '1px solid #334155',
+                    borderRadius: '6px',
+                    padding: '8px 12px',
+                    color: '#ffffff',
+                    fontSize: '13px',
+                    fontWeight: 'bold',
+                    outline: 'none'
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#cbd5e1' }}>$ Amount (P&L):</label>
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <span style={{ position: 'absolute', left: '10px', color: '#94a3b8', fontWeight: 'bold', fontSize: '13px' }}>$</span>
+                  <input
+                    type="number"
+                    step="any"
+                    value={slTpEditModal.dollarInput}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const pos = slTpEditModal.position;
+                      const isBuy = (pos.trade_side || 'BUY').toUpperCase() === 'BUY';
+                      const entryPrice = parseFloat(pos.entry_price ?? pos.entryPrice ?? 0);
+                      const volNum = parseFloat(pos.volume as any) || 0;
+                      const isJpy = (symbol || '').toUpperCase().includes('JPY');
+                      const multiplier = isJpy ? 1000 : 100000;
+
+                      let estPrice = '';
+                      const dollarNum = parseFloat(val);
+                      if (!isNaN(dollarNum) && entryPrice > 0 && volNum > 0) {
+                        const priceDiff = dollarNum / (volNum * multiplier);
+                        const calculatedPrice = isBuy ? (entryPrice + priceDiff) : (entryPrice - priceDiff);
+                        estPrice = calculatedPrice.toFixed(5);
+                      }
+                      setSlTpEditModal({
+                        ...slTpEditModal,
+                        dollarInput: val,
+                        priceInput: estPrice
+                      });
+                    }}
+                    placeholder="e.g. -25.00 or 50.00"
+                    style={{
+                      width: '100%',
+                      backgroundColor: '#1e293b',
+                      border: '1px solid #334155',
+                      borderRadius: '6px',
+                      padding: '8px 12px 8px 24px',
+                      color: parseFloat(slTpEditModal.dollarInput) >= 0 ? '#10b981' : '#ef4444',
+                      fontSize: '13px',
+                      fontWeight: 'bold',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '8px' }}>
+              <button
+                onClick={() => setSlTpEditModal(null)}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '6px',
+                  backgroundColor: '#1e293b',
+                  color: '#94a3b8',
+                  border: '1px solid #334155',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  fontWeight: 'bold'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmSlTpModal}
+                disabled={slTpEditModal.isSaving}
+                style={{
+                  padding: '8px 20px',
+                  borderRadius: '6px',
+                  backgroundColor: slTpEditModal.type === 'sl' ? '#ef4444' : '#10b981',
+                  color: '#ffffff',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  fontWeight: 'bold',
+                  opacity: slTpEditModal.isSaving ? 0.6 : 1
+                }}
+              >
+                {slTpEditModal.isSaving ? 'Saving...' : 'OK'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
