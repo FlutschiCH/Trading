@@ -678,18 +678,64 @@ export default function TVChart({
   // Context menu state for price alert creation
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; price: number } | null>(null);
 
+  // Available accounts for multi-edit SL/TP sync
+  const [availableAccounts, setAvailableAccounts] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/api/accounts`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === 'success' && Array.isArray(data.data)) {
+          setAvailableAccounts(data.data);
+        }
+      })
+      .catch(err => console.error('Failed to fetch accounts:', err));
+  }, []);
+
   // SL / TP manual edit modal state
   const [slTpEditModal, setSlTpEditModal] = useState<{
     position: any;
     type: 'sl' | 'tp';
     priceInput: string;
     dollarInput: string;
+    selectedAccountIds: string[];
     isSaving?: boolean;
   } | null>(null);
 
+  const openSlTpEditModal = (pos: any, type: 'sl' | 'tp', priceToUse?: number) => {
+    const isSl = type === 'sl';
+    const isBuy = (pos.trade_side || pos.type || pos.side || 'BUY').toUpperCase() === 'BUY';
+    const entryPrice = parseFloat(pos.entry_price ?? pos.entryPrice ?? 0);
+    const currentVal = priceToUse !== undefined ? priceToUse : (isSl ? parseFloat(pos.stop_loss ?? pos.sl ?? 0) : parseFloat(pos.take_profit ?? pos.tp ?? 0));
+    const volNum = parseFloat(pos.volume as any) || 0;
+    const isJpy = (symbol || '').toUpperCase().includes('JPY');
+    const multiplier = isJpy ? 1000 : 100000;
+
+    let initialPrice = currentVal > 0 ? currentVal.toFixed(5) : '';
+    let initialDollar = '';
+
+    if (currentVal > 0 && entryPrice > 0 && volNum > 0) {
+      const diff = isBuy ? (currentVal - entryPrice) : (entryPrice - currentVal);
+      initialDollar = (diff * volNum * multiplier).toFixed(2);
+    }
+
+    const posAccId = String(pos.target_acc_id || pos.account_id || localStorage.getItem('wyckoff_active_account_id') || '');
+    const allAccIds = availableAccounts.length > 0
+      ? availableAccounts.map(a => String(a.account_id))
+      : [posAccId];
+
+    setSlTpEditModal({
+      position: pos,
+      type,
+      priceInput: initialPrice,
+      dollarInput: initialDollar,
+      selectedAccountIds: allAccIds
+    });
+  };
+
   const handleConfirmSlTpModal = async () => {
     if (!slTpEditModal) return;
-    const { position: pos, type, priceInput } = slTpEditModal;
+    const { position: pos, type, priceInput, selectedAccountIds } = slTpEditModal;
     const targetPrice = parseFloat(priceInput);
 
     if (isNaN(targetPrice) || targetPrice <= 0) {
@@ -699,48 +745,99 @@ export default function TVChart({
 
     setSlTpEditModal(prev => prev ? { ...prev, isSaving: true } : null);
 
-    const endpoint = `${API_BASE_URL}/api/trade/modify_position`;
-    const activeAccId = localStorage.getItem('wyckoff_active_account_id');
-    let activeBroker = 'metatrader';
-    try {
-      const saved = localStorage.getItem('wyckoff_active_account');
-      if (saved) {
-        const parsedAcc = JSON.parse(saved);
-        if (parsedAcc && parsedAcc.broker_type) activeBroker = parsedAcc.broker_type;
-      }
-    } catch (err) { }
-
     const isSl = type === 'sl';
-    const payload: any = {
-      position_id: pos.position_id,
-      symbol: pos.symbol,
-      account_id: pos.target_acc_id || pos.account_id || activeAccId,
-      broker: pos.broker || pos.target_broker || activeBroker
-    };
-    const existingSl = pos.stop_loss !== undefined ? pos.stop_loss : (pos.sl !== undefined ? pos.sl : 0);
-    const existingTp = pos.take_profit !== undefined ? pos.take_profit : (pos.tp !== undefined ? pos.tp : 0);
+    const targetSymbolClean = String(pos.symbol || symbol || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+    const posSide = (pos.trade_side || pos.type || pos.side || 'BUY').toUpperCase();
 
-    if (isSl) {
-      payload.stop_loss = targetPrice;
-      payload.take_profit = existingTp;
+    let positionsList: any[] = [];
+    if (Array.isArray(openPositions) && openPositions.length > 0) {
+      positionsList = openPositions;
     } else {
-      payload.stop_loss = existingSl;
-      payload.take_profit = targetPrice;
+      try {
+        const stored = localStorage.getItem('wyckoff_active_positions');
+        if (stored) positionsList = JSON.parse(stored);
+      } catch (e) { }
     }
 
-    try {
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+    const accountsToUpdate = selectedAccountIds && selectedAccountIds.length > 0
+      ? selectedAccountIds
+      : [String(pos.target_acc_id || pos.account_id || '')];
+
+    const updatePromises: Promise<any>[] = [];
+    const activeAccId = localStorage.getItem('wyckoff_active_account_id');
+
+    accountsToUpdate.forEach((accId) => {
+      const accMatchingPositions = positionsList.filter((p) => {
+        if (!p) return false;
+        const pAccId = String(p.target_acc_id || p.account_id || '');
+        const pSymbolClean = String(p.symbol || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+        const pSide = (p.trade_side || p.type || p.side || 'BUY').toUpperCase();
+        return pAccId === String(accId) && (pSymbolClean.includes(targetSymbolClean) || targetSymbolClean.includes(pSymbolClean)) && pSide === posSide;
       });
-      const data = await res.json();
-      if (data.status === 'success' || data.success) {
-        setSlTpEditModal(null);
-        if (onRefresh) onRefresh();
+
+      if (accMatchingPositions.length > 0) {
+        accMatchingPositions.forEach((matchingPos) => {
+          const payload: any = {
+            position_id: matchingPos.position_id,
+            symbol: matchingPos.symbol || pos.symbol,
+            account_id: matchingPos.target_acc_id || matchingPos.account_id || accId,
+            broker: matchingPos.broker || matchingPos.target_broker || 'metatrader'
+          };
+          const existingSl = matchingPos.stop_loss !== undefined ? matchingPos.stop_loss : (matchingPos.sl !== undefined ? matchingPos.sl : 0);
+          const existingTp = matchingPos.take_profit !== undefined ? matchingPos.take_profit : (matchingPos.tp !== undefined ? matchingPos.tp : 0);
+
+          if (isSl) {
+            payload.stop_loss = targetPrice;
+            payload.take_profit = existingTp;
+          } else {
+            payload.stop_loss = existingSl;
+            payload.take_profit = targetPrice;
+          }
+
+          updatePromises.push(
+            fetch(`${API_BASE_URL}/api/trade/modify_position`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            }).then(res => res.json())
+          );
+        });
       } else {
-        alert(`Failed to update ${type.toUpperCase()}: ${data.message || 'Unknown error'}`);
+        const payload: any = {
+          position_id: pos.position_id,
+          symbol: pos.symbol,
+          account_id: accId,
+          broker: pos.broker || pos.target_broker || 'metatrader'
+        };
+        const existingSl = pos.stop_loss !== undefined ? pos.stop_loss : (pos.sl !== undefined ? pos.sl : 0);
+        const existingTp = pos.take_profit !== undefined ? pos.take_profit : (pos.tp !== undefined ? pos.tp : 0);
+
+        if (isSl) {
+          payload.stop_loss = targetPrice;
+          payload.take_profit = existingTp;
+        } else {
+          payload.stop_loss = existingSl;
+          payload.take_profit = targetPrice;
+        }
+
+        updatePromises.push(
+          fetch(`${API_BASE_URL}/api/trade/modify_position`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          }).then(res => res.json())
+        );
       }
+    });
+
+    try {
+      const results = await Promise.all(updatePromises);
+      const failures = results.filter(r => r && (r.status === 'error' || (r.success === false && !r.status)));
+      if (failures.length > 0) {
+        alert(`Updated position(s), but ${failures.length} request(s) failed: ${failures[0].message || 'Error'}`);
+      }
+      setSlTpEditModal(null);
+      if (onRefresh) onRefresh();
     } catch (err: any) {
       console.error(`Error modifying ${type.toUpperCase()}:`, err);
       alert(`Error modifying ${type.toUpperCase()}: ${err.message}`);
@@ -2963,75 +3060,9 @@ export default function TVChart({
                     setDraggingBadge(null);
 
                     if (isDragging) {
-                      const label = type === 'sl' ? 'Stop Loss (SL)' : 'Take Profit (TP)';
-                      const confirmed = window.confirm(
-                        `Are you sure you want to update ${label} for position #${pos.position_id} (${pos.symbol})?\n\n` +
-                        `Old ${type.toUpperCase()}: ${priceVal.toFixed(5)}\n` +
-                        `New ${type.toUpperCase()}: ${finalPrice.toFixed(5)}`
-                      );
-
-                      if (confirmed) {
-                        const endpoint = `${API_BASE_URL}/api/trade/modify_position`;
-                        const activeAccId = localStorage.getItem('wyckoff_active_account_id');
-                        let activeBroker = 'metatrader';
-                        try {
-                          const saved = localStorage.getItem('wyckoff_active_account');
-                          if (saved) {
-                            const parsed = JSON.parse(saved);
-                            if (parsed && parsed.broker_type) activeBroker = parsed.broker_type;
-                          }
-                        } catch (err) { }
-
-                        const payload: any = {
-                          position_id: pos.position_id,
-                          symbol: pos.symbol,
-                          account_id: pos.target_acc_id || pos.account_id || activeAccId,
-                          broker: pos.broker || pos.target_broker || activeBroker
-                        };
-                        const existingSl = pos.stop_loss !== undefined ? pos.stop_loss : (pos.sl !== undefined ? pos.sl : 0);
-                        const existingTp = pos.take_profit !== undefined ? pos.take_profit : (pos.tp !== undefined ? pos.tp : 0);
-
-                        if (type === 'sl') {
-                          payload.stop_loss = finalPrice;
-                          payload.take_profit = existingTp;
-                        } else {
-                          payload.stop_loss = existingSl;
-                          payload.take_profit = finalPrice;
-                        }
-
-                        fetch(endpoint, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify(payload)
-                        })
-                          .then(res => res.json())
-                          .then(data => {
-                            if (data.status === 'success' || data.success) {
-                              if (onRefresh) onRefresh();
-                            } else {
-                              alert(`Failed to update ${label}: ${data.message || 'Unknown error'}`);
-                            }
-                          })
-                          .catch(err => {
-                            console.error(`Error modifying ${label}:`, err);
-                            alert(`Error modifying ${label}: ${err.message}`);
-                          });
-                      }
+                      openSlTpEditModal(pos, type, finalPrice);
                     } else {
-                      let initialPrice = priceVal > 0 ? priceVal.toFixed(5) : '';
-                      let initialDollar = '';
-
-                      if (priceVal > 0 && entryPrice > 0 && volNum > 0) {
-                        const diff = isBuy ? (priceVal - entryPrice) : (entryPrice - priceVal);
-                        initialDollar = (diff * volNum * multiplier).toFixed(2);
-                      }
-
-                      setSlTpEditModal({
-                        position: pos,
-                        type,
-                        priceInput: initialPrice,
-                        dollarInput: initialDollar
-                      });
+                      openSlTpEditModal(pos, type);
                     }
                   };
 
@@ -3510,6 +3541,74 @@ export default function TVChart({
                       boxSizing: 'border-box'
                     }}
                   />
+                </div>
+              </div>
+
+              {/* Account Multi-Selection */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', borderTop: '1px solid #334155', paddingTop: '10px', marginTop: '4px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#cbd5e1' }}>
+                    Sync Target Price to Accounts:
+                  </label>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const all = availableAccounts.length > 0
+                          ? availableAccounts.map(a => String(a.account_id))
+                          : [String(slTpEditModal.position.target_acc_id || slTpEditModal.position.account_id || '')];
+                        setSlTpEditModal({ ...slTpEditModal, selectedAccountIds: all });
+                      }}
+                      style={{ background: 'none', border: 'none', color: '#3b82f6', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', padding: 0 }}
+                    >
+                      Select All
+                    </button>
+                    <span style={{ color: '#475569', fontSize: '11px' }}>|</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const currAccId = String(slTpEditModal.position.target_acc_id || slTpEditModal.position.account_id || '');
+                        setSlTpEditModal({ ...slTpEditModal, selectedAccountIds: [currAccId] });
+                      }}
+                      style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '11px', cursor: 'pointer', padding: 0 }}
+                    >
+                      Current Only
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ maxHeight: '110px', overflowY: 'auto', backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '6px', padding: '6px 10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {availableAccounts.length > 0 ? (
+                    availableAccounts.map(acc => {
+                      const accIdStr = String(acc.account_id);
+                      const isChecked = slTpEditModal.selectedAccountIds.includes(accIdStr);
+                      return (
+                        <label key={accIdStr} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '11px', color: '#ffffff' }}>
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              const nextIds = e.target.checked
+                                ? [...slTpEditModal.selectedAccountIds, accIdStr]
+                                : slTpEditModal.selectedAccountIds.filter(id => id !== accIdStr);
+                              setSlTpEditModal({ ...slTpEditModal, selectedAccountIds: nextIds });
+                            }}
+                            style={{ cursor: 'pointer' }}
+                          />
+                          <span style={{ fontWeight: 'bold' }}>{acc.name || acc.account_id}</span>
+                          <span style={{ fontSize: '10px', color: '#94a3b8' }}>({acc.broker_type || 'MT5'})</span>
+                        </label>
+                      );
+                    })
+                  ) : (
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '11px', color: '#ffffff' }}>
+                      <input type="checkbox" checked={true} readOnly />
+                      <span>Current Account ({slTpEditModal.position.target_acc_id || slTpEditModal.position.account_id || 'Active'})</span>
+                    </label>
+                  )}
+                </div>
+                <div style={{ fontSize: '10px', color: '#94a3b8', fontStyle: 'italic' }}>
+                  Exact price <span style={{ color: '#ffffff', fontWeight: 'bold' }}>{slTpEditModal.priceInput || '0.00000'}</span> will be synced across selected accounts.
                 </div>
               </div>
             </div>
