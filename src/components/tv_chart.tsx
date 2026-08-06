@@ -2225,101 +2225,10 @@ export default function TVChart({
   };
 
   const handleSVGMouseUp = () => {
-    if (draggingBadgeRef.current) {
-      const active = draggingBadgeRef.current;
-      setDraggingBadge(null);
-      const isSl = active.type === 'sl';
-      const label = isSl ? 'Stop Loss (SL)' : 'Take Profit (TP)';
-      const pos = active.position;
-      const confirmed = window.confirm(
-        `Are you sure you want to update ${label} for position #${pos.position_id} (${pos.symbol})?\n\n` +
-        `Old ${active.type.toUpperCase()}: ${active.originalPrice.toFixed(5)}\n` +
-        `New ${active.type.toUpperCase()}: ${active.currentPrice.toFixed(5)}`
-      );
-
-      if (confirmed) {
-        // Send position modification request to backend
-        const endpoint = `${API_BASE_URL}/api/trade/modify_position`;
-        const activeAccId = localStorage.getItem('wyckoff_active_account_id');
-        let activeBroker = 'metatrader';
-        try {
-          const saved = localStorage.getItem('wyckoff_active_account');
-          if (saved) {
-            const parsed = JSON.parse(saved);
-            if (parsed && parsed.broker_type) activeBroker = parsed.broker_type;
-          }
-        } catch (e) { }
-
-        const payload: any = {
-          position_id: pos.position_id,
-          symbol: pos.symbol,
-          account_id: pos.target_acc_id || pos.account_id || activeAccId,
-          broker: pos.broker || pos.target_broker || activeBroker
-        };
-        const existingSl = pos.stop_loss !== undefined ? pos.stop_loss : (pos.sl !== undefined ? pos.sl : 0);
-        const existingTp = pos.take_profit !== undefined ? pos.take_profit : (pos.tp !== undefined ? pos.tp : 0);
-
-        if (isSl) {
-          payload.stop_loss = active.currentPrice;
-          payload.take_profit = existingTp;
-        } else {
-          payload.stop_loss = existingSl;
-          payload.take_profit = active.currentPrice;
-        }
-
-        fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        })
-          .then(res => res.json())
-          .then(data => {
-            if (data.status === 'success' || data.success) {
-              onRefresh?.();
-            } else {
-              alert(`Failed to update ${label}: ${data.message || 'Unknown error'}`);
-            }
-          })
-          .catch(err => {
-            console.error(`Error modifying ${label}:`, err);
-            alert(`Error modifying ${label}: ${err.message}`);
-          });
-      }
-      return;
-    }
-
     if (!drawingPreview) return;
     setDrawings([...drawings, drawingPreview]);
     setDrawingPreview(null);
   };
-
-  // Window-level mouse listener while dragging SL/TP badge
-  useEffect(() => {
-    if (!draggingBadge) return;
-
-    const onGlobalMouseMove = (e: MouseEvent) => {
-      if (candlestickSeriesRef.current && chartContainerRef.current) {
-        const rect = chartContainerRef.current.getBoundingClientRect();
-        const y = e.clientY - rect.top;
-        const newPrice = candlestickSeriesRef.current.coordinateToPrice(y);
-        if (newPrice && !isNaN(newPrice)) {
-          setDraggingBadge(prev => prev ? { ...prev, currentPrice: newPrice } : null);
-        }
-      }
-    };
-
-    const onGlobalMouseUp = () => {
-      handleSVGMouseUp();
-    };
-
-    window.addEventListener('mousemove', onGlobalMouseMove);
-    window.addEventListener('mouseup', onGlobalMouseUp);
-
-    return () => {
-      window.removeEventListener('mousemove', onGlobalMouseMove);
-      window.removeEventListener('mouseup', onGlobalMouseUp);
-    };
-  }, [draggingBadge]);
 
   const styles = {
     container: {
@@ -3006,51 +2915,128 @@ export default function TVChart({
                   }
                 };
 
-                const handleSlMouseDown = (e: React.MouseEvent) => {
+                const handleBadgeMouseDown = (e: React.MouseEvent, type: 'sl' | 'tp') => {
                   e.stopPropagation();
                   e.preventDefault();
                   if (!candlestickSeriesRef.current) return;
-                  setDraggingBadge({
-                    position: pos,
-                    type: 'sl',
-                    originalPrice: slPrice,
-                    currentPrice: slPrice
-                  });
-                };
 
-                const handleTpMouseDown = (e: React.MouseEvent) => {
-                  e.stopPropagation();
-                  e.preventDefault();
-                  if (!candlestickSeriesRef.current) return;
-                  setDraggingBadge({
-                    position: pos,
-                    type: 'tp',
-                    originalPrice: tpPrice,
-                    currentPrice: tpPrice
-                  });
-                };
+                  const priceVal = type === 'sl'
+                    ? parseFloat(pos.stop_loss ?? pos.sl ?? 0)
+                    : parseFloat(pos.take_profit ?? pos.tp ?? 0);
 
-                const handleBadgeDoubleClick = (e: React.MouseEvent, type: 'sl' | 'tp') => {
-                  e.stopPropagation();
-                  e.preventDefault();
-                  setDraggingBadge(null);
+                  let isDragging = false;
+                  const startY = e.clientY;
 
-                  const isSl = type === 'sl';
-                  const currentVal = isSl ? slPrice : tpPrice;
-                  let initialPrice = currentVal > 0 ? currentVal.toFixed(5) : '';
-                  let initialDollar = '';
+                  const onGlobalMouseMove = (moveEvent: MouseEvent) => {
+                    const dy = Math.abs(moveEvent.clientY - startY);
+                    if (!isDragging && dy >= 5) {
+                      isDragging = true;
+                    }
 
-                  if (currentVal > 0 && entryPrice > 0 && volNum > 0) {
-                    const diff = isBuy ? (currentVal - entryPrice) : (entryPrice - currentVal);
-                    initialDollar = (diff * volNum * multiplier).toFixed(2);
-                  }
+                    if (isDragging && candlestickSeriesRef.current && chartContainerRef.current) {
+                      const rect = chartContainerRef.current.getBoundingClientRect();
+                      const y = moveEvent.clientY - rect.top;
+                      const newPrice = candlestickSeriesRef.current.coordinateToPrice(y);
+                      if (newPrice && !isNaN(newPrice)) {
+                        setDraggingBadge({
+                          position: pos,
+                          type,
+                          originalPrice: priceVal,
+                          currentPrice: newPrice
+                        });
+                      }
+                    }
+                  };
 
-                  setSlTpEditModal({
-                    position: pos,
-                    type,
-                    priceInput: initialPrice,
-                    dollarInput: initialDollar
-                  });
+                  const onGlobalMouseUp = (upEvent: MouseEvent) => {
+                    window.removeEventListener('mousemove', onGlobalMouseMove);
+                    window.removeEventListener('mouseup', onGlobalMouseUp);
+
+                    let finalPrice = priceVal;
+                    if (isDragging && candlestickSeriesRef.current && chartContainerRef.current) {
+                      const rect = chartContainerRef.current.getBoundingClientRect();
+                      const y = upEvent.clientY - rect.top;
+                      const p = candlestickSeriesRef.current.coordinateToPrice(y);
+                      if (p && !isNaN(p)) finalPrice = p;
+                    }
+
+                    setDraggingBadge(null);
+
+                    if (isDragging) {
+                      const label = type === 'sl' ? 'Stop Loss (SL)' : 'Take Profit (TP)';
+                      const confirmed = window.confirm(
+                        `Are you sure you want to update ${label} for position #${pos.position_id} (${pos.symbol})?\n\n` +
+                        `Old ${type.toUpperCase()}: ${priceVal.toFixed(5)}\n` +
+                        `New ${type.toUpperCase()}: ${finalPrice.toFixed(5)}`
+                      );
+
+                      if (confirmed) {
+                        const endpoint = `${API_BASE_URL}/api/trade/modify_position`;
+                        const activeAccId = localStorage.getItem('wyckoff_active_account_id');
+                        let activeBroker = 'metatrader';
+                        try {
+                          const saved = localStorage.getItem('wyckoff_active_account');
+                          if (saved) {
+                            const parsed = JSON.parse(saved);
+                            if (parsed && parsed.broker_type) activeBroker = parsed.broker_type;
+                          }
+                        } catch (err) { }
+
+                        const payload: any = {
+                          position_id: pos.position_id,
+                          symbol: pos.symbol,
+                          account_id: pos.target_acc_id || pos.account_id || activeAccId,
+                          broker: pos.broker || pos.target_broker || activeBroker
+                        };
+                        const existingSl = pos.stop_loss !== undefined ? pos.stop_loss : (pos.sl !== undefined ? pos.sl : 0);
+                        const existingTp = pos.take_profit !== undefined ? pos.take_profit : (pos.tp !== undefined ? pos.tp : 0);
+
+                        if (type === 'sl') {
+                          payload.stop_loss = finalPrice;
+                          payload.take_profit = existingTp;
+                        } else {
+                          payload.stop_loss = existingSl;
+                          payload.take_profit = finalPrice;
+                        }
+
+                        fetch(endpoint, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify(payload)
+                        })
+                          .then(res => res.json())
+                          .then(data => {
+                            if (data.status === 'success' || data.success) {
+                              if (onRefresh) onRefresh();
+                            } else {
+                              alert(`Failed to update ${label}: ${data.message || 'Unknown error'}`);
+                            }
+                          })
+                          .catch(err => {
+                            console.error(`Error modifying ${label}:`, err);
+                            alert(`Error modifying ${label}: ${err.message}`);
+                          });
+                      }
+                    } else {
+                      let initialPrice = priceVal > 0 ? priceVal.toFixed(5) : '';
+                      let initialDollar = '';
+
+                      if (priceVal > 0 && entryPrice > 0 && volNum > 0) {
+                        const diff = isBuy ? (priceVal - entryPrice) : (entryPrice - priceVal);
+                        initialDollar = (diff * volNum * multiplier).toFixed(2);
+                      }
+
+                      setSlTpEditModal({
+                        position: pos,
+                        type,
+                        priceInput: initialPrice,
+                        dollarInput: initialDollar
+                      });
+                    }
+                  };
+
+                  window.addEventListener('mousemove', onGlobalMouseMove);
+                  window.addEventListener('mouseup', onGlobalMouseUp);
                 };
 
                 const activeSlY = activeSlPrice > 0 && candlestickSeriesRef.current ? candlestickSeriesRef.current.priceToCoordinate(activeSlPrice) : slY;
@@ -3158,12 +3144,11 @@ export default function TVChart({
                       </g>
                     )}
 
-                    {/* SL Badge - Drag & Drop New SL / Double Click to Edit */}
+                    {/* SL Badge - Single Click to Edit / Drag to Move */}
                     {(chartSettings.showPositionsSlTp !== false) && activeSlY !== null && activeSlY > 0 && activeSlY < chartHeight - 26 && (
                       <g
                         style={{ cursor: 'ns-resize', pointerEvents: 'all' }}
-                        onMouseDown={handleSlMouseDown}
-                        onDoubleClick={(e) => handleBadgeDoubleClick(e, 'sl')}
+                        onMouseDown={(e) => handleBadgeMouseDown(e, 'sl')}
                       >
                         <rect
                           x={plotWidth - 145}
@@ -3189,12 +3174,11 @@ export default function TVChart({
                       </g>
                     )}
 
-                    {/* TP Badge - Drag & Drop New TP / Double Click to Edit */}
+                    {/* TP Badge - Single Click to Edit / Drag to Move */}
                     {(chartSettings.showPositionsSlTp !== false) && activeTpY !== null && activeTpY > 0 && activeTpY < chartHeight - 26 && (
                       <g
                         style={{ cursor: 'ns-resize', pointerEvents: 'all' }}
-                        onMouseDown={handleTpMouseDown}
-                        onDoubleClick={(e) => handleBadgeDoubleClick(e, 'tp')}
+                        onMouseDown={(e) => handleBadgeMouseDown(e, 'tp')}
                       >
                         <rect
                           x={plotWidth - 145}
