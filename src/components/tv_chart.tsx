@@ -702,6 +702,13 @@ export default function TVChart({
     isSaving?: boolean;
   } | null>(null);
 
+  const updateSelectedAccountIds = (newIds: string[]) => {
+    setSlTpEditModal(prev => prev ? { ...prev, selectedAccountIds: newIds } : null);
+    try {
+      localStorage.setItem('wyckoff_sltp_selected_account_ids', JSON.stringify(newIds));
+    } catch (e) { }
+  };
+
   const openSlTpEditModal = (pos: any, type: 'sl' | 'tp', priceToUse?: number) => {
     const isSl = type === 'sl';
     const isBuy = (pos.trade_side || pos.type || pos.side || 'BUY').toUpperCase() === 'BUY';
@@ -720,16 +727,30 @@ export default function TVChart({
     }
 
     const posAccId = String(pos.target_acc_id || pos.account_id || localStorage.getItem('wyckoff_active_account_id') || '');
-    const allAccIds = availableAccounts.length > 0
-      ? availableAccounts.map(a => String(a.account_id))
-      : [posAccId];
+    
+    let initialSelectedAccIds: string[] = [];
+    try {
+      const savedSelection = localStorage.getItem('wyckoff_sltp_selected_account_ids');
+      if (savedSelection) {
+        const parsed = JSON.parse(savedSelection);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          initialSelectedAccIds = parsed.map(String);
+        }
+      }
+    } catch (e) { }
+
+    if (initialSelectedAccIds.length === 0) {
+      initialSelectedAccIds = availableAccounts.length > 0
+        ? availableAccounts.map(a => String(a.account_id))
+        : [posAccId];
+    }
 
     setSlTpEditModal({
       position: pos,
       type,
       priceInput: initialPrice,
       dollarInput: initialDollar,
-      selectedAccountIds: allAccIds
+      selectedAccountIds: initialSelectedAccIds
     });
   };
 
@@ -743,74 +764,85 @@ export default function TVChart({
       return;
     }
 
+    try {
+      localStorage.setItem('wyckoff_sltp_selected_account_ids', JSON.stringify(selectedAccountIds));
+    } catch (e) { }
+
     setSlTpEditModal(prev => prev ? { ...prev, isSaving: true } : null);
 
     const isSl = type === 'sl';
     const targetSymbolClean = String(pos.symbol || symbol || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
     const posSide = (pos.trade_side || pos.type || pos.side || 'BUY').toUpperCase();
 
-    let positionsList: any[] = [];
-    if (Array.isArray(openPositions) && openPositions.length > 0) {
-      positionsList = openPositions;
-    } else {
-      try {
-        const stored = localStorage.getItem('wyckoff_active_positions');
-        if (stored) positionsList = JSON.parse(stored);
-      } catch (e) { }
-    }
-
     const accountsToUpdate = selectedAccountIds && selectedAccountIds.length > 0
       ? selectedAccountIds
       : [String(pos.target_acc_id || pos.account_id || '')];
 
     const updatePromises: Promise<any>[] = [];
-    const activeAccId = localStorage.getItem('wyckoff_active_account_id');
 
-    accountsToUpdate.forEach((accId) => {
+    for (const accId of accountsToUpdate) {
       const targetAccObj = availableAccounts.find(a => String(a.account_id) === String(accId));
       const targetBroker = targetAccObj?.broker_type || targetAccObj?.broker || pos.broker || pos.target_broker || 'metatrader';
+      const accName = targetAccObj?.name || accId;
 
-      const accMatchingPositions = positionsList.filter((p) => {
-        if (!p) return false;
-        const pAccId = String(p.target_acc_id || p.account_id || p.login || '');
-        const pSymbolClean = String(p.symbol || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-        const pSide = (p.trade_side || p.type || p.side || 'BUY').toUpperCase();
-        return (pAccId === String(accId) || accountsToUpdate.length === 1) && (pSymbolClean.includes(targetSymbolClean) || targetSymbolClean.includes(pSymbolClean)) && pSide === posSide;
-      });
+      try {
+        const fetchPayload: any = {
+          broker: targetBroker,
+          account_id: accId,
+          login: accId
+        };
+        if (targetAccObj) {
+          if (targetAccObj.password) fetchPayload.password = targetAccObj.password;
+          if (targetAccObj.server) fetchPayload.server = targetAccObj.server;
+        }
 
-      if (accMatchingPositions.length > 0) {
-        accMatchingPositions.forEach((matchingPos) => {
-          const payload: any = {
-            position_id: matchingPos.position_id,
-            symbol: matchingPos.symbol || pos.symbol,
-            account_id: accId,
-            broker: matchingPos.broker || matchingPos.target_broker || targetBroker
-          };
-          if (targetAccObj) {
-            if (targetAccObj.password) payload.password = targetAccObj.password;
-            if (targetAccObj.server) payload.server = targetAccObj.server;
-          }
-          const existingSl = matchingPos.stop_loss !== undefined ? matchingPos.stop_loss : (matchingPos.sl !== undefined ? matchingPos.sl : 0);
-          const existingTp = matchingPos.take_profit !== undefined ? matchingPos.take_profit : (matchingPos.tp !== undefined ? matchingPos.tp : 0);
-
-          if (isSl) {
-            payload.stop_loss = targetPrice;
-            payload.take_profit = existingTp;
-          } else {
-            payload.stop_loss = existingSl;
-            payload.take_profit = targetPrice;
-          }
-
-          updatePromises.push(
-            fetch(`${API_BASE_URL}/api/trade/modify_position`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload)
-            }).then(res => res.json().then(data => ({ ...data, accName: targetAccObj?.name || accId, posId: matchingPos.position_id })))
-          );
+        const posRes = await fetch(`${API_BASE_URL}/api/trade/positions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(fetchPayload)
         });
-      } else {
-        if (String(accId) === String(pos.target_acc_id || pos.account_id || activeAccId)) {
+        const posData = await posRes.json();
+        const accPositions: any[] = (posData && Array.isArray(posData.data)) ? posData.data : [];
+
+        const matchingPositions = accPositions.filter(p => {
+          if (!p) return false;
+          const pSymbolClean = String(p.symbol || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+          const pSide = (p.trade_side || p.type || p.side || 'BUY').toUpperCase();
+          return (pSymbolClean.includes(targetSymbolClean) || targetSymbolClean.includes(pSymbolClean)) && pSide === posSide;
+        });
+
+        if (matchingPositions.length > 0) {
+          matchingPositions.forEach(matchingPos => {
+            const payload: any = {
+              position_id: matchingPos.position_id,
+              symbol: matchingPos.symbol || pos.symbol,
+              account_id: accId,
+              broker: targetBroker
+            };
+            if (targetAccObj) {
+              if (targetAccObj.password) payload.password = targetAccObj.password;
+              if (targetAccObj.server) payload.server = targetAccObj.server;
+            }
+            const existingSl = matchingPos.stop_loss !== undefined ? matchingPos.stop_loss : (matchingPos.sl !== undefined ? matchingPos.sl : 0);
+            const existingTp = matchingPos.take_profit !== undefined ? matchingPos.take_profit : (matchingPos.tp !== undefined ? matchingPos.tp : 0);
+
+            if (isSl) {
+              payload.stop_loss = targetPrice;
+              payload.take_profit = existingTp;
+            } else {
+              payload.stop_loss = existingSl;
+              payload.take_profit = targetPrice;
+            }
+
+            updatePromises.push(
+              fetch(`${API_BASE_URL}/api/trade/modify_position`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+              }).then(res => res.json().then(data => ({ ...data, accName, posId: matchingPos.position_id })))
+            );
+          });
+        } else if (String(accId) === String(pos.target_acc_id || pos.account_id)) {
           const payload: any = {
             position_id: pos.position_id,
             symbol: pos.symbol,
@@ -837,13 +869,15 @@ export default function TVChart({
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(payload)
-            }).then(res => res.json().then(data => ({ ...data, accName: targetAccObj?.name || accId, posId: pos.position_id })))
+            }).then(res => res.json().then(data => ({ ...data, accName, posId: pos.position_id })))
           );
         } else {
-          console.warn(`[SL/TP Sync] Account ${targetAccObj?.name || accId} has no open ${posSide} position on ${pos.symbol}`);
+          console.warn(`[SL/TP Sync] Account ${accName} has no open ${posSide} position on ${pos.symbol}`);
         }
+      } catch (err: any) {
+        console.error(`Failed fetching positions for account ${accName}:`, err);
       }
-    });
+    }
 
     try {
       const results = await Promise.all(updatePromises);
@@ -852,7 +886,7 @@ export default function TVChart({
 
       if (failures.length > 0) {
         const failMsgs = failures.map(f => `• Account "${f.accName}" (Pos #${f.posId}): ${f.message || 'Error'}`).join('\n');
-        alert(`SL/TP Sync Completed:\n\n✅ Success: ${successes.length} account(s)\n❌ Failures (${failures.length}):\n${failMsgs}`);
+        alert(`SL/TP Sync Completed:\n\n✅ Success: ${successes.length} position(s)\n❌ Failures (${failures.length}):\n${failMsgs}`);
       }
       setSlTpEditModal(null);
       if (onRefresh) onRefresh();
@@ -3575,7 +3609,7 @@ export default function TVChart({
                         const all = availableAccounts.length > 0
                           ? availableAccounts.map(a => String(a.account_id))
                           : [String(slTpEditModal.position.target_acc_id || slTpEditModal.position.account_id || '')];
-                        setSlTpEditModal({ ...slTpEditModal, selectedAccountIds: all });
+                        updateSelectedAccountIds(all);
                       }}
                       style={{ background: 'none', border: 'none', color: '#3b82f6', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', padding: 0 }}
                     >
@@ -3586,7 +3620,7 @@ export default function TVChart({
                       type="button"
                       onClick={() => {
                         const currAccId = String(slTpEditModal.position.target_acc_id || slTpEditModal.position.account_id || '');
-                        setSlTpEditModal({ ...slTpEditModal, selectedAccountIds: [currAccId] });
+                        updateSelectedAccountIds([currAccId]);
                       }}
                       style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '11px', cursor: 'pointer', padding: 0 }}
                     >
@@ -3609,7 +3643,7 @@ export default function TVChart({
                               const nextIds = e.target.checked
                                 ? [...slTpEditModal.selectedAccountIds, accIdStr]
                                 : slTpEditModal.selectedAccountIds.filter(id => id !== accIdStr);
-                              setSlTpEditModal({ ...slTpEditModal, selectedAccountIds: nextIds });
+                              updateSelectedAccountIds(nextIds);
                             }}
                             style={{ cursor: 'pointer' }}
                           />
