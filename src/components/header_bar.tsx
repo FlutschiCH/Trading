@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, X, Menu, ChevronDown, Sun, Moon, RefreshCw, ShieldAlert, Terminal } from 'lucide-react';
+import { Activity, X, Menu, ChevronDown, Sun, Moon, RefreshCw, ShieldAlert, Terminal, Monitor } from 'lucide-react';
 import { API_BASE_URL } from '../api';
 import { TargetSwitcher } from './target_switcher';
 import type { AccountInfo } from '../types/trading';
@@ -315,6 +315,9 @@ export default function HeaderBar({
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <span style={{ fontSize: '11px', color: 'var(--app-text-muted)', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Resources & Navigation</span>
                 <div style={{ display: 'flex', flexDirection: 'column', backgroundColor: 'var(--app-panel-header-bg)', borderRadius: '8px', overflow: 'hidden' }}>
+                  <a href="https://remotedesktop.google.com/access/session/9d5ab717-f397-2ced-883b-240576c1b217" target="_blank" rel="noopener noreferrer" className="menu-item" style={{ padding: '10px 16px', borderBottom: '1px solid var(--app-card-border)', textDecoration: 'none', color: '#10b981', fontWeight: 'bold', fontSize: '12px' }} onClick={() => setShowMobileNav(false)}>
+                    🖥️ Google Remote Desktop
+                  </a>
                   <a href="https://openapi.ctrader.com/apps" target="_blank" rel="noopener noreferrer" className="menu-item" style={{ padding: '10px 16px', borderBottom: '1px solid var(--app-card-border)', textDecoration: 'none', color: 'var(--app-text)', fontSize: '12px' }} onClick={() => setShowMobileNav(false)}>
                     cTrader Apps
                   </a>
@@ -539,6 +542,32 @@ export default function HeaderBar({
                 <ShieldAlert size={12} />
                 Authorize Laptop SSL
               </button>
+
+              <a
+                href="https://remotedesktop.google.com/access/session/9d5ab717-f397-2ced-883b-240576c1b217"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                  border: '1px solid rgba(16, 185, 129, 0.2)',
+                  cursor: 'pointer',
+                  borderRadius: '6px',
+                  padding: '6px 12px',
+                  color: '#10b981',
+                  fontWeight: 'bold',
+                  fontSize: '11px',
+                  outline: 'none',
+                  transition: 'all 0.2s',
+                  textDecoration: 'none',
+                }}
+                title="Open Google Remote Desktop session in a new window"
+              >
+                <Monitor size={12} />
+                Remote Desktop
+              </a>
               <div style={{ position: 'relative' }}>
                 <button
                   onClick={() => setShowMenu(!showMenu)}
@@ -588,6 +617,9 @@ export default function HeaderBar({
                       minWidth: '220px',
                       zIndex: 1000,
                     }}>
+                      <a href="https://remotedesktop.google.com/access/session/9d5ab717-f397-2ced-883b-240576c1b217" target="_blank" rel="noopener noreferrer" className="menu-item" style={{ color: '#10b981', fontWeight: 'bold' }} onClick={() => setShowMenu(false)}>
+                        🖥️ Google Remote Desktop
+                      </a>
                       <a href="https://openapi.ctrader.com/apps" target="_blank" rel="noopener noreferrer" className="menu-item" onClick={() => setShowMenu(false)}>
                         cTrader Apps
                       </a>
