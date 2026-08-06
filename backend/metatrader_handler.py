@@ -129,16 +129,30 @@ class MetaTraderHandler(BaseBrokerHandler):
         instances = getattr(builtins, '_GLOBAL_MT5_INSTANCES', MetaTraderHandler._mt5_instances)
         inst = instances.get(acc_str)
 
+        if not inst and MT5_AVAILABLE:
+            MetaTraderHandler._initialize_mt5(acc_str)
+            inst = instances.get(acc_str)
+
+        if not inst and MT5_AVAILABLE:
+            inst = mt5
+
         if inst and hasattr(inst, 'account_info'):
             try:
                 info = inst.account_info()
                 if info is not None:
-                    return inst
-            except Exception:
-                pass
-            return inst
+                    login, pwd, srv = MetaTraderHandler._resolve_credentials(acc_str)
+                    if str(info.login) != acc_str and login and pwd and srv:
+                        print(f"⚠️ [MT5 Account Mismatch] Expected {acc_str}, but active login is {info.login}. Logging into {acc_str}...", flush=True)
+                        inst.login(login=int(login), password=pwd, server=srv)
+                        info = inst.account_info()
 
-        return instances.get(acc_str) or (mt5 if MT5_AVAILABLE else None)
+                    if info is not None:
+                        print(f"📊 [MT5 Instance Verified] Acc: {acc_str} | Active Login: {info.login} | Balance: ${info.balance:.2f} | Equity: ${info.equity:.2f} | Server: {info.server}", flush=True)
+                        return inst
+            except Exception as e:
+                print(f"[get_mt5_instance Exception] Account {acc_str}: {e}", flush=True)
+
+        return inst
 
     @staticmethod
     def _resolve_credentials(login=None, password=None, server=None, **kwargs):
