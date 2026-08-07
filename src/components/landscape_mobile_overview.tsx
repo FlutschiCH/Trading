@@ -52,7 +52,9 @@ export default function LandscapeMobileOverview({
     localStorage.setItem('landscape_theme', nextTheme ? 'dark' : 'light');
   };
 
-  // Screen Wake Lock API
+  const [motionDetected, setMotionDetected] = useState<boolean>(false);
+
+  // Screen Wake Lock API & Motion Detection
   useEffect(() => {
     let wakeLock: any = null;
 
@@ -76,10 +78,32 @@ export default function LandscapeMobileOverview({
       }
     };
 
+    // Device Motion Detection Listener
+    let motionTimeout: any = null;
+    const handleDeviceMotion = (event: DeviceMotionEvent) => {
+      const acc = event.accelerationIncludingGravity;
+      if (acc) {
+        const totalAcc = Math.sqrt((acc.x || 0) ** 2 + (acc.y || 0) ** 2 + (acc.z || 0) ** 2);
+        // Detect significant tilt or physical movement (> 12 m/s²)
+        if (totalAcc > 12) {
+          setMotionDetected(true);
+          clearTimeout(motionTimeout);
+          motionTimeout = setTimeout(() => setMotionDetected(false), 1500);
+        }
+      }
+    };
+
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    if (typeof window !== 'undefined' && 'DeviceMotionEvent' in window) {
+      window.addEventListener('devicemotion', handleDeviceMotion);
+    }
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (typeof window !== 'undefined' && 'DeviceMotionEvent' in window) {
+        window.removeEventListener('devicemotion', handleDeviceMotion);
+      }
+      clearTimeout(motionTimeout);
       if (wakeLock) {
         wakeLock.release().catch(() => {});
       }
@@ -158,6 +182,22 @@ export default function LandscapeMobileOverview({
                 title="Screen Always On Active"
               >
                 ON 💡
+              </span>
+            )}
+            {motionDetected && (
+              <span
+                style={{
+                  fontSize: '10px',
+                  backgroundColor: '#eab308',
+                  color: '#000000',
+                  padding: '1px 5px',
+                  borderRadius: '4px',
+                  fontWeight: '700',
+                  animation: 'pulse 1s infinite'
+                }}
+                title="Motion/Tilt Detected"
+              >
+                ⚡ MOTION
               </span>
             )}
           </div>

@@ -41,6 +41,7 @@ interface HeaderBarProps {
   handleRestartServer: () => void;
   setView: (view: string) => void;
   styles: any;
+  onToggleLandscape?: () => void;
 }
 
 export default function HeaderBar({
@@ -115,6 +116,30 @@ export default function HeaderBar({
               }}
             />
           </div>
+          
+          {/* Middle Sideways Landscape Overview Button */}
+          {onToggleLandscape && (
+            <button
+              onClick={onToggleLandscape}
+              style={{
+                backgroundColor: 'rgba(5, 150, 105, 0.2)',
+                border: '1px solid #059669',
+                color: '#10b981',
+                padding: '4px 10px',
+                borderRadius: '20px',
+                fontSize: '11px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                boxShadow: '0 2px 6px rgba(0, 0, 0, 0.2)'
+              }}
+              title="Open Landscape Overview Mode"
+            >
+              <span>📱 Sideways</span>
+            </button>
+          )}
           
           <button
             onClick={() => setShowMobileNav(!showMobileNav)}

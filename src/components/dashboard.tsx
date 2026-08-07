@@ -2235,6 +2235,7 @@ export default function Dashboard() {
         handleRestartServer={handleRestartServer}
         setView={(v: string) => setView(v as any)}
         styles={styles}
+        onToggleLandscape={() => setShowLandscapeMode(true)}
       />
 
       {window.location.pathname === '/how-to' ? (
