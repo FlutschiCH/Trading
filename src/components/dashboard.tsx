@@ -254,7 +254,7 @@ export default function Dashboard() {
   useEffect(() => {
     const checkOrientation = () => {
       const isLandscape = window.matchMedia('(orientation: landscape)').matches && window.innerHeight <= 500 && window.innerWidth <= 950;
-      if (isLandscape && isMobile) {
+      if (isLandscape && (window.innerWidth < 768 || ('ontouchstart' in window))) {
         setShowLandscapeMode(prev => prev ? prev : true);
       }
     };
@@ -267,7 +267,7 @@ export default function Dashboard() {
       window.removeEventListener('resize', checkOrientation);
       window.removeEventListener('orientationchange', checkOrientation);
     };
-  }, [isMobile]);
+  }, []);
   const [newAccServer, setNewAccServer] = useState('');
 
   const [dateRangeOption, setDateRangeOption] = useState<string>(() => {
