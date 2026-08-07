@@ -253,8 +253,8 @@ export default function Dashboard() {
   // Auto-detect mobile landscape orientation
   useEffect(() => {
     const checkOrientation = () => {
-      const isLandscape = window.matchMedia('(orientation: landscape)').matches && window.innerWidth <= 950;
-      if (isLandscape) {
+      const isLandscape = window.matchMedia('(orientation: landscape)').matches && window.innerHeight <= 500 && window.innerWidth <= 950;
+      if (isLandscape && isMobile) {
         setShowLandscapeMode(true);
       }
     };

@@ -377,7 +377,7 @@ export default function LandscapeMobileOverview({
                       <div style={{ fontSize: '11px', textAlign: 'center' }}>
                         <div style={{ color: theme.textSecondary, fontSize: '10px' }}>Entry &rarr; Current</div>
                         <div style={{ fontWeight: '600' }}>
-                          {pos.open_price.toFixed(5)} &rarr; {(pos.current_price || currentPrice).toFixed(5)}
+                          {(typeof pos.open_price === 'number' ? pos.open_price : Number(pos.open_price) || 0).toFixed(5)} &rarr; {((pos.current_price || currentPrice || 0) as number).toFixed(5)}
                         </div>
                       </div>
 
