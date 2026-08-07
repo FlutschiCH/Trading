@@ -255,7 +255,7 @@ export default function Dashboard() {
     const checkOrientation = () => {
       const isLandscape = window.matchMedia('(orientation: landscape)').matches && window.innerHeight <= 500 && window.innerWidth <= 950;
       if (isLandscape && isMobile) {
-        setShowLandscapeMode(true);
+        setShowLandscapeMode(prev => prev ? prev : true);
       }
     };
 
@@ -267,7 +267,7 @@ export default function Dashboard() {
       window.removeEventListener('resize', checkOrientation);
       window.removeEventListener('orientationchange', checkOrientation);
     };
-  }, []);
+  }, [isMobile]);
   const [newAccServer, setNewAccServer] = useState('');
 
   const [dateRangeOption, setDateRangeOption] = useState<string>(() => {
@@ -2593,7 +2593,7 @@ export default function Dashboard() {
             {showLandscapeMode && (
               <LandscapeMobileOverview
                 onClose={() => setShowLandscapeMode(false)}
-                positions={positions}
+                positions={openPositions}
                 accountInfo={accountInfo}
                 currentSymbol={symbol}
                 currentPrice={candles.length > 0 ? candles[candles.length - 1].close : 0}
