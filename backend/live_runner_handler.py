@@ -605,3 +605,35 @@ class LiveRunner:
                     f"🏦 **Target Account:** `{target.get('account_id')}`\n"
                     f"⚠️ **Exception:** `{str(target_err)}`"
                 )
+
+
+if __name__ == '__main__':
+    from live_strategy_handler import LiveStrategyHandler
+
+    strategies = LiveStrategyHandler.get_all_strategies()
+    active_strategies = [s for s in strategies if s.get("status") == "active"]
+
+    if not active_strategies:
+        print("No active strategies found in database.")
+    else:
+        strat = active_strategies[0]
+        print(f"Loaded active strategy '{strat.get('name')}' (ID: {strat.get('id')}) with targets: {strat.get('targets')}")
+
+        from broker_handler import BrokerHandler
+        broker_name = strat.get("broker", "metatrader")
+        handler = BrokerHandler.get_handler(broker_name)
+        
+        symbol = "EURUSD"
+        timeframe = strat.get("timeframe", "15m")
+        candles = handler.fetch_candles(symbol=symbol, timeframe=timeframe, limit=1)
+
+        if not candles:
+            print(f"Could not fetch real candle for {symbol} ({timeframe}).")
+        else:
+            real_candle = candles[-1]
+            print(f"Fetched real last candle for {symbol} ({timeframe}): {real_candle}")
+            print("\n--- Simulating SELL Signal on Active Strategy ---")
+            LiveRunner._execute_trade(strat, should_buy=False, should_sell=True, last_candle=real_candle)
+
+
+

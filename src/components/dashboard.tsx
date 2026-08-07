@@ -8,6 +8,7 @@ import LiveOverviewPanel from './live_overview_panel';
 import SymbolMappingsView from './symbol_mappings_view';
 import ComputerManager from './computer_manager';
 import HeaderBar from './header_bar';
+import LandscapeMobileOverview from './landscape_mobile_overview';
 import MobileTabNav, { type MobileTab } from './mobile_tab_nav';
 import { API_BASE_URL } from '../api';
 import { isLocalTarget } from './target_switcher';
@@ -247,7 +248,26 @@ export default function Dashboard() {
   const [newAccName, setNewAccName] = useState('');
   const [newAccBroker, setNewAccBroker] = useState<'ctrader' | 'metatrader'>('ctrader');
   const [newAccId, setNewAccId] = useState('');
-  const [newAccPassword, setNewAccPassword] = useState('');
+  const [showLandscapeMode, setShowLandscapeMode] = useState(false);
+
+  // Auto-detect mobile landscape orientation
+  useEffect(() => {
+    const checkOrientation = () => {
+      const isLandscape = window.matchMedia('(orientation: landscape)').matches && window.innerWidth <= 950;
+      if (isLandscape) {
+        setShowLandscapeMode(true);
+      }
+    };
+
+    checkOrientation();
+    window.addEventListener('resize', checkOrientation);
+    window.addEventListener('orientationchange', checkOrientation);
+
+    return () => {
+      window.removeEventListener('resize', checkOrientation);
+      window.removeEventListener('orientationchange', checkOrientation);
+    };
+  }, []);
   const [newAccServer, setNewAccServer] = useState('');
 
   const [dateRangeOption, setDateRangeOption] = useState<string>(() => {
@@ -2563,7 +2583,22 @@ export default function Dashboard() {
             )}
 
             {isMobile && (
-              <MobileTabNav activeTab={mobileTab} onTabChange={setMobileTab} />
+              <MobileTabNav
+                activeTab={mobileTab}
+                onTabChange={setMobileTab}
+                onToggleLandscape={() => setShowLandscapeMode(true)}
+              />
+            )}
+
+            {showLandscapeMode && (
+              <LandscapeMobileOverview
+                onClose={() => setShowLandscapeMode(false)}
+                positions={positions}
+                accountInfo={accountInfo}
+                currentSymbol={symbol}
+                currentPrice={candles.length > 0 ? candles[candles.length - 1].close : 0}
+                onClosePosition={handleClosePosition}
+              />
             )}
 
             {isMobile ? (

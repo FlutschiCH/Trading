@@ -5,9 +5,10 @@ export type MobileTab = 'chart' | 'backtester' | 'trades' | 'live_overview' | 'l
 interface MobileTabNavProps {
   activeTab: MobileTab;
   onTabChange: (tab: MobileTab) => void;
+  onToggleLandscape?: () => void;
 }
 
-export default function MobileTabNav({ activeTab, onTabChange }: MobileTabNavProps) {
+export default function MobileTabNav({ activeTab, onTabChange, onToggleLandscape }: MobileTabNavProps) {
   return (
     <div style={{
       position: 'sticky',
@@ -94,24 +95,27 @@ export default function MobileTabNav({ activeTab, onTabChange }: MobileTabNavPro
       >
         ⚡ Live
       </button>
-      <button
-        onClick={() => onTabChange('logs')}
-        style={{
-          flex: 1,
-          padding: '8px 6px',
-          borderRadius: '6px',
-          border: 'none',
-          backgroundColor: activeTab === 'logs' ? '#2563eb' : 'transparent',
-          color: '#ffffff',
-          fontWeight: 'bold',
-          fontSize: '11px',
-          cursor: 'pointer',
-          transition: 'all 0.2s',
-          whiteSpace: 'nowrap'
-        }}
-      >
-        📋 Logs
-      </button>
+
+      {onToggleLandscape && (
+        <button
+          onClick={onToggleLandscape}
+          style={{
+            padding: '8px 6px',
+            borderRadius: '6px',
+            border: 'none',
+            backgroundColor: '#059669',
+            color: '#ffffff',
+            fontWeight: 'bold',
+            fontSize: '11px',
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+            whiteSpace: 'nowrap'
+          }}
+          title="Open Landscape Overview Mode"
+        >
+          📱 Sideways
+        </button>
+      )}
     </div>
   );
 }
