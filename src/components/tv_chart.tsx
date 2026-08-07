@@ -117,6 +117,18 @@ const findCandleTimeForTimestamp = (ts: number | string | undefined | null, cand
   return Number(closest.time);
 };
 
+const getTimeframeSeconds = (tf: string): number => {
+  if (!tf) return 60;
+  const match = tf.match(/^(\d+)([mhd])$/i);
+  if (!match) return 60;
+  const val = parseInt(match[1], 10);
+  const unit = match[2].toLowerCase();
+  if (unit === 'm') return val * 60;
+  if (unit === 'h') return val * 3600;
+  if (unit === 'd') return val * 86400;
+  return 60;
+};
+
 const isLocal = typeof window !== 'undefined' &&
   (window.location.hostname === 'localhost' ||
     window.location.hostname === '127.0.0.1' ||
@@ -2480,7 +2492,8 @@ export default function TVChart({
               {(() => {
                 const lastCandle = activeCandles && activeCandles.length > 0 ? activeCandles[activeCandles.length - 1] : null;
                 if (!lastCandle) return null;
-                const d = new Date(Number(lastCandle.time) * 1000);
+                const closeTimestamp = Number(lastCandle.time) + getTimeframeSeconds(timeframe);
+                const d = new Date(closeTimestamp * 1000);
                 if (isNaN(d.getTime())) return null;
                 const day = String(d.getDate()).padStart(2, '0');
                 const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -2616,7 +2629,8 @@ export default function TVChart({
               {(() => {
                 const lastCandle = activeCandles && activeCandles.length > 0 ? activeCandles[activeCandles.length - 1] : null;
                 if (!lastCandle) return null;
-                const d = new Date(Number(lastCandle.time) * 1000);
+                const closeTimestamp = Number(lastCandle.time) + getTimeframeSeconds(timeframe);
+                const d = new Date(closeTimestamp * 1000);
                 if (isNaN(d.getTime())) return null;
                 const day = String(d.getDate()).padStart(2, '0');
                 const month = String(d.getMonth() + 1).padStart(2, '0');
