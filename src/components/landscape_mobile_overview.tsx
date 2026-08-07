@@ -1,31 +1,10 @@
 import React, { useState, useEffect } from 'react';
-
-interface Position {
-  ticket?: number;
-  position_id?: string | number;
-  symbol: string;
-  type: string;
-  volume: number;
-  open_price: number;
-  current_price?: number;
-  sl?: number;
-  tp?: number;
-  profit?: number;
-  magic?: number;
-}
-
-interface AccountInfo {
-  balance?: number;
-  equity?: number;
-  margin?: number;
-  free_margin?: number;
-  margin_level?: number;
-}
+import type { Position, AccountInfo } from '../types/trading';
 
 interface LandscapeMobileOverviewProps {
   onClose: () => void;
   positions?: Position[];
-  accountInfo?: AccountInfo;
+  accountInfo?: AccountInfo | null;
   currentSymbol?: string;
   currentPrice?: number;
   onClosePosition?: (pos: Position) => void;
@@ -132,8 +111,7 @@ export default function LandscapeMobileOverview({
         headerBg: '#ffffff',
         badgeBg: '#e5e7eb'
       };
-
-  const totalFloatingPnl = positions.reduce((acc, pos) => acc + (pos.profit || 0), 0);
+  const totalFloatingPnl = positions.reduce((acc, pos: any) => acc + (pos.profit ?? pos.unrealized_profit ?? 0), 0);
   const balance = accountInfo?.balance || 0;
   const equity = accountInfo?.equity || balance + totalFloatingPnl;
 
@@ -323,7 +301,7 @@ export default function LandscapeMobileOverview({
             <div>
               <div style={{ color: theme.textSecondary, fontSize: '10px' }}>Margin Level</div>
               <div style={{ fontWeight: 'bold', fontSize: '13px' }}>
-                {accountInfo?.margin_level ? `${accountInfo.margin_level.toFixed(0)}%` : 'N/A'}
+                {(accountInfo as any)?.margin_level ? `${(accountInfo as any).margin_level.toFixed(0)}%` : 'N/A'}
               </div>
             </div>
           </div>
@@ -347,7 +325,7 @@ export default function LandscapeMobileOverview({
               padding: '8px 12px',
               borderBottom: `1px solid ${theme.cardBorder}`,
               display: 'flex',
-              justify: 'space-between',
+              justifyContent: 'space-between',
               alignItems: 'center',
               backgroundColor: theme.headerBg
             }}
@@ -374,14 +352,16 @@ export default function LandscapeMobileOverview({
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {positions.map((pos, idx) => {
-                  const side = (pos.type || '').toUpperCase();
+                {positions.map((pos: any, idx) => {
+                  const side = String(pos.trade_side || pos.type || '').toUpperCase();
                   const isBuy = side === 'BUY' || side === '0';
-                  const pnl = pos.profit || 0;
+                  const pnl = pos.unrealized_profit ?? pos.profit ?? 0;
+                  const openPrice = Number(pos.entry_price ?? pos.open_price ?? 0);
+                  const currentPosPrice = Number(pos.current_price || currentPrice || 0);
 
                   return (
                     <div
-                      key={pos.ticket || pos.position_id || idx}
+                      key={pos.position_id || pos.ticket || idx}
                       style={{
                         backgroundColor: theme.accentBg,
                         border: `1px solid ${theme.cardBorder}`,
@@ -417,7 +397,7 @@ export default function LandscapeMobileOverview({
                       <div style={{ fontSize: '11px', textAlign: 'center' }}>
                         <div style={{ color: theme.textSecondary, fontSize: '10px' }}>Entry &rarr; Current</div>
                         <div style={{ fontWeight: '600' }}>
-                          {(typeof pos.open_price === 'number' ? pos.open_price : Number(pos.open_price) || 0).toFixed(5)} &rarr; {((pos.current_price || currentPrice || 0) as number).toFixed(5)}
+                          {openPrice.toFixed(5)} &rarr; {currentPosPrice.toFixed(5)}
                         </div>
                       </div>
 

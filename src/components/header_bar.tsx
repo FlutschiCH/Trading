@@ -58,6 +58,7 @@ export default function HeaderBar({
   handleRestartServer,
   setView,
   styles,
+  onToggleLandscape,
 }: HeaderBarProps) {
   const [showMobileNav, setShowMobileNav] = useState(false);
   const [showMenu, setShowMenu] = useState(false);

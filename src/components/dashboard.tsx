@@ -248,6 +248,7 @@ export default function Dashboard() {
   const [newAccName, setNewAccName] = useState('');
   const [newAccBroker, setNewAccBroker] = useState<'ctrader' | 'metatrader'>('ctrader');
   const [newAccId, setNewAccId] = useState('');
+  const [newAccPassword, setNewAccPassword] = useState('');
   const [showLandscapeMode, setShowLandscapeMode] = useState(false);
 
   // Auto-detect mobile landscape orientation
