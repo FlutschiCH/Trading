@@ -116,6 +116,7 @@ def run_trade_simulation(
     risk_pct: float,
     use_break_even: bool,
     be_trigger_r: float,
+    be_offset_mode: str = 'half_r',
     fees_percent: float = 0.0,
     daily_retry_limit: int = 0,
     allow_opposite_close: bool = True,
@@ -280,7 +281,11 @@ def run_trade_simulation(
             # Check Break Even
             if not closed and use_break_even and not active_trade.get('is_break_even', False):
                 sl_distance = active_trade['sl_distance']
-                be_offset = 0.5 * be_trigger_r * sl_distance
+                if be_offset_mode == 'zero_be':
+                    be_offset = 0.0
+                else: # 'half_r' (default)
+                    be_offset = 0.5 * be_trigger_r * sl_distance
+
                 if active_trade['type'] == 'BUY':
                     if high_val >= active_trade['entry_price'] + sl_distance * be_trigger_r:
                         active_trade['sl_price'] = round(active_trade['entry_price'] + be_offset, precision)

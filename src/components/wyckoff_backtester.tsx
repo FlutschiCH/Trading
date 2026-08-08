@@ -27,6 +27,8 @@ interface WyckoffBacktesterProps {
   setUseBreakEven: (val: boolean) => void;
   backtestBE: string;
   setBacktestBE: (val: string) => void;
+  beOffsetMode?: 'half_r' | 'zero_be';
+  setBeOffsetMode?: (val: 'half_r' | 'zero_be') => void;
   lookbackWindow: string;
   setLookbackWindow: (val: string) => void;
   backtestFees: string;
@@ -179,6 +181,8 @@ export default function WyckoffBacktester({
   setUseBreakEven,
   backtestBE,
   setBacktestBE,
+  beOffsetMode = 'half_r',
+  setBeOffsetMode,
   lookbackWindow,
   setLookbackWindow,
   backtestFees,
@@ -1711,14 +1715,34 @@ export default function WyckoffBacktester({
                 </div>
 
                 {!beRangeMode ? (
-                  <input
-                    type="number"
-                    value={backtestBE}
-                    onChange={(e) => setBacktestBE(e.target.value)}
-                    style={styles.input}
-                    step="0.1"
-                    min="0.1"
-                  />
+                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                    <input
+                      type="number"
+                      value={backtestBE}
+                      onChange={(e) => setBacktestBE(e.target.value)}
+                      style={{ ...styles.input, flex: 1 }}
+                      step="0.1"
+                      min="0.1"
+                    />
+                    <select
+                      value={beOffsetMode}
+                      onChange={(e) => setBeOffsetMode && setBeOffsetMode(e.target.value as 'half_r' | 'zero_be')}
+                      style={{
+                        ...styles.input,
+                        width: 'auto',
+                        padding: '4px 6px',
+                        fontSize: '10px',
+                        backgroundColor: '#1e293b',
+                        borderColor: '#334155',
+                        color: '#38bdf8',
+                        cursor: 'pointer'
+                      }}
+                      title="Select SL Placement when BE triggers"
+                    >
+                      <option value="half_r">SL: Half R (0.5×R)</option>
+                      <option value="zero_be">SL: Exact Entry (0.0)</option>
+                    </select>
+                  </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                     <div style={{ display: 'flex', gap: '3px' }}>

@@ -349,6 +349,7 @@ export default function Dashboard() {
     return val === null ? true : val === 'true';
   });
   const [backtestBE, setBacktestBE] = useState(() => localStorage.getItem('wyckoff_backtest_be') || '1.0');
+  const [beOffsetMode, setBeOffsetMode] = useState<'half_r' | 'zero_be'>(() => (localStorage.getItem('wyckoff_backtest_be_offset_mode') as any) || 'half_r');
   const [useBreakEven, setUseBreakEven] = useState(() => {
     const val = localStorage.getItem('wyckoff_backtest_use_be');
     return val === null ? true : val === 'true';
@@ -993,6 +994,7 @@ export default function Dashboard() {
           riskPct: parseFloat(backtestRiskPct) || 1.0,
           useBreakEven,
           beTriggerR: parseFloat(backtestBE) || 1.0,
+          beOffsetMode,
           lookbackWindow: parseInt(lookbackWindow) || 20,
           feesPercent: parseFloat(backtestFees) || 0.0,
           dailyRetryLimit: parseInt(dailyRetryLimit) || 0,
@@ -1249,6 +1251,7 @@ export default function Dashboard() {
         riskPct: parseFloat(backtestRiskPct) || 1.0,
         useBreakEven,
         beTriggerR: parseFloat(backtestBE) || 1.0,
+        beOffsetMode,
         lookbackWindow: parseInt(lookbackWindow) || 20,
         status: 'active',
         timezone: sessionsTimezone,
@@ -1340,7 +1343,8 @@ export default function Dashboard() {
 
   useEffect(() => {
     localStorage.setItem('wyckoff_backtest_be', backtestBE);
-  }, [backtestBE]);
+    localStorage.setItem('wyckoff_backtest_be_offset_mode', beOffsetMode);
+  }, [backtestBE, beOffsetMode]);
 
   useEffect(() => {
     localStorage.setItem('wyckoff_backtest_entry_stability_rule', entryStabilityRule);
@@ -2720,6 +2724,8 @@ export default function Dashboard() {
                         setUseBreakEven={setUseBreakEven}
                         backtestBE={backtestBE}
                         setBacktestBE={setBacktestBE}
+                        beOffsetMode={beOffsetMode}
+                        setBeOffsetMode={setBeOffsetMode}
                         lookbackWindow={lookbackWindow}
                         setLookbackWindow={setLookbackWindow}
                         backtestResults={backtestResults}
@@ -3177,6 +3183,8 @@ export default function Dashboard() {
                             setUseBreakEven={setUseBreakEven}
                             backtestBE={backtestBE}
                             setBacktestBE={setBacktestBE}
+                            beOffsetMode={beOffsetMode}
+                            setBeOffsetMode={setBeOffsetMode}
                             lookbackWindow={lookbackWindow}
                             setLookbackWindow={setLookbackWindow}
                             backtestResults={backtestResults}

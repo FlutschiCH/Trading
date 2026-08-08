@@ -78,6 +78,7 @@ def backtest():
     risk_pct = float(payload.get('riskPct', 1.0))
     use_break_even = bool(payload.get('useBreakEven', False))
     be_trigger_r = float(payload.get('beTriggerR', 1.0))
+    be_offset_mode = payload.get('beOffsetMode', 'half_r')
     lookback_window = int(payload.get('lookbackWindow', 20))
     fees_percent = float(payload.get('feesPercent', 0.0))
     daily_retry_limit = int(payload.get('dailyRetryLimit', 0))
@@ -118,6 +119,7 @@ def backtest():
                 risk_pct=risk_pct,
                 use_break_even=use_break_even,
                 be_trigger_r=be_trigger_r,
+                be_offset_mode=be_offset_mode,
                 lookback_window=lookback_window,
                 fees_percent=fees_percent,
                 daily_retry_limit=daily_retry_limit,
@@ -253,6 +255,7 @@ def backtest_optimize():
     risk_pct = float(payload.get('riskPct', 1.0))
     use_break_even = bool(payload.get('useBreakEven', False))
     be_trigger_r = float(payload.get('beTriggerR', 1.0))
+    be_offset_mode = payload.get('beOffsetMode', 'half_r')
     lookback_window = int(payload.get('lookbackWindow', 20))
     fees_percent = float(payload.get('feesPercent', 0.0))
     daily_retry_limit = int(payload.get('dailyRetryLimit', 0))
@@ -312,6 +315,7 @@ def backtest_optimize():
                 risk_pct=risk_pct,
                 use_break_even=use_break_even,
                 be_trigger_r=be_trigger_r,
+                be_offset_mode=be_offset_mode,
                 lookback_window=lookback_window,
                 rr_start=rr_start,
                 rr_end=rr_end,
