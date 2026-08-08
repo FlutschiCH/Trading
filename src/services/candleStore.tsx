@@ -200,8 +200,27 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             });
             updated = Array.from(map.values()).sort((a, b) => a.time - b.time);
           } else {
-            updated = rawCandles;
+            const map = new Map<number, Candle>();
+            rawCandles.forEach(c => map.set(c.time, c));
+            updated = Array.from(map.values()).sort((a, b) => a.time - b.time);
           }
+
+          // Check if data actually changed to prevent redundant chart re-renders when market is closed (e.g. weekends)
+          if (prev.length === updated.length && prev.length > 0) {
+            const prevLast = prev[prev.length - 1];
+            const updatedLast = updated[updated.length - 1];
+            if (
+              prevLast.time === updatedLast.time &&
+              prevLast.open === updatedLast.open &&
+              prevLast.high === updatedLast.high &&
+              prevLast.low === updatedLast.low &&
+              prevLast.close === updatedLast.close &&
+              prevLast.volume === updatedLast.volume
+            ) {
+              return prev;
+            }
+          }
+
           saveCandlesToCache(symbol, timeframe, updated);
           return updated;
         });

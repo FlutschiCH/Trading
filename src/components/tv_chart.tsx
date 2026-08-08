@@ -320,10 +320,17 @@ export default function TVChart({
     }
   }, [baseCandles]);
 
-  const currentDisplayCandles = (baseCandles && baseCandles.length >= 10)
+  const rawDisplayCandles = (baseCandles && baseCandles.length >= 10)
     ? baseCandles
     : (lastValidCandlesRef.current.length > 0 ? lastValidCandlesRef.current : baseCandles);
 
+  // Deduplicate candles by timestamp to prevent duplicate stacking on Lightweight Charts
+  const currentDisplayCandles = React.useMemo(() => {
+    if (!rawDisplayCandles || rawDisplayCandles.length === 0) return [];
+    const map = new Map<number, any>();
+    rawDisplayCandles.forEach((c: any) => map.set(Number(c.time), c));
+    return Array.from(map.values()).sort((a: any, b: any) => Number(a.time) - Number(b.time));
+  }, [rawDisplayCandles]);
 
   const activeCandles = replayTime !== null
     ? currentDisplayCandles.filter(c => Number(c.time) <= replayTime)
