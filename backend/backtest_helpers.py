@@ -280,13 +280,14 @@ def run_trade_simulation(
             # Check Break Even
             if not closed and use_break_even and not active_trade.get('is_break_even', False):
                 sl_distance = active_trade['sl_distance']
+                be_offset = 0.5 * be_trigger_r * sl_distance
                 if active_trade['type'] == 'BUY':
                     if high_val >= active_trade['entry_price'] + sl_distance * be_trigger_r:
-                        active_trade['sl_price'] = round(active_trade['entry_price'] + 0.5 * sl_distance, precision)
+                        active_trade['sl_price'] = round(active_trade['entry_price'] + be_offset, precision)
                         active_trade['is_break_even'] = True
                 else:
                     if low_val <= active_trade['entry_price'] - sl_distance * be_trigger_r:
-                        active_trade['sl_price'] = round(active_trade['entry_price'] - 0.5 * sl_distance, precision)
+                        active_trade['sl_price'] = round(active_trade['entry_price'] - be_offset, precision)
                         active_trade['is_break_even'] = True
 
             # Check opposite sweep signals
