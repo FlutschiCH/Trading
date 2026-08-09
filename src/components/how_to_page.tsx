@@ -569,48 +569,80 @@ export default function HowToPage() {
           </div>
         </div>
 
-        {/* Section 5: Risk Management */}
+        {/* Section 5: Risk Management & Leverage Position Sizing */}
         <div style={styles.section}>
           <h2 style={styles.sectionTitle}>
-            <Award size={22} style={{ color: '#10b981' }} /> Risk Mitigation & Position Sizing
+            <Award size={22} style={{ color: '#10b981' }} /> Risk Management, 1:300 Leverage & Position Sizing Calculation
           </h2>
           <div style={styles.rowLayout}>
             <div style={styles.textContent}>
               <p style={{ margin: 0 }}>
-                {renderTextWithMarkdown("Strict preservation of capital is achieved through dynamic lot sizing and protective stop execution:")}
+                {renderTextWithMarkdown("Strict preservation of capital is achieved through dynamic position sizing using account balance risk percentage, asset contract multipliers (**Contract Size** / **Lot Size**), and account leverage (**1:300**):")}
               </p>
-              <p style={{ margin: 0 }}>
-                {renderTextWithMarkdown("**Risk Sizing Formula:**")}
-              </p>
+              
               <div style={styles.formula}>
-                Position Size = (Account Balance * Risk %) / Stop Loss Distance (in price)
+                Risk Amount ($) = Account Balance * (Risk % / 100)<br />
+                Position Size (Lots) = Risk Amount ($) / [ Stop Loss Distance (in price) * Contract Size ]<br />
+                Notional Exposure ($) = Position Size (Lots) * Contract Size * Entry Price<br />
+                Required Margin ($) = Notional Exposure ($) / Leverage (300)
               </div>
-              <p style={{ margin: 0 }}>
-                {renderTextWithMarkdown("**1:1 Break Even (BE) Rule:**\nOnce the trade's unrealized profit reaches an amount equal to the initial Stop Loss (1:1 Risk-to-Reward ratio), the Stop Loss triggers a trailing modification to the exact Entry Price, eliminating risk.")}
+
+              <div style={styles.grid}>
+                <div style={styles.card}>
+                  <h3 style={styles.cardTitle('#38bdf8')}>
+                    📐 Contract Multiplier Standard
+                  </h3>
+                  <p style={{ fontSize: '12px', margin: 0 }}>
+                    {renderTextWithMarkdown("• **Forex Pairs** (EURUSD, GBPUSD): **1 Standard Lot = 100,000 units**\n• **Precious Metals** (XAUUSD / Gold): **1 Standard Lot = 100 oz**\n• **Crypto / Crypto Pairs** (BTCUSD): **1 Lot = 1 unit**")}
+                  </p>
+                </div>
+
+                <div style={styles.card}>
+                  <h3 style={styles.cardTitle('#f59e0b')}>
+                    ⚡ 1:300 Leverage & Margin Impact
+                  </h3>
+                  <p style={{ fontSize: '12px', margin: 0 }}>
+                    {renderTextWithMarkdown("With **1:300 Leverage**, you only need **0.33% margin** (`1 / 300`) of the total trade value. This allows full position coverage while leaving 99.67% of account equity available as free margin to withstand price fluctuations.")}
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ backgroundColor: '#020617', padding: '16px', borderRadius: '10px', border: '1px solid #1e293b', marginTop: '6px' }}>
+                <strong style={{ color: '#10b981', fontSize: '14px', display: 'block', marginBottom: '8px' }}>
+                  📊 Step-by-Step Worked Example (EUR/USD @ 1:300 Leverage)
+                </strong>
+                <p style={{ fontSize: '12px', margin: '4px 0', color: '#cbd5e1', lineHeight: '1.6' }}>
+                  {renderTextWithMarkdown("• **Account Balance**: $10,000 | **Risk**: 1.0% ($100 risk limit)\n• **Entry Price**: 1.08500 | **Stop Loss**: 1.08300 (**20 pips / 0.0020 price dist**)\n• **Contract Size**: 100,000 units per Lot | **Leverage**: 1:300\n\n1. **Lots**: `$100 / (0.0020 * 100,000) = 0.50 Lots` (50,000 EUR)\n2. **Notional Position Value**: `0.50 * 100,000 * 1.08500 = $54,250`\n3. **Margin Required (1:300)**: `$54,250 / 300 = $180.83` (only 1.81% of account used as collateral)")}
+                </p>
+              </div>
+
+              <p style={{ margin: 0, marginTop: '4px' }}>
+                {renderTextWithMarkdown("**1:1 Break Even (BE) Trailing Rule:**\nOnce unrealized profit reaches an amount equal to initial Stop Loss distance (**1:1 R:R**), Stop Loss automatically trails to Entry Price + offset, guaranteeing a risk-free trade.")}
               </p>
             </div>
+
             <div style={styles.visualContent}>
-              <svg width="340" height="180" viewBox="0 0 340 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <svg width="340" height="220" viewBox="0 0 340 220" fill="none" xmlns="http://www.w3.org/2000/svg">
                 {/* Lines */}
                 <line x1="20" y1="30" x2="320" y2="30" stroke="#10b981" strokeWidth="1.5" strokeDasharray="3 3" />
-                <text x="25" y="25" fill="#10b981" fontSize="10" fontFamily="monospace">Take Profit (e.g. 2R)</text>
+                <text x="25" y="25" fill="#10b981" fontSize="10" fontFamily="monospace">Take Profit (e.g. 2R = +$200)</text>
                 
-                <line x1="20" y1="70" x2="320" y2="70" stroke="#fbbf24" strokeWidth="1.5" strokeDasharray="3 3" />
-                <text x="25" y="65" fill="#fbbf24" fontSize="10" fontFamily="monospace">1:1 Break-Even Trigger (1R)</text>
+                <line x1="20" y1="75" x2="320" y2="75" stroke="#fbbf24" strokeWidth="1.5" strokeDasharray="3 3" />
+                <text x="25" y="70" fill="#fbbf24" fontSize="10" fontFamily="monospace">1:1 Break-Even Trigger (+1R = +$100)</text>
                 
-                <line x1="20" y1="110" x2="320" y2="110" stroke="#38bdf8" strokeWidth="2" />
-                <text x="25" y="105" fill="#38bdf8" fontSize="10" fontFamily="monospace">Entry Price</text>
+                <line x1="20" y1="120" x2="320" y2="120" stroke="#38bdf8" strokeWidth="2" />
+                <text x="25" y="115" fill="#38bdf8" fontSize="10" fontFamily="monospace">Entry (0.50 Lots @ 1:300 Margin: $180.83)</text>
                 
-                <line x1="20" y1="150" x2="320" y2="150" stroke="#f43f5e" strokeWidth="1.5" />
-                <text x="25" y="145" fill="#f43f5e" fontSize="10" fontFamily="monospace">Initial Stop Loss (-1R)</text>
+                <line x1="20" y1="175" x2="320" y2="175" stroke="#f43f5e" strokeWidth="1.5" />
+                <text x="25" y="170" fill="#f43f5e" fontSize="10" fontFamily="monospace">Stop Loss (-1R = -$100 @ 20 pips)</text>
                 
                 {/* Path from entry to 1:1 and then target */}
-                <path d="M120,110 L160,90 L200,70 L240,45 L280,30" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" />
+                <path d="M120,120 L160,95 L200,75 L240,50 L280,30" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" />
                 
                 {/* Trail action visual */}
-                <path d="M200,150 L200,115" stroke="#fbbf24" strokeWidth="2" strokeLinecap="round" markerEnd="url(#arrow)" />
-                <circle cx="200" cy="70" r="4" fill="#fbbf24" />
-                <text x="205" y="130" fill="#fbbf24" fontSize="9" fontFamily="monospace">SL Trails to Entry</text>
+                <path d="M200,175 L200,125" stroke="#fbbf24" strokeWidth="2" strokeLinecap="round" markerEnd="url(#arrow)" />
+                <circle cx="200" cy="75" r="4" fill="#fbbf24" />
+                <text x="205" y="150" fill="#fbbf24" fontSize="9" fontFamily="monospace">SL Trails to Entry</text>
                 
                 <defs>
                   <marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
