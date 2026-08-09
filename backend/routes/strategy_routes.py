@@ -240,6 +240,7 @@ def backtest_optimize():
     Exposes parameter optimization backtests to frontend dashboard.
     """
     payload = request.get_json(silent=True) or {}
+    account_id = payload.get('account_id') or payload.get('accountId')
     symbol = payload.get('symbol', 'BTCUSD')
     candle_source = payload.get('candleSource', 'metatrader')
     timeframe = payload.get('timeframe') or payload.get('interval', '15m')
@@ -338,6 +339,7 @@ def backtest_optimize():
                 progress_callback=cb,
                 entry_stability_rule=entry_stability_rule,
                 candle_source=candle_source,
+                account_id=account_id,
                 limit=limit,
                 symbols=symbols,
                 timeframes=timeframes,

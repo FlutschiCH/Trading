@@ -350,6 +350,7 @@ class StrategyHandler:
         progress_callback = None,
         entry_stability_rule: str = 'default',
         candle_source: str = 'metatrader',
+        account_id: str = None,
         limit: int = 1000,
         symbols: list = None,
         timeframes: list = None,
@@ -511,7 +512,8 @@ class StrategyHandler:
                         timeframe=tf,
                         limit=limit,
                         date_from=date_from,
-                        date_to=date_to
+                        date_to=date_to,
+                        account_id=account_id
                     )
                     if len(candles) > 1 and not date_to:
                         candles = candles[:-1]
