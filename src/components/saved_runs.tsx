@@ -18,12 +18,12 @@ export interface SavedRunSummary {
   created_at: string;
 }
 
-interface SavedRunsModalProps {
+interface SavedRunsProps {
   onClose: () => void;
   onLoadSavedBacktest: (id: string) => void;
 }
 
-export default function SavedRunsModal({ onClose, onLoadSavedBacktest }: SavedRunsModalProps) {
+export default function SavedRuns({ onClose, onLoadSavedBacktest }: SavedRunsProps) {
   const [savedBacktestsList, setSavedBacktestsList] = useState<SavedRunSummary[]>([]);
   const [loadingSavedBacktests, setLoadingSavedBacktests] = useState(false);
   const [sbSortField, setSbSortField] = useState<string>('created_at');

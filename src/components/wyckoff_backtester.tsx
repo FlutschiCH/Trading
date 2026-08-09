@@ -2,7 +2,7 @@ import React from 'react';
 import { formatPrice } from '../App';
 import { API_BASE_URL } from '../api';
 import DeployModal from './deploy_modal';
-import SavedRunsModal from './saved_runs_modal';
+import SavedRuns from './saved_runs';
 
 interface WyckoffBacktesterProps {
   symbol: string;
@@ -3366,7 +3366,7 @@ export default function WyckoffBacktester({
 
         {/* Saved Backtests Modal */}
         {showSavedBacktestsModal && (
-          <SavedRunsModal
+          <SavedRuns
             onClose={() => setShowSavedBacktestsModal(false)}
             onLoadSavedBacktest={handleLoadSavedBacktest}
           />
