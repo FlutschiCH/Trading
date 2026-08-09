@@ -2,6 +2,7 @@ import React from 'react';
 import { formatPrice } from '../App';
 import { API_BASE_URL } from '../api';
 import DeployModal from './deploy_modal';
+import SavedRunsModal from './saved_runs_modal';
 
 interface WyckoffBacktesterProps {
   symbol: string;
@@ -453,28 +454,8 @@ export default function WyckoffBacktester({
 
 
 
-  // Saved Backtests Modal states
+  // Saved Backtests Modal state
   const [showSavedBacktestsModal, setShowSavedBacktestsModal] = React.useState(false);
-  const [savedBacktestsList, setSavedBacktestsList] = React.useState<any[]>([]);
-  const [loadingSavedBacktests, setLoadingSavedBacktests] = React.useState(false);
-  const [sbSortField, setSbSortField] = React.useState<string>('created_at');
-  const [sbSortDir, setSbSortDir] = React.useState<'asc' | 'desc'>('desc');
-  const [sbFilterSymbol, setSbFilterSymbol] = React.useState<string>('all');
-
-  const fetchSavedBacktests = async () => {
-    setLoadingSavedBacktests(true);
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/backtest/saved`);
-      const json = await res.json();
-      if (json.status === 'success') {
-        setSavedBacktestsList(json.data || []);
-      }
-    } catch (e) {
-      console.error("Error fetching saved backtests:", e);
-    } finally {
-      setLoadingSavedBacktests(false);
-    }
-  };
 
   const handleLoadSavedBacktest = async (id: string) => {
     try {
@@ -893,7 +874,6 @@ export default function WyckoffBacktester({
           <button
             onClick={() => {
               setShowSavedBacktestsModal(true);
-              fetchSavedBacktests();
             }}
             style={{
               display: 'flex',
@@ -3386,191 +3366,10 @@ export default function WyckoffBacktester({
 
         {/* Saved Backtests Modal */}
         {showSavedBacktestsModal && (
-          <div style={{
-            position: 'fixed',
-            top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.75)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 9999,
-            padding: '20px'
-          }}>
-            <div style={{
-              backgroundColor: '#0f172a',
-              border: '1px solid #334155',
-              borderRadius: '12px',
-              width: '1000px',
-              maxWidth: '95vw',
-              maxHeight: '90vh',
-              display: 'flex',
-              flexDirection: 'column',
-              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)'
-            }}>
-              {/* Modal Header */}
-              <div style={{
-                padding: '16px 20px',
-                borderBottom: '1px solid #1e293b',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{ fontSize: '18px' }}>📊</span>
-                  <h3 style={{ margin: 0, color: '#f8fafc', fontSize: '16px', fontWeight: 600 }}>Saved Backtest Runs (MySQL Database)</h3>
-                </div>
-                <button
-                  onClick={() => setShowSavedBacktestsModal(false)}
-                  style={{
-                    backgroundColor: 'transparent',
-                    border: 'none',
-                    color: '#94a3b8',
-                    fontSize: '18px',
-                    cursor: 'pointer',
-                    padding: '4px 8px'
-                  }}
-                >
-                  ✕
-                </button>
-              </div>
-
-              {/* Toolbar & Filters */}
-              <div style={{
-                padding: '12px 20px',
-                backgroundColor: '#1e293b',
-                borderBottom: '1px solid #334155',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: '12px'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <label style={{ color: '#cbd5e1', fontSize: '12px', fontWeight: 500 }}>Filter Symbol:</label>
-                  <select
-                    value={sbFilterSymbol}
-                    onChange={(e) => setSbFilterSymbol(e.target.value)}
-                    style={{
-                      backgroundColor: '#0f172a',
-                      color: '#f8fafc',
-                      border: '1px solid #475569',
-                      padding: '4px 8px',
-                      borderRadius: '4px',
-                      fontSize: '12px'
-                    }}
-                  >
-                    <option value="all">All Symbols</option>
-                    {Array.from(new Set(savedBacktestsList.map(item => item.symbol))).map(sym => (
-                      <option key={sym} value={sym}>{sym}</option>
-                    ))}
-                  </select>
-                  <span style={{ color: '#94a3b8', fontSize: '12px' }}>
-                    ({savedBacktestsList.filter(item => sbFilterSymbol === 'all' || item.symbol === sbFilterSymbol).length} saved runs)
-                  </span>
-                </div>
-                <button
-                  onClick={fetchSavedBacktests}
-                  style={{
-                    backgroundColor: '#334155',
-                    color: '#f8fafc',
-                    border: '1px solid #475569',
-                    padding: '4px 10px',
-                    borderRadius: '4px',
-                    fontSize: '12px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  🔄 Refresh List
-                </button>
-              </div>
-
-              {/* Table Container */}
-              <div style={{ padding: '16px 20px', overflowY: 'auto', flex: 1 }}>
-                {loadingSavedBacktests ? (
-                  <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>Loading saved backtests from database...</div>
-                ) : savedBacktestsList.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>No saved backtests found in MySQL database. Run backtests to auto-save results!</div>
-                ) : (
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
-                    <thead>
-                      <tr style={{ backgroundColor: '#1e293b', color: '#cbd5e1', borderBottom: '1px solid #334155' }}>
-                        <th style={{ padding: '10px', cursor: 'pointer' }} onClick={() => { setSbSortField('created_at'); setSbSortDir(prev => prev === 'desc' ? 'asc' : 'desc'); }}>Date {sbSortField === 'created_at' ? (sbSortDir === 'desc' ? '▼' : '▲') : ''}</th>
-                        <th style={{ padding: '10px', cursor: 'pointer' }} onClick={() => { setSbSortField('symbol'); setSbSortDir(prev => prev === 'desc' ? 'asc' : 'desc'); }}>Symbol {sbSortField === 'symbol' ? (sbSortDir === 'desc' ? '▼' : '▲') : ''}</th>
-                        <th style={{ padding: '10px' }}>TF</th>
-                        <th style={{ padding: '10px' }}>SL / RR / BE</th>
-                        <th style={{ padding: '10px', cursor: 'pointer' }} onClick={() => { setSbSortField('trades_cnt'); setSbSortDir(prev => prev === 'desc' ? 'asc' : 'desc'); }}>Trades {sbSortField === 'trades_cnt' ? (sbSortDir === 'desc' ? '▼' : '▲') : ''}</th>
-                        <th style={{ padding: '10px', cursor: 'pointer' }} onClick={() => { setSbSortField('win_rate'); setSbSortDir(prev => prev === 'desc' ? 'asc' : 'desc'); }}>Win Rate {sbSortField === 'win_rate' ? (sbSortDir === 'desc' ? '▼' : '▲') : ''}</th>
-                        <th style={{ padding: '10px', cursor: 'pointer' }} onClick={() => { setSbSortField('net_pnl'); setSbSortDir(prev => prev === 'desc' ? 'asc' : 'desc'); }}>Net PnL {sbSortField === 'net_pnl' ? (sbSortDir === 'desc' ? '▼' : '▲') : ''}</th>
-                        <th style={{ padding: '10px', cursor: 'pointer' }} onClick={() => { setSbSortField('profit_factor'); setSbSortDir(prev => prev === 'desc' ? 'asc' : 'desc'); }}>PF {sbSortField === 'profit_factor' ? (sbSortDir === 'desc' ? '▼' : '▲') : ''}</th>
-                        <th style={{ padding: '10px', textAlign: 'right' }}>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {savedBacktestsList
-                        .filter(item => sbFilterSymbol === 'all' || item.symbol === sbFilterSymbol)
-                        .sort((a, b) => {
-                          let valA = a[sbSortField];
-                          let valB = b[sbSortField];
-                          if (valA === undefined) valA = 0;
-                          if (valB === undefined) valB = 0;
-                          if (typeof valA === 'string') {
-                            return sbSortDir === 'desc' ? valB.localeCompare(valA) : valA.localeCompare(valB);
-                          }
-                          return sbSortDir === 'desc' ? valB - valA : valA - valB;
-                        })
-                        .map((row) => (
-                          <tr key={row.id} style={{ borderBottom: '1px solid #1e293b', color: '#f8fafc' }}>
-                            <td style={{ padding: '10px', color: '#94a3b8' }}>{row.created_at || 'N/A'}</td>
-                            <td style={{ padding: '10px', fontWeight: 600, color: '#38bdf8' }}>{row.symbol}</td>
-                            <td style={{ padding: '10px' }}>{row.timeframe}</td>
-                            <td style={{ padding: '10px', color: '#cbd5e1' }}>SL: {row.sl_val} | RR: 1:{row.rr} | BE: {row.be_trigger_r}R</td>
-                            <td style={{ padding: '10px' }}>{row.trades_cnt}</td>
-                            <td style={{ padding: '10px', color: row.win_rate >= 50 ? '#4ade80' : '#f87171' }}>{row.win_rate ? row.win_rate.toFixed(1) : 0}%</td>
-                            <td style={{ padding: '10px', fontWeight: 600, color: row.net_pnl >= 0 ? '#4ade80' : '#f87171' }}>
-                              {row.net_pnl >= 0 ? `+$${row.net_pnl.toFixed(2)}` : `-$${Math.abs(row.net_pnl).toFixed(2)}`}
-                            </td>
-                            <td style={{ padding: '10px' }}>{row.profit_factor ? row.profit_factor.toFixed(2) : '0.00'}</td>
-                            <td style={{ padding: '10px', textAlign: 'right' }}>
-                              <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
-                                <button
-                                  onClick={() => handleLoadSavedBacktest(row.id)}
-                                  style={{
-                                    backgroundColor: '#2563eb',
-                                    color: '#ffffff',
-                                    border: 'none',
-                                    padding: '4px 10px',
-                                    borderRadius: '4px',
-                                    fontSize: '11px',
-                                    cursor: 'pointer',
-                                    fontWeight: 500
-                                  }}
-                                >
-                                  Load
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteSavedBacktest(row.id)}
-                                  style={{
-                                    backgroundColor: 'rgba(239, 68, 68, 0.2)',
-                                    color: '#ef4444',
-                                    border: '1px solid #ef4444',
-                                    padding: '4px 8px',
-                                    borderRadius: '4px',
-                                    fontSize: '11px',
-                                    cursor: 'pointer'
-                                  }}
-                                >
-                                  Delete
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            </div>
-          </div>
+          <SavedRunsModal
+            onClose={() => setShowSavedBacktestsModal(false)}
+            onLoadSavedBacktest={handleLoadSavedBacktest}
+          />
         )}
 
     </div>
