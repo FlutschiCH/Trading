@@ -600,20 +600,23 @@ export default function HeaderBar({
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '6px',
-                    backgroundColor: 'var(--app-panel-header-bg)',
-                    border: '1px solid var(--app-card-border)',
+                    gap: '8px',
+                    backgroundColor: showMenu ? 'rgba(59, 130, 246, 0.15)' : 'var(--app-panel-header-bg)',
+                    border: `1px solid ${showMenu ? '#3b82f6' : 'var(--app-card-border)'}`,
                     cursor: 'pointer',
-                    borderRadius: '6px',
-                    padding: '6px 12px',
-                    color: 'var(--app-text)',
-                    fontWeight: 'bold',
-                    fontSize: '11px',
+                    borderRadius: '8px',
+                    padding: '6px 14px',
+                    color: showMenu ? '#38bdf8' : 'var(--app-text)',
+                    fontWeight: '600',
+                    fontSize: '12px',
                     outline: 'none',
-                    transition: 'all 0.2s',
+                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                    boxShadow: showMenu ? '0 0 12px rgba(59, 130, 246, 0.2)' : 'none',
                   }}
                 >
-                  <Menu size={12} /> Links & Resources <ChevronDown size={12} />
+                  <Menu size={14} style={{ color: '#38bdf8' }} />
+                  <span>Links & Tools</span>
+                  <ChevronDown size={12} style={{ transition: 'transform 0.2s', transform: showMenu ? 'rotate(180deg)' : 'rotate(0deg)' }} />
                 </button>
                 {showMenu && (
                   <>
@@ -631,103 +634,314 @@ export default function HeaderBar({
                     />
                     <div style={{
                       position: 'absolute',
-                      top: 'calc(100% + 8px)',
+                      top: 'calc(100% + 10px)',
                       right: 0,
-                      backgroundColor: '#0f172a',
-                      border: '1px solid #334155',
-                      borderRadius: '8px',
-                      boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 20px rgba(59, 130, 246, 0.1)',
-                      padding: '6px 0',
+                      backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                      backdropFilter: 'blur(16px)',
+                      WebkitBackdropFilter: 'blur(16px)',
+                      border: '1px solid rgba(51, 65, 85, 0.8)',
+                      borderRadius: '12px',
+                      boxShadow: '0 20px 40px -15px rgba(0, 0, 0, 0.7), 0 0 25px rgba(56, 189, 248, 0.1)',
+                      padding: '12px',
                       display: 'flex',
                       flexDirection: 'column',
-                      minWidth: '220px',
+                      gap: '12px',
+                      width: '280px',
                       zIndex: 1000,
+                      animation: 'fadeIn 0.15s ease-out',
                     }}>
-                      <a href="https://remotedesktop.google.com/access/session/9d5ab717-f397-2ced-883b-240576c1b217" target="_blank" rel="noopener noreferrer" className="menu-item" style={{ color: '#10b981', fontWeight: 'bold' }} onClick={() => setShowMenu(false)}>
-                        🖥️ Google Remote Desktop
-                      </a>
-                      <a href="https://openapi.ctrader.com/apps" target="_blank" rel="noopener noreferrer" className="menu-item" onClick={() => setShowMenu(false)}>
-                        cTrader Apps
-                      </a>
-                      <a href="https://gemini.google.com/app/71d33e33a84aa328" target="_blank" rel="noopener noreferrer" className="menu-item" onClick={() => setShowMenu(false)}>
-                        Wyckoff Prompt
-                      </a>
-                      <a href="https://trader.ftmo.com/accounts-overview" target="_blank" rel="noopener noreferrer" className="menu-item" onClick={() => setShowMenu(false)}>
-                        FTMO Overview
-                      </a>
-                      <a href="https://saphir.metanet.ch:8443/phpMyAdmin/index.php?db=aa_wyckoff_trading" target="_blank" rel="noopener noreferrer" className="menu-item" onClick={() => setShowMenu(false)}>
-                        Database (phpMyAdmin)
-                      </a>
-                      <a href="https://railway.com/project/aa01f500-c3df-4d47-b60a-821237699d0d/service/05376c29-94f0-44f3-acc2-93d5d104019f/settings?environmentId=7a63d6ae-f3e6-452d-b527-6311f6f9b551" target="_blank" rel="noopener noreferrer" className="menu-item" onClick={() => setShowMenu(false)}>
-                        Railway Settings
-                      </a>
-                      <a
-                        href="#symbol-mappings"
-                        className="menu-item"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setView('mappings');
-                          setShowMenu(false);
-                        }}
-                      >
-                        🔗 Symbol Mappings
-                      </a>
-                      <a
-                        href="#live-trades"
-                        className="menu-item"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setView('trades');
-                          setShowMenu(false);
-                        }}
-                      >
-                        📈 Live Trades & History
-                      </a>
-                      <a
-                        href="#computers"
-                        className="menu-item"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setView('computers');
-                          setShowMenu(false);
-                        }}
-                      >
-                        💻 Computer Manager
-                      </a>
-                      <a
-                        href="#notifications"
-                        className="menu-item"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setView('notifications');
-                          setShowMenu(false);
-                        }}
-                      >
-                        🔔 Notification Settings
-                      </a>
-                      <button
-                        onClick={() => {
-                          setShowMenu(false);
-                          triggerPWAEventNotification("Sound Check", "Local audio sound test completed successfully!", "trade_open");
-                        }}
-                        className="menu-item"
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          textAlign: 'left',
-                          width: '100%',
-                          cursor: 'pointer',
-                          display: 'block',
-                          fontFamily: 'inherit',
-                          padding: '8px 16px',
-                          color: '#94a3b8'
-                        }}
-                      >
-                        🔔 Test Local Sound
-                      </button>
-                      <a href="/how-to" className="menu-item" style={{ borderTop: '1px solid #1e293b', paddingTop: '8px', marginTop: '4px' }} onClick={() => setShowMenu(false)}>
-                        📖 How It Works
-                      </a>
+                      {/* Section 1: Dashboard Navigation */}
+                      <div>
+                        <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '6px', paddingLeft: '8px' }}>
+                          Navigation Views
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setView('trades');
+                              setShowMenu(false);
+                            }}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '10px',
+                              padding: '8px 10px',
+                              borderRadius: '6px',
+                              backgroundColor: 'transparent',
+                              border: 'none',
+                              color: '#f8fafc',
+                              fontSize: '12px',
+                              fontWeight: '500',
+                              cursor: 'pointer',
+                              textAlign: 'left',
+                              width: '100%',
+                              transition: 'background-color 0.15s',
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.06)'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                          >
+                            <span style={{ fontSize: '14px' }}>📈</span> Live Trades & History
+                          </button>
+
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setView('mappings');
+                              setShowMenu(false);
+                            }}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '10px',
+                              padding: '8px 10px',
+                              borderRadius: '6px',
+                              backgroundColor: 'transparent',
+                              border: 'none',
+                              color: '#f8fafc',
+                              fontSize: '12px',
+                              fontWeight: '500',
+                              cursor: 'pointer',
+                              textAlign: 'left',
+                              width: '100%',
+                              transition: 'background-color 0.15s',
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.06)'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                          >
+                            <span style={{ fontSize: '14px' }}>🔗</span> Symbol Mappings
+                          </button>
+
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setView('computers');
+                              setShowMenu(false);
+                            }}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '10px',
+                              padding: '8px 10px',
+                              borderRadius: '6px',
+                              backgroundColor: 'transparent',
+                              border: 'none',
+                              color: '#f8fafc',
+                              fontSize: '12px',
+                              fontWeight: '500',
+                              cursor: 'pointer',
+                              textAlign: 'left',
+                              width: '100%',
+                              transition: 'background-color 0.15s',
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.06)'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                          >
+                            <span style={{ fontSize: '14px' }}>💻</span> Computer Manager
+                          </button>
+
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setView('notifications');
+                              setShowMenu(false);
+                            }}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '10px',
+                              padding: '8px 10px',
+                              borderRadius: '6px',
+                              backgroundColor: 'transparent',
+                              border: 'none',
+                              color: '#f8fafc',
+                              fontSize: '12px',
+                              fontWeight: '500',
+                              cursor: 'pointer',
+                              textAlign: 'left',
+                              width: '100%',
+                              transition: 'background-color 0.15s',
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.06)'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                          >
+                            <span style={{ fontSize: '14px' }}>🔔</span> Notification Settings
+                          </button>
+                        </div>
+                      </div>
+
+                      <div style={{ height: '1px', backgroundColor: 'rgba(51, 65, 85, 0.6)' }} />
+
+                      {/* Section 2: External Tools & Management */}
+                      <div>
+                        <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '6px', paddingLeft: '8px' }}>
+                          External Consoles & Cloud
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          <a
+                            href="https://remotedesktop.google.com/access/session/9d5ab717-f397-2ced-883b-240576c1b217"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '10px',
+                              padding: '8px 10px',
+                              borderRadius: '6px',
+                              color: '#10b981',
+                              fontSize: '12px',
+                              fontWeight: '600',
+                              textDecoration: 'none',
+                              transition: 'background-color 0.15s',
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(16, 185, 129, 0.1)'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                            onClick={() => setShowMenu(false)}
+                          >
+                            <span style={{ fontSize: '14px' }}>🖥️</span> Remote Desktop
+                          </a>
+
+                          <a
+                            href="https://openapi.ctrader.com/apps"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '10px',
+                              padding: '8px 10px',
+                              borderRadius: '6px',
+                              color: '#cbd5e1',
+                              fontSize: '12px',
+                              textDecoration: 'none',
+                              transition: 'background-color 0.15s',
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.06)'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                            onClick={() => setShowMenu(false)}
+                          >
+                            <span style={{ fontSize: '14px' }}>⚡</span> cTrader API Portal
+                          </a>
+
+                          <a
+                            href="https://trader.ftmo.com/accounts-overview"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '10px',
+                              padding: '8px 10px',
+                              borderRadius: '6px',
+                              color: '#cbd5e1',
+                              fontSize: '12px',
+                              textDecoration: 'none',
+                              transition: 'background-color 0.15s',
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.06)'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                            onClick={() => setShowMenu(false)}
+                          >
+                            <span style={{ fontSize: '14px' }}>📊</span> FTMO Account Overview
+                          </a>
+
+                          <a
+                            href="https://saphir.metanet.ch:8443/phpMyAdmin/index.php?db=aa_wyckoff_trading"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '10px',
+                              padding: '8px 10px',
+                              borderRadius: '6px',
+                              color: '#cbd5e1',
+                              fontSize: '12px',
+                              textDecoration: 'none',
+                              transition: 'background-color 0.15s',
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.06)'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                            onClick={() => setShowMenu(false)}
+                          >
+                            <span style={{ fontSize: '14px' }}>🗄️</span> phpMyAdmin DB
+                          </a>
+
+                          <a
+                            href="https://railway.com/project/aa01f500-c3df-4d47-b60a-821237699d0d/service/05376c29-94f0-44f3-acc2-93d5d104019f/settings?environmentId=7a63d6ae-f3e6-452d-b527-6311f6f9b551"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '10px',
+                              padding: '8px 10px',
+                              borderRadius: '6px',
+                              color: '#cbd5e1',
+                              fontSize: '12px',
+                              textDecoration: 'none',
+                              transition: 'background-color 0.15s',
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.06)'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                            onClick={() => setShowMenu(false)}
+                          >
+                            <span style={{ fontSize: '14px' }}>🚂</span> Railway Cloud Dashboard
+                          </a>
+                        </div>
+                      </div>
+
+                      <div style={{ height: '1px', backgroundColor: 'rgba(51, 65, 85, 0.6)' }} />
+
+                      {/* Section 3: Utilities & Guides */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <button
+                          onClick={() => {
+                            setShowMenu(false);
+                            triggerPWAEventNotification("Sound Check", "Local audio sound test completed successfully!", "trade_open");
+                          }}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            padding: '8px 10px',
+                            borderRadius: '6px',
+                            backgroundColor: 'transparent',
+                            border: 'none',
+                            color: '#94a3b8',
+                            fontSize: '12px',
+                            fontWeight: '500',
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                            width: '100%',
+                            transition: 'background-color 0.15s',
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.06)'}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                        >
+                          <span style={{ fontSize: '14px' }}>🔊</span> Test Audio Sound
+                        </button>
+
+                        <a
+                          href="/how-to"
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            padding: '8px 10px',
+                            borderRadius: '6px',
+                            color: '#38bdf8',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            textDecoration: 'none',
+                            backgroundColor: 'rgba(56, 189, 248, 0.08)',
+                            transition: 'background-color 0.15s',
+                          }}
+                          onClick={() => setShowMenu(false)}
+                        >
+                          <span style={{ fontSize: '14px' }}>📖</span> Strategy & Sizing Guide
+                        </a>
+                      </div>
                     </div>
                   </>
                 )}
