@@ -337,7 +337,19 @@ export default function WyckoffBacktester({
   });
   const [beStart, setBEStart] = React.useState<string>(() => localStorage.getItem('wyckoff_backtester_be_start') || '1.0');
   const [beEnd, setBEEnd] = React.useState<string>(() => localStorage.getItem('wyckoff_backtester_be_end') || '3.0');
-  const [beStep, setBEStep] = React.useState<string>(() => localStorage.getItem('wyckoff_backtester_be_step') || '0.5');  React.useEffect(() => {
+  const [beStep, setBEStep] = React.useState<string>(() => localStorage.getItem('wyckoff_backtester_be_step') || '0.5');
+
+  const [beOffsetRangeMode, setBEOffsetRangeMode] = React.useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('wyckoff_backtester_be_offset_range_mode');
+      return saved !== null ? JSON.parse(saved) : false;
+    } catch { return false; }
+  });
+  const [beOffsetStart, setBEOffsetStart] = React.useState<string>(() => localStorage.getItem('wyckoff_backtester_be_offset_start') || '0.1');
+  const [beOffsetEnd, setBEOffsetEnd] = React.useState<string>(() => localStorage.getItem('wyckoff_backtester_be_offset_end') || '1.0');
+  const [beOffsetStep, setBEOffsetStep] = React.useState<string>(() => localStorage.getItem('wyckoff_backtester_be_offset_step') || '0.1');
+
+  React.useEffect(() => {
     const timer = setTimeout(() => {
       try {
         localStorage.setItem('wyckoff_backtester_sl_range_mode', JSON.stringify(slRangeMode));
@@ -354,12 +366,17 @@ export default function WyckoffBacktester({
         localStorage.setItem('wyckoff_backtester_be_start', beStart);
         localStorage.setItem('wyckoff_backtester_be_end', beEnd);
         localStorage.setItem('wyckoff_backtester_be_step', beStep);
+
+        localStorage.setItem('wyckoff_backtester_be_offset_range_mode', JSON.stringify(beOffsetRangeMode));
+        localStorage.setItem('wyckoff_backtester_be_offset_start', beOffsetStart);
+        localStorage.setItem('wyckoff_backtester_be_offset_end', beOffsetEnd);
+        localStorage.setItem('wyckoff_backtester_be_offset_step', beOffsetStep);
       } catch (e) {
         console.error(e);
       }
     }, 150);
     return () => clearTimeout(timer);
-  }, [slRangeMode, slStart, slEnd, slStep, rrRangeMode, internalRRStart, internalRREnd, internalRRStep, beRangeMode, beStart, beEnd, beStep]);
+  }, [slRangeMode, slStart, slEnd, slStep, rrRangeMode, internalRRStart, internalRREnd, internalRRStep, beRangeMode, beStart, beEnd, beStep, beOffsetRangeMode, beOffsetStart, beOffsetEnd, beOffsetStep]);
 
 
   const calcStepCount = (startStr: string, endStr: string, stepStr: string) => {
@@ -375,8 +392,9 @@ export default function WyckoffBacktester({
   const slCount = slRangeMode ? calcStepCount(slStart, slEnd, slStep) : 1;
   const rrCount = (rrRangeMode || isOptimizeMode) ? calcStepCount(activeRRStart, activeRREnd, activeRRStep) : 1;
   const beCount = (useBreakEven && beRangeMode) ? calcStepCount(beStart, beEnd, beStep) : 1;
+  const beOffsetCount = (useBreakEven && beOffsetRangeMode) ? calcStepCount(beOffsetStart, beOffsetEnd, beOffsetStep) : 1;
 
-  const totalRunCombinations = symbolCount * timeframeCount * slCount * rrCount * beCount;
+  const totalRunCombinations = symbolCount * timeframeCount * slCount * rrCount * beCount * beOffsetCount;
 
   const [optSortBy, setOptSortBy] = React.useState<'netPnl' | 'winRate' | 'profitFactor' | 'maxDrawdown' | 'totalTrades'>('netPnl');
   const [optSortDir, setOptSortDir] = React.useState<'asc' | 'desc'>('desc');
@@ -1829,17 +1847,64 @@ export default function WyckoffBacktester({
                       </select>
                     </div>
                     {!['half_r', 'zero_be'].includes(beOffsetMode) && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <span style={{ fontSize: '9px', color: '#9ca3af' }}>Fixed Profit SL:</span>
-                        <input
-                          type="number"
-                          value={beOffsetMode}
-                          onChange={(e) => setBeOffsetMode && setBeOffsetMode(e.target.value)}
-                          style={{ ...styles.input, flex: 1, padding: '2px 4px', fontSize: '10px', color: '#38bdf8' }}
-                          step="0.1"
-                          min="0"
-                        />
-                        <span style={{ fontSize: '9px', color: '#38bdf8' }}>R</span>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '2px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: '9px', color: '#9ca3af' }}>Fixed Profit SL Offset:</span>
+                          <label style={{ color: '#cbd5e1', fontSize: '9px', display: 'flex', alignItems: 'center', gap: '3px', cursor: 'pointer' }}>
+                            <input
+                              type="checkbox"
+                              checked={beOffsetRangeMode}
+                              onChange={(e) => setBEOffsetRangeMode(e.target.checked)}
+                              style={{ cursor: 'pointer' }}
+                            />
+                            Offset Range
+                          </label>
+                        </div>
+                        {!beOffsetRangeMode ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <input
+                              type="number"
+                              value={beOffsetMode}
+                              onChange={(e) => setBeOffsetMode && setBeOffsetMode(e.target.value)}
+                              style={{ ...styles.input, flex: 1, padding: '2px 4px', fontSize: '10px', color: '#38bdf8' }}
+                              step="0.1"
+                              min="0"
+                            />
+                            <span style={{ fontSize: '9px', color: '#38bdf8' }}>R</span>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                            <div style={{ display: 'flex', gap: '3px' }}>
+                              <input
+                                type="number"
+                                value={beOffsetStart}
+                                onChange={(e) => setBEOffsetStart(e.target.value)}
+                                style={{ ...styles.input, minWidth: 0, flex: 1, padding: '2px 4px', fontSize: '9px' }}
+                                placeholder="Start (0.1)"
+                                step="0.1"
+                              />
+                              <input
+                                type="number"
+                                value={beOffsetEnd}
+                                onChange={(e) => setBEOffsetEnd(e.target.value)}
+                                style={{ ...styles.input, minWidth: 0, flex: 1, padding: '2px 4px', fontSize: '9px' }}
+                                placeholder="End (1.0)"
+                                step="0.1"
+                              />
+                              <input
+                                type="number"
+                                value={beOffsetStep}
+                                onChange={(e) => setBEOffsetStep(e.target.value)}
+                                style={{ ...styles.input, minWidth: 0, flex: 1, padding: '2px 4px', fontSize: '9px' }}
+                                placeholder="Step (0.1)"
+                                step="0.1"
+                              />
+                            </div>
+                            <span style={{ fontSize: '9px', color: '#38bdf8' }}>
+                              ⚡ Offset Range: {beOffsetStart}R → {beOffsetEnd}R ({beOffsetCount} values)
+                            </span>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -2508,7 +2573,7 @@ export default function WyckoffBacktester({
                         <span style={{ fontWeight: 'bold', color: '#ffffff' }}>{r.symbol || symbol} • {r.timeframe || timeframe}</span>
                         {!isMobile && (
                           <span style={{ color: '#cbd5e1', fontSize: '10px' }}>
-                            SL: {r.sl ?? backtestSL}{r.slType === 'price' ? 'p' : (r.slType === 'dollar' ? '$' : '%')} | RR: 1:{Number(r.rr).toFixed(1)} | BE: {r.be ? `${r.be}R` : 'Off'}
+                            SL: {r.sl ?? backtestSL}{r.slType === 'price' ? 'p' : (r.slType === 'dollar' ? '$' : '%')} | RR: 1:{Number(r.rr).toFixed(1)} | BE: {r.be ? `${r.be}R (${r.beOffsetMode === 'zero_be' ? '0.0R' : (r.beOffsetMode === 'half_r' ? 'Half R' : `${r.beOffsetMode}R`)})` : 'Off'}
                           </span>
                         )}
                         <span style={{ textAlign: 'right', color: isProfit ? '#10b981' : '#ef4444', fontWeight: 'bold', fontSize: '12px' }}>

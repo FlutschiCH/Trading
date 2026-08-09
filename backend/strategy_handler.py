@@ -360,7 +360,11 @@ class StrategyHandler:
         be_range_mode: bool = False,
         be_start: float = None,
         be_end: float = None,
-        be_step: float = None
+        be_step: float = None,
+        be_offset_range_mode: bool = False,
+        be_offset_start: float = None,
+        be_offset_end: float = None,
+        be_offset_step: float = None
     ) -> dict:
         """
         Runs Wyckoff parameter grid search optimization, fetching candles dynamically and executing simulations.
@@ -387,7 +391,7 @@ class StrategyHandler:
         if not rr_values:
             rr_values = [2.0]
 
-        # Generate Break-Even values
+        # Generate Break-Even Trigger values
         if use_break_even and be_range_mode and be_start is not None and be_end is not None and be_step:
             be_values = []
             curr = be_start
@@ -396,6 +400,16 @@ class StrategyHandler:
                 curr += be_step
         else:
             be_values = [be_trigger_r] if use_break_even else [None]
+
+        # Generate Break-Even Offset values
+        if use_break_even and be_offset_range_mode and be_offset_start is not None and be_offset_end is not None and be_offset_step:
+            be_offset_values = []
+            curr = be_offset_start
+            while curr <= be_offset_end + 0.0001:
+                be_offset_values.append(str(round(curr, 2)))
+                curr += be_offset_step
+        else:
+            be_offset_values = [be_offset_mode]
 
         symbols_list = symbols if (symbols and len(symbols) > 0) else [symbol]
         timeframes_list = timeframes if (timeframes and len(timeframes) > 0) else [timeframe]
@@ -408,16 +422,18 @@ class StrategyHandler:
                 for sl in sl_values:
                     for rr in rr_values:
                         for be in be_values:
-                            if use_break_even and be is not None and be >= rr:
-                                skipped_invalid_combos += 1
-                                continue
-                            matrix.append({
-                                "symbol": s,
-                                "timeframe": tf,
-                                "sl": sl,
-                                "rr": rr,
-                                "be": be
-                            })
+                            for be_off in be_offset_values:
+                                if use_break_even and be is not None and be >= rr:
+                                    skipped_invalid_combos += 1
+                                    continue
+                                matrix.append({
+                                    "symbol": s,
+                                    "timeframe": tf,
+                                    "sl": sl,
+                                    "rr": rr,
+                                    "be": be,
+                                    "be_offset": be_off
+                                })
 
         import time
         overall_start_time = time.time()
@@ -515,6 +531,7 @@ class StrategyHandler:
                 print(f"[Optimization] No market data analyzed for {s} {tf}.", flush=True)
                 continue
 
+            be_off = combo.get("be_offset", be_offset_mode)
             from backtest_helpers import run_trade_simulation
             sim_result = run_trade_simulation(
                 annotated_data=annotated_data,
@@ -528,7 +545,7 @@ class StrategyHandler:
                 risk_pct=risk_pct,
                 use_break_even=(be is not None),
                 be_trigger_r=be if be is not None else 1.0,
-                be_offset_mode=be_offset_mode,
+                be_offset_mode=be_off,
                 fees_percent=fees_percent,
                 daily_retry_limit=daily_retry_limit,
                 allow_opposite_close=allow_opposite_close,
@@ -565,6 +582,7 @@ class StrategyHandler:
                     "sl_type": sl_type,
                     "rr": rr,
                     "be_trigger_r": be,
+                    "be_offset_mode": be_off,
                     "size": size,
                     "initial_balance": initial_balance,
                     "use_risk_sizing": use_risk_sizing,
@@ -636,6 +654,7 @@ class StrategyHandler:
                 "slType": sl_type,
                 "rr": rr,
                 "be": be,
+                "beOffsetMode": be_off,
                 "winRate": sim_result["winRate"],
                 "netPnl": sim_result["netPnl"],
                 "profitFactor": sim_result["profitFactor"],

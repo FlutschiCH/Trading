@@ -284,6 +284,11 @@ def backtest_optimize():
     be_end = float(payload.get('beEnd')) if payload.get('beEnd') is not None else None
     be_step = float(payload.get('beStep')) if payload.get('beStep') is not None else None
 
+    be_offset_range_mode = bool(payload.get('beOffsetRangeMode', False))
+    be_offset_start = float(payload.get('beOffsetStart')) if payload.get('beOffsetStart') is not None else None
+    be_offset_end = float(payload.get('beOffsetEnd')) if payload.get('beOffsetEnd') is not None else None
+    be_offset_step = float(payload.get('beOffsetStep')) if payload.get('beOffsetStep') is not None else None
+
     def check_cancelled():
         if backtest_id and str(backtest_id) in cancelled_backtests:
             return True
@@ -343,7 +348,11 @@ def backtest_optimize():
                 be_range_mode=be_range_mode,
                 be_start=be_start,
                 be_end=be_end,
-                be_step=be_step
+                be_step=be_step,
+                be_offset_range_mode=be_offset_range_mode,
+                be_offset_start=be_offset_start,
+                be_offset_end=be_offset_end,
+                be_offset_step=be_offset_step
             )
             q.put({"status": "success", "data": res})
         except Exception as e:
