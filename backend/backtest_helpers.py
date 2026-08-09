@@ -283,8 +283,15 @@ def run_trade_simulation(
                 sl_distance = active_trade['sl_distance']
                 if be_offset_mode == 'zero_be':
                     be_offset = 0.0
-                else: # 'half_r' (default)
+                elif be_offset_mode == 'half_r':
                     be_offset = 0.5 * be_trigger_r * sl_distance
+                else:
+                    try:
+                        # Fixed R offset (e.g. 0.2R, 0.5R, 1.0R)
+                        fixed_r = float(be_offset_mode)
+                        be_offset = fixed_r * sl_distance
+                    except (ValueError, TypeError):
+                        be_offset = 0.5 * be_trigger_r * sl_distance
 
                 if active_trade['type'] == 'BUY':
                     if high_val >= active_trade['entry_price'] + sl_distance * be_trigger_r:

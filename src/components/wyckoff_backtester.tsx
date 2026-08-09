@@ -27,8 +27,8 @@ interface WyckoffBacktesterProps {
   setUseBreakEven: (val: boolean) => void;
   backtestBE: string;
   setBacktestBE: (val: string) => void;
-  beOffsetMode?: 'half_r' | 'zero_be';
-  setBeOffsetMode?: (val: 'half_r' | 'zero_be') => void;
+  beOffsetMode?: 'half_r' | 'zero_be' | string;
+  setBeOffsetMode?: (val: 'half_r' | 'zero_be' | string) => void;
   lookbackWindow: string;
   setLookbackWindow: (val: string) => void;
   backtestFees: string;
@@ -1715,33 +1715,60 @@ export default function WyckoffBacktester({
                 </div>
 
                 {!beRangeMode ? (
-                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                    <input
-                      type="number"
-                      value={backtestBE}
-                      onChange={(e) => setBacktestBE(e.target.value)}
-                      style={{ ...styles.input, flex: 1 }}
-                      step="0.1"
-                      min="0.1"
-                    />
-                    <select
-                      value={beOffsetMode}
-                      onChange={(e) => setBeOffsetMode && setBeOffsetMode(e.target.value as 'half_r' | 'zero_be')}
-                      style={{
-                        ...styles.input,
-                        width: 'auto',
-                        padding: '4px 6px',
-                        fontSize: '10px',
-                        backgroundColor: '#1e293b',
-                        borderColor: '#334155',
-                        color: '#38bdf8',
-                        cursor: 'pointer'
-                      }}
-                      title="Select SL Placement when BE triggers"
-                    >
-                      <option value="half_r">SL: Half R (0.5×R)</option>
-                      <option value="zero_be">SL: Exact Entry (0.0)</option>
-                    </select>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                      <input
+                        type="number"
+                        value={backtestBE}
+                        onChange={(e) => setBacktestBE(e.target.value)}
+                        style={{ ...styles.input, flex: 1 }}
+                        step="0.1"
+                        min="0.1"
+                        placeholder="BE Trigger (R)"
+                      />
+                      <select
+                        value={['half_r', 'zero_be'].includes(beOffsetMode) ? beOffsetMode : 'custom'}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === 'custom') {
+                            setBeOffsetMode && setBeOffsetMode('0.5');
+                          } else {
+                            setBeOffsetMode && setBeOffsetMode(val);
+                          }
+                        }}
+                        style={{
+                          ...styles.input,
+                          width: 'auto',
+                          padding: '4px 6px',
+                          fontSize: '10px',
+                          backgroundColor: '#1e293b',
+                          borderColor: '#334155',
+                          color: '#38bdf8',
+                          cursor: 'pointer'
+                        }}
+                        title="Select SL Placement when BE triggers"
+                      >
+                        <option value="half_r">Half Trigger (0.5×Trigger)</option>
+                        <option value="zero_be">Exact Entry (0.0R)</option>
+                        <option value="custom">Fixed R Profit Offset</option>
+                      </select>
+                    </div>
+
+                    {!['half_r', 'zero_be'].includes(beOffsetMode) && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span style={{ fontSize: '10px', color: '#9ca3af', whiteSpace: 'nowrap' }}>Fixed Profit SL:</span>
+                        <input
+                          type="number"
+                          value={beOffsetMode}
+                          onChange={(e) => setBeOffsetMode && setBeOffsetMode(e.target.value)}
+                          style={{ ...styles.input, flex: 1, padding: '3px 6px', fontSize: '11px', color: '#38bdf8' }}
+                          step="0.1"
+                          min="0"
+                          placeholder="e.g. 0.5R"
+                        />
+                        <span style={{ fontSize: '10px', color: '#38bdf8' }}>R</span>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -1771,9 +1798,50 @@ export default function WyckoffBacktester({
                         step="0.1"
                       />
                     </div>
-                    <span style={{ fontSize: '9px', color: '#38bdf8' }}>
-                      ⚡ BE Range: {beStart}R → {beEnd}R ({beCount} values)
-                    </span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '9px', color: '#38bdf8' }}>
+                        ⚡ BE Range: {beStart}R → {beEnd}R ({beCount} values)
+                      </span>
+                      <select
+                        value={['half_r', 'zero_be'].includes(beOffsetMode) ? beOffsetMode : 'custom'}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === 'custom') {
+                            setBeOffsetMode && setBeOffsetMode('0.5');
+                          } else {
+                            setBeOffsetMode && setBeOffsetMode(val);
+                          }
+                        }}
+                        style={{
+                          ...styles.input,
+                          width: 'auto',
+                          padding: '2px 4px',
+                          fontSize: '9px',
+                          backgroundColor: '#1e293b',
+                          borderColor: '#334155',
+                          color: '#38bdf8',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <option value="half_r">Half Trigger</option>
+                        <option value="zero_be">Exact Entry (0.0R)</option>
+                        <option value="custom">Fixed Offset</option>
+                      </select>
+                    </div>
+                    {!['half_r', 'zero_be'].includes(beOffsetMode) && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span style={{ fontSize: '9px', color: '#9ca3af' }}>Fixed Profit SL:</span>
+                        <input
+                          type="number"
+                          value={beOffsetMode}
+                          onChange={(e) => setBeOffsetMode && setBeOffsetMode(e.target.value)}
+                          style={{ ...styles.input, flex: 1, padding: '2px 4px', fontSize: '10px', color: '#38bdf8' }}
+                          step="0.1"
+                          min="0"
+                        />
+                        <span style={{ fontSize: '9px', color: '#38bdf8' }}>R</span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
