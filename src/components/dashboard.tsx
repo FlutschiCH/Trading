@@ -392,14 +392,19 @@ export default function Dashboard() {
   }, [selectedTrade]);
 
   useEffect(() => {
-    if (openPositions && openPositions.length > 0) {
+    if (loadingBacktest) {
+      const runText = backtestRunInfo && backtestRunInfo.total > 1
+        ? `⏳ Run ${backtestRunInfo.current}/${backtestRunInfo.total} (${backtestProgress}%)`
+        : `⏳ Running ${backtestProgress}%...`;
+      document.title = runText;
+    } else if (openPositions && openPositions.length > 0) {
       const totalPnl = openPositions.reduce((sum, pos) => sum + (Number(pos.unrealized_profit) || 0), 0);
       const pnlSign = totalPnl >= 0 ? '+' : '';
       document.title = `${pnlSign}$${totalPnl.toFixed(2)}`;
     } else {
       document.title = `${symbol ? `${symbol} - ` : ''}Wyckoff Trading Platform`;
     }
-  }, [openPositions, symbol]);
+  }, [loadingBacktest, backtestProgress, backtestRunInfo, openPositions, symbol]);
 
   const handleExecuteTradeAgain = async () => {
     if (!selectedTrade) return;
