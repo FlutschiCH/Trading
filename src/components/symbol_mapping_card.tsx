@@ -135,6 +135,34 @@ export const SymbolMappingCard: React.FC<SymbolMappingCardProps> = ({ isReadOnly
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', height: '100%', width: '100%' }}>
+      {/* Header Refresh Bar */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#0f172a', padding: '6px 10px', borderRadius: '4px', border: '1px solid #1e293b' }}>
+        <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#94a3b8' }}>Symbol Mapping Config</span>
+        <button
+          type="button"
+          onClick={() => {
+            fetchConnectedBrokers();
+            fetchSymbolMappings();
+          }}
+          disabled={loadingBrokers}
+          style={{
+            backgroundColor: '#1e293b',
+            color: '#3b82f6',
+            border: '1px solid #334155',
+            borderRadius: '4px',
+            padding: '4px 8px',
+            fontSize: '10px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px'
+          }}
+        >
+          🔄 {loadingBrokers ? 'Refreshing...' : 'Refresh Brokers & Symbols'}
+        </button>
+      </div>
+
       {/* Form Section */}
       <form onSubmit={handleAddMapping} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
@@ -165,10 +193,13 @@ export const SymbolMappingCard: React.FC<SymbolMappingCardProps> = ({ isReadOnly
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '10px', color: '#94a3b8', marginBottom: '2px' }}>Target Broker Account</label>
+            <label style={{ display: 'block', fontSize: '10px', color: '#94a3b8', marginBottom: '2px' }}>Active Broker</label>
             <select
               value={newBrokerKey}
-              onChange={e => setNewBrokerKey(e.target.value)}
+              onChange={e => {
+                setNewBrokerKey(e.target.value);
+                setNewBrokerSymbol('');
+              }}
               style={{
                 width: '100%',
                 backgroundColor: '#0f172a',
@@ -212,79 +243,28 @@ export const SymbolMappingCard: React.FC<SymbolMappingCardProps> = ({ isReadOnly
         )}
 
         <div>
-          <label style={{ display: 'block', fontSize: '10px', color: '#94a3b8', marginBottom: '2px' }}>Mapped Broker Symbol</label>
-          <div style={{ position: 'relative' }}>
-            <input
-              type="text"
-              placeholder={loadingBrokers ? "Loading symbols..." : "Select/search broker symbol"}
-              value={showBrokerSymbolDropdown ? brokerSymbolSearch : newBrokerSymbol}
-              onFocus={() => {
-                setBrokerSymbolSearch('');
-                setShowBrokerSymbolDropdown(true);
-              }}
-              onChange={e => {
-                setBrokerSymbolSearch(e.target.value);
-                setNewBrokerSymbol(e.target.value);
-              }}
-              style={{
-                width: '100%',
-                backgroundColor: '#0f172a',
-                border: '1px solid #334155',
-                borderRadius: '4px',
-                padding: '6px 8px',
-                color: '#f8fafc',
-                fontSize: '11px',
-                outline: 'none'
-              }}
-            />
-            {showBrokerSymbolDropdown && (
-              <>
-                <div
-                  onClick={() => setShowBrokerSymbolDropdown(false)}
-                  style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }}
-                />
-                <div style={{
-                  position: 'absolute',
-                  top: '100%',
-                  left: 0,
-                  right: 0,
-                  backgroundColor: '#0f172a',
-                  border: '1px solid #334155',
-                  borderRadius: '4px',
-                  maxHeight: '140px',
-                  overflowY: 'auto',
-                  zIndex: 1000,
-                  boxShadow: '0 8px 12px rgba(0, 0, 0, 0.4)'
-                }}>
-                  {getAvailableBrokerSymbols().filter(s => s.toLowerCase().includes(brokerSymbolSearch.toLowerCase())).length > 0 ? (
-                    getAvailableBrokerSymbols()
-                      .filter(s => s.toLowerCase().includes(brokerSymbolSearch.toLowerCase()))
-                      .map(sym => (
-                        <div
-                          key={sym}
-                          onClick={() => handleSelectBrokerSymbol(sym)}
-                          style={{
-                            padding: '6px 8px',
-                            cursor: 'pointer',
-                            fontSize: '11px',
-                            color: '#d1d5db',
-                            backgroundColor: newBrokerSymbol === sym ? '#2563eb' : 'transparent'
-                          }}
-                        >
-                          {sym}
-                        </div>
-                      ))
-                  ) : (
-                    <div style={{ padding: '6px 8px', fontSize: '11px', color: '#6b7280' }}>
-                      {loadingBrokers ? "Fetching..." : "No symbols found"}
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
+          <label style={{ display: 'block', fontSize: '10px', color: '#94a3b8', marginBottom: '2px' }}>Broker Symbol (Select from Broker)</label>
+          <select
+            value={newBrokerSymbol}
+            onChange={e => setNewBrokerSymbol(e.target.value)}
+            disabled={loadingBrokers}
+            style={{
+              width: '100%',
+              backgroundColor: '#0f172a',
+              border: '1px solid #334155',
+              borderRadius: '4px',
+              padding: '6px 8px',
+              color: '#f8fafc',
+              fontSize: '11px',
+              outline: 'none'
+            }}
+          >
+            <option value="">-- Select Symbol from Selected Broker --</option>
+            {getAvailableBrokerSymbols().map(sym => (
+              <option key={sym} value={sym}>{sym}</option>
+            ))}
+          </select>
         </div>
-
         {mappingMessage && (
           <div style={{
             fontSize: '10px',
