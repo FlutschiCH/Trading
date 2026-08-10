@@ -470,8 +470,7 @@ class LiveRunner:
                 target_acc_id = target.get("account_id")
                 
                 target_kwargs = {
-                    "account_id": target_acc_id,
-                    "login": int(target_acc_id) if str(target_acc_id).isdigit() else target_acc_id
+                    "account_id": target_acc_id
                 }
                 
                 from broker_handler import BrokerHandler
