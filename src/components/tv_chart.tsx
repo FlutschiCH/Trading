@@ -671,10 +671,41 @@ export default function TVChart({
     localStorage.setItem('tv_chart_settings', JSON.stringify(chartSettings));
   }, [chartSettings]);
 
+  // Internal state to hold active open positions when updated via 5s polling
+  const [internalPositions, setInternalPositions] = useState<any[]>(openPositions);
+
   useEffect(() => {
-    // Polling of live strategies endpoint disabled
-    setLiveStrategyState(null);
-  }, [symbol, timeframe]);
+    setInternalPositions(openPositions);
+  }, [openPositions]);
+
+  // Query open positions every 5 seconds
+  useEffect(() => {
+    const fetchPositions = async () => {
+      try {
+        const broker = candleSource || 'metatrader';
+        const res = await fetch(`${API_BASE_URL}/api/trade/positions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ broker, symbol })
+        });
+        const data = await res.json();
+        if (data.status === 'success' && Array.isArray(data.data)) {
+          setInternalPositions(data.data);
+          try {
+            localStorage.setItem('wyckoff_active_positions', JSON.stringify(data.data));
+          } catch (e) { }
+        }
+      } catch (err) {
+        console.error('Failed to query positions every 5s:', err);
+      }
+    };
+
+    fetchPositions();
+    const interval = setInterval(fetchPositions, 5000);
+    return () => clearInterval(interval);
+  }, [symbol, candleSource]);
+
+  const activeOpenPositions = internalPositions;
 
   // Candle polling handled centrally by CandleStore (15s interval)
   const [chartHeight, setChartHeight] = useState(window.innerWidth < 768 ? 380 : 680);
@@ -1713,7 +1744,9 @@ export default function TVChart({
         .filter((m) => m !== null) : [];
 
       let openPositionsList: any[] = [];
-      if (Array.isArray(openPositions) && openPositions.length > 0) {
+      if (Array.isArray(internalPositions) && internalPositions.length > 0) {
+        openPositionsList = internalPositions;
+      } else if (Array.isArray(openPositions) && openPositions.length > 0) {
         openPositionsList = openPositions;
       } else {
         try {
@@ -2004,7 +2037,7 @@ export default function TVChart({
     }
 
     updateDrawingCoordinates();
-  }, [activeCandles, visibleTrades, actualFilter, chartSettings.showTrades, chartSettings.showTrLines, replayTime]);
+  }, [activeCandles, visibleTrades, actualFilter, chartSettings.showTrades, chartSettings.showTrLines, chartSettings.showPositions, replayTime, internalPositions, openPositions]);
 
   // Update price format and precision dynamically based on candle data
   useEffect(() => {
@@ -2124,7 +2157,9 @@ export default function TVChart({
   // Effect for rendering active live positions (Entry, SL, TP)
   useEffect(() => {
     let positionsList: any[] = [];
-    if (Array.isArray(openPositions) && openPositions.length > 0) {
+    if (Array.isArray(internalPositions) && internalPositions.length > 0) {
+      positionsList = internalPositions;
+    } else if (Array.isArray(openPositions) && openPositions.length > 0) {
       positionsList = openPositions;
     } else {
       try {
@@ -2287,7 +2322,7 @@ export default function TVChart({
         }
       }
     });
-  }, [openPositions, chartSettings.showPositions, chartSettings.showPositionsEntry, chartSettings.showPositionsSlTp, activeCandles, symbol]);
+  }, [internalPositions, openPositions, chartSettings.showPositions, chartSettings.showPositionsEntry, chartSettings.showPositionsSlTp, activeCandles, symbol]);
 
   const handleSVGMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
     if (activeTool === 'none' || activeTool === 'delete') return;
