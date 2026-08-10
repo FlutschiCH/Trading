@@ -75,13 +75,17 @@ export const CandleDetailsCard: React.FC<CandleDetailsCardProps> = ({
   const springCloseOk = sup != null ? selectedCandle.close > sup : false;
   const buyStageOk = stage !== 'DISTRIBUTION';
   const accumBars = selectedCandle.accum_consec_bars ?? 0;
-  const durationOk = entryStabilityRule === 'duration' || entryStabilityRule === 'both' ? accumBars >= 3 : true;
+  const durationOk = accumBars >= 3;
 
   const springHighTarget = selectedCandle.high;
   const springHighReached = selectedCandle.close > springHighTarget;
-  const confirmationOk = entryStabilityRule === 'confirmation' || entryStabilityRule === 'both' ? springHighReached : true;
+  const confirmationOk = springHighReached;
 
-  const buyReady = springLowOk && springCloseOk && buyStageOk && inSession && durationOk && confirmationOk;
+  // Determine readiness based on selected entryStabilityRule
+  const reqDuration = entryStabilityRule === 'duration' || entryStabilityRule === 'both' || entryStabilityRule === 'default';
+  const reqConfirmation = entryStabilityRule === 'confirmation' || entryStabilityRule === 'both' || entryStabilityRule === 'default';
+
+  const buyReady = springLowOk && springCloseOk && buyStageOk && inSession && (!reqDuration || durationOk) && (!reqConfirmation || confirmationOk);
 
   // Upthrust / SELL checks
   const utHighOk = res != null ? selectedCandle.high > res : false;
@@ -94,8 +98,8 @@ export const CandleDetailsCard: React.FC<CandleDetailsCardProps> = ({
   if (!springCloseOk) missingBuy.push('Close > Support');
   if (!buyStageOk) missingBuy.push('Stage != Distribution');
   if (!inSession) missingBuy.push('Outside Trading Session');
-  if (!durationOk) missingBuy.push(`Accumulation Bars (${accumBars}/3 required)`);
-  if (!confirmationOk) missingBuy.push(`Close > Spring High (${formatPrice(springHighTarget, symbol)})`);
+  if (reqDuration && !durationOk) missingBuy.push(`Accumulation Bars (${accumBars}/3 required)`);
+  if (reqConfirmation && !confirmationOk) missingBuy.push(`Close > Spring High (${formatPrice(springHighTarget, symbol)})`);
 
   const missingSell: string[] = [];
   if (!utHighOk) missingSell.push('High > Resistance');
