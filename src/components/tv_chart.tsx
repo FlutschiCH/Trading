@@ -1966,6 +1966,35 @@ export default function TVChart({
           addTradeLine(tpData, '#10b981');
         });
       }
+
+      // Draw 2-bar wide green line at the target level for each Spring candle
+      if (chartSettings.showTrLines) {
+        const sortedTimes = activeCandles.map((c) => Number(c.time)).sort((a, b) => a - b);
+        activeCandles.forEach((c, idx) => {
+          const sigLower = String(c.wyckoff_signal || '').toLowerCase();
+          const isSpring = sigLower.includes('spring');
+          if (isSpring) {
+            const targetVal = c.resistance_level ?? c.tr_high ?? c.high;
+            if (targetVal !== undefined && targetVal !== null) {
+              const endIdx = Math.min(idx + 2, sortedTimes.length);
+              const points = sortedTimes.slice(idx, endIdx);
+              if (points.length > 0) {
+                const targetData = points.map((t) => ({ time: t, value: targetVal }));
+                const lineSeries = chartRef.current.addSeries(LineSeries, {
+                  color: '#10b981',
+                  lineWidth: 3,
+                  lineStyle: 0,
+                  lastValueVisible: false,
+                  priceLineVisible: false,
+                  crosshairMarkerVisible: false,
+                });
+                lineSeries.setData(targetData);
+                dynamicLineSeriesRef.current.push(lineSeries);
+              }
+            }
+          }
+        });
+      }
     }
 
     updateDrawingCoordinates();
