@@ -2437,21 +2437,22 @@ export default function Dashboard() {
                       const springCloseOk = sup != null ? selectedCandle.close > sup : false;
                       const buyStageOk = stage !== 'DISTRIBUTION';
                       const accumBars = selectedCandle.accum_consec_bars ?? 0;
-                      const accumBarsOk = entryStabilityRule === 'duration' || entryStabilityRule === 'both' ? accumBars >= 3 : true;
-                      const buyReady = springLowOk && springCloseOk && buyStageOk && inSession && accumBarsOk;
+                      const durationOk = entryStabilityRule === 'duration' || entryStabilityRule === 'both' ? accumBars >= 3 : true;
+                      
+                      // Check if price reached or closed above Spring High level
+                      const springHighTarget = selectedCandle.high;
+                      const springHighReached = selectedCandle.close > springHighTarget;
+                      const confirmationOk = entryStabilityRule === 'confirmation' || entryStabilityRule === 'both' ? springHighReached : true;
 
-                      // Upthrust / SELL checks
-                      const utHighOk = res != null ? selectedCandle.high > res : false;
-                      const utCloseOk = res != null ? selectedCandle.close < res : false;
-                      const sellStageOk = stage !== 'ACCUMULATION';
-                      const sellReady = utHighOk && utCloseOk && sellStageOk && inSession;
+                      const buyReady = springLowOk && springCloseOk && buyStageOk && inSession && durationOk && confirmationOk;
 
                       const missingBuy: string[] = [];
                       if (!springLowOk) missingBuy.push('Low < Support');
                       if (!springCloseOk) missingBuy.push('Close > Support');
                       if (!buyStageOk) missingBuy.push('Stage != Distribution');
                       if (!inSession) missingBuy.push('Outside Trading Session');
-                      if (!accumBarsOk) missingBuy.push(`Accumulation Bars (${accumBars}/3)`);
+                      if (!durationOk) missingBuy.push(`Accumulation Bars (${accumBars}/3 required)`);
+                      if (!confirmationOk) missingBuy.push(`Close > Spring High (${formatPrice(springHighTarget, symbol)})`);
 
                       const missingSell: string[] = [];
                       if (!utHighOk) missingSell.push('High > Resistance');
@@ -2498,9 +2499,12 @@ export default function Dashboard() {
                               <span style={{ color: inSession ? '#10b981' : '#ef4444' }}>
                                 Session: {inSession ? '✓' : '✗'}
                               </span>
-                              {(entryStabilityRule === 'duration' || entryStabilityRule === 'both') && (
-                                <span style={{ color: accumBarsOk ? '#10b981' : '#ef4444' }}>
-                                  Accum. Stability ({accumBars}/3): {accumBarsOk ? '✓' : '✗'}
+                              <span style={{ color: durationOk ? '#10b981' : '#ef4444' }}>
+                                Consecutive Accum. Bars ({accumBars}/3): {durationOk ? '✓' : '✗'}
+                              </span>
+                              {(entryStabilityRule === 'confirmation' || entryStabilityRule === 'both') && (
+                                <span style={{ color: confirmationOk ? '#10b981' : '#ef4444' }}>
+                                  Close &gt; Spring High ({formatPrice(springHighTarget, symbol)}): {confirmationOk ? '✓' : '✗'}
                                 </span>
                               )}
                             </div>
@@ -2511,7 +2515,7 @@ export default function Dashboard() {
                             )}
                             {selectedCandle.wyckoff_signal && selectedCandle.wyckoff_signal.includes('Spring') && (
                               <div style={{ fontSize: '10px', color: '#38bdf8', marginTop: '4px', paddingTop: '3px', borderTop: '1px dashed #1e293b' }}>
-                                ⏳ <strong>Spring Trap Signal Active:</strong> Pending Buy set up. Trade entry executes when a subsequent candle closes &gt; Spring High ({formatPrice(selectedCandle.high, symbol)}) under rule: <code>{entryStabilityRule}</code>.
+                                ⏳ <strong>Spring Trap Signal Active:</strong> Pending Buy set up. Trade entry executes when a subsequent candle closes &gt; Spring High ({formatPrice(selectedCandle.high, symbol)}) with {accumBars}/3 consecutive accumulation bars (rule: <code>{entryStabilityRule}</code>).
                               </div>
                             )}
                           </div>
