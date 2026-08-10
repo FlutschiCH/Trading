@@ -26,6 +26,11 @@ class SymbolMappingHandler:
         """
         try:
             SQLHandler.execute_query(create_mysql)
+            # Migration check: if table was created previously with broker_key, rename it to account_id
+            try:
+                SQLHandler.execute_query("ALTER TABLE symbol_mappings CHANGE COLUMN broker_key account_id VARCHAR(100) NOT NULL")
+            except Exception:
+                pass
         except Exception as e:
             try:
                 SQLHandler.execute_query(create_sqlite)
