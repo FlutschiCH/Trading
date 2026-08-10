@@ -309,7 +309,8 @@ class LiveRunner:
         if cls._last_processed.get(strategy_id) == candle_time:
             return
 
-        # print(f"[Live Runner] New candle detected for strategy {strategy_id} ({symbol} {timeframe}) at {datetime.fromtimestamp(candle_time)}", flush=True)
+        # Mark candle as processed immediately to prevent duplicate triggers from rapid thread loops
+        cls._last_processed[strategy_id] = candle_time
 
         if should_buy or should_sell:
             direction = "BUY" if should_buy else "SELL"
@@ -373,9 +374,6 @@ class LiveRunner:
             if strategy_id not in cls._trades_cache:
                 cls._trades_cache[strategy_id] = []
             cls._trades_cache[strategy_id].append(new_trade)
-
-        # Mark as processed
-        cls._last_processed[strategy_id] = candle_time
 
     @classmethod
     def _evaluate_signals(cls, annotated_candles: list, strategy: dict) -> tuple:
@@ -609,31 +607,27 @@ class LiveRunner:
 
 if __name__ == '__main__':
     from live_strategy_handler import LiveStrategyHandler
+    from account_handler import AccountHandler
 
     strategies = LiveStrategyHandler.get_all_strategies()
     active_strategies = [s for s in strategies if s.get("status") == "active"]
 
     if not active_strategies:
-        print("No active strategies found in database.")
+        print("[Test] No active strategies found in database.")
     else:
         strat = active_strategies[0]
-        print(f"Loaded active strategy '{strat.get('name')}' (ID: {strat.get('id')}) with targets: {strat.get('targets')}")
-
-        from broker_handler import BrokerHandler
-        broker_name = strat.get("broker", "metatrader")
-        handler = BrokerHandler.get_handler(broker_name)
+        active_acc = AccountHandler.get_active_account()
+        if active_acc and not strat.get("account_id"):
+            strat["account_id"] = active_acc.get("account_id")
+            
+        print(f"[Test] Testing strategy '{strat.get('name')}' (ID: {strat.get('id')}) across targets: {strat.get('targets')}")
         
-        symbol = "EURUSD"
-        timeframe = strat.get("timeframe", "15m")
-        candles = handler.fetch_candles(symbol=symbol, timeframe=timeframe, limit=1)
+        # Reset last processed cache to force evaluation
+        LiveRunner._last_processed.clear()
+        
+        print("\n--- Running Full Strategy Evaluation Loop Test ---")
+        LiveRunner._evaluate_strategy(strat)
 
-        if not candles:
-            print(f"Could not fetch real candle for {symbol} ({timeframe}).")
-        else:
-            real_candle = candles[-1]
-            print(f"Fetched real last candle for {symbol} ({timeframe}): {real_candle}")
-            print("\n--- Simulating SELL Signal on Active Strategy ---")
-            LiveRunner._execute_trade(strat, should_buy=False, should_sell=True, last_candle=real_candle)
 
 
 
