@@ -2282,6 +2282,7 @@ export default function Dashboard() {
             {/* Selected Candle Details Inspector Component */}
             <CandleDetailsCard
               selectedCandle={selectedCandle}
+              candles={backtestResults?.candles || candles}
               symbol={symbol}
               timeframe={timeframe}
               entryStabilityRule={entryStabilityRule}

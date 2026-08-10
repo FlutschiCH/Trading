@@ -4,6 +4,7 @@ import type { Candle } from '../types/trading';
 
 interface CandleDetailsCardProps {
   selectedCandle: Candle | null;
+  candles?: Candle[];
   symbol: string;
   timeframe: string;
   entryStabilityRule: string;
@@ -16,6 +17,7 @@ interface CandleDetailsCardProps {
 
 export const CandleDetailsCard: React.FC<CandleDetailsCardProps> = ({
   selectedCandle,
+  candles = [],
   symbol,
   timeframe,
   entryStabilityRule,
@@ -74,7 +76,28 @@ export const CandleDetailsCard: React.FC<CandleDetailsCardProps> = ({
   const springLowOk = sup != null ? selectedCandle.low < sup : false;
   const springCloseOk = sup != null ? selectedCandle.close > sup : false;
   const buyStageOk = stage !== 'DISTRIBUTION';
-  const accumBars = selectedCandle.accum_consec_bars ?? 0;
+
+  // Compute accumBars: use pre-calculated accum_consec_bars or calculate retroactively across historical candles
+  let accumBars = selectedCandle.accum_consec_bars;
+  if (accumBars === undefined && candles.length > 0) {
+    const idx = candles.findIndex((c) => c.time === selectedCandle.time);
+    if (idx !== -1) {
+      let count = 0;
+      for (let i = idx; i >= 0; i--) {
+        if (candles[i].wyckoff_stage === 'ACCUMULATION') {
+          count++;
+        } else {
+          break;
+        }
+      }
+      accumBars = count;
+    } else {
+      accumBars = 0;
+    }
+  } else if (accumBars === undefined) {
+    accumBars = 0;
+  }
+
   const durationOk = accumBars >= 3;
 
   const springHighTarget = selectedCandle.high;
