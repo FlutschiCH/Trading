@@ -2446,6 +2446,12 @@ export default function Dashboard() {
 
                       const buyReady = springLowOk && springCloseOk && buyStageOk && inSession && durationOk && confirmationOk;
 
+                      // Upthrust / SELL checks
+                      const utHighOk = res != null ? selectedCandle.high > res : false;
+                      const utCloseOk = res != null ? selectedCandle.close < res : false;
+                      const sellStageOk = stage !== 'ACCUMULATION';
+                      const sellReady = utHighOk && utCloseOk && sellStageOk && inSession;
+
                       const missingBuy: string[] = [];
                       if (!springLowOk) missingBuy.push('Low < Support');
                       if (!springCloseOk) missingBuy.push('Close > Support');
