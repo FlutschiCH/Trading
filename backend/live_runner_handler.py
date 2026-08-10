@@ -447,7 +447,14 @@ class LiveRunner:
         symbol = strategy["symbol"]
         strategy_id = strategy["id"]
         magic = abs(hash(strategy_id)) & 0x7FFFFFFF
+        cls.execute_trade_on_targets(strategy, symbol, last_candle, should_buy, should_sell, magic)
         
+    @classmethod
+    def execute_trade_on_targets(cls, strategy: dict, symbol: str, last_candle: dict, should_buy: bool, should_sell: bool, magic: str):
+        """
+        Dispatches and executes trades across all target accounts assigned to the strategy.
+        """
+        strategy_id = strategy.get("id")
         targets = strategy.get("targets", [])
         if not targets:
             broker_name = strategy.get("broker", "metatrader")
@@ -468,7 +475,7 @@ class LiveRunner:
                     acc_row = rows[0]
                     if target_broker == "metatrader":
                         target_kwargs = {
-                            "login": int(target_acc_id) if target_acc_id.isdigit() else target_acc_id,
+                            "login": int(target_acc_id) if str(target_acc_id).isdigit() else target_acc_id,
                             "password": acc_row.get("password"),
                             "server": acc_row.get("server")
                         }
@@ -482,7 +489,7 @@ class LiveRunner:
                 handler = BrokerHandler.get_handler(target_broker)
 
                 # 1. Check if we already have an open position for this strategy magic number on this target
-                positions = handler.get_positions(**target_kwargs)
+                positions = handler.get_positions(**target_kwargs) or []
                 active_pos = None
                 for p in positions:
                     p_magic = p.get("magic")
@@ -516,7 +523,6 @@ class LiveRunner:
 
                 # 2. Get Account Info for sizing
                 acct = handler.get_account_info(**target_kwargs)
-                # Parse standard dict result or direct balance field
                 balance = None
                 if acct:
                     if "data" in acct and isinstance(acct["data"], dict):
@@ -539,7 +545,6 @@ class LiveRunner:
 
                 # 3. Calculate Trade Parameters
                 entry_price = float(last_candle["close"])
-                direction = "BUY" if should_buy else "SELL"
                 pip_size = get_pip_size(symbol, entry_price)
                 lot_size = get_lot_size(symbol)
 
@@ -620,13 +625,26 @@ if __name__ == '__main__':
         if active_acc and not strat.get("account_id"):
             strat["account_id"] = active_acc.get("account_id")
             
-        print(f"[Test] Testing strategy '{strat.get('name')}' (ID: {strat.get('id')}) across targets: {strat.get('targets')}")
+        print(f"[Test] Strategy '{strat.get('name')}' (ID: {strat.get('id')}) loaded with targets: {strat.get('targets')}")
         
-        # Reset last processed cache to force evaluation
-        LiveRunner._last_processed.clear()
+        # Fake candle for testing trade execution across targets
+        fake_candle = {
+            "time": int(time.time()),
+            "open": 1.0850,
+            "high": 1.0860,
+            "low": 1.0840,
+            "close": 1.0855
+        }
         
-        print("\n--- Running Full Strategy Evaluation Loop Test ---")
-        LiveRunner._evaluate_strategy(strat)
+        print("\n--- Running Fake Trade Execution Test Across Targets ---")
+        LiveRunner.execute_trade_on_targets(
+            strategy=strat,
+            symbol=strat.get("symbol", "EURUSD"),
+            last_candle=fake_candle,
+            should_buy=True,
+            should_sell=False,
+            magic=f"test_{int(time.time())}"
+        )
 
 
 
