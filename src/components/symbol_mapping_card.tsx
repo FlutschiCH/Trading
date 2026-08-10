@@ -286,7 +286,7 @@ export const SymbolMappingCard: React.FC<SymbolMappingCardProps> = ({ isReadOnly
             cursor: 'pointer'
           }}
         >
-          Save Mapping
+          add symbol to map
         </button>
       </form>
 
