@@ -16,9 +16,9 @@ import * as apiService from '../services/apiService';
 import NotificationSettingsView from './notification_settings_view';
 import { AlertManagerPanel } from './alert_manager_panel';
 import { CandleCollectorPanel } from './candle_collector_panel';
-import LogPanel from './log_panel';
 import AccountInfoPanel from './account_info_panel';
 import { CandleDetailsCard } from './candle_details_card';
+import QuickStatsPanel from './quick_stats_panel';
 import type { Candle, AccountInfo, Position } from '../types/trading';
 import { useCandleStore } from '../services/candleStore';
 
@@ -499,16 +499,13 @@ export default function Dashboard() {
       const saved = localStorage.getItem('wyckoff_desk_panel_order');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.includes('trades')) {
-          if (!parsed.includes('live_overview')) {
-            return [...parsed, 'live_overview'];
-          }
-          return parsed;
+        if (!parsed.includes('quick_stats')) {
+          parsed.push('quick_stats');
         }
-        return [...parsed, 'trades', 'live_overview'];
+        return parsed;
       }
     } catch { }
-    return ['chart', 'backtester', 'trades', 'live_overview'];
+    return ['chart', 'backtester', 'trades', 'live_overview', 'quick_stats'];
   });
   const [dragOverId, setDragOverId] = useState<string | null>(null);
 
@@ -3165,6 +3162,30 @@ export default function Dashboard() {
                           />
                         </div>
                         {renderResizeHandle('live_overview')}
+                      </div>
+                    );
+                  }
+
+                  if (panelId === 'quick_stats') {
+                    return (
+                      <div
+                        key="quick_stats"
+                        onDragOver={(e) => handleDragOver(e, 'quick_stats')}
+                        onDrop={(e) => handleDrop(e, 'quick_stats')}
+                        style={dragStyles}
+                      >
+                        <div
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, 'quick_stats')}
+                          style={headerStyle}
+                        >
+                          <span>📊 Quick System Stats</span>
+                          <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header to Move</span>
+                        </div>
+                        <div className="no-drag" style={contentStyle}>
+                          <QuickStatsPanel symbol={symbol} timeframe={timeframe} />
+                        </div>
+                        {renderResizeHandle('quick_stats')}
                       </div>
                     );
                   }
