@@ -2353,6 +2353,32 @@ export default function Dashboard() {
                         ⚡ {selectedCandle.wyckoff_signal}
                       </span>
                     )}
+                    {selectedCandle.accum_consec_bars !== undefined && selectedCandle.wyckoff_stage === 'ACCUMULATION' && (
+                      <span style={{
+                        fontSize: '10px',
+                        fontWeight: 'bold',
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        backgroundColor: selectedCandle.accum_consec_bars >= 3 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                        color: selectedCandle.accum_consec_bars >= 3 ? '#10b981' : '#ef4444',
+                        border: `1px solid ${selectedCandle.accum_consec_bars >= 3 ? '#10b981' : '#ef4444'}`
+                      }}>
+                        Accum. Bars: {selectedCandle.accum_consec_bars} / 3 required
+                      </span>
+                    )}
+                    {selectedCandle.dist_consec_bars !== undefined && selectedCandle.wyckoff_stage === 'DISTRIBUTION' && (
+                      <span style={{
+                        fontSize: '10px',
+                        fontWeight: 'bold',
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        backgroundColor: selectedCandle.dist_consec_bars >= 3 ? 'rgba(245, 158, 11, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                        color: selectedCandle.dist_consec_bars >= 3 ? '#f59e0b' : '#ef4444',
+                        border: `1px solid ${selectedCandle.dist_consec_bars >= 3 ? '#f59e0b' : '#ef4444'}`
+                      }}>
+                        Dist. Bars: {selectedCandle.dist_consec_bars} / 3 required
+                      </span>
+                    )}
                     <span style={{
                       fontSize: '9px',
                       fontWeight: 'bold',
