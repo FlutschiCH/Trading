@@ -1711,6 +1711,26 @@ export default function Dashboard() {
     fetchActiveAccount();
   }, []);
 
+  // 2-Second positions background polling loop
+  useEffect(() => {
+    let isCancelled = false;
+
+    // Initial fetch of account and position data
+    fetchAccountData();
+    fetchPositionData();
+
+    const interval = setInterval(() => {
+      if (!isCancelled) {
+        fetchPositionData();
+      }
+    }, 2000);
+
+    return () => {
+      isCancelled = true;
+      clearInterval(interval);
+    };
+  }, [candleSource, activeAccount]);
+
   const handleClosePosition = async (pos: any) => {
     if (isProdHost && !isAuthenticated) {
       alert("Action disabled in read-only mode.");

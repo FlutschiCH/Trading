@@ -1726,7 +1726,7 @@ export default function TVChart({
       const matchingOpenPositions = (openPositionsList || []).filter((p) => {
         if (!p || !p.symbol) return false;
         const posSymbolClean = String(p.symbol).replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-        return posSymbolClean.includes(currentSymbolClean) || currentSymbolClean.includes(posSymbolClean);
+        return posSymbolClean === currentSymbolClean || posSymbolClean.includes(currentSymbolClean) || currentSymbolClean.includes(posSymbolClean);
       });
 
       const openPositionMarkers: any[] = [];
