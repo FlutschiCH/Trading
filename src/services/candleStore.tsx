@@ -201,7 +201,11 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             updated = Array.from(map.values()).sort((a, b) => a.time - b.time);
           } else {
             const map = new Map<number, Candle>();
-            rawCandles.forEach(c => map.set(c.time, c));
+            prev.forEach(c => map.set(c.time, c));
+            rawCandles.forEach(c => {
+              const existing = map.get(c.time);
+              map.set(c.time, existing ? { ...existing, ...c } : c);
+            });
             updated = Array.from(map.values()).sort((a, b) => a.time - b.time);
           }
 
