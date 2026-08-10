@@ -559,7 +559,7 @@ export default function Dashboard() {
       tradingSessions,
       useGlobalClose,
       globalCloseTime,
-      isOptimizeMode,
+      globalRangeMode: localStorage.getItem('wyckoff_backtester_global_range_mode') === 'true',
       rrRangeMode: localStorage.getItem('wyckoff_backtester_rr_range_mode') === 'true',
       rrStart: rrStart || localStorage.getItem('wyckoff_backtester_rr_start'),
       rrEnd: rrEnd || localStorage.getItem('wyckoff_backtester_rr_end'),
@@ -702,8 +702,11 @@ export default function Dashboard() {
     if (settings.beEnd !== undefined) {
       localStorage.setItem('wyckoff_backtester_be_end', String(settings.beEnd));
     }
-    if (settings.beStep !== undefined) {
-      localStorage.setItem('wyckoff_backtester_be_step', String(settings.beStep));
+    if (settings.globalRangeMode !== undefined) {
+      localStorage.setItem('wyckoff_backtester_global_range_mode', String(settings.globalRangeMode));
+    }
+    if (settings.beOffsetStep !== undefined) {
+      localStorage.setItem('wyckoff_backtester_be_offset_step', String(settings.beOffsetStep));
     }
     if (settings.beOffsetRangeMode !== undefined) {
       localStorage.setItem('wyckoff_backtester_be_offset_range_mode', String(settings.beOffsetRangeMode));

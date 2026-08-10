@@ -302,23 +302,28 @@ export default function WyckoffBacktester({
   const currentCombo = activeResultCombo || { symbol: effectiveSymbols[0], timeframe: effectiveTimeframes[0] };
 
 
-  // Range states for SL, RR, and BE (persisted in localStorage)
-  const [slRangeMode, setSLRangeMode] = React.useState<boolean>(() => {
+  // Global Range Mode state (persisted in localStorage)
+  const [globalRangeMode, setGlobalRangeMode] = React.useState<boolean>(() => {
     try {
-      const saved = localStorage.getItem('wyckoff_backtester_sl_range_mode');
-      return saved !== null ? JSON.parse(saved) : false;
+      const saved = localStorage.getItem('wyckoff_backtester_global_range_mode');
+      if (saved !== null) return JSON.parse(saved);
+      // Fallback check old individual range flags
+      const oldSl = localStorage.getItem('wyckoff_backtester_sl_range_mode') === 'true';
+      const oldRr = localStorage.getItem('wyckoff_backtester_rr_range_mode') === 'true';
+      const oldBe = localStorage.getItem('wyckoff_backtester_be_range_mode') === 'true';
+      return oldSl || oldRr || oldBe;
     } catch { return false; }
   });
+
+  const slRangeMode = globalRangeMode;
+  const rrRangeMode = globalRangeMode;
+  const beRangeMode = globalRangeMode;
+  const beOffsetRangeMode = globalRangeMode;
+
   const [slStart, setSLStart] = React.useState<string>(() => localStorage.getItem('wyckoff_backtester_sl_start') || '10');
   const [slEnd, setSLEnd] = React.useState<string>(() => localStorage.getItem('wyckoff_backtester_sl_end') || '20');
   const [slStep, setSLStep] = React.useState<string>(() => localStorage.getItem('wyckoff_backtester_sl_step') || '1');
 
-  const [rrRangeMode, setRRRangeMode] = React.useState<boolean>(() => {
-    try {
-      const saved = localStorage.getItem('wyckoff_backtester_rr_range_mode');
-      return saved !== null ? JSON.parse(saved) : false;
-    } catch { return false; }
-  });
   const [internalRRStart, setInternalRRStart] = React.useState<string>(() => localStorage.getItem('wyckoff_backtester_rr_start') || '0.5');
   const [internalRREnd, setInternalRREnd] = React.useState<string>(() => localStorage.getItem('wyckoff_backtester_rr_end') || '5.0');
   const [internalRRStep, setInternalRRStep] = React.useState<string>(() => localStorage.getItem('wyckoff_backtester_rr_step') || '0.1');
@@ -330,22 +335,10 @@ export default function WyckoffBacktester({
   const activeRRStep = rrStep ?? internalRRStep;
   const setActiveRRStep = setRRStep ?? setInternalRRStep;
 
-  const [beRangeMode, setBERangeMode] = React.useState<boolean>(() => {
-    try {
-      const saved = localStorage.getItem('wyckoff_backtester_be_range_mode');
-      return saved !== null ? JSON.parse(saved) : false;
-    } catch { return false; }
-  });
   const [beStart, setBEStart] = React.useState<string>(() => localStorage.getItem('wyckoff_backtester_be_start') || '1.0');
   const [beEnd, setBEEnd] = React.useState<string>(() => localStorage.getItem('wyckoff_backtester_be_end') || '3.0');
   const [beStep, setBEStep] = React.useState<string>(() => localStorage.getItem('wyckoff_backtester_be_step') || '0.5');
 
-  const [beOffsetRangeMode, setBEOffsetRangeMode] = React.useState<boolean>(() => {
-    try {
-      const saved = localStorage.getItem('wyckoff_backtester_be_offset_range_mode');
-      return saved !== null ? JSON.parse(saved) : false;
-    } catch { return false; }
-  });
   const [beOffsetStart, setBEOffsetStart] = React.useState<string>(() => localStorage.getItem('wyckoff_backtester_be_offset_start') || '0.1');
   const [beOffsetEnd, setBEOffsetEnd] = React.useState<string>(() => localStorage.getItem('wyckoff_backtester_be_offset_end') || '1.0');
   const [beOffsetStep, setBEOffsetStep] = React.useState<string>(() => localStorage.getItem('wyckoff_backtester_be_offset_step') || '0.1');
@@ -354,22 +347,23 @@ export default function WyckoffBacktester({
     const handleSettingsLoaded = (e: Event) => {
       const detail = (e as CustomEvent).detail;
       if (!detail) return;
-      if (detail.slRangeMode !== undefined) setSLRangeMode(Boolean(detail.slRangeMode));
+      if (detail.globalRangeMode !== undefined) {
+        setGlobalRangeMode(Boolean(detail.globalRangeMode));
+      } else if (detail.slRangeMode !== undefined || detail.rrRangeMode !== undefined || detail.beRangeMode !== undefined) {
+        setGlobalRangeMode(Boolean(detail.slRangeMode || detail.rrRangeMode || detail.beRangeMode));
+      }
       if (detail.slStart !== undefined && detail.slStart !== null) setSLStart(String(detail.slStart));
       if (detail.slEnd !== undefined && detail.slEnd !== null) setSLEnd(String(detail.slEnd));
       if (detail.slStep !== undefined && detail.slStep !== null) setSLStep(String(detail.slStep));
 
-      if (detail.rrRangeMode !== undefined) setRRRangeMode(Boolean(detail.rrRangeMode));
       if (detail.rrStart !== undefined && detail.rrStart !== null) setInternalRRStart(String(detail.rrStart));
       if (detail.rrEnd !== undefined && detail.rrEnd !== null) setInternalRREnd(String(detail.rrEnd));
       if (detail.rrStep !== undefined && detail.rrStep !== null) setInternalRRStep(String(detail.rrStep));
 
-      if (detail.beRangeMode !== undefined) setBERangeMode(Boolean(detail.beRangeMode));
       if (detail.beStart !== undefined && detail.beStart !== null) setBEStart(String(detail.beStart));
       if (detail.beEnd !== undefined && detail.beEnd !== null) setBEEnd(String(detail.beEnd));
       if (detail.beStep !== undefined && detail.beStep !== null) setBEStep(String(detail.beStep));
 
-      if (detail.beOffsetRangeMode !== undefined) setBEOffsetRangeMode(Boolean(detail.beOffsetRangeMode));
       if (detail.beOffsetStart !== undefined && detail.beOffsetStart !== null) setBEOffsetStart(String(detail.beOffsetStart));
       if (detail.beOffsetEnd !== undefined && detail.beOffsetEnd !== null) setBEOffsetEnd(String(detail.beOffsetEnd));
       if (detail.beOffsetStep !== undefined && detail.beOffsetStep !== null) setBEOffsetStep(String(detail.beOffsetStep));
@@ -382,22 +376,23 @@ export default function WyckoffBacktester({
   React.useEffect(() => {
     const timer = setTimeout(() => {
       try {
-        localStorage.setItem('wyckoff_backtester_sl_range_mode', JSON.stringify(slRangeMode));
+        localStorage.setItem('wyckoff_backtester_global_range_mode', JSON.stringify(globalRangeMode));
+        localStorage.setItem('wyckoff_backtester_sl_range_mode', JSON.stringify(globalRangeMode));
         localStorage.setItem('wyckoff_backtester_sl_start', slStart);
         localStorage.setItem('wyckoff_backtester_sl_end', slEnd);
         localStorage.setItem('wyckoff_backtester_sl_step', slStep);
 
-        localStorage.setItem('wyckoff_backtester_rr_range_mode', JSON.stringify(rrRangeMode));
+        localStorage.setItem('wyckoff_backtester_rr_range_mode', JSON.stringify(globalRangeMode));
         localStorage.setItem('wyckoff_backtester_rr_start', internalRRStart);
         localStorage.setItem('wyckoff_backtester_rr_end', internalRREnd);
         localStorage.setItem('wyckoff_backtester_rr_step', internalRRStep);
 
-        localStorage.setItem('wyckoff_backtester_be_range_mode', JSON.stringify(beRangeMode));
+        localStorage.setItem('wyckoff_backtester_be_range_mode', JSON.stringify(globalRangeMode));
         localStorage.setItem('wyckoff_backtester_be_start', beStart);
         localStorage.setItem('wyckoff_backtester_be_end', beEnd);
         localStorage.setItem('wyckoff_backtester_be_step', beStep);
 
-        localStorage.setItem('wyckoff_backtester_be_offset_range_mode', JSON.stringify(beOffsetRangeMode));
+        localStorage.setItem('wyckoff_backtester_be_offset_range_mode', JSON.stringify(globalRangeMode));
         localStorage.setItem('wyckoff_backtester_be_offset_start', beOffsetStart);
         localStorage.setItem('wyckoff_backtester_be_offset_end', beOffsetEnd);
         localStorage.setItem('wyckoff_backtester_be_offset_step', beOffsetStep);
@@ -406,7 +401,7 @@ export default function WyckoffBacktester({
       }
     }, 150);
     return () => clearTimeout(timer);
-  }, [slRangeMode, slStart, slEnd, slStep, rrRangeMode, internalRRStart, internalRREnd, internalRRStep, beRangeMode, beStart, beEnd, beStep, beOffsetRangeMode, beOffsetStart, beOffsetEnd, beOffsetStep]);
+  }, [globalRangeMode, slStart, slEnd, slStep, internalRRStart, internalRREnd, internalRRStep, beStart, beEnd, beStep, beOffsetStart, beOffsetEnd, beOffsetStep]);
 
 
   const calcStepCount = (startStr: string, endStr: string, stepStr: string) => {
@@ -597,6 +592,7 @@ export default function WyckoffBacktester({
         tradingSessions,
         useGlobalClose,
         globalCloseTime,
+        globalRangeMode,
         rrRangeMode,
         rrStart: activeRRStart,
         rrEnd: activeRREnd,
@@ -876,7 +872,8 @@ export default function WyckoffBacktester({
         <div style={{
           display: 'flex',
           flexDirection: isMobile ? 'column' : 'row',
-          justifyContent: 'flex-end',
+          alignItems: 'center',
+          justifyContent: 'space-between',
           gap: '8px',
           position: 'sticky',
           top: '-16px', // offset the parent container's padding if necessary, or just '0px'
@@ -887,6 +884,33 @@ export default function WyckoffBacktester({
           borderBottom: '1px solid var(--app-card-border, #1f2937)',
           marginBottom: '8px'
         }}>
+          <label style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            cursor: 'pointer',
+            backgroundColor: globalRangeMode ? 'rgba(56, 189, 248, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+            border: globalRangeMode ? '1px solid #38bdf8' : '1px solid #374151',
+            padding: '4px 10px',
+            borderRadius: '6px',
+            fontSize: '11px',
+            fontWeight: 600,
+            color: globalRangeMode ? '#38bdf8' : '#9ca3af',
+            userSelect: 'none'
+          }}>
+            <input
+              type="checkbox"
+              checked={globalRangeMode}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setGlobalRangeMode(checked);
+                setIsOptimizeMode(checked);
+              }}
+              style={{ cursor: 'pointer' }}
+            />
+            ⚡ Range Mode (Grid Search)
+          </label>
+          <div style={{ display: 'flex', gap: '8px' }}>
           {onSaveSettings && (
             <button
               onClick={() => {
@@ -1043,6 +1067,7 @@ export default function WyckoffBacktester({
               {isDeploying ? '⏳ Deploying...' : '🚀 Deploy Live'}
             </button>
           )}
+          </div>
         </div>
 
         {backtestResults && (() => {
@@ -1570,15 +1595,6 @@ export default function WyckoffBacktester({
             <div style={styles.formGroup}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
                 <label style={{ color: '#9ca3af', fontSize: '11px' }}>Stop Loss</label>
-                <label style={{ color: '#cbd5e1', fontSize: '10px', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={slRangeMode}
-                    onChange={(e) => setSLRangeMode(e.target.checked)}
-                    style={{ cursor: 'pointer' }}
-                  />
-                  Range Mode
-                </label>
               </div>
 
               {!slRangeMode ? (
@@ -1667,21 +1683,9 @@ export default function WyckoffBacktester({
             <div style={styles.formGroup}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
                 <label style={{ color: '#9ca3af', fontSize: '11px' }}>RR Ratio</label>
-                <label style={{ color: '#cbd5e1', fontSize: '10px', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={rrRangeMode || isOptimizeMode}
-                    onChange={(e) => {
-                      setRRRangeMode(e.target.checked);
-                      setIsOptimizeMode(e.target.checked);
-                    }}
-                    style={{ cursor: 'pointer' }}
-                  />
-                  Range Mode
-                </label>
               </div>
 
-              {!(rrRangeMode || isOptimizeMode) ? (
+              {!rrRangeMode ? (
                 <input
                   type="number"
                   value={backtestRR}
@@ -1744,15 +1748,6 @@ export default function WyckoffBacktester({
               <div style={styles.formGroup}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
                   <label style={{ color: '#9ca3af', fontSize: '11px' }}>BE Trigger (R)</label>
-                  <label style={{ color: '#cbd5e1', fontSize: '10px', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={beRangeMode}
-                      onChange={(e) => setBERangeMode(e.target.checked)}
-                      style={{ cursor: 'pointer' }}
-                    />
-                    Range Mode
-                  </label>
                 </div>
 
                 {!beRangeMode ? (
