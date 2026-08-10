@@ -16,29 +16,9 @@ interface SymbolMapping {
   broker_symbol: string;
 }
 
-const MASTER_SYMBOLS = [
-  'EURUSD',
-  'GBPUSD',
-  'USDJPY',
-  'AUDUSD',
-  'USDCAD',
-  'USDCHF',
-  'NZDUSD',
-  'XAUUSD',
-  'BTCUSD',
-  'ETHUSD',
-  'US30',
-  'GER40'
-];
-
-interface SymbolMappingCardProps {
-  isReadOnly?: boolean;
-}
-
 export const SymbolMappingCard: React.FC<SymbolMappingCardProps> = ({ isReadOnly = false }) => {
   const [symbolMappings, setSymbolMappings] = useState<SymbolMapping[]>([]);
-  const [newMainSymbol, setNewMainSymbol] = useState(MASTER_SYMBOLS[0]);
-  const [customMainSymbol, setCustomMainSymbol] = useState('');
+  const [newMainSymbol, setNewMainSymbol] = useState('');
   const [newBrokerKey, setNewBrokerKey] = useState('');
   const [customBrokerKey, setCustomBrokerKey] = useState('');
   const [newBrokerSymbol, setNewBrokerSymbol] = useState('');
@@ -96,13 +76,15 @@ export const SymbolMappingCard: React.FC<SymbolMappingCardProps> = ({ isReadOnly
     setShowBrokerSymbolDropdown(false);
   };
 
+  const existingMasterSymbols = Array.from(new Set(symbolMappings.map(m => m.main_symbol).filter(Boolean)));
+
   const handleAddMapping = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isReadOnly) {
       alert("Action disabled in read-only mode.");
       return;
     }
-    const finalMainSymbol = newMainSymbol === 'custom' ? customMainSymbol : newMainSymbol;
+    const finalMainSymbol = newMainSymbol.toUpperCase().trim();
     const finalBrokerKey = newBrokerKey === 'custom' ? customBrokerKey : newBrokerKey;
     if (!finalMainSymbol || !finalBrokerKey || !newBrokerSymbol) {
       setMappingMessage('All fields are required');
@@ -113,7 +95,7 @@ export const SymbolMappingCard: React.FC<SymbolMappingCardProps> = ({ isReadOnly
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          main_symbol: finalMainSymbol.toUpperCase().trim(),
+          main_symbol: finalMainSymbol,
           broker_key: finalBrokerKey.trim(),
           broker_symbol: newBrokerSymbol.trim()
         })
@@ -122,7 +104,6 @@ export const SymbolMappingCard: React.FC<SymbolMappingCardProps> = ({ isReadOnly
       if (data.status === 'success') {
         setMappingMessage('Mapping saved successfully!');
         setNewBrokerSymbol('');
-        setCustomMainSymbol('');
         fetchSymbolMappings();
       } else {
         setMappingMessage(data.message || 'Failed to save mapping');
@@ -158,8 +139,11 @@ export const SymbolMappingCard: React.FC<SymbolMappingCardProps> = ({ isReadOnly
       <form onSubmit={handleAddMapping} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
           <div>
-            <label style={{ display: 'block', fontSize: '10px', color: '#94a3b8', marginBottom: '2px' }}>Master Symbol</label>
-            <select
+            <label style={{ display: 'block', fontSize: '10px', color: '#94a3b8', marginBottom: '2px' }}>Master Symbol (Select or Create)</label>
+            <input
+              type="text"
+              list="existing-master-symbols-list"
+              placeholder="e.g. EURUSD"
               value={newMainSymbol}
               onChange={e => setNewMainSymbol(e.target.value)}
               style={{
@@ -172,16 +156,16 @@ export const SymbolMappingCard: React.FC<SymbolMappingCardProps> = ({ isReadOnly
                 fontSize: '11px',
                 outline: 'none'
               }}
-            >
-              {MASTER_SYMBOLS.map(sym => (
-                <option key={sym} value={sym}>{sym}</option>
+            />
+            <datalist id="existing-master-symbols-list">
+              {existingMasterSymbols.map(sym => (
+                <option key={sym} value={sym} />
               ))}
-              <option value="custom">Custom</option>
-            </select>
+            </datalist>
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '10px', color: '#94a3b8', marginBottom: '2px' }}>Target Broker</label>
+            <label style={{ display: 'block', fontSize: '10px', color: '#94a3b8', marginBottom: '2px' }}>Target Broker Account</label>
             <select
               value={newBrokerKey}
               onChange={e => setNewBrokerKey(e.target.value)}
@@ -205,27 +189,6 @@ export const SymbolMappingCard: React.FC<SymbolMappingCardProps> = ({ isReadOnly
             </select>
           </div>
         </div>
-
-        {newMainSymbol === 'custom' && (
-          <div>
-            <input
-              type="text"
-              placeholder="Custom Master Symbol"
-              value={customMainSymbol}
-              onChange={e => setCustomMainSymbol(e.target.value)}
-              style={{
-                width: '100%',
-                backgroundColor: '#0f172a',
-                border: '1px solid #334155',
-                borderRadius: '4px',
-                padding: '6px 8px',
-                color: '#f8fafc',
-                fontSize: '11px',
-                outline: 'none'
-              }}
-            />
-          </div>
-        )}
 
         {newBrokerKey === 'custom' && (
           <div>
