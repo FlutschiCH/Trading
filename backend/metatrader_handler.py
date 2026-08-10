@@ -340,17 +340,25 @@ class MetaTraderHandler(BaseBrokerHandler):
         return {"status": "success", "data": info}
 
     @staticmethod
-    def get_positions(login: int = 2002061314, password: str = "Godzilla_12", server: str = "JustMarkets-Demo", **kwargs) -> list:
+    def get_positions(login: int = None, password: str = None, server: str = None, **kwargs) -> list:
         """
-        Fetches open positions from MetaTrader 5.
+        Fetches open positions from MetaTrader 5 using active initialized instances.
         """
-        login, password, server = MetaTraderHandler._resolve_credentials(login, password, server, **kwargs)
         if not MT5_AVAILABLE:
             return []
 
-        if not MetaTraderHandler._initialize_mt5(login, password, server):
+        acc_id = kwargs.get('account_id') or kwargs.get('account') or login
+        mt5_inst = MetaTraderHandler.get_mt5_instance(acc_id)
+
+        if not mt5_inst and (login or kwargs.get('account_id')):
+            login, password, server = MetaTraderHandler._resolve_credentials(login, password, server, **kwargs)
+            if not MetaTraderHandler._initialize_mt5(login, password, server):
+                return []
+            mt5_inst = MetaTraderHandler.get_mt5_instance(login) or mt5
+
+        if not mt5_inst:
             return []
-        mt5_inst = MetaTraderHandler.get_mt5_instance(login) or mt5
+
         positions = mt5_inst.positions_get()
         if positions is None:
             return []
