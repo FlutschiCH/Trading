@@ -1870,11 +1870,15 @@ export default function TVChart({
         else if (c.wyckoff_stage === 'MARKDOWN') stageColor = '#ef4444';
 
         if (chartSettings.showTrLines) {
+          // Highlight target Resistance level in gold (#f59e0b) when aiming for bullish breakout after Spring (Accumulation)
+          const supColor = c.wyckoff_stage === 'ACCUMULATION' ? '#3b82f6' : stageColor;
+          const resColor = (c.wyckoff_stage === 'ACCUMULATION' || c.wyckoff_stage === 'MARKUP') ? '#f59e0b' : stageColor;
+
           if (c.support_level !== undefined && c.support_level !== null) {
-            supportData.push({ time: c.time, value: c.support_level, color: stageColor });
+            supportData.push({ time: c.time, value: c.support_level, color: supColor });
           }
           if (c.resistance_level !== undefined && c.resistance_level !== null) {
-            resistanceData.push({ time: c.time, value: c.resistance_level, color: stageColor });
+            resistanceData.push({ time: c.time, value: c.resistance_level, color: resColor });
           }
         }
         if (c.sma_20 !== undefined && c.sma_20 !== null) {
