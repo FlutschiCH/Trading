@@ -1967,20 +1967,20 @@ export default function TVChart({
         });
       }
 
-      // Draw green target resistance line extending forward from Spring until price reaches/crosses it
+      // Draw green confirmation level line (Spring candle high) extending forward until reached/crossed
       if (chartSettings.showTrLines) {
         activeCandles.forEach((c, idx) => {
           const sigLower = String(c.wyckoff_signal || '').toLowerCase();
           const isSpring = sigLower.includes('spring');
           if (isSpring) {
-            const targetVal = c.resistance_level ?? c.tr_high ?? c.high;
+            const targetVal = c.high;
             if (targetVal !== undefined && targetVal !== null) {
               const points: { time: number; value: number }[] = [];
               for (let i = idx; i < activeCandles.length; i++) {
                 const candle = activeCandles[i];
                 points.push({ time: Number(candle.time), value: targetVal });
-                // Stop extending once price reaches or crosses the target level
-                if (candle.high >= targetVal) {
+                // Stop extending once price reaches/crosses the confirmation level
+                if (i > idx && candle.close >= targetVal) {
                   break;
                 }
               }
