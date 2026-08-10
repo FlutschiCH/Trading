@@ -142,6 +142,28 @@ class WyckoffStructure:
             stages.append(current_stage)
             
         df['wyckoff_stage'] = stages
+
+        # Track consecutive accumulation and distribution bars
+        accum_bars = []
+        dist_bars = []
+        cur_accum = 0
+        cur_dist = 0
+        for st in stages:
+            if st == "ACCUMULATION":
+                cur_accum += 1
+            else:
+                cur_accum = 0
+
+            if st == "DISTRIBUTION":
+                cur_dist += 1
+            else:
+                cur_dist = 0
+
+            accum_bars.append(cur_accum)
+            dist_bars.append(cur_dist)
+
+        df['accum_consec_bars'] = accum_bars
+        df['dist_consec_bars'] = dist_bars
         return df
 
     @classmethod
