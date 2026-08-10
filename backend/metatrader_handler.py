@@ -357,10 +357,20 @@ class MetaTraderHandler(BaseBrokerHandler):
             mt5_inst = MetaTraderHandler.get_mt5_instance(login) or mt5
 
         if not mt5_inst:
+            print(f"[MetaTrader DEBUG] No active MT5 instance found for account '{acc_id}'", flush=True)
             return []
+
+        acc_info = mt5_inst.account_info()
+        if acc_info is not None:
+            print(f"[MetaTrader DEBUG] Active MT5 Instance Account '{acc_id}' | Balance: {getattr(acc_info, 'balance', 'N/A')} | Currency: {getattr(acc_info, 'currency', 'N/A')}", flush=True)
+        else:
+            err = mt5_inst.last_error() if hasattr(mt5_inst, 'last_error') else ("unknown", "unknown")
+            print(f"[MetaTrader DEBUG] account_info() failed for Account '{acc_id}' | Error: {err}", flush=True)
 
         positions = mt5_inst.positions_get()
         if positions is None:
+            err = mt5_inst.last_error() if hasattr(mt5_inst, 'last_error') else ("unknown", "unknown")
+            print(f"[MetaTrader DEBUG] positions_get() returned None for Account '{acc_id}' | Error: {err}", flush=True)
             return []
         
         # Calculate server to UTC offset
