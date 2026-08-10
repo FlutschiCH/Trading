@@ -694,6 +694,7 @@ export default function Dashboard() {
     if (settings.beStep !== undefined) {
       localStorage.setItem('wyckoff_backtester_be_step', String(settings.beStep));
     }
+    window.dispatchEvent(new CustomEvent('wyckoff_settings_loaded', { detail: settings }));
   };
 
   const saveBacktestSettings = async () => {

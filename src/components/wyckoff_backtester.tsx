@@ -351,6 +351,35 @@ export default function WyckoffBacktester({
   const [beOffsetStep, setBEOffsetStep] = React.useState<string>(() => localStorage.getItem('wyckoff_backtester_be_offset_step') || '0.1');
 
   React.useEffect(() => {
+    const handleSettingsLoaded = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (!detail) return;
+      if (detail.slRangeMode !== undefined) setSLRangeMode(Boolean(detail.slRangeMode));
+      if (detail.slStart !== undefined && detail.slStart !== null) setSLStart(String(detail.slStart));
+      if (detail.slEnd !== undefined && detail.slEnd !== null) setSLEnd(String(detail.slEnd));
+      if (detail.slStep !== undefined && detail.slStep !== null) setSLStep(String(detail.slStep));
+
+      if (detail.rrRangeMode !== undefined) setRRRangeMode(Boolean(detail.rrRangeMode));
+      if (detail.rrStart !== undefined && detail.rrStart !== null) setInternalRRStart(String(detail.rrStart));
+      if (detail.rrEnd !== undefined && detail.rrEnd !== null) setInternalRREnd(String(detail.rrEnd));
+      if (detail.rrStep !== undefined && detail.rrStep !== null) setInternalRRStep(String(detail.rrStep));
+
+      if (detail.beRangeMode !== undefined) setBERangeMode(Boolean(detail.beRangeMode));
+      if (detail.beStart !== undefined && detail.beStart !== null) setBEStart(String(detail.beStart));
+      if (detail.beEnd !== undefined && detail.beEnd !== null) setBEEnd(String(detail.beEnd));
+      if (detail.beStep !== undefined && detail.beStep !== null) setBEStep(String(detail.beStep));
+
+      if (detail.beOffsetRangeMode !== undefined) setBEOffsetRangeMode(Boolean(detail.beOffsetRangeMode));
+      if (detail.beOffsetStart !== undefined && detail.beOffsetStart !== null) setBEOffsetStart(String(detail.beOffsetStart));
+      if (detail.beOffsetEnd !== undefined && detail.beOffsetEnd !== null) setBEOffsetEnd(String(detail.beOffsetEnd));
+      if (detail.beOffsetStep !== undefined && detail.beOffsetStep !== null) setBEOffsetStep(String(detail.beOffsetStep));
+    };
+
+    window.addEventListener('wyckoff_settings_loaded', handleSettingsLoaded);
+    return () => window.removeEventListener('wyckoff_settings_loaded', handleSettingsLoaded);
+  }, []);
+
+  React.useEffect(() => {
     const timer = setTimeout(() => {
       try {
         localStorage.setItem('wyckoff_backtester_sl_range_mode', JSON.stringify(slRangeMode));
@@ -640,6 +669,8 @@ export default function WyckoffBacktester({
         if (s.rrStart !== undefined) setRRStart(s.rrStart);
         if (s.rrEnd !== undefined) setRREnd(s.rrEnd);
         if (s.rrStep !== undefined) setRRStep(s.rrStep);
+
+        window.dispatchEvent(new CustomEvent('wyckoff_settings_loaded', { detail: s }));
 
         alert(`Successfully loaded profile: ${data.name}`);
         setShowProfileModal(false);
