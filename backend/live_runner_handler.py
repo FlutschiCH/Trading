@@ -460,7 +460,9 @@ class LiveRunner:
             broker_name = strategy.get("broker", "metatrader")
             targets = [{"broker": broker_name, "account_id": strategy.get("account_id")}]
             
-        print(f"[Live Runner] Executing trade on strategy {strategy_id} across {len(targets)} targets.", flush=True)
+        from symbol_mapping_handler import SymbolMappingHandler
+        source_broker = strategy.get("broker", "metatrader")
+        base_symbol = SymbolMappingHandler.map_to_main(symbol, source_broker)
 
         for target in targets:
             try:
