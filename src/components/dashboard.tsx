@@ -2436,7 +2436,9 @@ export default function Dashboard() {
                       const springLowOk = sup != null ? selectedCandle.low < sup : false;
                       const springCloseOk = sup != null ? selectedCandle.close > sup : false;
                       const buyStageOk = stage !== 'DISTRIBUTION';
-                      const buyReady = springLowOk && springCloseOk && buyStageOk && inSession;
+                      const accumBars = selectedCandle.accum_consec_bars ?? 0;
+                      const accumBarsOk = entryStabilityRule === 'duration' || entryStabilityRule === 'both' ? accumBars >= 3 : true;
+                      const buyReady = springLowOk && springCloseOk && buyStageOk && inSession && accumBarsOk;
 
                       // Upthrust / SELL checks
                       const utHighOk = res != null ? selectedCandle.high > res : false;
@@ -2449,6 +2451,7 @@ export default function Dashboard() {
                       if (!springCloseOk) missingBuy.push('Close > Support');
                       if (!buyStageOk) missingBuy.push('Stage != Distribution');
                       if (!inSession) missingBuy.push('Outside Trading Session');
+                      if (!accumBarsOk) missingBuy.push(`Accumulation Bars (${accumBars}/3)`);
 
                       const missingSell: string[] = [];
                       if (!utHighOk) missingSell.push('High > Resistance');
@@ -2495,6 +2498,11 @@ export default function Dashboard() {
                               <span style={{ color: inSession ? '#10b981' : '#ef4444' }}>
                                 Session: {inSession ? '✓' : '✗'}
                               </span>
+                              {(entryStabilityRule === 'duration' || entryStabilityRule === 'both') && (
+                                <span style={{ color: accumBarsOk ? '#10b981' : '#ef4444' }}>
+                                  Accum. Stability ({accumBars}/3): {accumBarsOk ? '✓' : '✗'}
+                                </span>
+                              )}
                             </div>
                             {!buyReady && (
                               <div style={{ fontSize: '10px', color: '#fbbf24', marginTop: '3px' }}>
