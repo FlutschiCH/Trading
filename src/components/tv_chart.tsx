@@ -3312,75 +3312,7 @@ export default function TVChart({
 
 
 
-            {/* Wyckoff Oversold (Spring) Highlight Shading & Boundary Ticks */}
-            {chartSettings.showTrLines && oversoldCoords.map((coord, idx) => {
-              const rightScaleWidth = chartRef.current ? chartRef.current.priceScale('right').width() : 55;
-              const plotWidth = chartContainerRef.current ? chartContainerRef.current.clientWidth - rightScaleWidth : 0;
-              const plotHeight = chartHeight - 26;
 
-              if (coord.x > plotWidth || coord.y1 > plotHeight) return null;
-
-              const renderX = Math.max(0, Math.min(plotWidth, coord.x));
-              const renderY1 = Math.max(0, Math.min(plotHeight, coord.y1));
-              const renderY2 = Math.max(0, Math.min(plotHeight, coord.y2));
-
-              return (
-                <g key={`oversold-highlight-${idx}`} style={{ pointerEvents: 'none' }}>
-                  <rect
-                    x={renderX - 4}
-                    y={Math.min(renderY1, renderY2)}
-                    width={8}
-                    height={Math.max(1, Math.abs(renderY1 - renderY2))}
-                    fill="rgba(59, 130, 246, 0.25)"
-                    stroke="rgba(59, 130, 246, 0.6)"
-                    strokeWidth={1}
-                  />
-                  <line
-                    x1={renderX - 6}
-                    y1={renderY1}
-                    x2={renderX + 6}
-                    y2={renderY1}
-                    stroke="#fbbf24"
-                    strokeWidth={2}
-                  />
-                </g>
-              );
-            })}
-
-            {/* Wyckoff Overbought (Upthrust) Highlight Shading & Boundary Ticks */}
-            {chartSettings.showTrLines && overboughtCoords.map((coord, idx) => {
-              const rightScaleWidth = chartRef.current ? chartRef.current.priceScale('right').width() : 55;
-              const plotWidth = chartContainerRef.current ? chartContainerRef.current.clientWidth - rightScaleWidth : 0;
-              const plotHeight = chartHeight - 26;
-
-              if (coord.x > plotWidth || coord.y1 > plotHeight) return null;
-
-              const renderX = Math.max(0, Math.min(plotWidth, coord.x));
-              const renderY1 = Math.max(0, Math.min(plotHeight, coord.y1));
-              const renderY2 = Math.max(0, Math.min(plotHeight, coord.y2));
-
-              return (
-                <g key={`overbought-highlight-${idx}`} style={{ pointerEvents: 'none' }}>
-                  <rect
-                    x={renderX - 4}
-                    y={Math.min(renderY1, renderY2)}
-                    width={8}
-                    height={Math.max(1, Math.abs(renderY1 - renderY2))}
-                    fill="rgba(59, 130, 246, 0.25)"
-                    stroke="rgba(59, 130, 246, 0.6)"
-                    strokeWidth={1}
-                  />
-                  <line
-                    x1={renderX - 6}
-                    y1={renderY1}
-                    x2={renderX + 6}
-                    y2={renderY1}
-                    stroke="#fbbf24"
-                    strokeWidth={2}
-                  />
-                </g>
-              );
-            })}
           </svg>
         </div>
 
