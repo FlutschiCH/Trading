@@ -15,6 +15,29 @@ interface SymbolMappingsViewProps {
   isAuthenticated: boolean;
 }
 
+interface ConnectedBroker {
+  account_id: string;
+  broker_type: string;
+  name: string;
+  broker_key: string;
+  symbols: string[];
+}
+
+const MASTER_SYMBOLS = [
+  'EURUSD',
+  'GBPUSD',
+  'USDJPY',
+  'AUDUSD',
+  'USDCAD',
+  'USDCHF',
+  'NZDUSD',
+  'XAUUSD',
+  'BTCUSD',
+  'ETHUSD',
+  'US30',
+  'GER40'
+];
+
 export default function SymbolMappingsView({
   isMobile,
   setView,
@@ -23,62 +46,50 @@ export default function SymbolMappingsView({
 }: SymbolMappingsViewProps) {
   // Symbol Mapping states
   const [symbolMappings, setSymbolMappings] = useState<SymbolMapping[]>([]);
-  const [newMainSymbol, setNewMainSymbol] = useState('');
-  const [newBrokerKey, setNewBrokerKey] = useState('metatrader:JustMarkets-Demo');
+  const [newMainSymbol, setNewMainSymbol] = useState(MASTER_SYMBOLS[0]);
+  const [customMainSymbol, setCustomMainSymbol] = useState('');
+  const [newBrokerKey, setNewBrokerKey] = useState('');
   const [customBrokerKey, setCustomBrokerKey] = useState('');
   const [newBrokerSymbol, setNewBrokerSymbol] = useState('');
   const [mappingMessage, setMappingMessage] = useState('');
 
-  const [brokerSymbols, setBrokerSymbols] = useState<string[]>([]);
-  const [loadingBrokerSymbols, setLoadingBrokerSymbols] = useState(false);
+  const [connectedBrokers, setConnectedBrokers] = useState<ConnectedBroker[]>([]);
+  const [loadingBrokers, setLoadingBrokers] = useState(false);
   const [brokerSymbolSearch, setBrokerSymbolSearch] = useState('');
   const [showBrokerSymbolDropdown, setShowBrokerSymbolDropdown] = useState(false);
 
-  const fetchBrokerSymbols = async (key: string) => {
-    setLoadingBrokerSymbols(true);
+  const fetchConnectedBrokers = async () => {
+    setLoadingBrokers(true);
     try {
-      let endpoint = '';
-      if (key.startsWith('metatrader')) {
-        endpoint = '/api/metatrader/symbols';
-      } else if (key.startsWith('ctrader')) {
-        endpoint = '/api/ctrader/symbols';
-      }
-
-      if (endpoint) {
-        const res = await fetch(`${API_BASE_URL}${endpoint}`);
-        const data = await res.json();
-        if (data.status === 'success') {
-          setBrokerSymbols(data.data || []);
+      const res = await fetch(`${API_BASE_URL}/api/symbol-mappings/connected-brokers`);
+      const data = await res.json();
+      if (data.status === 'success' && Array.isArray(data.data)) {
+        setConnectedBrokers(data.data);
+        if (data.data.length > 0 && !newBrokerKey) {
+          setNewBrokerKey(data.data[0].broker_key);
         }
       }
     } catch (e) {
-      console.error('Failed to load symbols for key:', key, e);
+      console.error('Failed to fetch connected brokers:', e);
     } finally {
-      setLoadingBrokerSymbols(false);
+      setLoadingBrokers(false);
     }
   };
 
   useEffect(() => {
+    fetchConnectedBrokers();
+  }, []);
+
+  const getAvailableBrokerSymbols = (): string[] => {
     const finalKey = newBrokerKey === 'custom' ? customBrokerKey : newBrokerKey;
-    fetchBrokerSymbols(finalKey);
-  }, [newBrokerKey, customBrokerKey]);
+    const found = connectedBrokers.find(b => b.broker_key === finalKey || b.account_id === finalKey);
+    return found ? found.symbols : [];
+  };
 
   const handleSelectBrokerSymbol = (sym: string) => {
     setNewBrokerSymbol(sym);
     setBrokerSymbolSearch(sym);
     setShowBrokerSymbolDropdown(false);
-    
-    // Auto-suggest Main Symbol: e.g. "EURUSD.ecn" -> "EURUSD"
-    const suggestedMain = sym
-      .split('.')[0]
-      .split('_')[0]
-      .split('-')[0]
-      .toUpperCase()
-      .replace(/[^A-Z0-9]/g, '');
-      
-    if (suggestedMain) {
-      setNewMainSymbol(suggestedMain);
-    }
   };
 
   const fetchSymbolMappings = async () => {
@@ -103,8 +114,9 @@ export default function SymbolMappingsView({
       alert("Action disabled in read-only mode.");
       return;
     }
+    const finalMainSymbol = newMainSymbol === 'custom' ? customMainSymbol : newMainSymbol;
     const finalBrokerKey = newBrokerKey === 'custom' ? customBrokerKey : newBrokerKey;
-    if (!newMainSymbol || !finalBrokerKey || !newBrokerSymbol) {
+    if (!finalMainSymbol || !finalBrokerKey || !newBrokerSymbol) {
       setMappingMessage('All fields are required');
       return;
     }
@@ -113,7 +125,7 @@ export default function SymbolMappingsView({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          main_symbol: newMainSymbol.toUpperCase().trim(),
+          main_symbol: finalMainSymbol.toUpperCase().trim(),
           broker_key: finalBrokerKey.trim(),
           broker_symbol: newBrokerSymbol.trim()
         })
@@ -121,8 +133,8 @@ export default function SymbolMappingsView({
       const data = await res.json();
       if (data.status === 'success') {
         setMappingMessage('Mapping saved successfully!');
-        setNewMainSymbol('');
         setNewBrokerSymbol('');
+        setCustomMainSymbol('');
         fetchSymbolMappings();
       } else {
         setMappingMessage(data.message || 'Failed to save mapping');
@@ -197,10 +209,8 @@ export default function SymbolMappingsView({
           <h3 style={{ margin: '0 0 16px 0', fontSize: '14px', color: '#f8fafc', fontWeight: 'bold' }}>Add / Update Mapping</h3>
           <form onSubmit={handleAddMapping} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Main Symbol (Unified)</label>
-              <input 
-                type="text" 
-                placeholder="e.g. EURUSD" 
+              <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Main Symbol (Master)</label>
+              <select 
                 value={newMainSymbol} 
                 onChange={e => setNewMainSymbol(e.target.value)}
                 style={{
@@ -213,10 +223,38 @@ export default function SymbolMappingsView({
                   fontSize: '12px',
                   outline: 'none'
                 }}
-              />
+              >
+                {MASTER_SYMBOLS.map(sym => (
+                  <option key={sym} value={sym}>{sym}</option>
+                ))}
+                <option value="custom">Custom Master Symbol</option>
+              </select>
             </div>
+
+            {newMainSymbol === 'custom' && (
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Custom Master Symbol Name</label>
+                <input 
+                  type="text" 
+                  placeholder="e.g. SOLUSD" 
+                  value={customMainSymbol} 
+                  onChange={e => setCustomMainSymbol(e.target.value)}
+                  style={{
+                    width: '100%',
+                    backgroundColor: '#1e293b',
+                    border: '1px solid #334155',
+                    borderRadius: '6px',
+                    padding: '8px 12px',
+                    color: '#f8fafc',
+                    fontSize: '12px',
+                    outline: 'none'
+                  }}
+                />
+              </div>
+            )}
+
             <div>
-              <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Broker Config Key</label>
+              <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Broker / Account Target</label>
               <select 
                 value={newBrokerKey} 
                 onChange={e => setNewBrokerKey(e.target.value)}
@@ -231,12 +269,15 @@ export default function SymbolMappingsView({
                   outline: 'none'
                 }}
               >
-                <option value="metatrader:JustMarkets-Demo">MetaTrader (JustMarkets-Demo)</option>
-                <option value="metatrader:FTMO-Demo">MetaTrader (FTMO-Demo)</option>
-                <option value="ctrader:live.ftmo.17151091">cTrader (live.ftmo.17151091)</option>
-                <option value="custom">Custom/Other Server Key</option>
+                {connectedBrokers.map(b => (
+                  <option key={b.account_id} value={b.broker_key}>
+                    {b.name} ({b.broker_type} - {b.account_id})
+                  </option>
+                ))}
+                <option value="custom">Custom Broker Key</option>
               </select>
             </div>
+
             {newBrokerKey === 'custom' && (
               <div>
                 <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Custom Key</label>
@@ -258,12 +299,13 @@ export default function SymbolMappingsView({
                 />
               </div>
             )}
+
             <div>
               <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Broker Symbol</label>
               <div style={{ position: 'relative' }}>
                 <input 
                   type="text" 
-                  placeholder={loadingBrokerSymbols ? "Loading broker symbols..." : "Search/select symbol (e.g. EURUSD.ecn)"}
+                  placeholder={loadingBrokers ? "Loading broker symbols..." : "Search/select broker symbol (e.g. EURUSD.ecn)"}
                   value={showBrokerSymbolDropdown ? brokerSymbolSearch : newBrokerSymbol} 
                   onFocus={() => {
                     setBrokerSymbolSearch('');
@@ -311,8 +353,8 @@ export default function SymbolMappingsView({
                       boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)',
                       minWidth: '150px'
                     }}>
-                      {brokerSymbols.filter(s => s.toLowerCase().includes(brokerSymbolSearch.toLowerCase())).length > 0 ? (
-                        brokerSymbols
+                      {getAvailableBrokerSymbols().filter(s => s.toLowerCase().includes(brokerSymbolSearch.toLowerCase())).length > 0 ? (
+                        getAvailableBrokerSymbols()
                           .filter(s => s.toLowerCase().includes(brokerSymbolSearch.toLowerCase()))
                           .map(sym => (
                             <div 
@@ -338,7 +380,7 @@ export default function SymbolMappingsView({
                           ))
                       ) : (
                         <div style={{ padding: '8px 12px', fontSize: '12px', color: '#6b7280' }}>
-                          {loadingBrokerSymbols ? "Fetching symbols..." : "No matching symbols found"}
+                          {loadingBrokers ? "Fetching connected symbols..." : "No matching symbols found for selected broker"}
                         </div>
                       )}
                     </div>
