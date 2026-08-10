@@ -65,8 +65,7 @@ export const SymbolMappingCard: React.FC<SymbolMappingCardProps> = ({ isReadOnly
   }, []);
 
   const getAvailableBrokerSymbols = (): string[] => {
-    const finalKey = newBrokerKey === 'custom' ? customBrokerKey : newBrokerKey;
-    const found = connectedBrokers.find(b => b.broker_key === finalKey || b.account_id === finalKey);
+    const found = connectedBrokers.find(b => b.broker_key === newBrokerKey || b.account_id === newBrokerKey);
     return found ? found.symbols : [];
   };
 
@@ -85,9 +84,8 @@ export const SymbolMappingCard: React.FC<SymbolMappingCardProps> = ({ isReadOnly
       return;
     }
     const finalMainSymbol = newMainSymbol.toUpperCase().trim();
-    const finalBrokerKey = newBrokerKey === 'custom' ? customBrokerKey : newBrokerKey;
-    if (!finalMainSymbol || !finalBrokerKey || !newBrokerSymbol) {
-      setMappingMessage('All fields are required');
+    if (!finalMainSymbol || !newBrokerKey || !newBrokerSymbol) {
+      setMappingMessage('All fields are required (select an active broker and symbol)');
       return;
     }
     try {
@@ -96,7 +94,7 @@ export const SymbolMappingCard: React.FC<SymbolMappingCardProps> = ({ isReadOnly
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           main_symbol: finalMainSymbol,
-          broker_key: finalBrokerKey.trim(),
+          broker_key: newBrokerKey.trim(),
           broker_symbol: newBrokerSymbol.trim()
         })
       });
@@ -211,12 +209,12 @@ export const SymbolMappingCard: React.FC<SymbolMappingCardProps> = ({ isReadOnly
                 outline: 'none'
               }}
             >
+              <option value="">-- Select Active Broker Account --</option>
               {connectedBrokers.map(b => (
                 <option key={b.account_id} value={b.broker_key}>
                   {b.name} ({b.account_id})
                 </option>
               ))}
-              <option value="custom">Custom Key</option>
             </select>
           </div>
         </div>
