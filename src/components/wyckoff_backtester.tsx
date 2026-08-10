@@ -841,7 +841,7 @@ export default function WyckoffBacktester({
   return (
     <div className="no-drag" style={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative', paddingBottom: '40px' }}>
 
-      <fieldset disabled={isReadOnly} style={{ border: 'none', padding: 0, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '12px', width: '100%', maxWidth: '520px' }}>
+      <fieldset disabled={isReadOnly} style={{ border: 'none', padding: 0, margin: '0', display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
         <div style={{
           display: 'flex',
           flexDirection: 'column',
