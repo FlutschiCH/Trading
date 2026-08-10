@@ -18,8 +18,7 @@ import { AlertManagerPanel } from './alert_manager_panel';
 import { CandleCollectorPanel } from './candle_collector_panel';
 import LogPanel from './log_panel';
 import AccountInfoPanel from './account_info_panel';
-import { CandleDetailsModal } from './candle_details_modal';
-import { TradeDetailsModal } from './trade_details_modal';
+import { UnifiedDetailsModal } from './unified_details_modal';
 import type { Candle, AccountInfo, Position } from '../types/trading';
 import { useCandleStore } from '../services/candleStore';
 
@@ -3450,12 +3449,14 @@ export default function Dashboard() {
 
           </main>
 
-          {/* Trade Performance Detail Overlay */}
-          <TradeDetailsModal
-            showModal={showModal}
+          {/* Unified Candle & Trade Performance Details Inspector Overlay */}
+          <UnifiedDetailsModal
+            candle={selectedCandle}
             selectedTrade={selectedTrade}
             symbol={symbol}
             timeframe={timeframe}
+            entryStabilityRule={entryStabilityRule}
+            sessionsTimezone={sessionsTimezone}
             modalOrderVolume={modalOrderVolume}
             setModalOrderVolume={setModalOrderVolume}
             modalOrderBroker={modalOrderBroker}
@@ -3464,17 +3465,10 @@ export default function Dashboard() {
             executingModalOrder={executingModalOrder}
             modalOrderResult={modalOrderResult}
             handleLocateCandle={handleLocateCandle}
-            onClose={() => setShowModal(false)}
-            formatPrice={formatPrice}
-          />
-
-          {/* Selected Candle Details Inspector Modal */}
-          <CandleDetailsModal
-            candle={selectedCandle}
-            symbol={symbol}
-            entryStabilityRule={entryStabilityRule}
-            sessionsTimezone={sessionsTimezone}
-            onClose={() => setSelectedCandle(null)}
+            onClose={() => {
+              setSelectedCandle(null);
+              setShowModal(false);
+            }}
             formatPrice={formatPrice}
           />
 
