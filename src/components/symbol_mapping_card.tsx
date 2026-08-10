@@ -131,6 +131,10 @@ export const SymbolMappingCard: React.FC<SymbolMappingCardProps> = ({ isReadOnly
     }
   };
 
+  const filteredMappings = newMainSymbol.trim()
+    ? symbolMappings.filter(m => m.main_symbol.toUpperCase() === newMainSymbol.toUpperCase().trim())
+    : symbolMappings;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', height: '100%', width: '100%' }}>
       {/* Header Refresh Bar */}
@@ -191,7 +195,7 @@ export const SymbolMappingCard: React.FC<SymbolMappingCardProps> = ({ isReadOnly
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '10px', color: '#94a3b8', marginBottom: '2px' }}>Active Broker</label>
+            <label style={{ display: 'block', fontSize: '10px', color: '#94a3b8', marginBottom: '2px' }}>Active Broker Account</label>
             <select
               value={newBrokerKey}
               onChange={e => {
@@ -209,9 +213,9 @@ export const SymbolMappingCard: React.FC<SymbolMappingCardProps> = ({ isReadOnly
                 outline: 'none'
               }}
             >
-              <option value="">-- Select Active Broker Account --</option>
+              <option value="">-- Select Active Account --</option>
               {connectedBrokers.map(b => (
-                <option key={b.account_id} value={b.broker_key}>
+                <option key={b.account_id} value={b.account_id}>
                   {b.name} ({b.account_id})
                 </option>
               ))}
@@ -219,33 +223,12 @@ export const SymbolMappingCard: React.FC<SymbolMappingCardProps> = ({ isReadOnly
           </div>
         </div>
 
-        {newBrokerKey === 'custom' && (
-          <div>
-            <input
-              type="text"
-              placeholder="Custom Broker Key"
-              value={customBrokerKey}
-              onChange={e => setCustomBrokerKey(e.target.value)}
-              style={{
-                width: '100%',
-                backgroundColor: '#0f172a',
-                border: '1px solid #334155',
-                borderRadius: '4px',
-                padding: '6px 8px',
-                color: '#f8fafc',
-                fontSize: '11px',
-                outline: 'none'
-              }}
-            />
-          </div>
-        )}
-
         <div>
           <label style={{ display: 'block', fontSize: '10px', color: '#94a3b8', marginBottom: '2px' }}>Broker Symbol (Select from Broker)</label>
           <select
             value={newBrokerSymbol}
             onChange={e => setNewBrokerSymbol(e.target.value)}
-            disabled={loadingBrokers}
+            disabled={loadingBrokers || !newBrokerKey}
             style={{
               width: '100%',
               backgroundColor: '#0f172a',
@@ -293,46 +276,50 @@ export const SymbolMappingCard: React.FC<SymbolMappingCardProps> = ({ isReadOnly
       {/* Mappings Table Section */}
       <div style={{ flex: 1, overflowY: 'auto' }}>
         <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#94a3b8', marginBottom: '6px', display: 'block' }}>
-          Active Mappings ({symbolMappings.length})
+          {newMainSymbol.trim() ? `Mappings for Master '${newMainSymbol.toUpperCase().trim()}' (${filteredMappings.length})` : `All Active Mappings (${filteredMappings.length})`}
         </span>
-        {symbolMappings.length === 0 ? (
+        {filteredMappings.length === 0 ? (
           <div style={{ color: '#64748b', fontSize: '11px', textAlign: 'center', padding: '12px' }}>
-            No active mappings
+            {newMainSymbol.trim() ? `No mappings configured for master symbol '${newMainSymbol.toUpperCase().trim()}'` : 'No active mappings'}
           </div>
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid #1e293b', textAlign: 'left', color: '#94a3b8' }}>
                 <th style={{ padding: '4px' }}>Master</th>
-                <th style={{ padding: '4px' }}>Broker Key</th>
-                <th style={{ padding: '4px' }}>Broker Sym</th>
+                <th style={{ padding: '4px' }}>Account Data</th>
+                <th style={{ padding: '4px' }}>Broker Symbol</th>
                 <th style={{ padding: '4px', textAlign: 'right' }}>Action</th>
               </tr>
             </thead>
             <tbody>
-              {symbolMappings.map(m => (
-                <tr key={m.id} style={{ borderBottom: '1px solid #1e293b', color: '#cbd5e1' }}>
-                  <td style={{ padding: '4px', fontWeight: 'bold' }}>{m.main_symbol}</td>
-                  <td style={{ padding: '4px', fontFamily: 'monospace', color: '#94a3b8', fontSize: '10px' }}>{m.broker_key}</td>
-                  <td style={{ padding: '4px', color: '#f59e0b', fontFamily: 'monospace' }}>{m.broker_symbol}</td>
-                  <td style={{ padding: '4px', textAlign: 'right' }}>
-                    <button
-                      onClick={() => handleDeleteMapping(m.id)}
-                      style={{
-                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                        color: '#ef4444',
-                        border: '1px solid rgba(239, 68, 68, 0.2)',
-                        borderRadius: '4px',
-                        padding: '2px 6px',
-                        fontSize: '10px',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {filteredMappings.map(m => {
+                const matchedBroker = connectedBrokers.find(b => b.account_id === m.broker_key || b.account_id === (m as any).account_id);
+                const accLabel = matchedBroker ? `${matchedBroker.name} (#${matchedBroker.account_id})` : `#${(m as any).account_id || m.broker_key}`;
+                return (
+                  <tr key={m.id} style={{ borderBottom: '1px solid #1e293b', color: '#cbd5e1' }}>
+                    <td style={{ padding: '4px', fontWeight: 'bold', color: '#3b82f6' }}>{m.main_symbol}</td>
+                    <td style={{ padding: '4px', fontFamily: 'monospace', color: '#94a3b8', fontSize: '10px' }}>{accLabel}</td>
+                    <td style={{ padding: '4px', color: '#f59e0b', fontFamily: 'monospace' }}>{m.broker_symbol}</td>
+                    <td style={{ padding: '4px', textAlign: 'right' }}>
+                      <button
+                        onClick={() => handleDeleteMapping(m.id)}
+                        style={{
+                          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                          color: '#ef4444',
+                          border: '1px solid rgba(239, 68, 68, 0.2)',
+                          borderRadius: '4px',
+                          padding: '2px 6px',
+                          fontSize: '10px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
