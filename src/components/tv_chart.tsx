@@ -1967,19 +1967,25 @@ export default function TVChart({
         });
       }
 
-      // Draw 2-bar wide green line at the target level for each Spring candle
+      // Draw green target resistance line extending forward from Spring until price reaches/crosses it
       if (chartSettings.showTrLines) {
-        const sortedTimes = activeCandles.map((c) => Number(c.time)).sort((a, b) => a - b);
         activeCandles.forEach((c, idx) => {
           const sigLower = String(c.wyckoff_signal || '').toLowerCase();
           const isSpring = sigLower.includes('spring');
           if (isSpring) {
             const targetVal = c.resistance_level ?? c.tr_high ?? c.high;
             if (targetVal !== undefined && targetVal !== null) {
-              const endIdx = Math.min(idx + 2, sortedTimes.length);
-              const points = sortedTimes.slice(idx, endIdx);
+              const points: { time: number; value: number }[] = [];
+              for (let i = idx; i < activeCandles.length; i++) {
+                const candle = activeCandles[i];
+                points.push({ time: Number(candle.time), value: targetVal });
+                // Stop extending once price reaches or crosses the target level
+                if (candle.high >= targetVal) {
+                  break;
+                }
+              }
+
               if (points.length > 0) {
-                const targetData = points.map((t) => ({ time: t, value: targetVal }));
                 const lineSeries = chartRef.current.addSeries(LineSeries, {
                   color: '#10b981',
                   lineWidth: 3,
@@ -1988,7 +1994,7 @@ export default function TVChart({
                   priceLineVisible: false,
                   crosshairMarkerVisible: false,
                 });
-                lineSeries.setData(targetData);
+                lineSeries.setData(points);
                 dynamicLineSeriesRef.current.push(lineSeries);
               }
             }
