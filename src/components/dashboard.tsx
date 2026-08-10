@@ -18,7 +18,7 @@ import { AlertManagerPanel } from './alert_manager_panel';
 import { CandleCollectorPanel } from './candle_collector_panel';
 import AccountInfoPanel from './account_info_panel';
 import { CandleDetailsCard } from './candle_details_card';
-import QuickStatsPanel from './quick_stats_panel';
+import SymbolMappingCard from './symbol_mapping_card';
 import type { Candle, AccountInfo, Position } from '../types/trading';
 import { useCandleStore } from '../services/candleStore';
 
@@ -499,13 +499,13 @@ export default function Dashboard() {
       const saved = localStorage.getItem('wyckoff_desk_panel_order');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (!parsed.includes('quick_stats')) {
-          parsed.push('quick_stats');
+        if (!parsed.includes('symbol_mapping')) {
+          parsed.push('symbol_mapping');
         }
         return parsed;
       }
     } catch { }
-    return ['chart', 'backtester', 'trades', 'live_overview', 'quick_stats'];
+    return ['chart', 'backtester', 'trades', 'live_overview', 'symbol_mapping'];
   });
   const [dragOverId, setDragOverId] = useState<string | null>(null);
 
@@ -3166,26 +3166,26 @@ export default function Dashboard() {
                     );
                   }
 
-                  if (panelId === 'quick_stats') {
+                  if (panelId === 'symbol_mapping') {
                     return (
                       <div
-                        key="quick_stats"
-                        onDragOver={(e) => handleDragOver(e, 'quick_stats')}
-                        onDrop={(e) => handleDrop(e, 'quick_stats')}
+                        key="symbol_mapping"
+                        onDragOver={(e) => handleDragOver(e, 'symbol_mapping')}
+                        onDrop={(e) => handleDrop(e, 'symbol_mapping')}
                         style={dragStyles}
                       >
                         <div
                           draggable
-                          onDragStart={(e) => handleDragStart(e, 'quick_stats')}
+                          onDragStart={(e) => handleDragStart(e, 'symbol_mapping')}
                           style={headerStyle}
                         >
-                          <span>📊 Quick System Stats</span>
+                          <span>🔗 Symbol Mappings Manager</span>
                           <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header to Move</span>
                         </div>
                         <div className="no-drag" style={contentStyle}>
-                          <QuickStatsPanel symbol={symbol} timeframe={timeframe} />
+                          <SymbolMappingCard isReadOnly={isProdHost && !isAuthenticated} />
                         </div>
-                        {renderResizeHandle('quick_stats')}
+                        {renderResizeHandle('symbol_mapping')}
                       </div>
                     );
                   }
