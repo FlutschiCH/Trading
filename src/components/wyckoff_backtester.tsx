@@ -1727,9 +1727,9 @@ export default function WyckoffBacktester({
           </div>
 
           {/* Break Even controls & Sweep Lookback */}
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.2fr 0.8fr', gap: '12px', alignItems: 'end' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '85px 1fr', gap: '12px', alignItems: 'end' }}>
             <div style={{ ...styles.formGroup, height: '100%', justifyContent: 'center' }}>
-              <label style={{ color: '#9ca3af', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', margin: 0 }}>
+              <label style={{ color: '#9ca3af', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', margin: 0, whiteSpace: 'nowrap' }}>
                 <input
                   type="checkbox"
                   checked={useBreakEven}
@@ -1757,12 +1757,12 @@ export default function WyckoffBacktester({
 
                 {!beRangeMode ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                       <input
                         type="number"
                         value={backtestBE}
                         onChange={(e) => setBacktestBE(e.target.value)}
-                        style={{ ...styles.input, flex: 1 }}
+                        style={{ ...styles.input, flex: '1 1 110px', minWidth: '80px' }}
                         step="0.1"
                         min="0.1"
                         placeholder="BE Trigger (R)"
@@ -1780,6 +1780,7 @@ export default function WyckoffBacktester({
                         style={{
                           ...styles.input,
                           width: 'auto',
+                          flexShrink: 0,
                           padding: '4px 6px',
                           fontSize: '10px',
                           backgroundColor: '#1e293b',
