@@ -560,9 +560,10 @@ export default function Dashboard() {
       useGlobalClose,
       globalCloseTime,
       isOptimizeMode,
-      rrStart,
-      rrEnd,
-      rrStep,
+      rrRangeMode: localStorage.getItem('wyckoff_backtester_rr_range_mode') === 'true',
+      rrStart: rrStart || localStorage.getItem('wyckoff_backtester_rr_start'),
+      rrEnd: rrEnd || localStorage.getItem('wyckoff_backtester_rr_end'),
+      rrStep: rrStep || localStorage.getItem('wyckoff_backtester_rr_step'),
       slRangeMode: localStorage.getItem('wyckoff_backtester_sl_range_mode') === 'true',
       slStart: localStorage.getItem('wyckoff_backtester_sl_start'),
       slEnd: localStorage.getItem('wyckoff_backtester_sl_end'),
@@ -571,6 +572,10 @@ export default function Dashboard() {
       beStart: localStorage.getItem('wyckoff_backtester_be_start'),
       beEnd: localStorage.getItem('wyckoff_backtester_be_end'),
       beStep: localStorage.getItem('wyckoff_backtester_be_step'),
+      beOffsetRangeMode: localStorage.getItem('wyckoff_backtester_be_offset_range_mode') === 'true',
+      beOffsetStart: localStorage.getItem('wyckoff_backtester_be_offset_start'),
+      beOffsetEnd: localStorage.getItem('wyckoff_backtester_be_offset_end'),
+      beOffsetStep: localStorage.getItem('wyckoff_backtester_be_offset_step'),
     };
   };
 
@@ -658,17 +663,23 @@ export default function Dashboard() {
       setIsOptimizeMode(settings.isOptimizeMode);
       localStorage.setItem('wyckoff_optimize_mode', String(settings.isOptimizeMode));
     }
+    if (settings.rrRangeMode !== undefined) {
+      localStorage.setItem('wyckoff_backtester_rr_range_mode', String(settings.rrRangeMode));
+    }
     if (settings.rrStart !== undefined) {
       setRRStart(settings.rrStart);
       localStorage.setItem('wyckoff_rr_start', settings.rrStart);
+      localStorage.setItem('wyckoff_backtester_rr_start', String(settings.rrStart));
     }
     if (settings.rrEnd !== undefined) {
       setRREnd(settings.rrEnd);
       localStorage.setItem('wyckoff_rr_end', settings.rrEnd);
+      localStorage.setItem('wyckoff_backtester_rr_end', String(settings.rrEnd));
     }
     if (settings.rrStep !== undefined) {
       setRRStep(settings.rrStep);
       localStorage.setItem('wyckoff_rr_step', settings.rrStep);
+      localStorage.setItem('wyckoff_backtester_rr_step', String(settings.rrStep));
     }
     if (settings.slRangeMode !== undefined) {
       localStorage.setItem('wyckoff_backtester_sl_range_mode', String(settings.slRangeMode));
@@ -693,6 +704,18 @@ export default function Dashboard() {
     }
     if (settings.beStep !== undefined) {
       localStorage.setItem('wyckoff_backtester_be_step', String(settings.beStep));
+    }
+    if (settings.beOffsetRangeMode !== undefined) {
+      localStorage.setItem('wyckoff_backtester_be_offset_range_mode', String(settings.beOffsetRangeMode));
+    }
+    if (settings.beOffsetStart !== undefined) {
+      localStorage.setItem('wyckoff_backtester_be_offset_start', String(settings.beOffsetStart));
+    }
+    if (settings.beOffsetEnd !== undefined) {
+      localStorage.setItem('wyckoff_backtester_be_offset_end', String(settings.beOffsetEnd));
+    }
+    if (settings.beOffsetStep !== undefined) {
+      localStorage.setItem('wyckoff_backtester_be_offset_step', String(settings.beOffsetStep));
     }
     window.dispatchEvent(new CustomEvent('wyckoff_settings_loaded', { detail: settings }));
   };
