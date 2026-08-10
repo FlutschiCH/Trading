@@ -461,29 +461,16 @@ class LiveRunner:
             targets = [{"broker": broker_name, "account_id": strategy.get("account_id")}]
             
         print(f"[Live Runner] Executing trade on strategy {strategy_id} across {len(targets)} targets.", flush=True)
-        from sql_handler import SQLHandler
 
         for target in targets:
             try:
                 target_broker = target.get("broker") or "metatrader"
                 target_acc_id = target.get("account_id")
                 
-                # Fetch credentials
-                rows = SQLHandler.execute_query("SELECT * FROM accounts WHERE account_id = %s", (target_acc_id,))
-                target_kwargs = {}
-                if rows:
-                    acc_row = rows[0]
-                    if target_broker == "metatrader":
-                        target_kwargs = {
-                            "login": int(target_acc_id) if str(target_acc_id).isdigit() else target_acc_id,
-                            "password": acc_row.get("password"),
-                            "server": acc_row.get("server")
-                        }
-                    elif target_broker == "ctrader":
-                        target_kwargs = {
-                            "account_id": target_acc_id,
-                            "password": acc_row.get("password")
-                        }
+                target_kwargs = {
+                    "account_id": target_acc_id,
+                    "login": int(target_acc_id) if str(target_acc_id).isdigit() else target_acc_id
+                }
                 
                 from broker_handler import BrokerHandler
                 handler = BrokerHandler.get_handler(target_broker)
@@ -639,7 +626,7 @@ if __name__ == '__main__':
         print("\n--- Running Fake Trade Execution Test Across Targets ---")
         LiveRunner.execute_trade_on_targets(
             strategy=strat,
-            symbol=strat.get("symbol", "EURUSD"),
+            symbol=strat.get("symbol"),
             last_candle=fake_candle,
             should_buy=True,
             should_sell=False,
