@@ -58,17 +58,22 @@ class StrategyHandler:
                 pending_sell = False
 
         # Set up signal triggers
+        is_new_spring = False
+        is_new_upthrust = False
+
         if wyckoff_sig == "Spring detected":
             pending_buy = True
             spring_high = float(c.get('high', 0))
             pending_buy_age = 0
             pending_sell = False
+            is_new_spring = True
 
         if wyckoff_sig == "Upthrust detected":
             pending_sell = True
             upthrust_low = float(c.get('low', 0))
             pending_sell_age = 0
             pending_buy = False
+            is_new_upthrust = True
 
         should_buy = False
         should_sell = False
@@ -81,7 +86,11 @@ class StrategyHandler:
 
             confirmation_ok = True
             if entry_stability_rule in ('confirmation', 'both'):
-                confirmation_ok = (float(c.get('close', 0)) > spring_high)
+                # Confirmation rule requires a SUBSEQUENT candle closing above Spring High
+                if is_new_spring:
+                    confirmation_ok = False
+                else:
+                    confirmation_ok = (float(c.get('close', 0)) > spring_high)
 
             if duration_ok and confirmation_ok:
                 if stage != "DISTRIBUTION":
@@ -99,7 +108,10 @@ class StrategyHandler:
 
             confirmation_ok = True
             if entry_stability_rule in ('confirmation', 'both'):
-                confirmation_ok = (float(c.get('close', 0)) < upthrust_low)
+                if is_new_upthrust:
+                    confirmation_ok = False
+                else:
+                    confirmation_ok = (float(c.get('close', 0)) < upthrust_low)
 
             if duration_ok and confirmation_ok:
                 if stage != "ACCUMULATION":
