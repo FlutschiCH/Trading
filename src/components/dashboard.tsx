@@ -2570,50 +2570,6 @@ export default function Dashboard() {
                     </span>
                   )}
                 </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                  {timeframe === '1m' ? (
-                    <>
-                      <input
-                        type="text"
-                        placeholder="Add custom notes..."
-                        value={favNotesInput}
-                        onChange={(e) => setFavNotesInput(e.target.value)}
-                        style={{
-                          backgroundColor: '#1e293b',
-                          border: '1px solid #334155',
-                          borderRadius: '6px',
-                          padding: '6px 12px',
-                          color: '#f8fafc',
-                          fontSize: '12px',
-                          minWidth: '220px',
-                          outline: 'none'
-                        }}
-                      />
-                      <button
-                        onClick={() => handleSaveFavourite(selectedCandle, favNotesInput)}
-                        style={{
-                          backgroundColor: '#eab308',
-                          color: '#0b0f19',
-                          border: 'none',
-                          borderRadius: '6px',
-                          padding: '6px 16px',
-                          fontSize: '12px',
-                          fontWeight: 'bold',
-                          cursor: 'pointer',
-                          boxShadow: '0 4px 10px rgba(234, 179, 8, 0.2)',
-                          transition: 'all 0.2s'
-                        }}
-                      >
-                        ⭐ Favourite Candle
-                      </button>
-                    </>
-                  ) : (
-                    <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: 'bold' }}>
-                      ⚠️ Save to Favourites is only available for 1m timeframe candles
-                    </span>
-                  )}
-                </div>
               </div>
             )}
 
