@@ -58,39 +58,23 @@ export const UnifiedDetailsModal: React.FC<UnifiedDetailsModalProps> = ({
 
   return (
     <div
-      onClick={onClose}
+      onClick={(e) => e.stopPropagation()}
       style={{
         position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(5, 7, 12, 0.85)',
-        backdropFilter: 'blur(8px)',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
+        top: '80px',
+        right: '24px',
         zIndex: 9999,
+        backgroundColor: '#0f172a',
+        border: selectedTrade ? `2px solid ${pnl! >= 0 ? '#10b981' : '#ef4444'}` : '1px solid #334155',
+        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 0 15px rgba(0, 0, 0, 0.3)',
+        borderRadius: '16px',
+        width: '380px',
+        maxHeight: '80vh',
+        overflowY: 'auto',
+        padding: '20px',
+        color: '#f8fafc',
       }}
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          backgroundColor: '#0f172a',
-          border: selectedTrade ? `2px solid ${pnl! >= 0 ? '#10b981' : '#ef4444'}` : '1px solid #334155',
-          boxShadow: selectedTrade
-            ? `0 0 25px ${pnl! >= 0 ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)'}`
-            : '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
-          borderRadius: '16px',
-          width: '90%',
-          maxWidth: '500px',
-          maxHeight: '90vh',
-          overflowY: 'auto',
-          padding: '24px',
-          position: 'relative',
-          color: '#f8fafc',
-        }}
-      >
         <button
           onClick={onClose}
           style={{
@@ -446,7 +430,6 @@ export const UnifiedDetailsModal: React.FC<UnifiedDetailsModalProps> = ({
             )}
           </div>
         )}
-      </div>
     </div>
   );
 };
