@@ -461,8 +461,8 @@ class LiveRunner:
             targets = [{"broker": broker_name, "account_id": strategy.get("account_id")}]
             
         from symbol_mapping_handler import SymbolMappingHandler
-        source_broker = strategy.get("broker", "metatrader")
-        base_symbol = SymbolMappingHandler.map_to_main(symbol, source_broker)
+        strat_acc_id = strategy.get("account_id")
+        base_symbol = SymbolMappingHandler.map_to_main(symbol, strat_acc_id)
 
         for target in targets:
             try:

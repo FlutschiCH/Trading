@@ -10,18 +10,18 @@ class SymbolMappingHandler:
         CREATE TABLE IF NOT EXISTS symbol_mappings (
             id INT AUTO_INCREMENT PRIMARY KEY,
             main_symbol VARCHAR(50) NOT NULL,
-            broker_key VARCHAR(100) NOT NULL,
+            account_id VARCHAR(100) NOT NULL,
             broker_symbol VARCHAR(50) NOT NULL,
-            UNIQUE KEY uq_main_broker (main_symbol, broker_key)
+            UNIQUE KEY uq_main_account (main_symbol, account_id)
         )
         """
         create_sqlite = """
         CREATE TABLE IF NOT EXISTS symbol_mappings (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             main_symbol TEXT NOT NULL,
-            broker_key TEXT NOT NULL,
+            account_id TEXT NOT NULL,
             broker_symbol TEXT NOT NULL,
-            UNIQUE(main_symbol, broker_key)
+            UNIQUE(main_symbol, account_id)
         )
         """
         try:
@@ -36,21 +36,26 @@ class SymbolMappingHandler:
     def get_all_mappings() -> list:
         SymbolMappingHandler.init_db()
         try:
-            return SQLHandler.execute_query("SELECT id, main_symbol, broker_key, broker_symbol FROM symbol_mappings")
+            rows = SQLHandler.execute_query("SELECT id, main_symbol, account_id, broker_symbol FROM symbol_mappings")
+            # Map account_id as broker_key for backward compatibility in response payload
+            for r in rows:
+                if 'account_id' in r:
+                    r['broker_key'] = r['account_id']
+            return rows
         except Exception as e:
             print(f"Error fetching symbol mappings: {e}", flush=True)
             return []
 
     @staticmethod
-    def add_mapping(main_symbol: str, broker_key: str, broker_symbol: str) -> bool:
+    def add_mapping(main_symbol: str, account_id: str, broker_symbol: str) -> bool:
         SymbolMappingHandler.init_db()
         query = """
-        INSERT INTO symbol_mappings (main_symbol, broker_key, broker_symbol)
+        INSERT INTO symbol_mappings (main_symbol, account_id, broker_symbol)
         VALUES (%s, %s, %s)
         ON DUPLICATE KEY UPDATE broker_symbol = VALUES(broker_symbol)
         """
         try:
-            SQLHandler.execute_query(query, (main_symbol.upper().strip(), broker_key.strip(), broker_symbol.strip()))
+            SQLHandler.execute_query(query, (main_symbol.upper().strip(), str(account_id).strip(), broker_symbol.strip()))
             return True
         except Exception as e:
             print(f"Error saving symbol mapping: {e}", flush=True)
@@ -67,11 +72,11 @@ class SymbolMappingHandler:
             return False
 
     @staticmethod
-    def map_to_broker(main_symbol: str, broker_key: str) -> str:
+    def map_to_broker(main_symbol: str, account_id: str) -> str:
         SymbolMappingHandler.init_db()
-        query = "SELECT broker_symbol FROM symbol_mappings WHERE main_symbol = %s AND broker_key = %s"
+        query = "SELECT broker_symbol FROM symbol_mappings WHERE main_symbol = %s AND account_id = %s"
         try:
-            res = SQLHandler.execute_query(query, (main_symbol.upper().strip(), broker_key.strip()))
+            res = SQLHandler.execute_query(query, (main_symbol.upper().strip(), str(account_id).strip()))
             if res:
                 return res[0]['broker_symbol']
         except Exception as e:
@@ -79,13 +84,14 @@ class SymbolMappingHandler:
         return main_symbol
 
     @staticmethod
-    def map_to_main(broker_symbol: str, broker_key: str) -> str:
+    def map_to_main(broker_symbol: str, account_id: str) -> str:
         SymbolMappingHandler.init_db()
-        query = "SELECT main_symbol FROM symbol_mappings WHERE broker_symbol = %s AND broker_key = %s"
+        query = "SELECT main_symbol FROM symbol_mappings WHERE broker_symbol = %s AND account_id = %s"
         try:
-            res = SQLHandler.execute_query(query, (broker_symbol.strip(), broker_key.strip()))
+            res = SQLHandler.execute_query(query, (broker_symbol.strip(), str(account_id).strip()))
             if res:
                 return res[0]['main_symbol']
         except Exception as e:
             print(f"Error mapping symbol to main: {e}", flush=True)
-        return broker_symbol
+        return None
+
