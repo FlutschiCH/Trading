@@ -57,8 +57,13 @@ class TerminalHandler:
                 if not TerminalHandler._is_category_enabled(data):
                     return
 
-            # Print to the original stream first (no recursion)
-            self.original_stream.write(data)
+            # Print to the original stream first (no recursion) with encoding safety
+            try:
+                self.original_stream.write(data)
+            except UnicodeEncodeError:
+                encoding = getattr(self.original_stream, 'encoding', 'utf-8') or 'utf-8'
+                safe_data = data.encode(encoding, errors='replace').decode(encoding)
+                self.original_stream.write(safe_data)
             self.original_stream.flush()
             if data:
                 # Clean carriage return prefixes/updates for SSE compatibility
@@ -74,6 +79,12 @@ class TerminalHandler:
         with cls._lock:
             if cls._initialized:
                 return
+            if hasattr(sys.stdout, 'reconfigure'):
+                try:
+                    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+                    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+                except Exception:
+                    pass
             cls._orig_stdout = sys.stdout
             cls._orig_stderr = sys.stderr
             sys.stdout = cls.StreamWrapper(sys.stdout, is_stderr=False)

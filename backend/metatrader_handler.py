@@ -151,7 +151,7 @@ class MetaTraderHandler(BaseBrokerHandler):
         if inst:
             acc_info = inst.account_info()
             if acc_info is not None:
-                print(f"[MetaTrader DEBUG] Instance Active for Account '{acc_str}' | Balance: {getattr(acc_info, 'balance', 'N/A')} | Currency: {getattr(acc_info, 'currency', 'N/A')}", flush=True)
+                pass
             else:
                 err = inst.last_error() if hasattr(inst, 'last_error') else ("unknown", "unknown")
                 print(f"[MetaTrader DEBUG] account_info() failed for Account '{acc_str}' | Error: {err}", flush=True)
@@ -397,7 +397,7 @@ class MetaTraderHandler(BaseBrokerHandler):
             offset = 7200
 
         from symbol_mapping_handler import SymbolMappingHandler
-        acc_id_str = str(acc_id or login)
+        acc_id_str = str(acc_id)
 
         res = []
         buy_type = getattr(mt5_inst, 'POSITION_TYPE_BUY', 0)
