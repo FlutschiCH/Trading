@@ -128,6 +128,15 @@ class CTraderHandler(BaseBrokerHandler):
             }
             period = tf_map.get(timeframe.lower(), 7) # Default M15
 
+            # Resolve symbol via SymbolMappingHandler if available
+            try:
+                from symbol_mapping_handler import SymbolMappingHandler
+                mapped_sym = SymbolMappingHandler.map_to_broker(symbol, "ctrader")
+                if mapped_sym and mapped_sym != symbol:
+                    symbol = mapped_sym
+            except Exception:
+                pass
+
             # Resolve Symbol ID
             symbol_id = 1
             if "btc" in symbol.lower():
