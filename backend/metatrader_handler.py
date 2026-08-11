@@ -133,12 +133,36 @@ class MetaTraderHandler(BaseBrokerHandler):
 
     @staticmethod
     def get_mt5_instance(account_id: str = None):
-        if not account_id:
-            return mt5 if MT5_AVAILABLE else None
+        if not MT5_AVAILABLE:
+            return None
 
-        acc_str = str(account_id)
+        if not account_id:
+            from account_handler import AccountHandler
+            active_acc = AccountHandler.get_active_account()
+            if active_acc:
+                account_id = active_acc.get("account_id")
+
+        acc_str = str(account_id) if account_id else None
         instances = getattr(builtins, '_GLOBAL_MT5_INSTANCES', MetaTraderHandler._mt5_instances)
-        return instances.get(acc_str)
+        inst = instances.get(acc_str) if acc_str else None
+
+        if not inst and acc_str:
+            print(f"[MetaTrader Fetch Instance] Instance not active for '{acc_str}'. Resolving credentials and initializing...", flush=True)
+            login, password, server = MetaTraderHandler._resolve_credentials(account_id=acc_str)
+            if login and password and server:
+                success = MetaTraderHandler._initialize_mt5(login=login, password=password, server=server)
+                if success:
+                    inst = instances.get(acc_str)
+
+        if inst:
+            acc_info = inst.account_info()
+            if acc_info is not None:
+                print(f"[MetaTrader DEBUG] Instance Active for Account '{acc_str}' | Balance: {getattr(acc_info, 'balance', 'N/A')} | Currency: {getattr(acc_info, 'currency', 'N/A')}", flush=True)
+            else:
+                err = inst.last_error() if hasattr(inst, 'last_error') else ("unknown", "unknown")
+                print(f"[MetaTrader DEBUG] account_info() failed for Account '{acc_str}' | Error: {err}", flush=True)
+
+        return inst
 
     @staticmethod
     def _resolve_credentials(login=None, password=None, server=None, **kwargs):
@@ -344,22 +368,9 @@ class MetaTraderHandler(BaseBrokerHandler):
         acc_id = kwargs.get('account_id') or kwargs.get('account') or login
         mt5_inst = MetaTraderHandler.get_mt5_instance(acc_id)
 
-        if not mt5_inst and (login or kwargs.get('account_id')):
-            login, password, server = MetaTraderHandler._resolve_credentials(login, password, server, **kwargs)
-            if not MetaTraderHandler._initialize_mt5(login, password, server):
-                return []
-            mt5_inst = MetaTraderHandler.get_mt5_instance(login) or mt5
-
         if not mt5_inst:
-            print(f"[MetaTrader DEBUG] No active MT5 instance found for account '{acc_id}'", flush=True)
+            print(f"[MetaTrader DEBUG] Could not get MT5 instance for account '{acc_id}'", flush=True)
             return []
-
-        acc_info = mt5_inst.account_info()
-        if acc_info is not None:
-            print(f"[MetaTrader DEBUG] Active MT5 Instance Account '{acc_id}' | Balance: {getattr(acc_info, 'balance', 'N/A')} | Currency: {getattr(acc_info, 'currency', 'N/A')}", flush=True)
-        else:
-            err = mt5_inst.last_error() if hasattr(mt5_inst, 'last_error') else ("unknown", "unknown")
-            print(f"[MetaTrader DEBUG] account_info() failed for Account '{acc_id}' | Error: {err}", flush=True)
 
         positions = mt5_inst.positions_get()
         if positions is None:
