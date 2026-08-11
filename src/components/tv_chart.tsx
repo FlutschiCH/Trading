@@ -465,7 +465,49 @@ export default function TVChart({
     );
   };
 
-  const activeFavSymbols = favoriteSymbols.filter(s => availableSymbols.includes(s));
+  // Symbol Mappings integration in TVChart
+  const [symbolMappings, setSymbolMappings] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/api/symbol-mappings`)
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.status === 'success' && Array.isArray(data.data)) {
+          setSymbolMappings(data.data);
+        }
+      })
+      .catch(err => console.error("Error fetching symbol mappings for chart:", err));
+  }, []);
+
+  const mappedSymbolDict = React.useMemo(() => {
+    const mainToBroker: Record<string, string> = {};
+    const brokerToMain: Record<string, string> = {};
+    const mappedList: string[] = [];
+
+    symbolMappings.forEach((m: any) => {
+      const main = (m.main_symbol || '').trim().toUpperCase();
+      const brokerSym = (m.broker_symbol || '').trim();
+      if (main && brokerSym) {
+        mainToBroker[main] = brokerSym;
+        brokerToMain[brokerSym] = main;
+        mappedList.push(main);
+        if (brokerSym !== main) mappedList.push(brokerSym);
+      }
+    });
+
+    return { mainToBroker, brokerToMain, mappedList: Array.from(new Set(mappedList)) };
+  }, [symbolMappings]);
+
+  // Combined symbols: Mapped symbols FIRST, then selected broker symbols SECOND
+  const combinedChartSymbols = React.useMemo(() => {
+    return Array.from(new Set([
+      ...mappedSymbolDict.mappedList,
+      ...availableSymbols,
+      symbol,
+      ...favoriteSymbols
+    ].filter(Boolean)));
+  }, [mappedSymbolDict, availableSymbols, symbol, favoriteSymbols]);
+
   const sortedTimeframes = [...availableTimeframes].sort((a, b) => {
     const aFav = favoriteTimeframes.includes(a);
     const bFav = favoriteTimeframes.includes(b);
@@ -476,13 +518,24 @@ export default function TVChart({
 
   const [showTimeframeDropdown, setShowTimeframeDropdown] = useState(false);
 
-  const filteredSymbols = [...availableSymbols]
-    .filter(s => s.toLowerCase().includes(symbolSearch.toLowerCase()))
+  const filteredSymbols = [...combinedChartSymbols]
+    .filter(s => {
+      const q = symbolSearch.toLowerCase();
+      const mappedTarget = mappedSymbolDict.mainToBroker[s] || mappedSymbolDict.brokerToMain[s] || '';
+      return s.toLowerCase().includes(q) || mappedTarget.toLowerCase().includes(q);
+    })
     .sort((a, b) => {
       const aFav = favoriteSymbols.includes(a);
       const bFav = favoriteSymbols.includes(b);
       if (aFav && !bFav) return -1;
       if (!aFav && bFav) return 1;
+
+      // Mapped symbols first, then broker symbols
+      const aMap = !!mappedSymbolDict.mainToBroker[a] || !!mappedSymbolDict.brokerToMain[a];
+      const bMap = !!mappedSymbolDict.mainToBroker[b] || !!mappedSymbolDict.brokerToMain[b];
+      if (aMap && !bMap) return -1;
+      if (!aMap && bMap) return 1;
+
       return a.localeCompare(b);
     });
 
@@ -2545,12 +2598,28 @@ export default function TVChart({
                     <div onClick={() => setShowSymbolDropdown(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }} />
                     <div style={{ position: 'absolute', top: '100%', left: 0, backgroundColor: isLight ? '#ffffff' : '#0f172a', border: isLight ? '1px solid #cbd5e1' : '1px solid #334155', borderRadius: '6px', maxHeight: '200px', overflowY: 'auto', zIndex: 1000, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.2)', minWidth: '160px' }}>
                       {filteredSymbols.length > 0 ? (
-                        filteredSymbols.map((sym, idx) => (
-                          <div key={sym} onClick={() => { onSymbolChange(sym); setShowSymbolDropdown(false); }} style={{ padding: '6px 10px', cursor: 'pointer', fontSize: '12px', color: isLight ? '#0f172a' : '#ffffff', backgroundColor: idx === highlightedIndex ? '#2563eb' : (symbol === sym ? 'rgba(37, 99, 235, 0.2)' : 'transparent'), transition: 'background-color 0.15s', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} onMouseEnter={() => setHighlightedIndex(idx)}>
-                            <span>{sym}</span>
-                            <span onClick={(e) => toggleFavoriteSymbol(sym, e)} style={{ color: favoriteSymbols.includes(sym) ? '#f59e0b' : '#9ca3af', fontSize: '14px', padding: '2px 4px', cursor: 'pointer', transition: 'color 0.15s' }}>★</span>
-                          </div>
-                        ))
+                        filteredSymbols.map((sym, idx) => {
+                          const mappedBroker = mappedSymbolDict.mainToBroker[sym];
+                          const mappedMain = mappedSymbolDict.brokerToMain[sym];
+                          return (
+                            <div key={sym} onClick={() => { onSymbolChange(sym); setShowSymbolDropdown(false); }} style={{ padding: '6px 10px', cursor: 'pointer', fontSize: '12px', color: isLight ? '#0f172a' : '#ffffff', backgroundColor: idx === highlightedIndex ? '#2563eb' : (symbol === sym ? 'rgba(37, 99, 235, 0.2)' : 'transparent'), transition: 'background-color 0.15s', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} onMouseEnter={() => setHighlightedIndex(idx)}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span>{sym}</span>
+                                {mappedBroker && (
+                                  <span style={{ fontSize: '9px', color: '#a855f7', backgroundColor: 'rgba(168, 85, 247, 0.15)', padding: '1px 4px', borderRadius: '3px', fontWeight: 'bold' }}>
+                                    🔀 ➔ {mappedBroker}
+                                  </span>
+                                )}
+                                {mappedMain && !mappedBroker && (
+                                  <span style={{ fontSize: '9px', color: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.15)', padding: '1px 4px', borderRadius: '3px' }}>
+                                    🔀 Map: {mappedMain}
+                                  </span>
+                                )}
+                              </div>
+                              <span onClick={(e) => toggleFavoriteSymbol(sym, e)} style={{ color: favoriteSymbols.includes(sym) ? '#f59e0b' : '#9ca3af', fontSize: '14px', padding: '2px 4px', cursor: 'pointer', transition: 'color 0.15s' }}>★</span>
+                            </div>
+                          );
+                        })
                       ) : (
                         <div style={{ padding: '6px 10px', fontSize: '11px', color: '#6b7280' }}>No results found</div>
                       )}
@@ -2679,12 +2748,28 @@ export default function TVChart({
                         <div onClick={() => setShowSymbolDropdown(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }} />
                         <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: isLight ? '#ffffff' : '#0f172a', border: isLight ? '1px solid #cbd5e1' : '1px solid #334155', borderRadius: '6px', maxHeight: '200px', overflowY: 'auto', zIndex: 1000, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.2)', minWidth: '160px' }}>
                           {filteredSymbols.length > 0 ? (
-                            filteredSymbols.map((sym, idx) => (
-                              <div key={sym} onClick={() => { onSymbolChange(sym); setShowSymbolDropdown(false); }} style={{ padding: '6px 10px', cursor: 'pointer', fontSize: '12px', color: isLight ? '#0f172a' : '#ffffff', backgroundColor: idx === highlightedIndex ? '#2563eb' : (symbol === sym ? 'rgba(37, 99, 235, 0.2)' : 'transparent'), transition: 'background-color 0.15s', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} onMouseEnter={() => setHighlightedIndex(idx)}>
-                                <span>{sym}</span>
-                                <span onClick={(e) => toggleFavoriteSymbol(sym, e)} style={{ color: favoriteSymbols.includes(sym) ? '#f59e0b' : '#9ca3af', fontSize: '14px', padding: '2px 4px', cursor: 'pointer', transition: 'color 0.15s' }}>★</span>
-                              </div>
-                            ))
+                            filteredSymbols.map((sym, idx) => {
+                              const mappedBroker = mappedSymbolDict.mainToBroker[sym];
+                              const mappedMain = mappedSymbolDict.brokerToMain[sym];
+                              return (
+                                <div key={sym} onClick={() => { onSymbolChange(sym); setShowSymbolDropdown(false); }} style={{ padding: '6px 10px', cursor: 'pointer', fontSize: '12px', color: isLight ? '#0f172a' : '#ffffff', backgroundColor: idx === highlightedIndex ? '#2563eb' : (symbol === sym ? 'rgba(37, 99, 235, 0.2)' : 'transparent'), transition: 'background-color 0.15s', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} onMouseEnter={() => setHighlightedIndex(idx)}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <span>{sym}</span>
+                                    {mappedBroker && (
+                                      <span style={{ fontSize: '9px', color: '#a855f7', backgroundColor: 'rgba(168, 85, 247, 0.15)', padding: '1px 4px', borderRadius: '3px', fontWeight: 'bold' }}>
+                                        🔀 ➔ {mappedBroker}
+                                      </span>
+                                    )}
+                                    {mappedMain && !mappedBroker && (
+                                      <span style={{ fontSize: '9px', color: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.15)', padding: '1px 4px', borderRadius: '3px' }}>
+                                        🔀 Map: {mappedMain}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span onClick={(e) => toggleFavoriteSymbol(sym, e)} style={{ color: favoriteSymbols.includes(sym) ? '#f59e0b' : '#9ca3af', fontSize: '14px', padding: '2px 4px', cursor: 'pointer', transition: 'color 0.15s' }}>★</span>
+                                </div>
+                              );
+                            })
                           ) : (
                             <div style={{ padding: '6px 10px', fontSize: '11px', color: '#6b7280' }}>No results found</div>
                           )}
