@@ -5,7 +5,13 @@ import Dashboard, { formatPrice, calculateDateBounds, getWeekStart, getPrecision
 export { formatPrice, calculateDateBounds, getWeekStart, getPrecisionForSymbol };
 
 export default function App() {
-  if (typeof window !== 'undefined' && (window.location.pathname === '/auth' || window.location.pathname === '/')) {
+  useLayoutEffect(() => {
+    if (typeof window !== 'undefined' && (window.location.pathname === '/' || window.location.pathname === '/auth')) {
+      window.history.replaceState({}, '', '/dashboard');
+    }
+  }, []);
+
+  if (typeof window !== 'undefined' && (window.location.pathname === '/' || window.location.pathname === '/auth')) {
     window.history.replaceState({}, '', '/dashboard');
   }
 

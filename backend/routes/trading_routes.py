@@ -19,7 +19,8 @@ def positions():
     payload = request.get_json(force=True) or {}
     # print(f"[TradingRoutes] /trade/positions payload: {payload}", flush=True)
     handler = _get_handler(payload)
-    return jsonify({"status": "success", "data": handler.get_positions(**payload)})
+    data = handler.get_positions(**payload)
+    return jsonify({"status": "success", "data": data})
 
 @trading_routes.route('/trade/order', methods=['POST'])
 def order():
