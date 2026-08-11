@@ -269,8 +269,78 @@ export default function WyckoffBacktester({
   const activeTimeframes = selectedTimeframes ?? internalSelectedTimeframes;
   const setActiveTimeframes = setSelectedTimeframes ?? setInternalSelectedTimeframes;
 
-  const defaultSymbolsList = availableSymbols || ['BTCUSD', 'ETHUSD', 'EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'XAUUSD', 'US30', 'GER40'];
-  const defaultTimeframesList = availableTimeframes || ['1m', '5m', '15m', '30m', '1h', '4h', '1d'];
+  // Favorites synced with TVChart (localStorage)
+  const [favoriteSymbols, setFavoriteSymbols] = React.useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('wyckoff_fav_symbols');
+      return saved ? JSON.parse(saved) : ['BTCUSD', 'EURUSD', 'XAUUSD'];
+    } catch {
+      return ['BTCUSD', 'EURUSD', 'XAUUSD'];
+    }
+  });
+
+  const [favoriteTimeframes, setFavoriteTimeframes] = React.useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('wyckoff_fav_timeframes');
+      return saved ? JSON.parse(saved) : ['5m', '15m', '1h', '4h'];
+    } catch {
+      return ['5m', '15m', '1h', '4h'];
+    }
+  });
+
+  React.useEffect(() => {
+    localStorage.setItem('wyckoff_fav_symbols', JSON.stringify(favoriteSymbols));
+  }, [favoriteSymbols]);
+
+  React.useEffect(() => {
+    localStorage.setItem('wyckoff_fav_timeframes', JSON.stringify(favoriteTimeframes));
+  }, [favoriteTimeframes]);
+
+  const toggleFavoriteSymbol = (sym: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setFavoriteSymbols(prev =>
+      prev.includes(sym) ? prev.filter(s => s !== sym) : [...prev, sym]
+    );
+  };
+
+  const toggleFavoriteTimeframe = (tf: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setFavoriteTimeframes(prev =>
+      prev.includes(tf) ? prev.filter(t => t !== tf) : [...prev, tf]
+    );
+  };
+
+  // Combine available symbols from connected broker account + defaults + active symbol
+  const baseSymbols = React.useMemo(() => {
+    const raw = availableSymbols || ['BTCUSD', 'ETHUSD', 'EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'XAUUSD', 'US30', 'GER40'];
+    return Array.from(new Set([...raw, symbol, ...favoriteSymbols].filter(Boolean)));
+  }, [availableSymbols, symbol, favoriteSymbols]);
+
+  const baseTimeframes = React.useMemo(() => {
+    const raw = availableTimeframes || ['1m', '5m', '15m', '30m', '1h', '4h', '1d'];
+    return Array.from(new Set([...raw, timeframe, ...favoriteTimeframes].filter(Boolean)));
+  }, [availableTimeframes, timeframe, favoriteTimeframes]);
+
+  // Sorted list with Favorites (★) pinned at top
+  const sortedSymbolsList = React.useMemo(() => {
+    return [...baseSymbols].sort((a, b) => {
+      const aFav = favoriteSymbols.includes(a);
+      const bFav = favoriteSymbols.includes(b);
+      if (aFav && !bFav) return -1;
+      if (!aFav && bFav) return 1;
+      return a.localeCompare(b);
+    });
+  }, [baseSymbols, favoriteSymbols]);
+
+  const sortedTimeframesList = React.useMemo(() => {
+    return [...baseTimeframes].sort((a, b) => {
+      const aFav = favoriteTimeframes.includes(a);
+      const bFav = favoriteTimeframes.includes(b);
+      if (aFav && !bFav) return -1;
+      if (!aFav && bFav) return 1;
+      return 0;
+    });
+  }, [baseTimeframes, favoriteTimeframes]);
 
   const toggleSymbolSelect = (sym: string) => {
     if (activeSymbols.includes(sym)) {
@@ -1190,22 +1260,39 @@ export default function WyckoffBacktester({
                 <span style={{ color: '#9ca3af', fontSize: '11px', fontWeight: 600 }}>
                   Target Symbols ({activeSymbols.length > 0 ? `${activeSymbols.length} selected` : `Fallback: ${symbol}`})
                 </span>
-                {activeSymbols.length > 0 && (
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                   <button
                     type="button"
-                    onClick={() => setActiveSymbols([])}
-                    style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '10px', cursor: 'pointer' }}
+                    onClick={() => setActiveSymbols(sortedSymbolsList.filter(s => favoriteSymbols.includes(s)))}
+                    style={{ background: 'none', border: 'none', color: '#f59e0b', fontSize: '10px', cursor: 'pointer', fontWeight: 'bold' }}
+                    title="Select all starred favorite symbols"
                   >
-                    Clear All
+                    ★ Favorites
                   </button>
-                )}
+                  <button
+                    type="button"
+                    onClick={() => setActiveSymbols([...sortedSymbolsList])}
+                    style={{ background: 'none', border: 'none', color: '#38bdf8', fontSize: '10px', cursor: 'pointer' }}
+                  >
+                    All
+                  </button>
+                  {activeSymbols.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setActiveSymbols([])}
+                      style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '10px', cursor: 'pointer' }}
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Searchable Input Bar */}
               <div style={{ position: 'relative' }}>
                 <input
                   type="text"
-                  placeholder="🔍 Search or select symbols..."
+                  placeholder="🔍 Search account symbols..."
                   value={symbolSearchQuery}
                   onChange={(e) => {
                     setSymbolSearchQuery(e.target.value);
@@ -1256,10 +1343,11 @@ export default function WyckoffBacktester({
                   marginTop: '4px',
                   padding: '4px'
                 }}>
-                  {defaultSymbolsList
+                  {sortedSymbolsList
                     .filter(s => s.toLowerCase().includes(symbolSearchQuery.toLowerCase()))
                     .map((sym) => {
                       const isSelected = activeSymbols.includes(sym);
+                      const isFav = favoriteSymbols.includes(sym);
                       return (
                         <div
                           key={sym}
@@ -1284,12 +1372,27 @@ export default function WyckoffBacktester({
                             if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';
                           }}
                         >
-                          <span>{sym}</span>
-                          <span style={{ fontSize: '12px' }}>{isSelected ? '☑' : '☐'}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '12px' }}>{isSelected ? '☑' : '☐'}</span>
+                            <span>{sym}</span>
+                          </div>
+                          <span
+                            onClick={(e) => toggleFavoriteSymbol(sym, e)}
+                            style={{
+                              color: isFav ? '#f59e0b' : '#64748b',
+                              fontSize: '13px',
+                              padding: '0 4px',
+                              cursor: 'pointer',
+                              transition: 'color 0.15s'
+                            }}
+                            title={isFav ? "Unstar symbol" : "Star favorite symbol"}
+                          >
+                            {isFav ? '★' : '☆'}
+                          </span>
                         </div>
                       );
                     })}
-                  {symbolSearchQuery.trim() && !defaultSymbolsList.some(s => s.toLowerCase() === symbolSearchQuery.trim().toLowerCase()) && (
+                  {symbolSearchQuery.trim() && !sortedSymbolsList.some(s => s.toLowerCase() === symbolSearchQuery.trim().toLowerCase()) && (
                     <div
                       onClick={() => {
                         toggleSymbolSelect(symbolSearchQuery.trim().toUpperCase());
@@ -1353,22 +1456,39 @@ export default function WyckoffBacktester({
                 <span style={{ color: '#9ca3af', fontSize: '11px', fontWeight: 600 }}>
                   Target Timeframes ({activeTimeframes.length > 0 ? `${activeTimeframes.length} selected` : `Fallback: ${timeframe}`})
                 </span>
-                {activeTimeframes.length > 0 && (
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                   <button
                     type="button"
-                    onClick={() => setActiveTimeframes([])}
-                    style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '10px', cursor: 'pointer' }}
+                    onClick={() => setActiveTimeframes(sortedTimeframesList.filter(t => favoriteTimeframes.includes(t)))}
+                    style={{ background: 'none', border: 'none', color: '#f59e0b', fontSize: '10px', cursor: 'pointer', fontWeight: 'bold' }}
+                    title="Select all starred favorite timeframes"
                   >
-                    Clear All
+                    ★ Favorites
                   </button>
-                )}
+                  <button
+                    type="button"
+                    onClick={() => setActiveTimeframes([...sortedTimeframesList])}
+                    style={{ background: 'none', border: 'none', color: '#10b981', fontSize: '10px', cursor: 'pointer' }}
+                  >
+                    All
+                  </button>
+                  {activeTimeframes.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setActiveTimeframes([])}
+                      style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '10px', cursor: 'pointer' }}
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Searchable Input Bar */}
               <div style={{ position: 'relative' }}>
                 <input
                   type="text"
-                  placeholder="🔍 Search or select timeframes..."
+                  placeholder="🔍 Search timeframes..."
                   value={tfSearchQuery}
                   onChange={(e) => {
                     setTfSearchQuery(e.target.value);
@@ -1419,10 +1539,11 @@ export default function WyckoffBacktester({
                   marginTop: '4px',
                   padding: '4px'
                 }}>
-                  {defaultTimeframesList
+                  {sortedTimeframesList
                     .filter(tf => tf.toLowerCase().includes(tfSearchQuery.toLowerCase()))
                     .map((tf) => {
                       const isSelected = activeTimeframes.includes(tf);
+                      const isFav = favoriteTimeframes.includes(tf);
                       return (
                         <div
                           key={tf}
@@ -1447,8 +1568,23 @@ export default function WyckoffBacktester({
                             if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';
                           }}
                         >
-                          <span>{tf}</span>
-                          <span style={{ fontSize: '12px' }}>{isSelected ? '☑' : '☐'}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '12px' }}>{isSelected ? '☑' : '☐'}</span>
+                            <span>{tf}</span>
+                          </div>
+                          <span
+                            onClick={(e) => toggleFavoriteTimeframe(tf, e)}
+                            style={{
+                              color: isFav ? '#f59e0b' : '#64748b',
+                              fontSize: '13px',
+                              padding: '0 4px',
+                              cursor: 'pointer',
+                              transition: 'color 0.15s'
+                            }}
+                            title={isFav ? "Unstar timeframe" : "Star favorite timeframe"}
+                          >
+                            {isFav ? '★' : '☆'}
+                          </span>
                         </div>
                       );
                     })}
