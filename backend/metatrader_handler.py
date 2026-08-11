@@ -237,7 +237,7 @@ class MetaTraderHandler(BaseBrokerHandler):
 
         # Match symbol: Check MT5 terminal directly first to bypass DB lookup overhead
         matched_symbol = symbol
-        broker_key = f"metatrader:{server}"
+        acc_id_str = str(login)
         symbols = mt5_inst.symbols_get()
         if symbols:
             symbol_names = [s.name for s in symbols]
@@ -249,7 +249,7 @@ class MetaTraderHandler(BaseBrokerHandler):
                 if matched_symbol == symbol:
                     # Fallback to DB mapping if not found in open symbol list
                     from symbol_mapping_handler import SymbolMappingHandler
-                    mapped_symbol = SymbolMappingHandler.map_to_broker(symbol, broker_key)
+                    mapped_symbol = SymbolMappingHandler.map_to_broker(symbol, acc_id_str)
                     if mapped_symbol in symbol_names:
                         matched_symbol = mapped_symbol
                     else:
@@ -403,13 +403,12 @@ class MetaTraderHandler(BaseBrokerHandler):
             offset = 7200
 
         from symbol_mapping_handler import SymbolMappingHandler
-        broker_key = f"metatrader:{server}"
+        acc_id_str = str(acc_id or login)
 
         res = []
         buy_type = getattr(mt5_inst, 'POSITION_TYPE_BUY', 0)
-        acc_id_str = str(login)
         for p in positions:
-            main_symbol = SymbolMappingHandler.map_to_main(p.symbol, broker_key)
+            main_symbol = SymbolMappingHandler.map_to_main(p.symbol, acc_id_str)
             res.append({
                 "position_id": p.ticket,
                 "symbol": main_symbol,
@@ -440,8 +439,8 @@ class MetaTraderHandler(BaseBrokerHandler):
         
         mt5_inst = MetaTraderHandler.get_mt5_instance(login) or mt5
         from symbol_mapping_handler import SymbolMappingHandler
-        broker_key = f"metatrader:{server}"
-        mapped_symbol = SymbolMappingHandler.map_to_broker(symbol, broker_key)
+        acc_id_str = str(login)
+        mapped_symbol = SymbolMappingHandler.map_to_broker(symbol, acc_id_str)
 
         symbols = mt5_inst.symbols_get()
         matched_symbol = mapped_symbol
