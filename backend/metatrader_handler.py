@@ -138,13 +138,7 @@ class MetaTraderHandler(BaseBrokerHandler):
 
         acc_str = str(account_id)
         instances = getattr(builtins, '_GLOBAL_MT5_INSTANCES', MetaTraderHandler._mt5_instances)
-        inst = instances.get(acc_str)
-
-        if not inst and MT5_AVAILABLE:
-            MetaTraderHandler._initialize_mt5(acc_str)
-            inst = instances.get(acc_str)
-
-        return inst or (mt5 if MT5_AVAILABLE else None)
+        return instances.get(acc_str)
 
     @staticmethod
     def _resolve_credentials(login=None, password=None, server=None, **kwargs):
