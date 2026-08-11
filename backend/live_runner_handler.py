@@ -450,7 +450,7 @@ class LiveRunner:
         cls.execute_trade_on_targets(strategy, symbol, last_candle, should_buy, should_sell, magic)
         
     @classmethod
-    def execute_trade_on_targets(cls, strategy: dict, symbol: str, last_candle: dict, should_buy: bool, should_sell: bool, magic: str):
+    def execute_trade_on_targets(cls, strategy: dict, symbol: str, last_candle: dict, should_buy: bool, should_sell: bool, magic: str, debug=False):
         """
         Dispatches and executes trades across all target accounts assigned to the strategy.
         """
@@ -480,16 +480,15 @@ class LiveRunner:
                 positions = handler.get_positions(**target_kwargs) or []
                 active_pos = None
                 for p in positions:
-                    p_magic = p.get("magic")
-                    if p.get("symbol") == symbol and (p_magic == magic or str(p_magic) == str(magic) or p.get("position_id") == magic):
+                    if p.get("symbol") == base_symbol:
                         active_pos = p
                         break
 
                 allow_opposite_close = strategy.get("allowOppositeClose", True)
                 direction = "BUY" if should_buy else "SELL"
 
-                if active_pos:
-                    pos_type = active_pos.get("type", "").upper()
+                if active_pos and debug == False:
+                    pos_type = active_pos.get("trade_side", "").upper()
                     is_opposite = (pos_type == "BUY" and should_sell) or (pos_type == "SELL" and should_buy)
                     
                     if is_opposite and allow_opposite_close:
@@ -631,7 +630,8 @@ if __name__ == '__main__':
             last_candle=fake_candle,
             should_buy=True,
             should_sell=False,
-            magic=f"test_{int(time.time())}"
+            magic=f"test_{int(time.time())}",
+            debug=True
         )
 
 

@@ -426,20 +426,20 @@ class MetaTraderHandler(BaseBrokerHandler):
         return res
 
     @staticmethod
-    def create_order(symbol: str, side: str, volume: float, price: float = None, stop_loss: float = None, take_profit: float = None, magic: int = 234000, login: int = 2002061314, password: str = "Godzilla_12", server: str = "JustMarkets-Demo", **kwargs) -> dict:
+    def create_order(symbol: str, side: str, volume: float, price: float = None, stop_loss: float = None, take_profit: float = None, magic: int = 234000, **kwargs) -> dict:
         """
-        Dispatches buy/sell order to MT5.
+        Dispatches buy/sell order to MT5 using an active initialized instance.
         """
-        login, password, server = MetaTraderHandler._resolve_credentials(login, password, server, **kwargs)
         if not MT5_AVAILABLE:
-            return {"status": "error", "message": "MetaTrader 5 execution is disabled on this platform (Linux/Railway)."}
+            return {"status": "error", "message": "MetaTrader 5 execution is disabled on this platform."}
 
-        if not MetaTraderHandler._initialize_mt5(login, password, server):
-            return {"status": "error", "message": "Failed to initialize MT5"}
-        
-        mt5_inst = MetaTraderHandler.get_mt5_instance(login) or mt5
+        acc_id = kwargs.get('account_id') or kwargs.get('account') or kwargs.get('login')
+        mt5_inst = MetaTraderHandler.get_mt5_instance(acc_id)
+        if not mt5_inst:
+            return {"status": "error", "message": f"No active MT5 instance found for account '{acc_id}'"}
+
         from symbol_mapping_handler import SymbolMappingHandler
-        acc_id_str = str(login)
+        acc_id_str = str(acc_id) if acc_id else ""
         mapped_symbol = SymbolMappingHandler.map_to_broker(symbol, acc_id_str)
 
         symbols = mt5_inst.symbols_get()
