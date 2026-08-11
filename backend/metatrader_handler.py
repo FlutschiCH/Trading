@@ -133,7 +133,7 @@ class MetaTraderHandler(BaseBrokerHandler):
 
     @staticmethod
     def get_mt5_instance(account_id: str = None):
-        if not MT5_AVAILABLE or not account_id:
+        if not MT5_AVAILABLE or not account_id or str(account_id).strip().lower() in ("none", "null", ""):
             return None
 
         acc_str = str(account_id) if account_id else None
@@ -360,6 +360,9 @@ class MetaTraderHandler(BaseBrokerHandler):
             return []
 
         acc_id = kwargs.get('account_id') or kwargs.get('account') or kwargs.get('login')
+        if not acc_id or str(acc_id).strip().lower() in ("none", "null", ""):
+            return []
+
         mt5_inst = kwargs.get('mt5_inst') or MetaTraderHandler.get_mt5_instance(acc_id)
 
         if not mt5_inst:

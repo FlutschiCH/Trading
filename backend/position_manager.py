@@ -82,7 +82,7 @@ class PositionManager:
         for target in targets:
             target_broker = target.get("broker") or "metatrader"
             target_acc_id = target.get("account_id")
-            if not target_acc_id:
+            if not target_acc_id or str(target_acc_id).strip().lower() in ("none", "null", ""):
                 continue
 
             # Fetch account credentials

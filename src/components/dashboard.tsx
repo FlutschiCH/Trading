@@ -1484,20 +1484,27 @@ export default function Dashboard() {
     loadLiveStrategyAndPerms();
   }, []);
 
+  const isValidAcc = (id: any) => {
+    if (!id) return false;
+    const str = String(id).trim().toLowerCase();
+    return str !== '' && str !== 'none' && str !== 'null' && str !== 'undefined';
+  };
+
   const getSelectedAccountId = () => {
     const savedId = localStorage.getItem('wyckoff_active_account_id');
-    if (savedId) {
+    if (isValidAcc(savedId)) {
       return savedId;
     }
-    if (activeAccount && activeAccount.account_id) {
+    if (activeAccount && isValidAcc(activeAccount.account_id)) {
       return activeAccount.account_id;
     }
     try {
       const saved = localStorage.getItem('wyckoff_active_account');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed && (parsed.account_id || parsed.id)) {
-          return parsed.account_id || parsed.id;
+        const candidate = parsed?.account_id || parsed?.id;
+        if (isValidAcc(candidate)) {
+          return candidate;
         }
       }
     } catch (e) { }
@@ -1507,7 +1514,7 @@ export default function Dashboard() {
   // Unified API endpoints
   const fetchAccountData = async (overrideBroker?: string, overrideAccId?: string) => {
     const accId = overrideAccId || getSelectedAccountId();
-    if (!accId) return;
+    if (!isValidAcc(accId)) return;
     const broker = overrideBroker || candleSource;
     try {
       const response = await fetch(`${API_BASE_URL}/api/trade/account`, {
@@ -1525,7 +1532,7 @@ export default function Dashboard() {
 
   const fetchPositionData = async (overrideBroker?: string, overrideAccId?: string) => {
     const accId = overrideAccId || getSelectedAccountId();
-    if (!accId) return;
+    if (!isValidAcc(accId)) return;
     const broker = overrideBroker || candleSource;
     try {
       const response = await fetch(`${API_BASE_URL}/api/trade/positions`, {
@@ -1551,7 +1558,7 @@ export default function Dashboard() {
 
   const fetchHistoryTrades = async (overrideBroker?: string, overrideAccId?: string) => {
     const accId = overrideAccId || getSelectedAccountId();
-    if (!accId) return;
+    if (!isValidAcc(accId)) return;
     setLoadingHistory(true);
     setHistoryError('');
     try {

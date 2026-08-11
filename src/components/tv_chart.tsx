@@ -683,20 +683,21 @@ export default function TVChart({
     const fetchPositions = async () => {
       try {
         const savedId = localStorage.getItem('wyckoff_active_account_id');
-        let accId = savedId;
+        let accId = (savedId && !['none', 'null', 'undefined'].includes(String(savedId).trim().toLowerCase())) ? savedId : null;
         if (!accId) {
           try {
             const saved = localStorage.getItem('wyckoff_active_account');
             if (saved) {
               const parsed = JSON.parse(saved);
-              if (parsed && (parsed.account_id || parsed.id)) {
-                accId = parsed.account_id || parsed.id;
+              const candidate = parsed?.account_id || parsed?.id;
+              if (candidate && !['none', 'null', 'undefined'].includes(String(candidate).trim().toLowerCase())) {
+                accId = candidate;
               }
             }
           } catch (e) { }
         }
 
-        if (!accId) return;
+        if (!accId || ['none', 'null', 'undefined'].includes(String(accId).trim().toLowerCase())) return;
 
         const broker = candleSource || 'metatrader';
         const res = await fetch(`${API_BASE_URL}/api/trade/positions`, {

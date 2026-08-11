@@ -170,6 +170,10 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           activeAccId = localStorage.getItem('wyckoff_active_account_id') || localStorage.getItem('active_account_id') || undefined;
         }
 
+        if (activeAccId && ['none', 'null', 'undefined'].includes(String(activeAccId).trim().toLowerCase())) {
+          activeAccId = undefined;
+        }
+
         const payload = {
           broker: candleSource,
           symbol: symbol,
