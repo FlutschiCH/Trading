@@ -682,11 +682,27 @@ export default function TVChart({
   useEffect(() => {
     const fetchPositions = async () => {
       try {
+        const savedId = localStorage.getItem('wyckoff_active_account_id');
+        let accId = savedId;
+        if (!accId) {
+          try {
+            const saved = localStorage.getItem('wyckoff_active_account');
+            if (saved) {
+              const parsed = JSON.parse(saved);
+              if (parsed && (parsed.account_id || parsed.id)) {
+                accId = parsed.account_id || parsed.id;
+              }
+            }
+          } catch (e) { }
+        }
+
+        if (!accId) return;
+
         const broker = candleSource || 'metatrader';
         const res = await fetch(`${API_BASE_URL}/api/trade/positions`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ broker, symbol })
+          body: JSON.stringify({ broker, symbol, account_id: accId })
         });
         const data = await res.json();
         if (data.status === 'success' && Array.isArray(data.data)) {

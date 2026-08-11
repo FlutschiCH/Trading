@@ -1507,6 +1507,7 @@ export default function Dashboard() {
   // Unified API endpoints
   const fetchAccountData = async (overrideBroker?: string, overrideAccId?: string) => {
     const accId = overrideAccId || getSelectedAccountId();
+    if (!accId) return;
     const broker = overrideBroker || candleSource;
     try {
       const response = await fetch(`${API_BASE_URL}/api/trade/account`, {
@@ -1524,6 +1525,7 @@ export default function Dashboard() {
 
   const fetchPositionData = async (overrideBroker?: string, overrideAccId?: string) => {
     const accId = overrideAccId || getSelectedAccountId();
+    if (!accId) return;
     const broker = overrideBroker || candleSource;
     try {
       const response = await fetch(`${API_BASE_URL}/api/trade/positions`, {
@@ -1548,9 +1550,10 @@ export default function Dashboard() {
   };
 
   const fetchHistoryTrades = async (overrideBroker?: string, overrideAccId?: string) => {
+    const accId = overrideAccId || getSelectedAccountId();
+    if (!accId) return;
     setLoadingHistory(true);
     setHistoryError('');
-    const accId = overrideAccId || getSelectedAccountId();
     try {
       const res = await fetch(`${API_BASE_URL}/api/trade/history`, {
         method: 'POST',
