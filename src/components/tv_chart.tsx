@@ -2589,15 +2589,15 @@ export default function TVChart({
                     backgroundColor: isLight ? '#f1f5f9' : '#1e293b',
                     color: isLight ? '#0f172a' : '#ffffff',
                     border: isLight ? '1px solid #cbd5e1' : '1px solid #334155',
-                    padding: '4px 8px',
+                    padding: '6px 10px',
                     fontSize: '12px',
-                    width: '110px'
+                    width: '160px'
                   }}
                 />
                 {showSymbolDropdown && (
                   <>
                     <div onClick={() => setShowSymbolDropdown(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }} />
-                    <div style={{ position: 'absolute', top: '100%', left: 0, backgroundColor: isLight ? '#ffffff' : '#0f172a', border: isLight ? '1px solid #cbd5e1' : '1px solid #334155', borderRadius: '6px', maxHeight: '200px', overflowY: 'auto', zIndex: 1000, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.2)', minWidth: '160px' }}>
+                    <div style={{ position: 'absolute', top: '100%', left: 0, backgroundColor: isLight ? '#ffffff' : '#0f172a', border: isLight ? '1px solid #cbd5e1' : '1px solid #334155', borderRadius: '8px', maxHeight: '280px', overflowY: 'auto', zIndex: 1000, boxShadow: '0 15px 30px rgba(0, 0, 0, 0.4)', minWidth: '300px', width: 'max-content' }}>
                       {filteredSymbols.length > 0 ? (
                         filteredSymbols.map((sym, idx) => {
                           const mappedBroker = mappedSymbolDict.mainToBroker[sym];
@@ -2743,11 +2743,11 @@ export default function TVChart({
               <div style={{ ...styles.pairGroup, position: 'relative' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <div style={{ position: 'relative' }}>
-                    <input type="text" placeholder="Search symbol..." value={showSymbolDropdown ? symbolSearch : symbol} onFocus={() => { setSymbolSearch(''); setShowSymbolDropdown(true); }} onChange={(e) => setSymbolSearch(e.target.value)} onKeyDown={handleKeyDown} style={{ ...styles.pairSelect, backgroundColor: isLight ? '#f1f5f9' : '#1e293b', color: isLight ? '#0f172a' : '#ffffff', border: isLight ? '1px solid #cbd5e1' : '1px solid #334155', padding: '4px 8px', fontSize: '12px', width: '110px' }} />
+                    <input type="text" placeholder="Search symbol..." value={showSymbolDropdown ? symbolSearch : symbol} onFocus={() => { setSymbolSearch(''); setShowSymbolDropdown(true); }} onChange={(e) => setSymbolSearch(e.target.value)} onKeyDown={handleKeyDown} style={{ ...styles.pairSelect, backgroundColor: isLight ? '#f1f5f9' : '#1e293b', color: isLight ? '#0f172a' : '#ffffff', border: isLight ? '1px solid #cbd5e1' : '1px solid #334155', padding: '6px 12px', fontSize: '13px', width: '240px' }} />
                     {showSymbolDropdown && (
                       <>
                         <div onClick={() => setShowSymbolDropdown(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }} />
-                        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: isLight ? '#ffffff' : '#0f172a', border: isLight ? '1px solid #cbd5e1' : '1px solid #334155', borderRadius: '6px', maxHeight: '200px', overflowY: 'auto', zIndex: 1000, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.2)', minWidth: '160px' }}>
+                        <div style={{ position: 'absolute', top: '100%', left: 0, backgroundColor: isLight ? '#ffffff' : '#0f172a', border: isLight ? '1px solid #cbd5e1' : '1px solid #334155', borderRadius: '8px', maxHeight: '300px', overflowY: 'auto', zIndex: 1000, boxShadow: '0 15px 30px rgba(0, 0, 0, 0.4)', minWidth: '340px', width: 'max-content' }}>
                           {filteredSymbols.length > 0 ? (
                             filteredSymbols.map((sym, idx) => {
                               const mappedBroker = mappedSymbolDict.mainToBroker[sym];
