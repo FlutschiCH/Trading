@@ -632,7 +632,7 @@ if __name__ == '__main__':
             last_candle=fake_candle,
             should_buy=True,
             should_sell=False,
-            magic=f"test_{int(time.time())}",
+            magic=f"{int(time.time())}",
             debug=True
         )
 

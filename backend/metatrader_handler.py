@@ -358,15 +358,15 @@ class MetaTraderHandler(BaseBrokerHandler):
         return {"status": "success", "data": info}
 
     @staticmethod
-    def get_positions(login: int = None, password: str = None, server: str = None, **kwargs) -> list:
+    def get_positions(**kwargs) -> list:
         """
         Fetches open positions from MetaTrader 5 using active initialized instances.
         """
         if not MT5_AVAILABLE:
             return []
 
-        acc_id = kwargs.get('account_id') or kwargs.get('account') or login
-        mt5_inst = MetaTraderHandler.get_mt5_instance(acc_id)
+        acc_id = kwargs.get('account_id') or kwargs.get('account') or kwargs.get('login')
+        mt5_inst = kwargs.get('mt5_inst') or MetaTraderHandler.get_mt5_instance(acc_id)
 
         if not mt5_inst:
             print(f"[MetaTrader DEBUG] Could not get MT5 instance for account '{acc_id}'", flush=True)
@@ -517,15 +517,15 @@ class MetaTraderHandler(BaseBrokerHandler):
         return {"status": "success", "message": f"Order successfully executed on MT5. Ticket: {result.order}"}
 
     @staticmethod
-    def close_position(position_id: int, symbol: str, side: str, volume: float, login: int = 2002061314, password: str = "Godzilla_12", server: str = "JustMarkets-Demo", **kwargs) -> dict:
-        login, password, server = MetaTraderHandler._resolve_credentials(login, password, server, **kwargs)
+    def close_position(position_id: int, symbol: str, side: str, volume: float, **kwargs) -> dict:
         if not MT5_AVAILABLE:
             return {"status": "error", "message": "MT5 unavailable"}
             
-        if not MetaTraderHandler._initialize_mt5(login, password, server):
-            return {"status": "error", "message": "Failed to initialize MT5"}
-            
-        mt5_inst = MetaTraderHandler.get_mt5_instance(login) or mt5
+        acc_id = kwargs.get('account_id') or kwargs.get('account') or kwargs.get('login')
+        mt5_inst = kwargs.get('mt5_inst') or MetaTraderHandler.get_mt5_instance(acc_id)
+        if not mt5_inst:
+            return {"status": "error", "message": f"No active MT5 instance found for account '{acc_id}'"}
+
         is_buy = side.upper() == 'BUY'
         action_type = getattr(mt5_inst, 'ORDER_TYPE_SELL', 1) if is_buy else getattr(mt5_inst, 'ORDER_TYPE_BUY', 0)
         
