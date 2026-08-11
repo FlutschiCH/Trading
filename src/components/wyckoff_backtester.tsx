@@ -325,38 +325,41 @@ export default function WyckoffBacktester({
       .catch(err => console.error("Error fetching symbol mappings for backtester:", err));
   }, []);
 
-  // Map of main_symbol -> broker_symbol and broker_symbol -> main_symbol
-  const mappedSymbolDict = React.useMemo(() => {
-    const mainToBroker: Record<string, string> = {};
-    const brokerToMain: Record<string, string> = {};
-    const allMapped: string[] = [];
+  // Map of 1 master main_symbol -> broker targets
+  const mappedMasterSymbols = React.useMemo(() => {
+    const masterSet = new Set<string>();
+    const mainToBrokerMap: Record<string, string[]> = {};
 
     symbolMappings.forEach((m: any) => {
       const main = (m.main_symbol || '').trim().toUpperCase();
       const brokerSym = (m.broker_symbol || '').trim();
-      if (main && brokerSym) {
-        mainToBroker[main] = brokerSym;
-        brokerToMain[brokerSym] = main;
-        allMapped.push(main);
-        allMapped.push(brokerSym);
+      if (main) {
+        masterSet.add(main);
+        if (!mainToBrokerMap[main]) mainToBrokerMap[main] = [];
+        if (brokerSym && !mainToBrokerMap[main].includes(brokerSym)) {
+          mainToBrokerMap[main].push(brokerSym);
+        }
       }
     });
 
-    return { mainToBroker, brokerToMain, allMapped: Array.from(new Set(allMapped)) };
+    return {
+      masterList: Array.from(masterSet),
+      mainToBrokerMap
+    };
   }, [symbolMappings]);
 
-  // Combine available symbols from connected broker account + symbol mappings + defaults + active symbol
+  // Combine symbols: 1 Master Symbol per mapping FIRST, then connected broker symbols SECOND
   const baseSymbols = React.useMemo(() => {
     const raw = availableSymbols || ['BTCUSD', 'ETHUSD', 'EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'XAUUSD', 'US30', 'GER40'];
-    return Array.from(new Set([...raw, symbol, ...favoriteSymbols, ...mappedSymbolDict.allMapped].filter(Boolean)));
-  }, [availableSymbols, symbol, favoriteSymbols, mappedSymbolDict]);
+    return Array.from(new Set([...mappedMasterSymbols.masterList, ...raw, symbol, ...favoriteSymbols].filter(Boolean)));
+  }, [mappedMasterSymbols, availableSymbols, symbol, favoriteSymbols]);
 
   const baseTimeframes = React.useMemo(() => {
     const raw = availableTimeframes || ['1m', '5m', '15m', '30m', '1h', '4h', '1d'];
     return Array.from(new Set([...raw, timeframe, ...favoriteTimeframes].filter(Boolean)));
   }, [availableTimeframes, timeframe, favoriteTimeframes]);
 
-  // Sorted list with Favorites (★) pinned at top, then Mapped symbols (🔀)
+  // Sorted list: Favorites (★) top, then Master Mapped symbols (🔀), then Broker symbols
   const sortedSymbolsList = React.useMemo(() => {
     return [...baseSymbols].sort((a, b) => {
       const aFav = favoriteSymbols.includes(a);
@@ -364,14 +367,14 @@ export default function WyckoffBacktester({
       if (aFav && !bFav) return -1;
       if (!aFav && bFav) return 1;
 
-      const aMap = !!mappedSymbolDict.mainToBroker[a] || !!mappedSymbolDict.brokerToMain[a];
-      const bMap = !!mappedSymbolDict.mainToBroker[b] || !!mappedSymbolDict.brokerToMain[b];
+      const aMap = mappedMasterSymbols.masterList.includes(a);
+      const bMap = mappedMasterSymbols.masterList.includes(b);
       if (aMap && !bMap) return -1;
       if (!aMap && bMap) return 1;
 
       return a.localeCompare(b);
     });
-  }, [baseSymbols, favoriteSymbols, mappedSymbolDict]);
+  }, [baseSymbols, favoriteSymbols, mappedMasterSymbols]);
 
   const sortedTimeframesList = React.useMemo(() => {
     return [...baseTimeframes].sort((a, b) => {
@@ -1310,14 +1313,14 @@ export default function WyckoffBacktester({
                   >
                     ★ Favorites
                   </button>
-                  {mappedSymbolDict.allMapped.length > 0 && (
+                  {mappedMasterSymbols.masterList.length > 0 && (
                     <button
                       type="button"
-                      onClick={() => setActiveSymbols(sortedSymbolsList.filter(s => mappedSymbolDict.allMapped.includes(s)))}
+                      onClick={() => setActiveSymbols(sortedSymbolsList.filter(s => mappedMasterSymbols.masterList.includes(s)))}
                       style={{ background: 'none', border: 'none', color: '#a855f7', fontSize: '10px', cursor: 'pointer', fontWeight: 'bold' }}
-                      title="Select all mapped symbols"
+                      title="Select all master mapped symbols"
                     >
-                      🔀 Mappings
+                      🔀 Master Maps
                     </button>
                   )}
                   <button
@@ -1343,7 +1346,7 @@ export default function WyckoffBacktester({
               <div style={{ position: 'relative' }}>
                 <input
                   type="text"
-                  placeholder="🔍 Search symbols or defined mappings..."
+                  placeholder="🔍 Search symbols or master mappings..."
                   value={symbolSearchQuery}
                   onChange={(e) => {
                     setSymbolSearchQuery(e.target.value);
@@ -1397,14 +1400,14 @@ export default function WyckoffBacktester({
                   {sortedSymbolsList
                     .filter(s => {
                       const q = symbolSearchQuery.toLowerCase();
-                      const mappedTarget = mappedSymbolDict.mainToBroker[s] || mappedSymbolDict.brokerToMain[s] || '';
-                      return s.toLowerCase().includes(q) || mappedTarget.toLowerCase().includes(q);
+                      const mappedTargets = mappedMasterSymbols.mainToBrokerMap[s] || [];
+                      return s.toLowerCase().includes(q) || mappedTargets.some(t => t.toLowerCase().includes(q));
                     })
                     .map((sym) => {
                       const isSelected = activeSymbols.includes(sym);
                       const isFav = favoriteSymbols.includes(sym);
-                      const mappedBroker = mappedSymbolDict.mainToBroker[sym];
-                      const mappedMain = mappedSymbolDict.brokerToMain[sym];
+                      const isMasterMap = mappedMasterSymbols.masterList.includes(sym);
+                      const brokerTargets = mappedMasterSymbols.mainToBrokerMap[sym];
 
                       return (
                         <div
@@ -1433,14 +1436,9 @@ export default function WyckoffBacktester({
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <span style={{ fontSize: '12px' }}>{isSelected ? '☑' : '☐'}</span>
                             <span>{sym}</span>
-                            {mappedBroker && (
-                              <span style={{ fontSize: '10px', color: '#a855f7', backgroundColor: 'rgba(168, 85, 247, 0.15)', padding: '1px 5px', borderRadius: '4px', fontWeight: 'bold' }}>
-                                🔀 ➔ {mappedBroker}
-                              </span>
-                            )}
-                            {mappedMain && !mappedBroker && (
-                              <span style={{ fontSize: '10px', color: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.15)', padding: '1px 5px', borderRadius: '4px' }}>
-                                🔀 Map: {mappedMain}
+                            {isMasterMap && (
+                              <span style={{ fontSize: '9px', color: '#a855f7', backgroundColor: 'rgba(168, 85, 247, 0.15)', padding: '1px 5px', borderRadius: '4px', fontWeight: 'bold' }}>
+                                🔀 Master{brokerTargets && brokerTargets.length > 0 ? ` (➔ ${brokerTargets.join(', ')})` : ''}
                               </span>
                             )}
                           </div>
