@@ -133,14 +133,8 @@ class MetaTraderHandler(BaseBrokerHandler):
 
     @staticmethod
     def get_mt5_instance(account_id: str = None):
-        if not MT5_AVAILABLE:
+        if not MT5_AVAILABLE or not account_id:
             return None
-
-        if not account_id:
-            from account_handler import AccountHandler
-            active_acc = AccountHandler.get_active_account()
-            if active_acc:
-                account_id = active_acc.get("account_id")
 
         acc_str = str(account_id) if account_id else None
         instances = getattr(builtins, '_GLOBAL_MT5_INSTANCES', MetaTraderHandler._mt5_instances)
