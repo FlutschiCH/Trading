@@ -119,7 +119,7 @@ const CollapsibleCard = ({ title, isCollapsed, onToggle, children, style }: Coll
       backgroundColor: 'var(--app-card-bg, #111827)',
       border: '1px solid var(--app-card-border, #1f2937)',
       borderRadius: '6px',
-      overflow: 'hidden',
+      overflow: isCollapsed ? 'hidden' : 'visible',
       transition: 'all 0.2s',
       ...style
     }}>
@@ -291,11 +291,27 @@ export default function WyckoffBacktester({
   const effectiveSymbols = activeSymbols.length > 0 ? activeSymbols : [symbol];
   const effectiveTimeframes = activeTimeframes.length > 0 ? activeTimeframes : [timeframe];
 
-  // Searchable Multi-Select Dropdown States
+  // Searchable Multi-Select Dropdown States & Refs
   const [symbolSearchQuery, setSymbolSearchQuery] = React.useState('');
   const [showSymbolDropdown, setShowSymbolDropdown] = React.useState(false);
   const [tfSearchQuery, setTfSearchQuery] = React.useState('');
   const [showTfDropdown, setShowTfDropdown] = React.useState(false);
+
+  const symbolDropdownRef = React.useRef<HTMLDivElement>(null);
+  const tfDropdownRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (symbolDropdownRef.current && !symbolDropdownRef.current.contains(event.target as Node)) {
+        setShowSymbolDropdown(false);
+      }
+      if (tfDropdownRef.current && !tfDropdownRef.current.contains(event.target as Node)) {
+        setShowTfDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const [activeResultCombo, setActiveResultCombo] = React.useState<{ symbol: string; timeframe: string } | null>(null);
   const [selectedLeaderboardCombo, setSelectedLeaderboardCombo] = React.useState<any | null>(null);
@@ -1169,7 +1185,7 @@ export default function WyckoffBacktester({
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             {/* Searchable Multi-Symbol Dropdown */}
-            <div style={{ position: 'relative' }}>
+            <div ref={symbolDropdownRef} style={{ position: 'relative', zIndex: showSymbolDropdown ? 60 : 1 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                 <span style={{ color: '#9ca3af', fontSize: '11px', fontWeight: 600 }}>
                   Target Symbols ({activeSymbols.length > 0 ? `${activeSymbols.length} selected` : `Fallback: ${symbol}`})
@@ -1230,7 +1246,7 @@ export default function WyckoffBacktester({
                   top: '100%',
                   left: 0,
                   right: 0,
-                  zIndex: 50,
+                  zIndex: 70,
                   backgroundColor: '#1e293b',
                   border: '1px solid #3b82f6',
                   borderRadius: '6px',
@@ -1332,7 +1348,7 @@ export default function WyckoffBacktester({
             </div>
 
             {/* Searchable Multi-Timeframe Dropdown */}
-            <div style={{ position: 'relative' }}>
+            <div ref={tfDropdownRef} style={{ position: 'relative', zIndex: showTfDropdown ? 60 : 1 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                 <span style={{ color: '#9ca3af', fontSize: '11px', fontWeight: 600 }}>
                   Target Timeframes ({activeTimeframes.length > 0 ? `${activeTimeframes.length} selected` : `Fallback: ${timeframe}`})
@@ -1393,7 +1409,7 @@ export default function WyckoffBacktester({
                   top: '100%',
                   left: 0,
                   right: 0,
-                  zIndex: 50,
+                  zIndex: 70,
                   backgroundColor: '#1e293b',
                   border: '1px solid #10b981',
                   borderRadius: '6px',
