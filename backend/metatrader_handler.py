@@ -434,7 +434,7 @@ class MetaTraderHandler(BaseBrokerHandler):
             return {"status": "error", "message": "MetaTrader 5 execution is disabled on this platform."}
 
         acc_id = kwargs.get('account_id') or kwargs.get('account') or kwargs.get('login')
-        mt5_inst = MetaTraderHandler.get_mt5_instance(acc_id)
+        mt5_inst = kwargs.get('mt5_inst') or MetaTraderHandler.get_mt5_instance(acc_id)
         if not mt5_inst:
             return {"status": "error", "message": f"No active MT5 instance found for account '{acc_id}'"}
 

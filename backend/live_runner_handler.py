@@ -466,11 +466,12 @@ class LiveRunner:
 
         for target in targets:
             try:
-                target_broker = target.get("broker") or "metatrader"
                 target_acc_id = target.get("account_id")
-                
+                from metatrader_handler import MetaTraderHandler
+                mt5_inst = MetaTraderHandler.get_mt5_instance(target_acc_id)
                 target_kwargs = {
-                    "account_id": target_acc_id
+                    "account_id": target_acc_id,
+                    "mt5_inst": mt5_inst
                 }
                 
                 from broker_handler import BrokerHandler
