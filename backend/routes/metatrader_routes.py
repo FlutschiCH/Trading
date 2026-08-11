@@ -1,10 +1,5 @@
 from flask import Blueprint, request, jsonify
 from metatrader_handler import MetaTraderHandler
-from live_strategy_handler import LiveStrategyHandler
-
-metavar_login = 2002061314
-metavar_pass = "Godzilla_12"
-metavar_server = "JustMarkets-Demo"
 
 metatrader_routes = Blueprint('metatrader', __name__)
 
@@ -16,9 +11,7 @@ def get_metatrader_candles():
     limit = max(int(payload.get('limit', 1000)), 50000)
     date_from = payload.get('date_from')
     date_to = payload.get('date_to')
-    login = payload.get('login', metavar_login)
-    password = payload.get('password', metavar_pass)
-    server = payload.get('server', metavar_server)
+    acc_id = payload.get('account_id') or payload.get('login')
 
     candles = MetaTraderHandler.fetch_candles(
         symbol=symbol,
@@ -26,9 +19,7 @@ def get_metatrader_candles():
         limit=limit,
         date_from=date_from,
         date_to=date_to,
-        login=login,
-        password=password,
-        server=server
+        account_id=acc_id
     )
     if not candles:
         return jsonify({"status": "error", "message": "Failed to fetch candles from MT5."}), 400
@@ -37,11 +28,9 @@ def get_metatrader_candles():
 @metatrader_routes.route('/metatrader/account', methods=['POST'])
 def get_metatrader_account():
     payload = request.get_json(silent=True) or {}
-    login = payload.get('login', metavar_login)
-    password = payload.get('password', metavar_pass)
-    server = payload.get('server', metavar_server)
+    acc_id = payload.get('account_id') or payload.get('login')
 
-    data = MetaTraderHandler.get_account_info(login=login, password=password, server=server)
+    data = MetaTraderHandler.get_account_info(account_id=acc_id)
     if not data:
         return jsonify({"status": "error", "message": "Failed to load MT5 account info."}), 400
     return jsonify({"status": "success", "data": data})
@@ -49,48 +38,39 @@ def get_metatrader_account():
 @metatrader_routes.route('/metatrader/positions', methods=['POST'])
 def get_metatrader_positions():
     payload = request.get_json(silent=True) or {}
-    login = payload.get('login', metavar_login)
-    password = payload.get('password', metavar_pass)
-    server = payload.get('server', metavar_server)
+    acc_id = payload.get('account_id') or payload.get('login')
 
-    data = MetaTraderHandler.get_positions(login=login, password=password, server=server)
+    data = MetaTraderHandler.get_positions(account_id=acc_id)
     return jsonify({"status": "success", "data": data})
 
 @metatrader_routes.route('/metatrader/history', methods=['POST'])
 def get_metatrader_history():
     payload = request.get_json(silent=True) or {}
-    login = payload.get('login', metavar_login)
-    password = payload.get('password', metavar_pass)
-    server = payload.get('server', metavar_server)
     date_from = payload.get('date_from')
     date_to = payload.get('date_to')
+    acc_id = payload.get('account_id') or payload.get('login')
 
-    data = MetaTraderHandler.get_history(date_from=date_from, date_to=date_to, login=login, password=password, server=server)
+    data = MetaTraderHandler.get_history(date_from=date_from, date_to=date_to, account_id=acc_id)
     return jsonify({"status": "success", "data": data})
 
 @metatrader_routes.route('/metatrader/order', methods=['POST'])
 def create_metatrader_order():
     payload = request.get_json(silent=True) or {}
     symbol = payload.get('symbol', 'EURUSD')
-
     side = payload.get('order_type') or payload.get('side', 'buy')
     volume = float(payload.get('volume', 0.1))
     price = payload.get('price')
     if price is not None:
         price = float(price)
 
-    login = payload.get('login', metavar_login)
-    password = payload.get('password', metavar_pass)
-    server = payload.get('server', metavar_server)
+    acc_id = payload.get('account_id') or payload.get('login')
 
     res = MetaTraderHandler.create_order(
         symbol=symbol,
         side=side,
         volume=volume,
         price=price,
-        login=login,
-        password=password,
-        server=server
+        account_id=acc_id
     )
     if res.get('status') == 'error':
         return jsonify(res), 400
@@ -103,19 +83,14 @@ def close_metatrader_position():
     symbol = payload.get('symbol')
     side = payload.get('side', 'BUY')
     volume = float(payload.get('volume', 0.0))
-
-    login = payload.get('login', metavar_login)
-    password = payload.get('password', metavar_pass)
-    server = payload.get('server', metavar_server)
+    acc_id = payload.get('account_id') or payload.get('login')
 
     res = MetaTraderHandler.close_position(
         position_id=position_id,
         symbol=symbol,
         side=side,
         volume=volume,
-        login=login,
-        password=password,
-        server=server
+        account_id=acc_id
     )
     if res.get('status') == 'error':
         return jsonify(res), 400
@@ -123,7 +98,8 @@ def close_metatrader_position():
 
 @metatrader_routes.route('/metatrader/symbols', methods=['GET'])
 def get_metatrader_symbols():
-    data = MetaTraderHandler.get_symbols(login=metavar_login, password=metavar_pass, server=metavar_server)
+    acc_id = request.args.get('account_id') or request.args.get('login')
+    data = MetaTraderHandler.get_symbols(account_id=acc_id)
     return jsonify({"status": "success", "data": data})
 
 @metatrader_routes.route('/metatrader/timeframes', methods=['GET'])
