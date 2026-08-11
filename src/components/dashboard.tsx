@@ -224,6 +224,33 @@ export default function Dashboard() {
     'BTCUSD', 'ETHUSD', 'EURUSD', 'GBPUSD', 'USDJPY',
     'AUDUSD', 'USDCAD', 'XAUUSD', 'US30', 'GER40'
   ]);
+
+  // Dynamically fetch available symbols from connected broker on startup / broker switch
+  useEffect(() => {
+    let sourcePath = candleSource || 'ctrader';
+    if (sourcePath === 'localctrader') sourcePath = 'ctrader';
+
+    apiService.fetchMetadataSymbols(sourcePath)
+      .then((res: any) => {
+        if (!res) return;
+        let symList: string[] = [];
+        if (Array.isArray(res)) {
+          symList = res.map((s: any) => (typeof s === 'string' ? s : s.symbol || s.name || s.symbolName));
+        } else if (res.status === 'success' && Array.isArray(res.data)) {
+          symList = res.data.map((s: any) => (typeof s === 'string' ? s : s.symbol || s.name || s.symbolName));
+        } else if (Array.isArray(res.symbols)) {
+          symList = res.symbols.map((s: any) => (typeof s === 'string' ? s : s.symbol || s.name || s.symbolName));
+        }
+
+        const cleanList = Array.from(new Set(symList.filter(Boolean)));
+        if (cleanList.length > 0) {
+          setAvailableSymbols(cleanList);
+        }
+      })
+      .catch((err: any) => {
+        console.error(`Error fetching metadata symbols for ${sourcePath}:`, err);
+      });
+  }, [candleSource]);
   const [availableTimeframes, setAvailableTimeframes] = useState<string[]>([
     '1m', '5m', '15m', '30m', '1h', '4h', '1d'
   ]);
