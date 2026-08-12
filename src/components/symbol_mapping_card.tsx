@@ -223,26 +223,92 @@ export const SymbolMappingCard: React.FC<SymbolMappingCardProps> = ({ isReadOnly
 
         <div>
           <label style={{ display: 'block', fontSize: '10px', color: '#94a3b8', marginBottom: '2px' }}>Broker Symbol (Select from Broker)</label>
-          <select
-            value={newBrokerSymbol}
-            onChange={e => setNewBrokerSymbol(e.target.value)}
-            disabled={loadingBrokers || !newAccountId}
-            style={{
-              width: '100%',
-              backgroundColor: '#0f172a',
-              border: '1px solid #334155',
-              borderRadius: '4px',
-              padding: '6px 8px',
-              color: '#f8fafc',
-              fontSize: '11px',
-              outline: 'none'
-            }}
-          >
-            <option value="">-- Select Symbol from Selected Broker --</option>
-            {getAvailableBrokerSymbols().map(sym => (
-              <option key={sym} value={sym}>{sym}</option>
-            ))}
-          </select>
+          <div style={{ position: 'relative' }}>
+            <input 
+              type="text" 
+              placeholder={loadingBrokers ? "Loading broker symbols..." : "Search broker symbol (e.g. 100, EURUSD)"}
+              value={showBrokerSymbolDropdown ? brokerSymbolSearch : newBrokerSymbol}
+              disabled={loadingBrokers || !newAccountId}
+              onFocus={() => {
+                setBrokerSymbolSearch('');
+                setShowBrokerSymbolDropdown(true);
+              }}
+              onChange={e => {
+                setBrokerSymbolSearch(e.target.value);
+                setNewBrokerSymbol(e.target.value);
+              }}
+              style={{
+                width: '100%',
+                backgroundColor: '#0f172a',
+                border: '1px solid #334155',
+                borderRadius: '4px',
+                padding: '6px 8px',
+                color: '#f8fafc',
+                fontSize: '11px',
+                outline: 'none'
+              }}
+            />
+            {showBrokerSymbolDropdown && (
+              <>
+                <div 
+                  onClick={() => setShowBrokerSymbolDropdown(false)}
+                  style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    zIndex: 999
+                  }}
+                />
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  right: 0,
+                  backgroundColor: '#0f172a',
+                  border: '1px solid #334155',
+                  borderRadius: '4px',
+                  maxHeight: '180px',
+                  overflowY: 'auto',
+                  zIndex: 1000,
+                  boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)'
+                }}>
+                  {getAvailableBrokerSymbols().filter(s => s.toLowerCase().includes(brokerSymbolSearch.toLowerCase())).length > 0 ? (
+                    getAvailableBrokerSymbols()
+                      .filter(s => s.toLowerCase().includes(brokerSymbolSearch.toLowerCase()))
+                      .slice(0, 100)
+                      .map(sym => (
+                        <div 
+                          key={sym}
+                          onClick={() => handleSelectBrokerSymbol(sym)}
+                          style={{
+                            padding: '6px 8px',
+                            cursor: 'pointer',
+                            fontSize: '11px',
+                            color: '#d1d5db',
+                            backgroundColor: newBrokerSymbol === sym ? '#2563eb' : 'transparent',
+                            transition: 'background-color 0.15s'
+                          }}
+                          onMouseEnter={(e) => {
+                            if (newBrokerSymbol !== sym) e.currentTarget.style.backgroundColor = '#1e293b';
+                          }}
+                          onMouseLeave={(e) => {
+                            if (newBrokerSymbol !== sym) e.currentTarget.style.backgroundColor = 'transparent';
+                          }}
+                        >
+                          {sym}
+                        </div>
+                      ))
+                  ) : (
+                    <div style={{ padding: '6px 8px', fontSize: '11px', color: '#6b7280' }}>
+                      {loadingBrokers ? "Fetching connected symbols..." : "No matching symbols found"}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
         </div>
         {mappingMessage && (
           <div style={{
