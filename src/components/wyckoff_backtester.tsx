@@ -260,15 +260,46 @@ export default function WyckoffBacktester({
   const [isMobile, setIsMobile] = React.useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
   const [showDeployModal, setShowDeployModal] = React.useState(false);
 
-  // Multi-Symbol and Multi-Timeframe State Handling
-  const [internalSelectedSymbols, setInternalSelectedSymbols] = React.useState<string[]>([]);
-  const [internalSelectedTimeframes, setInternalSelectedTimeframes] = React.useState<string[]>([]);
+  // Multi-Symbol and Multi-Timeframe State Handling (persisted in localStorage)
+  const [internalSelectedSymbols, setInternalSelectedSymbols] = React.useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('wyckoff_range_selected_symbols');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [internalSelectedTimeframes, setInternalSelectedTimeframes] = React.useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('wyckoff_range_selected_timeframes');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
 
   const activeSymbols = selectedSymbols ?? internalSelectedSymbols;
   const setActiveSymbols = setSelectedSymbols ?? setInternalSelectedSymbols;
 
   const activeTimeframes = selectedTimeframes ?? internalSelectedTimeframes;
   const setActiveTimeframes = setSelectedTimeframes ?? setInternalSelectedTimeframes;
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('wyckoff_range_selected_symbols', JSON.stringify(activeSymbols));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [activeSymbols]);
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('wyckoff_range_selected_timeframes', JSON.stringify(activeTimeframes));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [activeTimeframes]);
 
   // Favorites synced with TVChart (localStorage)
   const [favoriteSymbols, setFavoriteSymbols] = React.useState<string[]>(() => {
