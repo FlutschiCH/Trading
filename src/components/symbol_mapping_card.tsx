@@ -37,7 +37,7 @@ export const SymbolMappingCard: React.FC<SymbolMappingCardProps> = ({ isReadOnly
       if (data.status === 'success' && Array.isArray(data.data)) {
         setConnectedBrokers(data.data);
         if (data.data.length > 0 && !newBrokerKey) {
-          setNewBrokerKey(data.data[0].broker_key);
+          setNewBrokerKey(data.data[0].account_id);
         }
       }
     } catch (e) {
