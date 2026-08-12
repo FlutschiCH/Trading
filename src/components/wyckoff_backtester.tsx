@@ -1301,9 +1301,7 @@ export default function WyckoffBacktester({
             <SymbolTimeframeSelector
               multiSelect={true}
               symbol={symbol}
-              onSymbolChange={setSymbol}
               timeframe={timeframe}
-              onTimeframeChange={setTimeframe}
               selectedSymbols={activeSymbols}
               onSelectedSymbolsChange={setActiveSymbols}
               selectedTimeframes={activeTimeframes}
