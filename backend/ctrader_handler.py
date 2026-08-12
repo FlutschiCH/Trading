@@ -104,7 +104,10 @@ class CTraderHandler(BaseBrokerHandler):
             response = json.loads(ws.recv())
             return response
         finally:
-            ws.close()
+            try:
+                ws.close()
+            except Exception:
+                pass
 
     @staticmethod
     def fetch_candles(symbol: str, timeframe: str, limit: int = 1000, date_from: int = None, date_to: int = None, **kwargs) -> list:
@@ -218,14 +221,15 @@ class CTraderHandler(BaseBrokerHandler):
         try:
             account_id = kwargs.get("account_id")
             token = kwargs.get("token") or kwargs.get("password")
-            res = CTraderHandler._send_and_receive(2114, {}, account_id=account_id, token=token)
-            if res and res.get("payloadType") == 2115:
-                symbols_raw = res.get("payload", {}).get("symbol", [])
-                sym_names = [s.get("symbolName") for s in symbols_raw if s.get("symbolName")]
-                if sym_names:
-                    return {"status": "success", "data": sorted(sym_names)}
+            if account_id:
+                res = CTraderHandler._send_and_receive(2114, {}, account_id=account_id, token=token)
+                if res and res.get("payloadType") == 2115:
+                    symbols_raw = res.get("payload", {}).get("symbol", [])
+                    sym_names = [s.get("symbolName") for s in symbols_raw if s.get("symbolName")]
+                    if sym_names:
+                        return {"status": "success", "data": sorted(sym_names)}
         except Exception as e:
-            print(f"Failed to fetch cTrader dynamic symbols: {e}", flush=True)
+            print(f"[cTrader get_symbols] Using standard fallback symbols: {e}", flush=True)
 
         standard_symbols = [
             "BTCUSD", "ETHUSD", "EURUSD", "GBPUSD", "USDJPY", 
