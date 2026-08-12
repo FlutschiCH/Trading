@@ -403,6 +403,20 @@ export default function WyckoffBacktester({
     }
   };
 
+  // Global Range Mode state (persisted in localStorage, default false for Single mode)
+  const [globalRangeMode, setGlobalRangeMode] = React.useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('wyckoff_backtester_global_range_mode');
+      if (saved !== null) return JSON.parse(saved);
+      return false;
+    } catch { return false; }
+  });
+
+  const slRangeMode = globalRangeMode;
+  const rrRangeMode = globalRangeMode;
+  const beRangeMode = globalRangeMode;
+  const beOffsetRangeMode = globalRangeMode;
+
   const effectiveSymbols = !globalRangeMode
     ? [symbol]
     : (activeSymbols.length > 0 ? activeSymbols : [symbol]);
@@ -436,25 +450,6 @@ export default function WyckoffBacktester({
   const [activeResultCombo, setActiveResultCombo] = React.useState<{ symbol: string; timeframe: string } | null>(null);
   const [selectedLeaderboardCombo, setSelectedLeaderboardCombo] = React.useState<any | null>(null);
   const currentCombo = activeResultCombo || { symbol: effectiveSymbols[0], timeframe: effectiveTimeframes[0] };
-
-
-  // Global Range Mode state (persisted in localStorage)
-  const [globalRangeMode, setGlobalRangeMode] = React.useState<boolean>(() => {
-    try {
-      const saved = localStorage.getItem('wyckoff_backtester_global_range_mode');
-      if (saved !== null) return JSON.parse(saved);
-      // Fallback check old individual range flags
-      const oldSl = localStorage.getItem('wyckoff_backtester_sl_range_mode') === 'true';
-      const oldRr = localStorage.getItem('wyckoff_backtester_rr_range_mode') === 'true';
-      const oldBe = localStorage.getItem('wyckoff_backtester_be_range_mode') === 'true';
-      return oldSl || oldRr || oldBe;
-    } catch { return false; }
-  });
-
-  const slRangeMode = globalRangeMode;
-  const rrRangeMode = globalRangeMode;
-  const beRangeMode = globalRangeMode;
-  const beOffsetRangeMode = globalRangeMode;
 
   const [slStart, setSLStart] = React.useState<string>(() => localStorage.getItem('wyckoff_backtester_sl_start') || '10');
   const [slEnd, setSLEnd] = React.useState<string>(() => localStorage.getItem('wyckoff_backtester_sl_end') || '20');
