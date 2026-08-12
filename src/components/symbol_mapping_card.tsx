@@ -205,6 +205,7 @@ export const SymbolMappingCard: React.FC<SymbolMappingCardProps> = ({ isReadOnly
           <SymbolTimeframeSelector 
             showTimeframe={false}
             symbolSource="fetched"
+            accountId={newAccountId}
             symbolLabel="Broker Symbol (Select from Broker)"
             placeholder={loadingBrokers ? "Loading broker symbols..." : "Search broker symbol (e.g. 100, EURUSD)"}
             symbol={newBrokerSymbol}

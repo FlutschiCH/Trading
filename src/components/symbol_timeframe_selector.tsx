@@ -12,6 +12,8 @@ export interface SymbolTimeframeSelectorProps {
   disabled?: boolean;
   onlyUseAvailableSymbols?: boolean;
   symbolSource?: 'master' | 'fetched' | 'both';
+  accountId?: string;
+  onRefresh?: () => void;
 
   // Single-select
   symbol?: string;
@@ -40,6 +42,8 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
   disabled = false,
   onlyUseAvailableSymbols = false,
   symbolSource = 'both',
+  accountId,
+  onRefresh,
   symbol = 'EURUSD',
   onSymbolChange,
   timeframe = '15m',
@@ -93,19 +97,53 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
     );
   };
 
-  // Fetch symbol mappings from backend
+  // Fetch symbol mappings and connected brokers from backend
   const [symbolMappings, setSymbolMappings] = useState<any[]>([]);
+  const [fetchedBrokerSymbols, setFetchedBrokerSymbols] = useState<string[]>([]);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+
+  const fetchConnectedBrokersAndMappings = async () => {
+    setIsRefreshing(true);
+    try {
+      // 1. Fetch symbol mappings
+      const mappingsRes = await fetch(`${API_BASE_URL}/api/symbol-mappings`);
+      const mappingsData = await mappingsRes.json();
+      if (mappingsData && mappingsData.status === 'success' && Array.isArray(mappingsData.data)) {
+        setSymbolMappings(mappingsData.data);
+      }
+
+      // 2. Fetch connected brokers
+      const brokersRes = await fetch(`${API_BASE_URL}/api/symbol-mappings/connected-brokers`);
+      const brokersData = await brokersRes.json();
+      if (brokersData && brokersData.status === 'success' && Array.isArray(brokersData.data)) {
+        const brokers: any[] = brokersData.data;
+        const targetAccId = accountId || localStorage.getItem('active_account_id') || localStorage.getItem('wyckoff_active_account');
+        let matchedBroker = targetAccId ? brokers.find(b => String(b.account_id) === String(targetAccId)) : null;
+        if (!matchedBroker && brokers.length > 0) {
+          matchedBroker = brokers[0];
+        }
+        
+        if (matchedBroker && Array.isArray(matchedBroker.symbols) && matchedBroker.symbols.length > 0) {
+          setFetchedBrokerSymbols(matchedBroker.symbols);
+        } else {
+          const allSyms = new Set<string>();
+          brokers.forEach(b => {
+            if (Array.isArray(b.symbols)) b.symbols.forEach(s => allSyms.add(s));
+          });
+          setFetchedBrokerSymbols(Array.from(allSyms));
+        }
+      }
+      if (onRefresh) onRefresh();
+    } catch (err) {
+      console.error("Error refreshing symbols in SymbolTimeframeSelector:", err);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   useEffect(() => {
-    fetch(`${API_BASE_URL}/api/symbol-mappings`)
-      .then(res => res.json())
-      .then(data => {
-        if (data && data.status === 'success' && Array.isArray(data.data)) {
-          setSymbolMappings(data.data);
-        }
-      })
-      .catch(err => console.error("Error fetching symbol mappings:", err));
-  }, []);
+    fetchConnectedBrokersAndMappings();
+  }, [accountId]);
 
   const mappedMasterSymbols = useMemo(() => {
     const masterSet = new Set<string>();
@@ -132,28 +170,35 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
     };
   }, [symbolMappings]);
 
+  const effectiveAvailableSymbols = useMemo(() => {
+    if (availableSymbols && availableSymbols.length > 0) {
+      return availableSymbols;
+    }
+    return fetchedBrokerSymbols;
+  }, [availableSymbols, fetchedBrokerSymbols]);
+
   // Combined symbols list based on symbolSource mode ('master' | 'fetched' | 'both')
   const combinedSymbols = useMemo(() => {
     if (symbolSource === 'fetched' || onlyUseAvailableSymbols) {
-      return Array.from(new Set([...availableSymbols, symbol].filter(Boolean)));
+      return Array.from(new Set([...effectiveAvailableSymbols, symbol].filter(Boolean)));
     }
     if (symbolSource === 'master') {
       const defaultMasters = ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD', 'XAUUSD', 'BTCUSD', 'ETHUSD', 'GER40', 'US30', 'US100', 'NAS100', 'SPX500'];
       return Array.from(new Set([
         ...defaultMasters,
         ...mappedMasterSymbols.masterList,
-        ...availableSymbols,
+        ...effectiveAvailableSymbols,
         symbol
       ].filter(Boolean))).sort();
     }
     // symbolSource === 'both' (default view for chart & backtester)
     return Array.from(new Set([
       ...mappedMasterSymbols.masterList,
-      ...availableSymbols,
+      ...effectiveAvailableSymbols,
       symbol,
       ...favoriteSymbols
     ].filter(Boolean)));
-  }, [symbolSource, onlyUseAvailableSymbols, mappedMasterSymbols, availableSymbols, symbol, favoriteSymbols]);
+  }, [symbolSource, onlyUseAvailableSymbols, mappedMasterSymbols, effectiveAvailableSymbols, symbol, favoriteSymbols]);
 
   // Combined timeframes list
   const combinedTimeframes = useMemo(() => {
@@ -384,7 +429,7 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
                 overflow: 'hidden',
                 marginTop: '4px'
               }}>
-                <div style={{ padding: '6px', borderBottom: isLight ? '1px solid #e2e8f0' : '1px solid #334155', backgroundColor: isLight ? '#f8fafc' : '#1e293b' }}>
+                <div style={{ padding: '6px', borderBottom: isLight ? '1px solid #e2e8f0' : '1px solid #334155', backgroundColor: isLight ? '#f8fafc' : '#1e293b', display: 'flex', gap: '6px', alignItems: 'center' }}>
                   <input
                     type="text"
                     placeholder="🔍 Type to search symbols..."
@@ -396,7 +441,7 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
                     onKeyDown={handleKeyDown}
                     autoFocus
                     style={{
-                      width: '100%',
+                      flex: 1,
                       boxSizing: 'border-box',
                       padding: '6px 10px',
                       borderRadius: '4px',
@@ -407,6 +452,31 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
                       outline: 'none'
                     }}
                   />
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      fetchConnectedBrokersAndMappings();
+                    }}
+                    disabled={isRefreshing}
+                    style={{
+                      backgroundColor: isLight ? '#e2e8f0' : '#334155',
+                      color: isLight ? '#0f172a' : '#38bdf8',
+                      border: 'none',
+                      borderRadius: '4px',
+                      padding: '6px 8px',
+                      fontSize: '11px',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      whiteSpace: 'nowrap'
+                    }}
+                    title="Refresh available symbols from backend"
+                  >
+                    🔄 {isRefreshing ? '...' : 'Refresh'}
+                  </button>
                 </div>
 
                 <div style={{ maxHeight: '240px', overflowY: 'auto', padding: '4px' }}>

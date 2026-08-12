@@ -268,6 +268,7 @@ export default function SymbolMappingsView({
               <SymbolTimeframeSelector 
                 showTimeframe={false}
                 symbolSource="fetched"
+                accountId={newAccountId === 'custom' ? customAccountId : newAccountId}
                 symbolLabel="Broker Symbol"
                 placeholder={loadingBrokers ? "Loading broker symbols..." : "Search/select broker symbol (e.g. EURUSD.ecn)"}
                 symbol={newBrokerSymbol}
