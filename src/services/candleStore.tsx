@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import type { Candle } from '../types/trading';
 import * as apiService from './apiService';
 import { API_BASE_URL } from '../api';
+import { isPollingPaused } from './pollingStore';
 
 interface CandleContextType {
   candles: Candle[];
@@ -140,6 +141,8 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } else {
       isIncremental = !forceFullRefresh && candlesRef.current.length >= 50;
     }
+
+    if (isIncremental && isPollingPaused()) return;
 
     const reqLimit = isIncremental ? 50 : Math.min(candleLimit, 5000);
 

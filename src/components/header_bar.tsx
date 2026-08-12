@@ -3,6 +3,7 @@ import { Activity, X, Menu, ChevronDown, Sun, Moon, RefreshCw, ShieldAlert, Term
 import { API_BASE_URL } from '../api';
 import { TargetSwitcher } from './target_switcher';
 import type { AccountInfo } from '../types/trading';
+import { isPollingPaused, setPollingPausedState } from '../services/pollingStore';
 
 const triggerPWAEventNotification = (title: string, body: string, soundType: string = 'alert') => {
   fetch(`${API_BASE_URL}/api/notification/trigger`, {
@@ -63,6 +64,18 @@ export default function HeaderBar({
   const [showMobileNav, setShowMobileNav] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [quickEdit, setQuickEdit] = useState<boolean>(false);
+  const [pollingPaused, setPollingPaused] = useState<boolean>(() => isPollingPaused());
+
+  useEffect(() => {
+    const handlePauseChange = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail && detail.paused !== undefined) {
+        setPollingPaused(Boolean(detail.paused));
+      }
+    };
+    window.addEventListener('polling_pause_changed', handlePauseChange);
+    return () => window.removeEventListener('polling_pause_changed', handlePauseChange);
+  }, []);
 
   useEffect(() => {
     const laptopUrl = 'https://flugrok-production.up.railway.app';
@@ -495,6 +508,33 @@ export default function HeaderBar({
                 title={theme === 'dark' ? "Switch to Light Mode" : "Switch to Dark Mode"}
               >
                 {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+              </button>
+
+              <button
+                onClick={() => {
+                  const nextState = !pollingPaused;
+                  setPollingPaused(nextState);
+                  setPollingPausedState(nextState);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  backgroundColor: pollingPaused ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.15)',
+                  border: `1px solid ${pollingPaused ? '#ef4444' : '#10b981'}`,
+                  cursor: 'pointer',
+                  borderRadius: '6px',
+                  padding: '6px 12px',
+                  color: pollingPaused ? '#ef4444' : '#10b981',
+                  fontWeight: 'bold',
+                  fontSize: '11px',
+                  outline: 'none',
+                  transition: 'all 0.2s',
+                  boxShadow: pollingPaused ? '0 0 8px rgba(239, 68, 68, 0.4)' : 'none'
+                }}
+                title={pollingPaused ? "Polling is PAUSED. Click to resume background trade/position/strategy polling." : "Polling is ACTIVE. Click to stop background polling while watching backtest in terminal."}
+              >
+                {pollingPaused ? '⏸️ Polling Paused' : '🟢 Live Polling'}
               </button>
               <button
                 onClick={handleRestartServer}

@@ -21,6 +21,7 @@ import { CandleDetailsCard } from './candle_details_card';
 import SymbolMappingCard from './symbol_mapping_card';
 import type { Candle, AccountInfo, Position } from '../types/trading';
 import { useCandleStore } from '../services/candleStore';
+import { isPollingPaused } from '../services/pollingStore';
 
 
 
@@ -1541,6 +1542,7 @@ export default function Dashboard() {
 
   // Unified API endpoints
   const fetchAccountData = async (overrideBroker?: string, overrideAccId?: string) => {
+    if (isPollingPaused()) return;
     const accId = overrideAccId || getSelectedAccountId();
     if (!isValidAcc(accId)) return;
     const broker = overrideBroker || candleSource;
@@ -1559,6 +1561,7 @@ export default function Dashboard() {
   };
 
   const fetchPositionData = async (overrideBroker?: string, overrideAccId?: string) => {
+    if (isPollingPaused()) return;
     const accId = overrideAccId || getSelectedAccountId();
     if (!isValidAcc(accId)) return;
     const broker = overrideBroker || candleSource;

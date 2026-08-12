@@ -138,6 +138,7 @@ const isLocal = typeof window !== 'undefined' &&
     window.location.hostname.startsWith('172.'));
 
 import { useCandleStore } from '../services/candleStore';
+import { isPollingPaused } from '../services/pollingStore';
 
 interface TVChartProps {
   symbol: string;
@@ -752,6 +753,7 @@ export default function TVChart({
           } catch (e) { }
         }
 
+        if (isPollingPaused()) return;
         if (!accId || ['none', 'null', 'undefined'].includes(String(accId).trim().toLowerCase())) return;
 
         const broker = candleSource || 'metatrader';
