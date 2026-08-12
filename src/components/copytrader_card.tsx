@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Copy, Plus, Trash2, CheckCircle2, PauseCircle, Play, Laptop, Server, RefreshCw } from 'lucide-react';
 import { API_BASE_URL } from '../api';
+import { useAccountsComputersStore } from '../services/accountsComputersStore';
 
 interface SlaveAccount {
   account_id: string;
@@ -20,17 +21,9 @@ interface CopytraderConfig {
   slaves: SlaveAccount[];
 }
 
-interface AccountItem {
-  id: string;
-  name: string;
-  account_id: string;
-  broker_type: string;
-}
-
 export const CopytraderCard: React.FC = () => {
+  const { accounts, computers, refreshAll: refreshAccountsAndComputers } = useAccountsComputersStore();
   const [configs, setConfigs] = useState<CopytraderConfig[]>([]);
-  const [accounts, setAccounts] = useState<AccountItem[]>([]);
-  const [computers, setComputers] = useState<string[]>(['All']);
   const [loading, setLoading] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
@@ -43,12 +36,12 @@ export const CopytraderCard: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchAll();
+    fetchConfigs();
   }, []);
 
   const fetchAll = async () => {
     setRefreshing(true);
-    await Promise.all([fetchConfigs(), fetchAccounts(), fetchComputers()]);
+    await Promise.all([fetchConfigs(), refreshAccountsAndComputers()]);
     setRefreshing(false);
   };
 
@@ -61,31 +54,6 @@ export const CopytraderCard: React.FC = () => {
       }
     } catch (e) {
       console.error('Failed to fetch copytrader configs', e);
-    }
-  };
-
-  const fetchAccounts = async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/accounts`);
-      const data = await res.json();
-      if (data.status === 'success') {
-        setAccounts(data.accounts || []);
-      }
-    } catch (e) {
-      console.error('Failed to fetch accounts', e);
-    }
-  };
-
-  const fetchComputers = async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/computers`);
-      const data = await res.json();
-      if (data.status === 'success' && Array.isArray(data.computers)) {
-        const list = ['All', ...data.computers.map((c: any) => c.name || c.hostname || c)];
-        setComputers(Array.from(new Set(list)));
-      }
-    } catch (e) {
-      console.error('Failed to fetch computers', e);
     }
   };
 
