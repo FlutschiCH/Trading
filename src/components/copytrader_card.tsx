@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Copy, Plus, Trash2, CheckCircle2, PauseCircle, Play, Laptop, Server } from 'lucide-react';
+import { Users, Copy, Plus, Trash2, CheckCircle2, PauseCircle, Play, Laptop, Server, RefreshCw } from 'lucide-react';
 import { API_BASE_URL } from '../api';
 
 interface SlaveAccount {
@@ -32,6 +32,7 @@ export const CopytraderCard: React.FC = () => {
   const [accounts, setAccounts] = useState<AccountItem[]>([]);
   const [computers, setComputers] = useState<string[]>(['All']);
   const [loading, setLoading] = useState<boolean>(false);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
 
   // Form State
   const [name, setName] = useState('');
@@ -42,10 +43,14 @@ export const CopytraderCard: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchConfigs();
-    fetchAccounts();
-    fetchComputers();
+    fetchAll();
   }, []);
+
+  const fetchAll = async () => {
+    setRefreshing(true);
+    await Promise.all([fetchConfigs(), fetchAccounts(), fetchComputers()]);
+    setRefreshing(false);
+  };
 
   const fetchConfigs = async () => {
     try {
@@ -171,42 +176,109 @@ export const CopytraderCard: React.FC = () => {
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg text-slate-100 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-        <div className="flex items-center gap-2">
-          <Copy className="w-5 h-5 text-indigo-400" />
-          <h2 className="text-lg font-semibold tracking-wide">Copytrader (Master / Slave Engine)</h2>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', height: '100%', width: '100%' }}>
+      {/* Top Header Refresh Bar */}
+      <div style={{
+        display: 'flex',
+        justify: 'space-between',
+        alignItems: 'center',
+        backgroundColor: '#0f172a',
+        padding: '6px 10px',
+        borderRadius: '4px',
+        border: '1px solid #1e293b'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <Copy style={{ width: '14px', height: '14px', color: '#3b82f6' }} />
+          <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#94a3b8' }}>Copytrader Master / Slave Engine</span>
         </div>
-        <span className="text-xs px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-mono">
-          1s Sync Active
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{
+            fontSize: '10px',
+            padding: '2px 6px',
+            borderRadius: '4px',
+            backgroundColor: '#1e1b4b',
+            color: '#818cf8',
+            border: '1px solid #312e81',
+            fontFamily: 'monospace'
+          }}>
+            1s Sync Loop Active
+          </span>
+          <button
+            type="button"
+            onClick={fetchAll}
+            disabled={refreshing}
+            style={{
+              backgroundColor: '#1e293b',
+              color: '#3b82f6',
+              border: '1px solid #334155',
+              borderRadius: '4px',
+              padding: '4px 8px',
+              fontSize: '10px',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+          >
+            <RefreshCw style={{ width: '12px', height: '12px', animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
+            {refreshing ? 'Refreshing...' : 'Refresh Configs'}
+          </button>
+        </div>
       </div>
 
-      {/* Editor / Configuration Form */}
-      <div className="bg-slate-950/60 p-4 rounded-lg border border-slate-800 space-y-4">
-        <h3 className="text-sm font-medium text-slate-300">
-          {editingId ? 'Edit Copytrader Setup' : 'Create New Copytrader Setup'}
-        </h3>
+      {/* Editor / Configuration Form Panel */}
+      <div style={{
+        backgroundColor: '#0f172a',
+        border: '1px solid #1e293b',
+        borderRadius: '6px',
+        padding: '12px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '12px'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #1e293b', pb: '8px' }}>
+          <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#cbd5e1', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            {editingId ? 'Edit Copytrader Rule' : 'Create Copytrader Setup'}
+          </span>
+        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
           <div>
-            <label className="text-xs text-slate-400 block mb-1">Setup Name</label>
+            <label style={{ display: 'block', fontSize: '10px', color: '#94a3b8', marginBottom: '4px' }}>Setup Name</label>
             <input
               type="text"
               placeholder="e.g. Master FTMO -> Slaves"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500"
+              style={{
+                width: '100%',
+                backgroundColor: '#020617',
+                border: '1px solid #334155',
+                borderRadius: '6px',
+                padding: '6px 8px',
+                color: '#f8fafc',
+                fontSize: '12px',
+                outline: 'none'
+              }}
             />
           </div>
 
           <div>
-            <label className="text-xs text-slate-400 block mb-1">Target Host / Computer</label>
+            <label style={{ display: 'block', fontSize: '10px', color: '#94a3b8', marginBottom: '4px' }}>Target Computer Host</label>
             <select
               value={targetComputer}
               onChange={(e) => setTargetComputer(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500"
+              style={{
+                width: '100%',
+                backgroundColor: '#020617',
+                border: '1px solid #334155',
+                borderRadius: '6px',
+                padding: '6px 8px',
+                color: '#f8fafc',
+                fontSize: '12px',
+                outline: 'none'
+              }}
             >
               {computers.map((c) => (
                 <option key={c} value={c}>{c}</option>
@@ -215,7 +287,7 @@ export const CopytraderCard: React.FC = () => {
           </div>
 
           <div>
-            <label className="text-xs text-slate-400 block mb-1">Master Account</label>
+            <label style={{ display: 'block', fontSize: '10px', color: '#94a3b8', marginBottom: '4px' }}>Master Account</label>
             <select
               value={masterAccount}
               onChange={(e) => {
@@ -224,7 +296,16 @@ export const CopytraderCard: React.FC = () => {
                 const matched = accounts.find((a) => a.account_id === accId);
                 if (matched) setMasterBroker(matched.broker_type);
               }}
-              className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500"
+              style={{
+                width: '100%',
+                backgroundColor: '#020617',
+                border: '1px solid #334155',
+                borderRadius: '6px',
+                padding: '6px 8px',
+                color: '#f8fafc',
+                fontSize: '12px',
+                outline: 'none'
+              }}
             >
               <option value="">Select Master Account...</option>
               {accounts.map((acc) => (
@@ -236,26 +317,49 @@ export const CopytraderCard: React.FC = () => {
           </div>
         </div>
 
-        {/* Slaves Builder */}
-        <div className="space-y-2 pt-2 border-t border-slate-800/80">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+        {/* Slaves Section */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '8px', borderTop: '1px solid #1e293b' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               Slave Accounts ({slaves.length})
             </span>
             <button
+              type="button"
               onClick={handleAddSlave}
-              className="flex items-center gap-1 text-xs bg-indigo-600 hover:bg-indigo-500 px-2.5 py-1 rounded text-white transition-colors"
+              style={{
+                backgroundColor: '#2563eb',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '4px',
+                padding: '4px 8px',
+                fontSize: '10px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
             >
-              <Plus className="w-3.5 h-3.5" /> Add Slave
+              <Plus style={{ width: '12px', height: '12px' }} /> Add Slave Account
             </button>
           </div>
 
           {slaves.length === 0 ? (
-            <p className="text-xs text-slate-500 italic py-2">No slave accounts added yet. Click 'Add Slave' above.</p>
+            <p style={{ fontSize: '11px', color: '#64748b', fontStyle: 'italic', padding: '4px 0' }}>
+              No slave accounts added yet. Click 'Add Slave Account' to assign copy destinations.
+            </p>
           ) : (
-            <div className="space-y-2">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {slaves.map((slave, idx) => (
-                <div key={idx} className="flex flex-wrap md:flex-nowrap items-center gap-2 bg-slate-900/80 p-2.5 rounded border border-slate-800">
+                <div key={idx} style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  backgroundColor: '#020617',
+                  padding: '6px 8px',
+                  borderRadius: '4px',
+                  border: '1px solid #1e293b'
+                }}>
                   <select
                     value={slave.account_id}
                     onChange={(e) => {
@@ -264,7 +368,16 @@ export const CopytraderCard: React.FC = () => {
                       handleSlaveChange(idx, 'account_id', accId);
                       if (matched) handleSlaveChange(idx, 'broker', matched.broker_type);
                     }}
-                    className="flex-1 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs focus:outline-none"
+                    style={{
+                      flex: 1,
+                      backgroundColor: '#0f172a',
+                      border: '1px solid #334155',
+                      borderRadius: '4px',
+                      padding: '4px 6px',
+                      color: '#f8fafc',
+                      fontSize: '11px',
+                      outline: 'none'
+                    }}
                   >
                     <option value="">Select Slave Account...</option>
                     {accounts
@@ -279,32 +392,57 @@ export const CopytraderCard: React.FC = () => {
                   <select
                     value={slave.mode}
                     onChange={(e) => handleSlaveChange(idx, 'mode', e.target.value as any)}
-                    className="w-32 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs focus:outline-none"
+                    style={{
+                      width: '120px',
+                      backgroundColor: '#0f172a',
+                      border: '1px solid #334155',
+                      borderRadius: '4px',
+                      padding: '4px 6px',
+                      color: '#f8fafc',
+                      fontSize: '11px',
+                      outline: 'none'
+                    }}
                   >
                     <option value="direct">Direct (1:1)</option>
                     <option value="multiplier">Multiplier</option>
                   </select>
 
                   {slave.mode === 'multiplier' && (
-                    <div className="flex items-center gap-1 w-28">
-                      <span className="text-xs text-slate-400">x</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', width: '90px' }}>
+                      <span style={{ fontSize: '11px', color: '#94a3b8' }}>x</span>
                       <input
                         type="number"
                         step="0.1"
                         min="0.01"
                         value={slave.multiplier}
                         onChange={(e) => handleSlaveChange(idx, 'multiplier', parseFloat(e.target.value) || 1.0)}
-                        className="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs focus:outline-none"
+                        style={{
+                          width: '100%',
+                          backgroundColor: '#0f172a',
+                          border: '1px solid #334155',
+                          borderRadius: '4px',
+                          padding: '4px 6px',
+                          color: '#f8fafc',
+                          fontSize: '11px',
+                          outline: 'none'
+                        }}
                       />
                     </div>
                   )}
 
                   <button
+                    type="button"
                     onClick={() => handleRemoveSlave(idx)}
-                    className="text-red-400 hover:text-red-300 p-1 rounded transition-colors"
+                    style={{
+                      backgroundColor: 'transparent',
+                      color: '#f87171',
+                      border: 'none',
+                      cursor: 'pointer',
+                      padding: '4px'
+                    }}
                     title="Remove Slave"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 style={{ width: '14px', height: '14px' }} />
                   </button>
                 </div>
               ))}
@@ -313,62 +451,130 @@ export const CopytraderCard: React.FC = () => {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center justify-end gap-2 pt-2">
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', paddingTop: '6px' }}>
           {editingId && (
             <button
+              type="button"
               onClick={resetForm}
-              className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded transition-colors"
+              style={{
+                backgroundColor: '#334155',
+                color: '#f8fafc',
+                border: 'none',
+                borderRadius: '4px',
+                padding: '6px 12px',
+                fontSize: '11px',
+                fontWeight: 'bold',
+                cursor: 'pointer'
+              }}
             >
               Cancel Edit
             </button>
           )}
           <button
+            type="button"
             onClick={handleSaveConfig}
             disabled={loading}
-            className="text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-4 py-1.5 rounded transition-colors disabled:opacity-50"
+            style={{
+              backgroundColor: '#059669',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '4px',
+              padding: '6px 14px',
+              fontSize: '11px',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              opacity: loading ? 0.6 : 1
+            }}
           >
-            {editingId ? 'Update Copytrader Setup' : 'Save Copytrader Setup'}
+            {editingId ? 'Update Setup' : 'Save Copytrader Setup'}
           </button>
         </div>
       </div>
 
-      {/* Configs List */}
-      <div className="space-y-3">
-        <h3 className="text-sm font-medium text-slate-300">Deployed Copytrader Rules</h3>
+      {/* Deployed Rules Table / List Panel */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          Deployed Copytrader Rules ({configs.length})
+        </span>
+
         {configs.length === 0 ? (
-          <p className="text-xs text-slate-500 py-3 text-center border border-dashed border-slate-800 rounded-lg">
-            No Copytrader setups configured.
-          </p>
+          <div style={{
+            padding: '24px',
+            textAlign: 'center',
+            backgroundColor: '#0f172a',
+            border: '1px dashed #334155',
+            borderRadius: '6px',
+            color: '#64748b',
+            fontSize: '11px'
+          }}>
+            No Copytrader setups configured. Create a setup above to start copying trades.
+          </div>
         ) : (
-          <div className="grid grid-cols-1 gap-3">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {configs.map((cfg) => (
-              <div key={cfg.id} className="bg-slate-950 border border-slate-800 rounded-lg p-3.5 flex flex-col md:flex-row md:items-center justify-between gap-3">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-slate-200 text-sm">{cfg.name}</span>
-                    <span className={`text-[10px] px-2 py-0.5 rounded font-mono uppercase ${
-                      cfg.status === 'active' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                    }`}>
+              <div key={cfg.id} style={{
+                backgroundColor: '#0f172a',
+                border: '1px solid #1e293b',
+                borderRadius: '6px',
+                padding: '10px 12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifySpace: 'between',
+                gap: '12px'
+              }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#f8fafc' }}>{cfg.name}</span>
+                    <span style={{
+                      fontSize: '9px',
+                      padding: '2px 6px',
+                      borderRadius: '4px',
+                      fontWeight: 'bold',
+                      textTransform: 'uppercase',
+                      backgroundColor: cfg.status === 'active' ? '#064e3b' : '#78350f',
+                      color: cfg.status === 'active' ? '#34d399' : '#fbbf24',
+                      border: `1px solid ${cfg.status === 'active' ? '#047857' : '#b45309'}`
+                    }}>
                       {cfg.status}
                     </span>
                   </div>
-                  <div className="text-xs text-slate-400 flex flex-wrap gap-x-4 gap-y-1">
-                    <span>Host: <strong className="text-slate-300">{cfg.target_computer}</strong></span>
-                    <span>Master: <strong className="text-indigo-400">{cfg.master_account}</strong></span>
-                    <span>Slaves: <strong className="text-emerald-400">{cfg.slaves?.length || 0}</strong></span>
+                  <div style={{ display: 'flex', gap: '16px', fontSize: '11px', color: '#94a3b8' }}>
+                    <span>Target Host: <strong style={{ color: '#cbd5e1' }}>{cfg.target_computer}</strong></span>
+                    <span>Master: <strong style={{ color: '#60a5fa' }}>{cfg.master_account}</strong></span>
+                    <span>Slaves Connected: <strong style={{ color: '#34d399' }}>{cfg.slaves?.length || 0}</strong></span>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <button
+                    type="button"
                     onClick={() => editConfig(cfg)}
-                    className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded transition-colors"
+                    style={{
+                      backgroundColor: '#1e293b',
+                      color: '#cbd5e1',
+                      border: '1px solid #334155',
+                      borderRadius: '4px',
+                      padding: '4px 10px',
+                      fontSize: '11px',
+                      fontWeight: 'bold',
+                      cursor: 'pointer'
+                    }}
                   >
                     Edit
                   </button>
                   <button
+                    type="button"
                     onClick={() => handleDelete(cfg.id)}
-                    className="text-xs bg-red-950/60 hover:bg-red-900/60 border border-red-800/40 text-red-400 px-3 py-1.5 rounded transition-colors"
+                    style={{
+                      backgroundColor: '#450a0a',
+                      color: '#f87171',
+                      border: '1px solid #7f1d1d',
+                      borderRadius: '4px',
+                      padding: '4px 10px',
+                      fontSize: '11px',
+                      fontWeight: 'bold',
+                      cursor: 'pointer'
+                    }}
                   >
                     Delete
                   </button>
@@ -382,3 +588,4 @@ export const CopytraderCard: React.FC = () => {
   );
 };
 export default CopytraderCard;
+
