@@ -229,13 +229,9 @@ class CTraderHandler(BaseBrokerHandler):
                     if sym_names:
                         return {"status": "success", "data": sorted(sym_names)}
         except Exception as e:
-            print(f"[cTrader get_symbols] Using standard fallback symbols: {e}", flush=True)
+            print(f"[cTrader get_symbols] Error fetching cTrader symbols: {e}", flush=True)
 
-        standard_symbols = [
-            "BTCUSD", "ETHUSD", "EURUSD", "GBPUSD", "USDJPY", 
-            "AUDUSD", "USDCAD", "XAUUSD", "US30", "GER40"
-        ]
-        return {"status": "success", "data": standard_symbols}
+        return {"status": "success", "data": []}
 
     @classmethod
     def get_timeframes(cls) -> dict:

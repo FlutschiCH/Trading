@@ -23,21 +23,6 @@ interface ConnectedBroker {
   symbols: string[];
 }
 
-const MASTER_SYMBOLS = [
-  'EURUSD',
-  'GBPUSD',
-  'USDJPY',
-  'AUDUSD',
-  'USDCAD',
-  'USDCHF',
-  'NZDUSD',
-  'XAUUSD',
-  'BTCUSD',
-  'ETHUSD',
-  'US30',
-  'GER40'
-];
-
 export default function SymbolMappingsView({
   isMobile,
   setView,
@@ -46,7 +31,7 @@ export default function SymbolMappingsView({
 }: SymbolMappingsViewProps) {
   // Symbol Mapping states
   const [symbolMappings, setSymbolMappings] = useState<SymbolMapping[]>([]);
-  const [newMainSymbol, setNewMainSymbol] = useState(MASTER_SYMBOLS[0]);
+  const [newMainSymbol, setNewMainSymbol] = useState('');
   const [customMainSymbol, setCustomMainSymbol] = useState('');
   const [newBrokerKey, setNewBrokerKey] = useState('');
   const [customBrokerKey, setCustomBrokerKey] = useState('');
@@ -89,13 +74,13 @@ export default function SymbolMappingsView({
   }, []);
 
   const getAllMasterSymbols = (): string[] => {
-    const set = new Set<string>(MASTER_SYMBOLS);
+    const set = new Set<string>();
     connectedBrokers.forEach(b => {
       if (Array.isArray(b.symbols)) {
         b.symbols.forEach(s => set.add(s));
       }
     });
-    return Array.from(set);
+    return Array.from(set).sort();
   };
 
   const getAvailableBrokerSymbols = (): string[] => {

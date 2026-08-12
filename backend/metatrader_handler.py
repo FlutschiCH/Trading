@@ -626,7 +626,7 @@ class MetaTraderHandler(BaseBrokerHandler):
     @staticmethod
     def get_symbols(login: int = 2002061314, password: str = "Godzilla_12", server: str = "JustMarkets-Demo", **kwargs) -> list:
         """
-        Gets list of symbols from MT5 terminal.
+        Gets list of symbols from MT5 terminal directly without fallbacks.
         """
         try:
             resolved_login, resolved_pwd, resolved_srv = MetaTraderHandler._resolve_credentials(login, password, server, **kwargs)
@@ -634,14 +634,11 @@ class MetaTraderHandler(BaseBrokerHandler):
                 mt5_inst = MetaTraderHandler.get_mt5_instance(resolved_login) or mt5
                 symbols = mt5_inst.symbols_get()
                 if symbols:
-                    vis = [s.name for s in symbols if getattr(s, 'visible', False) or getattr(s, 'select', False)]
-                    if vis:
-                        return sorted(vis)
                     return sorted([s.name for s in symbols])
         except Exception as e:
-            print(f"[MetaTrader get_symbols] Using fallback symbols: {e}", flush=True)
+            print(f"[MetaTrader get_symbols] Error fetching MT5 symbols: {e}", flush=True)
 
-        return ["BTCUSD", "ETHUSD", "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "XAUUSD", "US30", "GER40"]
+        return []
 
     @staticmethod
     def get_history(date_from: int = None, date_to: int = None, login: int = 2002061314, password: str = "Godzilla_12", server: str = "JustMarkets-Demo", **kwargs) -> list:
