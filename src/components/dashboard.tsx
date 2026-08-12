@@ -19,6 +19,7 @@ import { CandleCollectorPanel } from './candle_collector_panel';
 import { CandleDetailsCard } from './candle_details_card';
 import SymbolMappingCard from './symbol_mapping_card';
 import CopytraderCard from './copytrader_card';
+import LogPanel from './log_panel';
 import type { Candle, AccountInfo, Position } from '../types/trading';
 import { useCandleStore } from '../services/candleStore';
 import { isPollingPaused } from '../services/pollingStore';
@@ -228,7 +229,7 @@ export default function Dashboard() {
 
   // Dynamically fetch available symbols from connected broker on startup / broker switch
   useEffect(() => {
-    let sourcePath = candleSource || 'ctrader';
+    let sourcePath = (candleSource as string) || 'ctrader';
     if (sourcePath === 'localctrader') sourcePath = 'ctrader';
 
     apiService.fetchMetadataSymbols(sourcePath)
@@ -2515,7 +2516,7 @@ export default function Dashboard() {
                         backtestBE={backtestBE}
                         setBacktestBE={setBacktestBE}
                         beOffsetMode={beOffsetMode}
-                        setBeOffsetMode={setBeOffsetMode}
+                        setBeOffsetMode={setBeOffsetMode as any}
                         lookbackWindow={lookbackWindow}
                         setLookbackWindow={setLookbackWindow}
                         backtestResults={backtestResults}
@@ -2974,7 +2975,7 @@ export default function Dashboard() {
                             backtestBE={backtestBE}
                             setBacktestBE={setBacktestBE}
                             beOffsetMode={beOffsetMode}
-                            setBeOffsetMode={setBeOffsetMode}
+                            setBeOffsetMode={setBeOffsetMode as any}
                             lookbackWindow={lookbackWindow}
                             setLookbackWindow={setLookbackWindow}
                             backtestResults={backtestResults}

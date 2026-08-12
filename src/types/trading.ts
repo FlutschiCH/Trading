@@ -17,6 +17,8 @@ export interface Candle {
   support_level?: number;
   resistance_level?: number;
   wyckoff_signal?: string;
+  accum_consec_bars?: number;
+  dist_consec_bars?: number;
 }
 
 export interface AccountInfo {

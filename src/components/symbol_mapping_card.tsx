@@ -16,6 +16,10 @@ interface SymbolMapping {
   broker_symbol: string;
 }
 
+interface SymbolMappingCardProps {
+  isReadOnly?: boolean;
+}
+
 export const SymbolMappingCard: React.FC<SymbolMappingCardProps> = ({ isReadOnly = false }) => {
   const [symbolMappings, setSymbolMappings] = useState<SymbolMapping[]>([]);
   const [newMainSymbol, setNewMainSymbol] = useState('');

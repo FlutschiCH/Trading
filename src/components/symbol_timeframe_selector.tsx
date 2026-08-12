@@ -128,7 +128,7 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
         } else {
           const allSyms = new Set<string>();
           brokers.forEach(b => {
-            if (Array.isArray(b.symbols)) b.symbols.forEach(s => allSyms.add(s));
+            if (Array.isArray(b.symbols)) b.symbols.forEach((s: string) => allSyms.add(s));
           });
           setFetchedBrokerSymbols(Array.from(allSyms));
         }
@@ -651,7 +651,7 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
                         backgroundColor: isSelected ? 'rgba(37, 99, 235, 0.2)' : 'transparent',
                         transition: 'background-color 0.15s',
                         display: 'flex',
-                        justify: 'space-between',
+                        justifyContent: 'space-between',
                         alignItems: 'center',
                         borderRadius: '4px'
                       }}

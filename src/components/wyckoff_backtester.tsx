@@ -688,7 +688,7 @@ export default function WyckoffBacktester({
       const res = await fetch(`${API_BASE_URL}/api/backtest/saved/${id}`, { method: 'DELETE' });
       const json = await res.json();
       if (json.status === 'success') {
-        fetchSavedBacktests();
+        // Deleted successfully
       } else {
         alert("Failed to delete saved backtest: " + json.message);
       }
@@ -1818,7 +1818,7 @@ export default function WyckoffBacktester({
                             <input
                               type="checkbox"
                               checked={beOffsetRangeMode}
-                              onChange={(e) => setBEOffsetRangeMode(e.target.checked)}
+                              onChange={(e) => setGlobalRangeMode(e.target.checked)}
                               style={{ cursor: 'pointer' }}
                             />
                             Offset Range
