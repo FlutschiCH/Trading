@@ -482,7 +482,8 @@ class LiveRunner:
                 positions = handler.get_positions(**target_kwargs) or []
                 active_pos = None
                 for p in positions:
-                    if p.get("symbol") == base_symbol:
+                    pos_symbol = SymbolMappingHandler.map_to_main(p.get("symbol"), target_acc_id)
+                    if pos_symbol == base_symbol:
                         active_pos = p
                         break
 
