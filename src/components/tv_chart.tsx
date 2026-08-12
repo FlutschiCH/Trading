@@ -2747,33 +2747,56 @@ export default function TVChart({
                     {showSymbolDropdown && (
                       <>
                         <div onClick={() => setShowSymbolDropdown(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }} />
-                        <div style={{ position: 'absolute', top: '100%', left: 0, backgroundColor: isLight ? '#ffffff' : '#0f172a', border: isLight ? '1px solid #cbd5e1' : '1px solid #334155', borderRadius: '8px', maxHeight: '300px', overflowY: 'auto', zIndex: 1000, boxShadow: '0 15px 30px rgba(0, 0, 0, 0.4)', minWidth: '340px', width: 'max-content' }}>
-                          {filteredSymbols.length > 0 ? (
-                            filteredSymbols.map((sym, idx) => {
-                              const mappedBroker = mappedSymbolDict.mainToBroker[sym];
-                              const mappedMain = mappedSymbolDict.brokerToMain[sym];
-                              return (
-                                <div key={sym} onClick={() => { onSymbolChange(sym); setShowSymbolDropdown(false); }} style={{ padding: '6px 10px', cursor: 'pointer', fontSize: '12px', color: isLight ? '#0f172a' : '#ffffff', backgroundColor: idx === highlightedIndex ? '#2563eb' : (symbol === sym ? 'rgba(37, 99, 235, 0.2)' : 'transparent'), transition: 'background-color 0.15s', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} onMouseEnter={() => setHighlightedIndex(idx)}>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <span>{sym}</span>
-                                    {mappedBroker && (
-                                      <span style={{ fontSize: '9px', color: '#a855f7', backgroundColor: 'rgba(168, 85, 247, 0.15)', padding: '1px 4px', borderRadius: '3px', fontWeight: 'bold' }}>
-                                        🔀 ➔ {mappedBroker}
-                                      </span>
-                                    )}
-                                    {mappedMain && !mappedBroker && (
-                                      <span style={{ fontSize: '9px', color: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.15)', padding: '1px 4px', borderRadius: '3px' }}>
-                                        🔀 Map: {mappedMain}
-                                      </span>
-                                    )}
+                        <div style={{ position: 'absolute', top: '100%', left: 0, backgroundColor: isLight ? '#ffffff' : '#0f172a', border: isLight ? '1px solid #cbd5e1' : '1px solid #334155', borderRadius: '8px', zIndex: 1000, boxShadow: '0 15px 30px rgba(0, 0, 0, 0.4)', minWidth: '340px', width: 'max-content', overflow: 'hidden' }}>
+                          <div style={{ padding: '6px', borderBottom: isLight ? '1px solid #e2e8f0' : '1px solid #334155', backgroundColor: isLight ? '#f8fafc' : '#1e293b' }}>
+                            <input
+                              type="text"
+                              placeholder="🔍 Type to search symbols or mappings..."
+                              value={symbolSearch}
+                              onChange={(e) => setSymbolSearch(e.target.value)}
+                              onKeyDown={handleKeyDown}
+                              autoFocus
+                              style={{
+                                width: '100%',
+                                boxSizing: 'border-box',
+                                padding: '6px 10px',
+                                borderRadius: '4px',
+                                border: isLight ? '1px solid #cbd5e1' : '1px solid #475569',
+                                backgroundColor: isLight ? '#ffffff' : '#0f172a',
+                                color: isLight ? '#0f172a' : '#ffffff',
+                                fontSize: '12px',
+                                outline: 'none'
+                              }}
+                            />
+                          </div>
+                          <div style={{ maxHeight: '250px', overflowY: 'auto', padding: '4px' }}>
+                            {filteredSymbols.length > 0 ? (
+                              filteredSymbols.map((sym, idx) => {
+                                const mappedBroker = mappedSymbolDict.mainToBroker[sym];
+                                const mappedMain = mappedSymbolDict.brokerToMain[sym];
+                                return (
+                                  <div key={sym} onClick={() => { onSymbolChange(sym); setShowSymbolDropdown(false); }} style={{ padding: '6px 10px', cursor: 'pointer', fontSize: '12px', color: isLight ? '#0f172a' : '#ffffff', backgroundColor: idx === highlightedIndex ? '#2563eb' : (symbol === sym ? 'rgba(37, 99, 235, 0.2)' : 'transparent'), transition: 'background-color 0.15s', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} onMouseEnter={() => setHighlightedIndex(idx)}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                      <span>{sym}</span>
+                                      {mappedBroker && (
+                                        <span style={{ fontSize: '9px', color: '#a855f7', backgroundColor: 'rgba(168, 85, 247, 0.15)', padding: '1px 4px', borderRadius: '3px', fontWeight: 'bold' }}>
+                                          🔀 ➔ {mappedBroker}
+                                        </span>
+                                      )}
+                                      {mappedMain && !mappedBroker && (
+                                        <span style={{ fontSize: '9px', color: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.15)', padding: '1px 4px', borderRadius: '3px' }}>
+                                          🔀 Map: {mappedMain}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <span onClick={(e) => toggleFavoriteSymbol(sym, e)} style={{ color: favoriteSymbols.includes(sym) ? '#f59e0b' : '#9ca3af', fontSize: '14px', padding: '2px 4px', cursor: 'pointer', transition: 'color 0.15s' }}>★</span>
                                   </div>
-                                  <span onClick={(e) => toggleFavoriteSymbol(sym, e)} style={{ color: favoriteSymbols.includes(sym) ? '#f59e0b' : '#9ca3af', fontSize: '14px', padding: '2px 4px', cursor: 'pointer', transition: 'color 0.15s' }}>★</span>
-                                </div>
-                              );
-                            })
-                          ) : (
-                            <div style={{ padding: '6px 10px', fontSize: '11px', color: '#6b7280' }}>No results found</div>
-                          )}
+                                );
+                              })
+                            ) : (
+                              <div style={{ padding: '8px 10px', fontSize: '11px', color: '#6b7280', textAlign: 'center' }}>No symbols found</div>
+                            )}
+                          </div>
                         </div>
                       </>
                     )}
