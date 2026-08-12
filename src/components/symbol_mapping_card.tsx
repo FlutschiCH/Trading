@@ -5,22 +5,20 @@ interface ConnectedBroker {
   account_id: string;
   broker_type: string;
   name: string;
-  broker_key: string;
   symbols: string[];
 }
 
 interface SymbolMapping {
   id: number;
   main_symbol: string;
-  broker_key: string;
+  account_id: string;
   broker_symbol: string;
 }
 
 export const SymbolMappingCard: React.FC<SymbolMappingCardProps> = ({ isReadOnly = false }) => {
   const [symbolMappings, setSymbolMappings] = useState<SymbolMapping[]>([]);
   const [newMainSymbol, setNewMainSymbol] = useState('');
-  const [newBrokerKey, setNewBrokerKey] = useState('');
-  const [customBrokerKey, setCustomBrokerKey] = useState('');
+  const [newAccountId, setNewAccountId] = useState('');
   const [newBrokerSymbol, setNewBrokerSymbol] = useState('');
   const [mappingMessage, setMappingMessage] = useState('');
 
@@ -36,8 +34,8 @@ export const SymbolMappingCard: React.FC<SymbolMappingCardProps> = ({ isReadOnly
       const data = await res.json();
       if (data.status === 'success' && Array.isArray(data.data)) {
         setConnectedBrokers(data.data);
-        if (data.data.length > 0 && !newBrokerKey) {
-          setNewBrokerKey(data.data[0].account_id);
+        if (data.data.length > 0 && !newAccountId) {
+          setNewAccountId(data.data[0].account_id);
         }
       }
     } catch (e) {
@@ -65,7 +63,7 @@ export const SymbolMappingCard: React.FC<SymbolMappingCardProps> = ({ isReadOnly
   }, []);
 
   const getAvailableBrokerSymbols = (): string[] => {
-    const found = connectedBrokers.find(b => b.broker_key === newBrokerKey || b.account_id === newBrokerKey);
+    const found = connectedBrokers.find(b => b.account_id === newAccountId);
     return found ? found.symbols : [];
   };
 
@@ -84,7 +82,7 @@ export const SymbolMappingCard: React.FC<SymbolMappingCardProps> = ({ isReadOnly
       return;
     }
     const finalMainSymbol = newMainSymbol.toUpperCase().trim();
-    if (!finalMainSymbol || !newBrokerKey || !newBrokerSymbol) {
+    if (!finalMainSymbol || !newAccountId || !newBrokerSymbol) {
       setMappingMessage('All fields are required (select an active broker and symbol)');
       return;
     }
@@ -94,7 +92,7 @@ export const SymbolMappingCard: React.FC<SymbolMappingCardProps> = ({ isReadOnly
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           main_symbol: finalMainSymbol,
-          broker_key: newBrokerKey.trim(),
+          account_id: newAccountId.trim(),
           broker_symbol: newBrokerSymbol.trim()
         })
       });
@@ -197,9 +195,9 @@ export const SymbolMappingCard: React.FC<SymbolMappingCardProps> = ({ isReadOnly
           <div>
             <label style={{ display: 'block', fontSize: '10px', color: '#94a3b8', marginBottom: '2px' }}>Active Broker Account</label>
             <select
-              value={newBrokerKey}
+              value={newAccountId}
               onChange={e => {
-                setNewBrokerKey(e.target.value);
+                setNewAccountId(e.target.value);
                 setNewBrokerSymbol('');
               }}
               style={{
@@ -228,7 +226,7 @@ export const SymbolMappingCard: React.FC<SymbolMappingCardProps> = ({ isReadOnly
           <select
             value={newBrokerSymbol}
             onChange={e => setNewBrokerSymbol(e.target.value)}
-            disabled={loadingBrokers || !newBrokerKey}
+            disabled={loadingBrokers || !newAccountId}
             style={{
               width: '100%',
               backgroundColor: '#0f172a',
@@ -294,8 +292,8 @@ export const SymbolMappingCard: React.FC<SymbolMappingCardProps> = ({ isReadOnly
             </thead>
             <tbody>
               {filteredMappings.map(m => {
-                const matchedBroker = connectedBrokers.find(b => b.account_id === m.broker_key || b.account_id === (m as any).account_id);
-                const accLabel = matchedBroker ? `${matchedBroker.name} (#${matchedBroker.account_id})` : `#${(m as any).account_id || m.broker_key}`;
+                const matchedBroker = connectedBrokers.find(b => b.account_id === m.account_id);
+                const accLabel = matchedBroker ? `${matchedBroker.name} (#${matchedBroker.account_id})` : `#${m.account_id}`;
                 return (
                   <tr key={m.id} style={{ borderBottom: '1px solid #1e293b', color: '#cbd5e1' }}>
                     <td style={{ padding: '4px', fontWeight: 'bold', color: '#3b82f6' }}>{m.main_symbol}</td>

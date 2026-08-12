@@ -4,7 +4,7 @@ import { API_BASE_URL } from '../api';
 interface SymbolMapping {
   id: number;
   main_symbol: string;
-  broker_key: string;
+  account_id: string;
   broker_symbol: string;
 }
 
@@ -19,7 +19,6 @@ interface ConnectedBroker {
   account_id: string;
   broker_type: string;
   name: string;
-  broker_key: string;
   symbols: string[];
 }
 
@@ -33,8 +32,8 @@ export default function SymbolMappingsView({
   const [symbolMappings, setSymbolMappings] = useState<SymbolMapping[]>([]);
   const [newMainSymbol, setNewMainSymbol] = useState('');
   const [customMainSymbol, setCustomMainSymbol] = useState('');
-  const [newBrokerKey, setNewBrokerKey] = useState('');
-  const [customBrokerKey, setCustomBrokerKey] = useState('');
+  const [newAccountId, setNewAccountId] = useState('');
+  const [customAccountId, setCustomAccountId] = useState('');
   const [newBrokerSymbol, setNewBrokerSymbol] = useState('');
   const [mappingMessage, setMappingMessage] = useState('');
 
@@ -58,8 +57,8 @@ export default function SymbolMappingsView({
       const data = await res.json();
       if (data.status === 'success' && Array.isArray(data.data)) {
         setConnectedBrokers(data.data);
-        if (data.data.length > 0 && !newBrokerKey) {
-          setNewBrokerKey(data.data[0].broker_key);
+        if (data.data.length > 0 && !newAccountId) {
+          setNewAccountId(data.data[0].account_id);
         }
       }
     } catch (e) {
@@ -84,8 +83,8 @@ export default function SymbolMappingsView({
   };
 
   const getAvailableBrokerSymbols = (): string[] => {
-    const finalKey = newBrokerKey === 'custom' ? customBrokerKey : newBrokerKey;
-    const found = connectedBrokers.find(b => b.broker_key === finalKey || b.account_id === finalKey);
+    const finalKey = newAccountId === 'custom' ? customAccountId : newAccountId;
+    const found = connectedBrokers.find(b => b.account_id === finalKey);
     if (found && found.symbols && found.symbols.length > 0) {
       return found.symbols;
     }
@@ -127,8 +126,8 @@ export default function SymbolMappingsView({
       return;
     }
     const finalMainSymbol = newMainSymbol === 'custom' ? customMainSymbol : newMainSymbol;
-    const finalBrokerKey = newBrokerKey === 'custom' ? customBrokerKey : newBrokerKey;
-    if (!finalMainSymbol || !finalBrokerKey || !newBrokerSymbol) {
+    const finalAccountId = newAccountId === 'custom' ? customAccountId : newAccountId;
+    if (!finalMainSymbol || !finalAccountId || !newBrokerSymbol) {
       setMappingMessage('All fields are required');
       return;
     }
@@ -138,7 +137,7 @@ export default function SymbolMappingsView({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           main_symbol: finalMainSymbol.toUpperCase().trim(),
-          broker_key: finalBrokerKey.trim(),
+          account_id: finalAccountId.trim(),
           broker_symbol: newBrokerSymbol.trim()
         })
       });
@@ -338,8 +337,8 @@ export default function SymbolMappingsView({
             <div>
               <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Broker / Account Target</label>
               <select 
-                value={newBrokerKey} 
-                onChange={e => setNewBrokerKey(e.target.value)}
+                value={newAccountId} 
+                onChange={e => setNewAccountId(e.target.value)}
                 style={{
                   width: '100%',
                   backgroundColor: '#1e293b',
@@ -352,22 +351,22 @@ export default function SymbolMappingsView({
                 }}
               >
                 {connectedBrokers.map(b => (
-                  <option key={b.account_id} value={b.broker_key}>
+                  <option key={b.account_id} value={b.account_id}>
                     {b.name} ({b.broker_type} - {b.account_id})
                   </option>
                 ))}
-                <option value="custom">Custom Broker Key</option>
+                <option value="custom">Custom Account ID</option>
               </select>
             </div>
 
-            {newBrokerKey === 'custom' && (
+            {newAccountId === 'custom' && (
               <div>
-                <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Custom Key</label>
+                <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Custom Account ID</label>
                 <input 
                   type="text" 
-                  placeholder="metatrader:Server-Name or ctrader:SenderCompID" 
-                  value={customBrokerKey} 
-                  onChange={e => setCustomBrokerKey(e.target.value)}
+                  placeholder="e.g. 2002061314 or 48025530" 
+                  value={customAccountId} 
+                  onChange={e => setCustomAccountId(e.target.value)}
                   style={{
                     width: '100%',
                     backgroundColor: '#1e293b',
@@ -521,7 +520,7 @@ export default function SymbolMappingsView({
               <thead>
                 <tr style={{ borderBottom: '1px solid #1e293b', textAlign: 'left', color: '#94a3b8' }}>
                   <th style={{ padding: '8px' }}>Main Symbol</th>
-                  <th style={{ padding: '8px' }}>Broker Config Key</th>
+                  <th style={{ padding: '8px' }}>Account ID</th>
                   <th style={{ padding: '8px' }}>Mapped Broker Symbol</th>
                   <th style={{ padding: '8px', textAlign: 'right' }}>Actions</th>
                 </tr>
@@ -530,7 +529,7 @@ export default function SymbolMappingsView({
                 {symbolMappings.map(m => (
                   <tr key={m.id} style={{ borderBottom: '1px solid #1e293b', color: '#cbd5e1' }}>
                     <td style={{ padding: '8px', fontWeight: 'bold' }}>{m.main_symbol}</td>
-                    <td style={{ padding: '8px', fontFamily: 'monospace', color: '#94a3b8' }}>{m.broker_key}</td>
+                    <td style={{ padding: '8px', fontFamily: 'monospace', color: '#94a3b8' }}>{m.account_id}</td>
                     <td style={{ padding: '8px', color: '#f59e0b', fontFamily: 'monospace' }}>{m.broker_symbol}</td>
                     <td style={{ padding: '8px', textAlign: 'right' }}>
                       <button 

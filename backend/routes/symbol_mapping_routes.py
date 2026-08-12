@@ -12,13 +12,13 @@ def get_mappings():
 def add_mapping():
     payload = request.get_json(silent=True) or {}
     main_symbol = payload.get('main_symbol')
-    broker_key = payload.get('broker_key')
+    account_id = payload.get('account_id') or payload.get('broker_key')
     broker_symbol = payload.get('broker_symbol')
 
-    if not main_symbol or not broker_key or not broker_symbol:
-        return jsonify({"status": "error", "message": "Missing main_symbol, broker_key or broker_symbol"}), 400
+    if not main_symbol or not account_id or not broker_symbol:
+        return jsonify({"status": "error", "message": "Missing main_symbol, account_id or broker_symbol"}), 400
 
-    success = SymbolMappingHandler.add_mapping(main_symbol, broker_key, broker_symbol)
+    success = SymbolMappingHandler.add_mapping(main_symbol, account_id, broker_symbol)
     if success:
         return jsonify({"status": "success", "message": "Symbol mapping updated successfully"})
     return jsonify({"status": "error", "message": "Failed to update symbol mapping"}), 500
@@ -49,7 +49,6 @@ def get_connected_brokers():
         acc_id = str(acc.get("account_id"))
         b_type = acc.get("broker_type", "metatrader")
         b_name = acc.get("name", f"Account #{acc_id}")
-        b_key = f"{b_type}:{acc.get('server') or acc_id}"
         
         symbols = []
         try:
@@ -73,7 +72,6 @@ def get_connected_brokers():
             "account_id": acc_id,
             "broker_type": b_type,
             "name": b_name,
-            "broker_key": b_key,
             "symbols": symbols
         })
         

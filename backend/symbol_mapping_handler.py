@@ -41,12 +41,7 @@ class SymbolMappingHandler:
     def get_all_mappings() -> list:
         SymbolMappingHandler.init_db()
         try:
-            rows = SQLHandler.execute_query("SELECT id, main_symbol, account_id, broker_symbol FROM symbol_mappings")
-            # Map account_id as broker_key for backward compatibility in response payload
-            for r in rows:
-                if 'account_id' in r:
-                    r['broker_key'] = r['account_id']
-            return rows
+            return SQLHandler.execute_query("SELECT id, main_symbol, account_id, broker_symbol FROM symbol_mappings")
         except Exception as e:
             print(f"Error fetching symbol mappings: {e}", flush=True)
             return []
