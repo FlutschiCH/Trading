@@ -1292,11 +1292,26 @@ export default function WyckoffBacktester({
           );
         })()}
         {/* Collapsible Cards */}
-           <CollapsibleCard
+        <CollapsibleCard
           title="🎯 Multi-Symbol & Timeframe Selection"
           isCollapsed={collapsedSections.multiAsset ?? false}
           onToggle={() => toggleSection('multiAsset')}
         >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <SymbolTimeframeSelector
+              multiSelect={true}
+              symbol={symbol}
+              onSymbolChange={setSymbol}
+              timeframe={timeframe}
+              onTimeframeChange={setTimeframe}
+              selectedSymbols={activeSymbols}
+              onSelectedSymbolsChange={setActiveSymbols}
+              selectedTimeframes={activeTimeframes}
+              onSelectedTimeframesChange={setActiveTimeframes}
+              availableSymbols={availableSymbols}
+              availableTimeframes={availableTimeframes}
+            />
+
             {(effectiveSymbols.length > 1 || effectiveTimeframes.length > 1) && (
               <div style={{
                 display: 'flex',
