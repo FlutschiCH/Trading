@@ -11,6 +11,7 @@ export interface SymbolTimeframeSelectorProps {
   placeholder?: string;
   disabled?: boolean;
   onlyUseAvailableSymbols?: boolean;
+  symbolSource?: 'master' | 'fetched' | 'both';
 
   // Single-select
   symbol?: string;
@@ -38,6 +39,7 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
   placeholder = 'Search symbol...',
   disabled = false,
   onlyUseAvailableSymbols = false,
+  symbolSource = 'both',
   symbol = 'EURUSD',
   onSymbolChange,
   timeframe = '15m',
@@ -130,18 +132,28 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
     };
   }, [symbolMappings]);
 
-  // Combined symbols list
+  // Combined symbols list based on symbolSource mode ('master' | 'fetched' | 'both')
   const combinedSymbols = useMemo(() => {
-    if (onlyUseAvailableSymbols) {
+    if (symbolSource === 'fetched' || onlyUseAvailableSymbols) {
       return Array.from(new Set([...availableSymbols, symbol].filter(Boolean)));
     }
+    if (symbolSource === 'master') {
+      const defaultMasters = ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD', 'XAUUSD', 'BTCUSD', 'ETHUSD', 'GER40', 'US30', 'US100', 'NAS100', 'SPX500'];
+      return Array.from(new Set([
+        ...defaultMasters,
+        ...mappedMasterSymbols.masterList,
+        ...availableSymbols,
+        symbol
+      ].filter(Boolean))).sort();
+    }
+    // symbolSource === 'both' (default view for chart & backtester)
     return Array.from(new Set([
       ...mappedMasterSymbols.masterList,
       ...availableSymbols,
       symbol,
       ...favoriteSymbols
     ].filter(Boolean)));
-  }, [onlyUseAvailableSymbols, mappedMasterSymbols, availableSymbols, symbol, favoriteSymbols]);
+  }, [symbolSource, onlyUseAvailableSymbols, mappedMasterSymbols, availableSymbols, symbol, favoriteSymbols]);
 
   // Combined timeframes list
   const combinedTimeframes = useMemo(() => {

@@ -163,7 +163,7 @@ export const SymbolMappingCard: React.FC<SymbolMappingCardProps> = ({ isReadOnly
           <div>
             <SymbolTimeframeSelector 
               showTimeframe={false}
-              onlyUseAvailableSymbols={true}
+              symbolSource="master"
               symbolLabel="Master Symbol (Select or Create)"
               placeholder="e.g. EURUSD, GER40..."
               symbol={newMainSymbol}
@@ -204,7 +204,7 @@ export const SymbolMappingCard: React.FC<SymbolMappingCardProps> = ({ isReadOnly
         <div>
           <SymbolTimeframeSelector 
             showTimeframe={false}
-            onlyUseAvailableSymbols={true}
+            symbolSource="fetched"
             symbolLabel="Broker Symbol (Select from Broker)"
             placeholder={loadingBrokers ? "Loading broker symbols..." : "Search broker symbol (e.g. 100, EURUSD)"}
             symbol={newBrokerSymbol}

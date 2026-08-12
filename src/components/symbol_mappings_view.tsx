@@ -208,7 +208,7 @@ export default function SymbolMappingsView({
             <div>
               <SymbolTimeframeSelector 
                 showTimeframe={false}
-                onlyUseAvailableSymbols={true}
+                symbolSource="master"
                 symbolLabel="Main Symbol (Master)"
                 placeholder="Search/select master symbol (e.g. EURUSD)"
                 symbol={newMainSymbol}
@@ -267,7 +267,7 @@ export default function SymbolMappingsView({
             <div>
               <SymbolTimeframeSelector 
                 showTimeframe={false}
-                onlyUseAvailableSymbols={true}
+                symbolSource="fetched"
                 symbolLabel="Broker Symbol"
                 placeholder={loadingBrokers ? "Loading broker symbols..." : "Search/select broker symbol (e.g. EURUSD.ecn)"}
                 symbol={newBrokerSymbol}
