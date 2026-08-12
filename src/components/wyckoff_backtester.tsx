@@ -403,8 +403,13 @@ export default function WyckoffBacktester({
     }
   };
 
-  const effectiveSymbols = activeSymbols.length > 0 ? activeSymbols : [symbol];
-  const effectiveTimeframes = activeTimeframes.length > 0 ? activeTimeframes : [timeframe];
+  const effectiveSymbols = !globalRangeMode
+    ? [symbol]
+    : (activeSymbols.length > 0 ? activeSymbols : [symbol]);
+
+  const effectiveTimeframes = !globalRangeMode
+    ? [timeframe]
+    : (activeTimeframes.length > 0 ? activeTimeframes : [timeframe]);
 
   // Searchable Multi-Select Dropdown States & Refs
   const [symbolSearchQuery, setSymbolSearchQuery] = React.useState('');
@@ -979,7 +984,83 @@ export default function WyckoffBacktester({
           gap: '12px',
           fontSize: '12px',
         }}>
-        {totalRunCombinations > 1 && (
+        {/* Top Mode Selector Tabs Header */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          backgroundColor: '#0f172a',
+          border: '1px solid #1e293b',
+          borderRadius: '8px',
+          padding: '4px',
+          marginBottom: '4px',
+          gap: '6px'
+        }}>
+          <button
+            type="button"
+            onClick={() => {
+              setGlobalRangeMode(false);
+              setIsOptimizeMode(false);
+            }}
+            style={{
+              flex: 1,
+              padding: '10px 14px',
+              borderRadius: '6px',
+              border: 'none',
+              backgroundColor: !globalRangeMode ? '#2563eb' : 'transparent',
+              color: !globalRangeMode ? '#ffffff' : '#94a3b8',
+              fontSize: '12px',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              transition: 'all 0.2s',
+              boxShadow: !globalRangeMode ? '0 4px 6px -1px rgba(37, 99, 235, 0.3)' : 'none'
+            }}
+          >
+            <span>⚡ Single Backtest</span>
+            {!globalRangeMode && (
+              <span style={{ fontSize: '10px', backgroundColor: 'rgba(255,255,255,0.2)', padding: '2px 8px', borderRadius: '4px', textTransform: 'uppercase' }}>
+                Active ({symbol} • {timeframe})
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setGlobalRangeMode(true);
+              setIsOptimizeMode(true);
+            }}
+            style={{
+              flex: 1,
+              padding: '10px 14px',
+              borderRadius: '6px',
+              border: 'none',
+              backgroundColor: globalRangeMode ? '#0284c7' : 'transparent',
+              color: globalRangeMode ? '#ffffff' : '#94a3b8',
+              fontSize: '12px',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              transition: 'all 0.2s',
+              boxShadow: globalRangeMode ? '0 4px 6px -1px rgba(2, 132, 199, 0.3)' : 'none'
+            }}
+          >
+            <span>📊 Range / Optimization Backtest</span>
+            {globalRangeMode && (
+              <span style={{ fontSize: '10px', backgroundColor: 'rgba(255,255,255,0.2)', padding: '2px 8px', borderRadius: '4px', textTransform: 'uppercase' }}>
+                Active ({totalRunCombinations.toLocaleString()} runs)
+              </span>
+            )}
+          </button>
+        </div>
+
+        {globalRangeMode && totalRunCombinations > 1 && (
           <div style={{
             display: 'flex',
             alignItems: 'center',
@@ -1007,7 +1088,7 @@ export default function WyckoffBacktester({
           justifyContent: 'space-between',
           gap: '8px',
           position: 'sticky',
-          top: '-16px', // offset the parent container's padding if necessary, or just '0px'
+          top: '-16px',
           zIndex: 10,
           backgroundColor: 'var(--app-card-bg, #111827)',
           paddingTop: '4px',
@@ -1015,32 +1096,9 @@ export default function WyckoffBacktester({
           borderBottom: '1px solid var(--app-card-border, #1f2937)',
           marginBottom: '8px'
         }}>
-          <label style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            cursor: 'pointer',
-            backgroundColor: globalRangeMode ? 'rgba(56, 189, 248, 0.15)' : 'rgba(255, 255, 255, 0.05)',
-            border: globalRangeMode ? '1px solid #38bdf8' : '1px solid #374151',
-            padding: '4px 10px',
-            borderRadius: '6px',
-            fontSize: '11px',
-            fontWeight: 600,
-            color: globalRangeMode ? '#38bdf8' : '#9ca3af',
-            userSelect: 'none'
-          }}>
-            <input
-              type="checkbox"
-              checked={globalRangeMode}
-              onChange={(e) => {
-                const checked = e.target.checked;
-                setGlobalRangeMode(checked);
-                setIsOptimizeMode(checked);
-              }}
-              style={{ cursor: 'pointer' }}
-            />
-            ⚡ Range Mode (Grid Search)
-          </label>
+          <div style={{ fontSize: '12px', fontWeight: 'bold', color: globalRangeMode ? '#38bdf8' : '#60a5fa' }}>
+            {globalRangeMode ? '📊 Range Mode Active' : `⚡ Single Mode (${symbol} • ${timeframe})`}
+          </div>
           <div style={{ display: 'flex', gap: '8px' }}>
           {onSaveSettings && (
             <button
@@ -1292,66 +1350,93 @@ export default function WyckoffBacktester({
           );
         })()}
         {/* Collapsible Cards */}
+        {/* Collapsible Card: Symbol & Timeframe Selection */}
         <CollapsibleCard
-          title="🎯 Multi-Symbol & Timeframe Selection"
+          title={globalRangeMode ? "🎯 Multi-Symbol & Multi-Timeframe Selection" : `🎯 Symbol & Timeframe Target (${symbol} • ${timeframe})`}
           isCollapsed={collapsedSections.multiAsset ?? false}
           onToggle={() => toggleSection('multiAsset')}
         >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            <SymbolTimeframeSelector
-              multiSelect={true}
-              symbol={symbol}
-              timeframe={timeframe}
-              selectedSymbols={activeSymbols}
-              onSelectedSymbolsChange={setActiveSymbols}
-              selectedTimeframes={activeTimeframes}
-              onSelectedTimeframesChange={setActiveTimeframes}
-              availableSymbols={availableSymbols}
-              availableTimeframes={availableTimeframes}
-            />
-
-            {(effectiveSymbols.length > 1 || effectiveTimeframes.length > 1) && (
+          {!globalRangeMode ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px',
-                overflowX: 'auto',
-                padding: '6px 8px',
+                justifyContent: 'space-between',
                 backgroundColor: '#0f172a',
+                padding: '10px 14px',
                 borderRadius: '6px',
-                border: '1px solid #1e293b',
-                fontSize: '11px',
-                marginTop: '4px'
+                border: '1px solid #1e293b'
               }}>
-                <span style={{ color: '#9ca3af', fontWeight: 600, whiteSpace: 'nowrap', fontSize: '10px' }}>
-                  🔀 Active Combos ({effectiveSymbols.length * effectiveTimeframes.length}):
-                </span>
-                {effectiveSymbols.flatMap(s => effectiveTimeframes.map(tf => ({ s, tf }))).map(({ s, tf }) => {
-                  const isCurrent = currentCombo.symbol === s && currentCombo.timeframe === tf;
-                  return (
-                    <button
-                      key={`${s}-${tf}`}
-                      type="button"
-                      onClick={() => setActiveResultCombo({ symbol: s, timeframe: tf })}
-                      style={{
-                        padding: '3px 8px',
-                        borderRadius: '4px',
-                        fontSize: '10px',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        whiteSpace: 'nowrap',
-                        border: isCurrent ? '1px solid #38bdf8' : '1px solid #334155',
-                        backgroundColor: isCurrent ? 'rgba(56, 189, 248, 0.2)' : '#1e293b',
-                        color: isCurrent ? '#38bdf8' : '#94a3b8'
-                      }}
-                    >
-                      {s} • {tf}
-                    </button>
-                  );
-                })}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600 }}>Active Symbol (from Chart):</span>
+                  <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#38bdf8' }}>{symbol}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600 }}>Timeframe:</span>
+                  <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#f59e0b' }}>{timeframe}</span>
+                </div>
               </div>
-            )}
-          </div>
+              <span style={{ fontSize: '10px', color: '#64748b', fontStyle: 'italic' }}>
+                💡 Single Backtest runs on the active symbol from the TV Chart. Switch to the <strong>Range / Optimization Backtest</strong> tab above to select multiple symbols and timeframes.
+              </span>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <SymbolTimeframeSelector
+                multiSelect={true}
+                symbol={symbol}
+                timeframe={timeframe}
+                selectedSymbols={activeSymbols}
+                onSelectedSymbolsChange={setActiveSymbols}
+                selectedTimeframes={activeTimeframes}
+                onSelectedTimeframesChange={setActiveTimeframes}
+                availableSymbols={availableSymbols}
+                availableTimeframes={availableTimeframes}
+              />
+
+              {(effectiveSymbols.length > 1 || effectiveTimeframes.length > 1) && (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  overflowX: 'auto',
+                  padding: '6px 8px',
+                  backgroundColor: '#0f172a',
+                  borderRadius: '6px',
+                  border: '1px solid #1e293b',
+                  fontSize: '11px',
+                  marginTop: '4px'
+                }}>
+                  <span style={{ color: '#9ca3af', fontWeight: 600, whiteSpace: 'nowrap', fontSize: '10px' }}>
+                    🔀 Active Combos ({effectiveSymbols.length * effectiveTimeframes.length}):
+                  </span>
+                  {effectiveSymbols.flatMap(s => effectiveTimeframes.map(tf => ({ s, tf }))).map(({ s, tf }) => {
+                    const isCurrent = currentCombo.symbol === s && currentCombo.timeframe === tf;
+                    return (
+                      <button
+                        key={`${s}-${tf}`}
+                        type="button"
+                        onClick={() => setActiveResultCombo({ symbol: s, timeframe: tf })}
+                        style={{
+                          padding: '3px 8px',
+                          borderRadius: '4px',
+                          fontSize: '10px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap',
+                          border: isCurrent ? '1px solid #38bdf8' : '1px solid #334155',
+                          backgroundColor: isCurrent ? 'rgba(56, 189, 248, 0.2)' : '#1e293b',
+                          color: isCurrent ? '#38bdf8' : '#94a3b8'
+                        }}
+                      >
+                        {s} • {tf}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </CollapsibleCard>
 
         <CollapsibleCard title="Risk Management" isCollapsed={collapsedSections.riskManagement} onToggle={() => toggleSection('riskManagement')}>
