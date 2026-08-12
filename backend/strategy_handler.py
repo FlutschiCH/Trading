@@ -448,9 +448,28 @@ class StrategyHandler:
                                     "be_offset": be_off
                                 })
 
+        # Translate master symbols to broker symbols using SymbolMappingHandler
+        from symbol_mapping_handler import SymbolMappingHandler
+        translated_symbol_info = []
+        for sym in symbols_list:
+            mapped_broker_sym = SymbolMappingHandler.map_to_broker(sym, account_id) if account_id else sym
+            if mapped_broker_sym and mapped_broker_sym != sym:
+                translated_symbol_info.append(f"{sym} ➔ {mapped_broker_sym}")
+            else:
+                translated_symbol_info.append(mapped_broker_sym or sym)
+
         import time
         overall_start_time = time.time()
-        print(f"\n[Optimization] Starting grid matrix optimization with {len(matrix)} combinations (skipped {skipped_invalid_combos} invalid combinations where BE >= RR)...", flush=True)
+        print("\n==========================================================================", flush=True)
+        print(f"[Optimization] STARTING GRID MATRIX OPTIMIZATION", flush=True)
+        print(f"  • Account Target     : {account_id or 'Default'} ({candle_source})", flush=True)
+        print(f"  • Translated Symbols : {', '.join(translated_symbol_info)}", flush=True)
+        print(f"  • Timeframes         : {', '.join(timeframes_list)}", flush=True)
+        print(f"  • SL Range           : {sl_values[0] if len(sl_values)==1 else f'{sl_values[0]} .. {sl_values[-1]}'} ({sl_type}, {len(sl_values)} steps)", flush=True)
+        print(f"  • RR Range           : {rr_values[0] if len(rr_values)==1 else f'{rr_values[0]} .. {rr_values[-1]}'} ({len(rr_values)} steps)", flush=True)
+        print(f"  • BE Range           : {be_values[0] if len(be_values)==1 else f'{be_values[0]} .. {be_values[-1]}'} ({len(be_values)} steps)" if use_break_even else "  • BE Range           : Off", flush=True)
+        print(f"  • Total Matrix Runs  : {len(matrix)} combinations (Skipped {skipped_invalid_combos} invalid combos where BE >= RR)", flush=True)
+        print("==========================================================================\n", flush=True)
 
         analysis_cache = {}
         results = []
