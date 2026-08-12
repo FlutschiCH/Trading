@@ -55,8 +55,16 @@ export default function SymbolMappingsView({
 
   const [connectedBrokers, setConnectedBrokers] = useState<ConnectedBroker[]>([]);
   const [loadingBrokers, setLoadingBrokers] = useState(false);
+  const [mainSymbolSearch, setMainSymbolSearch] = useState('');
+  const [showMainSymbolDropdown, setShowMainSymbolDropdown] = useState(false);
   const [brokerSymbolSearch, setBrokerSymbolSearch] = useState('');
   const [showBrokerSymbolDropdown, setShowBrokerSymbolDropdown] = useState(false);
+
+  const handleSelectMainSymbol = (sym: string) => {
+    setNewMainSymbol(sym);
+    setMainSymbolSearch(sym);
+    setShowMainSymbolDropdown(false);
+  };
 
   const fetchConnectedBrokers = async () => {
     setLoadingBrokers(true);
@@ -210,25 +218,94 @@ export default function SymbolMappingsView({
           <form onSubmit={handleAddMapping} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div>
               <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Main Symbol (Master)</label>
-              <select 
-                value={newMainSymbol} 
-                onChange={e => setNewMainSymbol(e.target.value)}
-                style={{
-                  width: '100%',
-                  backgroundColor: '#1e293b',
-                  border: '1px solid #334155',
-                  borderRadius: '6px',
-                  padding: '8px 12px',
-                  color: '#f8fafc',
-                  fontSize: '12px',
-                  outline: 'none'
-                }}
-              >
-                {MASTER_SYMBOLS.map(sym => (
-                  <option key={sym} value={sym}>{sym}</option>
-                ))}
-                <option value="custom">Custom Master Symbol</option>
-              </select>
+              <div style={{ position: 'relative' }}>
+                <input 
+                  type="text" 
+                  placeholder="Search/select master symbol (e.g. EURUSD)"
+                  value={showMainSymbolDropdown ? mainSymbolSearch : (newMainSymbol === 'custom' ? customMainSymbol : newMainSymbol)} 
+                  onFocus={() => {
+                    setMainSymbolSearch('');
+                    setShowMainSymbolDropdown(true);
+                  }}
+                  onChange={e => {
+                    setMainSymbolSearch(e.target.value);
+                    setNewMainSymbol(e.target.value);
+                  }}
+                  style={{
+                    width: '100%',
+                    backgroundColor: '#1e293b',
+                    border: '1px solid #334155',
+                    borderRadius: '6px',
+                    padding: '8px 12px',
+                    color: '#f8fafc',
+                    fontSize: '12px',
+                    outline: 'none'
+                  }}
+                />
+                {showMainSymbolDropdown && (
+                  <>
+                    <div 
+                      onClick={() => setShowMainSymbolDropdown(false)}
+                      style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        zIndex: 999
+                      }}
+                    />
+                    <div style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      right: 0,
+                      backgroundColor: '#0f172a',
+                      border: '1px solid #334155',
+                      borderRadius: '6px',
+                      maxHeight: '200px',
+                      overflowY: 'auto',
+                      zIndex: 1000,
+                      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)',
+                      minWidth: '150px'
+                    }}>
+                      {MASTER_SYMBOLS.filter(s => s.toLowerCase().includes(mainSymbolSearch.toLowerCase())).length > 0 ? (
+                        MASTER_SYMBOLS
+                          .filter(s => s.toLowerCase().includes(mainSymbolSearch.toLowerCase()))
+                          .map(sym => (
+                            <div 
+                              key={sym}
+                              onClick={() => handleSelectMainSymbol(sym)}
+                              style={{
+                                padding: '8px 12px',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                color: '#d1d5db',
+                                backgroundColor: newMainSymbol === sym ? '#2563eb' : 'transparent',
+                                transition: 'background-color 0.15s'
+                              }}
+                              onMouseEnter={(e) => {
+                                if (newMainSymbol !== sym) e.currentTarget.style.backgroundColor = '#1e293b';
+                              }}
+                              onMouseLeave={(e) => {
+                                if (newMainSymbol !== sym) e.currentTarget.style.backgroundColor = 'transparent';
+                              }}
+                            >
+                              {sym}
+                            </div>
+                          ))
+                      ) : (
+                        <div 
+                          onClick={() => handleSelectMainSymbol(mainSymbolSearch.toUpperCase())}
+                          style={{ padding: '8px 12px', fontSize: '12px', color: '#93c5fd', cursor: 'pointer' }}
+                        >
+                          Use custom: "{mainSymbolSearch}"
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
 
             {newMainSymbol === 'custom' && (
