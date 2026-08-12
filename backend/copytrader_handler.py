@@ -178,7 +178,45 @@ class CopytraderHandler:
         CopytraderHandler._is_running = True
         CopytraderHandler._sync_thread = threading.Thread(target=CopytraderHandler._sync_loop, daemon=True)
         CopytraderHandler._sync_thread.start()
-        logPrint("[Copytrader Engine] Background monitor started.")
+
+        # Log & notify engine startup status
+        try:
+            current_host = socket.gethostname()
+            configs = CopytraderHandler.get_all_configs()
+            active_configs = []
+            total_slaves = 0
+
+            for cfg in configs:
+                if cfg.get("status") != "active":
+                    continue
+                target_comp = cfg.get("target_computer", "All")
+                if target_comp != "All" and target_comp.lower() != current_host.lower():
+                    continue
+                active_configs.append(cfg)
+                slaves = cfg.get("slaves", [])
+                active_slaves = [s for s in slaves if s.get("status") != "paused"]
+                total_slaves += len(active_slaves)
+
+            config_count = len(active_configs)
+            summary_msg = (
+                f"\n[Copytrader Engine] 🚀 Starting Copytrader Engine:\n"
+                f"   • Active Configurations Found: {config_count}\n"
+                f"   • Total Active Slaves Connected: {total_slaves}\n"
+                f"   • Host Machine: {current_host}\n"
+            )
+            print(summary_msg, flush=True)
+            logPrint(f"[Copytrader Engine] Background monitor started ({config_count} active configs, {total_slaves} active slaves).")
+
+            from discord_handler import send_discord_message
+            discord_msg = (
+                f"🚀 **Copytrader Engine Started**\n"
+                f"💻 **Host:** `{current_host}`\n"
+                f"⚙️ **Active Configs Found:** `{config_count}`\n"
+                f"🔗 **Total Active Slaves:** `{total_slaves}`"
+            )
+            send_discord_message(discord_msg)
+        except Exception as e:
+            logPrint(f"[Copytrader Engine] Error building start message: {e}")
 
     @staticmethod
     def _get_account_positions(account_id: str, broker: str):
