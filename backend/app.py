@@ -105,10 +105,7 @@ if __name__ == '__main__':
     try:
         from notification_handler import NotificationHandler
         NotificationHandler.play_sound("startup")
-        
-        from discord_handler import notify_discord_startup
-        notify_discord_startup(port)
     except Exception as e:
-        print(f"Failed to play startup sound or notify discord: {e}", flush=True)
+        print(f"Failed to play startup sound: {e}", flush=True)
         
     http_server.serve_forever()
