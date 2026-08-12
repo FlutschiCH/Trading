@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { API_BASE_URL } from '../api';
+import { SymbolTimeframeSelector } from './symbol_timeframe_selector';
 
 interface ConnectedBroker {
   account_id: string;
@@ -24,8 +25,6 @@ export const SymbolMappingCard: React.FC<SymbolMappingCardProps> = ({ isReadOnly
 
   const [connectedBrokers, setConnectedBrokers] = useState<ConnectedBroker[]>([]);
   const [loadingBrokers, setLoadingBrokers] = useState(false);
-  const [brokerSymbolSearch, setBrokerSymbolSearch] = useState('');
-  const [showBrokerSymbolDropdown, setShowBrokerSymbolDropdown] = useState(false);
 
   const fetchConnectedBrokers = async () => {
     setLoadingBrokers(true);
@@ -65,12 +64,6 @@ export const SymbolMappingCard: React.FC<SymbolMappingCardProps> = ({ isReadOnly
   const getAvailableBrokerSymbols = (): string[] => {
     const found = connectedBrokers.find(b => b.account_id === newAccountId);
     return found ? found.symbols : [];
-  };
-
-  const handleSelectBrokerSymbol = (sym: string) => {
-    setNewBrokerSymbol(sym);
-    setBrokerSymbolSearch(sym);
-    setShowBrokerSymbolDropdown(false);
   };
 
   const existingMasterSymbols = Array.from(new Set(symbolMappings.map(m => m.main_symbol).filter(Boolean)));
@@ -165,35 +158,20 @@ export const SymbolMappingCard: React.FC<SymbolMappingCardProps> = ({ isReadOnly
 
       {/* Form Section */}
       <form onSubmit={handleAddMapping} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', alignItems: 'end' }}>
           <div>
-            <label style={{ display: 'block', fontSize: '10px', color: '#94a3b8', marginBottom: '2px' }}>Master Symbol (Select or Create)</label>
-            <input
-              type="text"
-              list="existing-master-symbols-list"
-              placeholder="e.g. EURUSD"
-              value={newMainSymbol}
-              onChange={e => setNewMainSymbol(e.target.value)}
-              style={{
-                width: '100%',
-                backgroundColor: '#0f172a',
-                border: '1px solid #334155',
-                borderRadius: '4px',
-                padding: '6px 8px',
-                color: '#f8fafc',
-                fontSize: '11px',
-                outline: 'none'
-              }}
+            <SymbolTimeframeSelector 
+              showTimeframe={false}
+              symbolLabel="Master Symbol (Select or Create)"
+              placeholder="e.g. EURUSD, GER40..."
+              symbol={newMainSymbol}
+              onSymbolChange={sym => setNewMainSymbol(sym)}
+              availableSymbols={existingMasterSymbols}
             />
-            <datalist id="existing-master-symbols-list">
-              {existingMasterSymbols.map(sym => (
-                <option key={sym} value={sym} />
-              ))}
-            </datalist>
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '10px', color: '#94a3b8', marginBottom: '2px' }}>Active Broker Account</label>
+            <label style={{ display: 'block', fontSize: '10px', color: '#94a3b8', marginBottom: '4px' }}>Active Broker Account</label>
             <select
               value={newAccountId}
               onChange={e => {
@@ -204,10 +182,10 @@ export const SymbolMappingCard: React.FC<SymbolMappingCardProps> = ({ isReadOnly
                 width: '100%',
                 backgroundColor: '#0f172a',
                 border: '1px solid #334155',
-                borderRadius: '4px',
+                borderRadius: '6px',
                 padding: '6px 8px',
                 color: '#f8fafc',
-                fontSize: '11px',
+                fontSize: '12px',
                 outline: 'none'
               }}
             >
@@ -222,93 +200,15 @@ export const SymbolMappingCard: React.FC<SymbolMappingCardProps> = ({ isReadOnly
         </div>
 
         <div>
-          <label style={{ display: 'block', fontSize: '10px', color: '#94a3b8', marginBottom: '2px' }}>Broker Symbol (Select from Broker)</label>
-          <div style={{ position: 'relative' }}>
-            <input 
-              type="text" 
-              placeholder={loadingBrokers ? "Loading broker symbols..." : "Search broker symbol (e.g. 100, EURUSD)"}
-              value={showBrokerSymbolDropdown ? brokerSymbolSearch : newBrokerSymbol}
-              disabled={loadingBrokers || !newAccountId}
-              onFocus={() => {
-                setBrokerSymbolSearch('');
-                setShowBrokerSymbolDropdown(true);
-              }}
-              onChange={e => {
-                setBrokerSymbolSearch(e.target.value);
-                setNewBrokerSymbol(e.target.value);
-              }}
-              style={{
-                width: '100%',
-                backgroundColor: '#0f172a',
-                border: '1px solid #334155',
-                borderRadius: '4px',
-                padding: '6px 8px',
-                color: '#f8fafc',
-                fontSize: '11px',
-                outline: 'none'
-              }}
-            />
-            {showBrokerSymbolDropdown && (
-              <>
-                <div 
-                  onClick={() => setShowBrokerSymbolDropdown(false)}
-                  style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    zIndex: 999
-                  }}
-                />
-                <div style={{
-                  position: 'absolute',
-                  top: '100%',
-                  left: 0,
-                  right: 0,
-                  backgroundColor: '#0f172a',
-                  border: '1px solid #334155',
-                  borderRadius: '4px',
-                  maxHeight: '180px',
-                  overflowY: 'auto',
-                  zIndex: 1000,
-                  boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)'
-                }}>
-                  {getAvailableBrokerSymbols().filter(s => s.toLowerCase().includes(brokerSymbolSearch.toLowerCase())).length > 0 ? (
-                    getAvailableBrokerSymbols()
-                      .filter(s => s.toLowerCase().includes(brokerSymbolSearch.toLowerCase()))
-                      .slice(0, 100)
-                      .map(sym => (
-                        <div 
-                          key={sym}
-                          onClick={() => handleSelectBrokerSymbol(sym)}
-                          style={{
-                            padding: '6px 8px',
-                            cursor: 'pointer',
-                            fontSize: '11px',
-                            color: '#d1d5db',
-                            backgroundColor: newBrokerSymbol === sym ? '#2563eb' : 'transparent',
-                            transition: 'background-color 0.15s'
-                          }}
-                          onMouseEnter={(e) => {
-                            if (newBrokerSymbol !== sym) e.currentTarget.style.backgroundColor = '#1e293b';
-                          }}
-                          onMouseLeave={(e) => {
-                            if (newBrokerSymbol !== sym) e.currentTarget.style.backgroundColor = 'transparent';
-                          }}
-                        >
-                          {sym}
-                        </div>
-                      ))
-                  ) : (
-                    <div style={{ padding: '6px 8px', fontSize: '11px', color: '#6b7280' }}>
-                      {loadingBrokers ? "Fetching connected symbols..." : "No matching symbols found"}
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
+          <SymbolTimeframeSelector 
+            showTimeframe={false}
+            symbolLabel="Broker Symbol (Select from Broker)"
+            placeholder={loadingBrokers ? "Loading broker symbols..." : "Search broker symbol (e.g. 100, EURUSD)"}
+            symbol={newBrokerSymbol}
+            onSymbolChange={sym => setNewBrokerSymbol(sym)}
+            availableSymbols={getAvailableBrokerSymbols()}
+            disabled={loadingBrokers || !newAccountId}
+          />
         </div>
         {mappingMessage && (
           <div style={{

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { API_BASE_URL } from '../api';
+import { SymbolTimeframeSelector } from './symbol_timeframe_selector';
 
 interface SymbolMapping {
   id: number;
@@ -39,16 +40,6 @@ export default function SymbolMappingsView({
 
   const [connectedBrokers, setConnectedBrokers] = useState<ConnectedBroker[]>([]);
   const [loadingBrokers, setLoadingBrokers] = useState(false);
-  const [mainSymbolSearch, setMainSymbolSearch] = useState('');
-  const [showMainSymbolDropdown, setShowMainSymbolDropdown] = useState(false);
-  const [brokerSymbolSearch, setBrokerSymbolSearch] = useState('');
-  const [showBrokerSymbolDropdown, setShowBrokerSymbolDropdown] = useState(false);
-
-  const handleSelectMainSymbol = (sym: string) => {
-    setNewMainSymbol(sym);
-    setMainSymbolSearch(sym);
-    setShowMainSymbolDropdown(false);
-  };
 
   const fetchConnectedBrokers = async () => {
     setLoadingBrokers(true);
@@ -95,12 +86,6 @@ export default function SymbolMappingsView({
       }
     });
     return Array.from(set);
-  };
-
-  const handleSelectBrokerSymbol = (sym: string) => {
-    setNewBrokerSymbol(sym);
-    setBrokerSymbolSearch(sym);
-    setShowBrokerSymbolDropdown(false);
   };
 
   const fetchSymbolMappings = async () => {
@@ -220,119 +205,15 @@ export default function SymbolMappingsView({
           <h3 style={{ margin: '0 0 16px 0', fontSize: '14px', color: '#f8fafc', fontWeight: 'bold' }}>Add / Update Mapping</h3>
           <form onSubmit={handleAddMapping} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Main Symbol (Master)</label>
-              <div style={{ position: 'relative' }}>
-                <input 
-                  type="text" 
-                  placeholder="Search/select master symbol (e.g. EURUSD)"
-                  value={showMainSymbolDropdown ? mainSymbolSearch : (newMainSymbol === 'custom' ? customMainSymbol : newMainSymbol)} 
-                  onFocus={() => {
-                    setMainSymbolSearch('');
-                    setShowMainSymbolDropdown(true);
-                  }}
-                  onChange={e => {
-                    setMainSymbolSearch(e.target.value);
-                    setNewMainSymbol(e.target.value);
-                  }}
-                  style={{
-                    width: '100%',
-                    backgroundColor: '#1e293b',
-                    border: '1px solid #334155',
-                    borderRadius: '6px',
-                    padding: '8px 12px',
-                    color: '#f8fafc',
-                    fontSize: '12px',
-                    outline: 'none'
-                  }}
-                />
-                {showMainSymbolDropdown && (
-                  <>
-                    <div 
-                      onClick={() => setShowMainSymbolDropdown(false)}
-                      style={{
-                        position: 'fixed',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        zIndex: 999
-                      }}
-                    />
-                    <div style={{
-                      position: 'absolute',
-                      top: '100%',
-                      left: 0,
-                      right: 0,
-                      backgroundColor: '#0f172a',
-                      border: '1px solid #334155',
-                      borderRadius: '6px',
-                      maxHeight: '200px',
-                      overflowY: 'auto',
-                      zIndex: 1000,
-                      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)',
-                      minWidth: '150px'
-                    }}>
-                      {getAllMasterSymbols().filter(s => s.toLowerCase().includes(mainSymbolSearch.toLowerCase())).length > 0 ? (
-                        getAllMasterSymbols()
-                          .filter(s => s.toLowerCase().includes(mainSymbolSearch.toLowerCase()))
-                          .slice(0, 100)
-                          .map(sym => (
-                            <div 
-                              key={sym}
-                              onClick={() => handleSelectMainSymbol(sym)}
-                              style={{
-                                padding: '8px 12px',
-                                cursor: 'pointer',
-                                fontSize: '12px',
-                                color: '#d1d5db',
-                                backgroundColor: newMainSymbol === sym ? '#2563eb' : 'transparent',
-                                transition: 'background-color 0.15s'
-                              }}
-                              onMouseEnter={(e) => {
-                                if (newMainSymbol !== sym) e.currentTarget.style.backgroundColor = '#1e293b';
-                              }}
-                              onMouseLeave={(e) => {
-                                if (newMainSymbol !== sym) e.currentTarget.style.backgroundColor = 'transparent';
-                              }}
-                            >
-                              {sym}
-                            </div>
-                          ))
-                      ) : (
-                        <div 
-                          onClick={() => handleSelectMainSymbol(mainSymbolSearch.toUpperCase())}
-                          style={{ padding: '8px 12px', fontSize: '12px', color: '#93c5fd', cursor: 'pointer' }}
-                        >
-                          Use custom: "{mainSymbolSearch}"
-                        </div>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
+              <SymbolTimeframeSelector 
+                showTimeframe={false}
+                symbolLabel="Main Symbol (Master)"
+                placeholder="Search/select master symbol (e.g. EURUSD)"
+                symbol={newMainSymbol}
+                onSymbolChange={sym => setNewMainSymbol(sym)}
+                availableSymbols={getAllMasterSymbols()}
+              />
             </div>
-
-            {newMainSymbol === 'custom' && (
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Custom Master Symbol Name</label>
-                <input 
-                  type="text" 
-                  placeholder="e.g. SOLUSD" 
-                  value={customMainSymbol} 
-                  onChange={e => setCustomMainSymbol(e.target.value)}
-                  style={{
-                    width: '100%',
-                    backgroundColor: '#1e293b',
-                    border: '1px solid #334155',
-                    borderRadius: '6px',
-                    padding: '8px 12px',
-                    color: '#f8fafc',
-                    fontSize: '12px',
-                    outline: 'none'
-                  }}
-                />
-              </div>
-            )}
 
             <div>
               <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Broker / Account Target</label>
@@ -382,93 +263,15 @@ export default function SymbolMappingsView({
             )}
 
             <div>
-              <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Broker Symbol</label>
-              <div style={{ position: 'relative' }}>
-                <input 
-                  type="text" 
-                  placeholder={loadingBrokers ? "Loading broker symbols..." : "Search/select broker symbol (e.g. EURUSD.ecn)"}
-                  value={showBrokerSymbolDropdown ? brokerSymbolSearch : newBrokerSymbol} 
-                  onFocus={() => {
-                    setBrokerSymbolSearch('');
-                    setShowBrokerSymbolDropdown(true);
-                  }}
-                  onChange={e => {
-                    setBrokerSymbolSearch(e.target.value);
-                    setNewBrokerSymbol(e.target.value);
-                  }}
-                  style={{
-                    width: '100%',
-                    backgroundColor: '#1e293b',
-                    border: '1px solid #334155',
-                    borderRadius: '6px',
-                    padding: '8px 12px',
-                    color: '#f8fafc',
-                    fontSize: '12px',
-                    outline: 'none'
-                  }}
-                />
-                {showBrokerSymbolDropdown && (
-                  <>
-                    <div 
-                      onClick={() => setShowBrokerSymbolDropdown(false)}
-                      style={{
-                        position: 'fixed',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        zIndex: 999
-                      }}
-                    />
-                    <div style={{
-                      position: 'absolute',
-                      top: '100%',
-                      left: 0,
-                      right: 0,
-                      backgroundColor: '#0f172a',
-                      border: '1px solid #334155',
-                      borderRadius: '6px',
-                      maxHeight: '200px',
-                      overflowY: 'auto',
-                      zIndex: 1000,
-                      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)',
-                      minWidth: '150px'
-                    }}>
-                      {getAvailableBrokerSymbols().filter(s => s.toLowerCase().includes(brokerSymbolSearch.toLowerCase())).length > 0 ? (
-                        getAvailableBrokerSymbols()
-                          .filter(s => s.toLowerCase().includes(brokerSymbolSearch.toLowerCase()))
-                          .slice(0, 100)
-                          .map(sym => (
-                            <div 
-                              key={sym}
-                              onClick={() => handleSelectBrokerSymbol(sym)}
-                              style={{
-                                padding: '8px 12px',
-                                cursor: 'pointer',
-                                fontSize: '12px',
-                                color: '#d1d5db',
-                                backgroundColor: newBrokerSymbol === sym ? '#2563eb' : 'transparent',
-                                transition: 'background-color 0.15s'
-                              }}
-                              onMouseEnter={(e) => {
-                                if (newBrokerSymbol !== sym) e.currentTarget.style.backgroundColor = '#1e293b';
-                              }}
-                              onMouseLeave={(e) => {
-                                if (newBrokerSymbol !== sym) e.currentTarget.style.backgroundColor = 'transparent';
-                              }}
-                            >
-                              {sym}
-                            </div>
-                          ))
-                      ) : (
-                        <div style={{ padding: '8px 12px', fontSize: '12px', color: '#6b7280' }}>
-                          {loadingBrokers ? "Fetching connected symbols..." : "No matching symbols found for selected broker"}
-                        </div>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
+              <SymbolTimeframeSelector 
+                showTimeframe={false}
+                symbolLabel="Broker Symbol"
+                placeholder={loadingBrokers ? "Loading broker symbols..." : "Search/select broker symbol (e.g. EURUSD.ecn)"}
+                symbol={newBrokerSymbol}
+                onSymbolChange={sym => setNewBrokerSymbol(sym)}
+                availableSymbols={getAvailableBrokerSymbols()}
+                disabled={loadingBrokers || !newAccountId}
+              />
             </div>
             {mappingMessage && (
               <div style={{
