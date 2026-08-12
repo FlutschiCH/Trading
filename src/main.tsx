@@ -4,15 +4,18 @@ import './index.css'
 import App from './App.tsx'
 
 import { CandleProvider } from './services/candleStore'
-import { AccountsComputersProvider } from './services/accountsComputersStore'
+import { AccountsProvider } from './services/accountsStore'
+import { ComputersProvider } from './services/computersStore'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <AccountsComputersProvider>
-      <CandleProvider>
-        <App />
-      </CandleProvider>
-    </AccountsComputersProvider>
+    <AccountsProvider>
+      <ComputersProvider>
+        <CandleProvider>
+          <App />
+        </CandleProvider>
+      </ComputersProvider>
+    </AccountsProvider>
   </StrictMode>,
 )
 

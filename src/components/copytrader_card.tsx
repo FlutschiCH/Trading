@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Copy, Plus, Trash2, CheckCircle2, PauseCircle, Play, Laptop, Server, RefreshCw } from 'lucide-react';
 import { API_BASE_URL } from '../api';
-import { useAccountsComputersStore } from '../services/accountsComputersStore';
+import { useAccountsStore } from '../services/accountsStore';
+import { useComputersStore } from '../services/computersStore';
 
 interface SlaveAccount {
   account_id: string;
@@ -22,7 +23,8 @@ interface CopytraderConfig {
 }
 
 export const CopytraderCard: React.FC = () => {
-  const { accounts, computers, refreshAll: refreshAccountsAndComputers } = useAccountsComputersStore();
+  const { accounts, refreshAccounts } = useAccountsStore();
+  const { computers, refreshComputers } = useComputersStore();
   const [configs, setConfigs] = useState<CopytraderConfig[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
@@ -41,7 +43,7 @@ export const CopytraderCard: React.FC = () => {
 
   const fetchAll = async () => {
     setRefreshing(true);
-    await Promise.all([fetchConfigs(), refreshAccountsAndComputers()]);
+    await Promise.all([fetchConfigs(), refreshAccounts(), refreshComputers()]);
     setRefreshing(false);
   };
 
