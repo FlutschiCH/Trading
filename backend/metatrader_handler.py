@@ -629,20 +629,18 @@ class MetaTraderHandler(BaseBrokerHandler):
         Gets list of symbols from MT5 terminal.
         """
         try:
-            login, password, server = MetaTraderHandler._resolve_credentials(login, password, server, **kwargs)
-        except Exception:
-            if not MT5_AVAILABLE:
-                return ["BTCUSD", "ETHUSD", "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "XAUUSD", "US30", "GER40"]
-            raise
-        if not MT5_AVAILABLE:
-            return ["BTCUSD", "ETHUSD", "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "XAUUSD", "US30", "GER40"]
+            resolved_login, resolved_pwd, resolved_srv = MetaTraderHandler._resolve_credentials(login, password, server, **kwargs)
+            if MT5_AVAILABLE and MetaTraderHandler._initialize_mt5(resolved_login, resolved_pwd, resolved_srv):
+                mt5_inst = MetaTraderHandler.get_mt5_instance(resolved_login) or mt5
+                symbols = mt5_inst.symbols_get()
+                if symbols:
+                    vis = [s.name for s in symbols if getattr(s, 'visible', False) or getattr(s, 'select', False)]
+                    if vis:
+                        return sorted(vis)
+                    return sorted([s.name for s in symbols])
+        except Exception as e:
+            print(f"[MetaTrader get_symbols] Using fallback symbols: {e}", flush=True)
 
-        if not MetaTraderHandler._initialize_mt5(login, password, server):
-            return ["BTCUSD", "ETHUSD", "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "XAUUSD", "US30", "GER40"]
-        mt5_inst = MetaTraderHandler.get_mt5_instance(login) or mt5
-        symbols = mt5_inst.symbols_get()
-        if symbols:
-            return sorted([s.name for s in symbols])
         return ["BTCUSD", "ETHUSD", "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "XAUUSD", "US30", "GER40"]
 
     @staticmethod

@@ -291,6 +291,7 @@ export default function SymbolMappingsView({
                       {getAllMasterSymbols().filter(s => s.toLowerCase().includes(mainSymbolSearch.toLowerCase())).length > 0 ? (
                         getAllMasterSymbols()
                           .filter(s => s.toLowerCase().includes(mainSymbolSearch.toLowerCase()))
+                          .slice(0, 100)
                           .map(sym => (
                             <div 
                               key={sym}
@@ -452,6 +453,7 @@ export default function SymbolMappingsView({
                       {getAvailableBrokerSymbols().filter(s => s.toLowerCase().includes(brokerSymbolSearch.toLowerCase())).length > 0 ? (
                         getAvailableBrokerSymbols()
                           .filter(s => s.toLowerCase().includes(brokerSymbolSearch.toLowerCase()))
+                          .slice(0, 100)
                           .map(sym => (
                             <div 
                               key={sym}

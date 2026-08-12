@@ -63,7 +63,7 @@ def get_connected_brokers():
                 raw_syms = handler.get_symbols(**kwargs) or []
                 symbols = raw_syms if isinstance(raw_syms, list) else []
             elif b_type == 'ctrader':
-                sym_res = handler.get_symbols(account_id=acc_id)
+                sym_res = handler.get_symbols(account_id=acc_id, password=acc.get("password"), token=acc.get("password"))
                 if isinstance(sym_res, dict) and sym_res.get("status") == "success":
                     symbols = sym_res.get("data", [])
         except Exception as e:
