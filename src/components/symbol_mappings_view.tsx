@@ -64,10 +64,11 @@ export default function SymbolMappingsView({
   }, []);
 
   const getAllMasterSymbols = (): string[] => {
-    const set = new Set<string>();
-    connectedBrokers.forEach(b => {
-      if (Array.isArray(b.symbols)) {
-        b.symbols.forEach(s => set.add(s));
+    const defaultMasters = ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD', 'XAUUSD', 'BTCUSD', 'ETHUSD', 'GER40', 'US30', 'US100', 'NAS100', 'SPX500'];
+    const set = new Set<string>(defaultMasters);
+    symbolMappings.forEach(m => {
+      if (m.main_symbol) {
+        set.add(m.main_symbol.toUpperCase().trim());
       }
     });
     return Array.from(set).sort();

@@ -66,7 +66,8 @@ export const SymbolMappingCard: React.FC<SymbolMappingCardProps> = ({ isReadOnly
     return found ? found.symbols : [];
   };
 
-  const existingMasterSymbols = Array.from(new Set(symbolMappings.map(m => m.main_symbol).filter(Boolean)));
+  const defaultMasters = ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD', 'XAUUSD', 'BTCUSD', 'ETHUSD', 'GER40', 'US30', 'US100', 'NAS100', 'SPX500'];
+  const existingMasterSymbols = Array.from(new Set([...defaultMasters, ...symbolMappings.map(m => m.main_symbol.toUpperCase().trim()).filter(Boolean)])).sort();
 
   const handleAddMapping = async (e: React.FormEvent) => {
     e.preventDefault();
