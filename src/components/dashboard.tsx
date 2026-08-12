@@ -16,9 +16,9 @@ import * as apiService from '../services/apiService';
 import NotificationSettingsView from './notification_settings_view';
 import { AlertManagerPanel } from './alert_manager_panel';
 import { CandleCollectorPanel } from './candle_collector_panel';
-import AccountInfoPanel from './account_info_panel';
 import { CandleDetailsCard } from './candle_details_card';
 import SymbolMappingCard from './symbol_mapping_card';
+import CopytraderCard from './copytrader_card';
 import type { Candle, AccountInfo, Position } from '../types/trading';
 import { useCandleStore } from '../services/candleStore';
 import { isPollingPaused } from '../services/pollingStore';
@@ -3231,10 +3231,37 @@ export default function Dashboard() {
                     );
                   }
 
+                  if (panelId === 'copytrader') {
+                    return (
+                      <div
+                        key="copytrader"
+                        onDragOver={(e) => handleDragOver(e, 'copytrader')}
+                        onDrop={(e) => handleDrop(e, 'copytrader')}
+                        style={dragStyles}
+                      >
+                        <div
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, 'copytrader')}
+                          style={headerStyle}
+                        >
+                          <span>🔄 Master / Slave Copytrader Manager</span>
+                          <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header to Move</span>
+                        </div>
+                        <div className="no-drag" style={contentStyle}>
+                          <CopytraderCard />
+                        </div>
+                        {renderResizeHandle('copytrader')}
+                      </div>
+                    );
+                  }
+
                   return null;
                 })}
               </div>
             )}
+            <div style={{ marginTop: '24px' }}>
+              <CopytraderCard />
+            </div>
             {/* Interactive Realtime Log Panel */}
             {showTerminal && (
               <div style={{

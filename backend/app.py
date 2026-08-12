@@ -41,10 +41,12 @@ from live_strategy_handler import LiveStrategyHandler
 from position_manager import PositionManager
 from candle_collector_handler import CandleCollectorHandler
 from alert_handler import AlertHandler
+from copytrader_handler import CopytraderHandler
 
 PositionManager.start()
 CandleCollectorHandler.start_background_collector()
 AlertHandler.start_monitoring()
+CopytraderHandler.start()
 
 
 app = Flask(__name__)

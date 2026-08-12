@@ -19,11 +19,13 @@ from routes.candle_collector_routes import candle_collector_routes
 from routes.backtest_routes import backtest_routes
 from routes.alert_routes import alert_bp
 from routes.sltp_sync_routes import sltp_sync_routes
+from routes.copytrader_routes import copytrader_routes
 
 # Create consolidated api blueprint
 api_blueprint = Blueprint('api', __name__)
 
 # Register sub-blueprints
+api_blueprint.register_blueprint(copytrader_routes)
 api_blueprint.register_blueprint(strategy_routes)
 api_blueprint.register_blueprint(ctrader_routes)
 api_blueprint.register_blueprint(sql_routes)
