@@ -215,6 +215,18 @@ class CTraderHandler(BaseBrokerHandler):
 
     @staticmethod
     def get_symbols(**kwargs) -> dict:
+        try:
+            account_id = kwargs.get("account_id")
+            token = kwargs.get("token") or kwargs.get("password")
+            res = CTraderHandler._send_and_receive(2114, {}, account_id=account_id, token=token)
+            if res and res.get("payloadType") == 2115:
+                symbols_raw = res.get("payload", {}).get("symbol", [])
+                sym_names = [s.get("symbolName") for s in symbols_raw if s.get("symbolName")]
+                if sym_names:
+                    return {"status": "success", "data": sorted(sym_names)}
+        except Exception as e:
+            print(f"Failed to fetch cTrader dynamic symbols: {e}", flush=True)
+
         standard_symbols = [
             "BTCUSD", "ETHUSD", "EURUSD", "GBPUSD", "USDJPY", 
             "AUDUSD", "USDCAD", "XAUUSD", "US30", "GER40"

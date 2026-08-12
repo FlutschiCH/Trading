@@ -88,10 +88,29 @@ export default function SymbolMappingsView({
     fetchConnectedBrokers();
   }, []);
 
+  const getAllMasterSymbols = (): string[] => {
+    const set = new Set<string>(MASTER_SYMBOLS);
+    connectedBrokers.forEach(b => {
+      if (Array.isArray(b.symbols)) {
+        b.symbols.forEach(s => set.add(s));
+      }
+    });
+    return Array.from(set);
+  };
+
   const getAvailableBrokerSymbols = (): string[] => {
     const finalKey = newBrokerKey === 'custom' ? customBrokerKey : newBrokerKey;
     const found = connectedBrokers.find(b => b.broker_key === finalKey || b.account_id === finalKey);
-    return found ? found.symbols : [];
+    if (found && found.symbols && found.symbols.length > 0) {
+      return found.symbols;
+    }
+    const set = new Set<string>();
+    connectedBrokers.forEach(b => {
+      if (Array.isArray(b.symbols)) {
+        b.symbols.forEach(s => set.add(s));
+      }
+    });
+    return Array.from(set);
   };
 
   const handleSelectBrokerSymbol = (sym: string) => {
@@ -269,8 +288,8 @@ export default function SymbolMappingsView({
                       boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)',
                       minWidth: '150px'
                     }}>
-                      {MASTER_SYMBOLS.filter(s => s.toLowerCase().includes(mainSymbolSearch.toLowerCase())).length > 0 ? (
-                        MASTER_SYMBOLS
+                      {getAllMasterSymbols().filter(s => s.toLowerCase().includes(mainSymbolSearch.toLowerCase())).length > 0 ? (
+                        getAllMasterSymbols()
                           .filter(s => s.toLowerCase().includes(mainSymbolSearch.toLowerCase()))
                           .map(sym => (
                             <div 

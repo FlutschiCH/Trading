@@ -642,7 +642,7 @@ class MetaTraderHandler(BaseBrokerHandler):
         mt5_inst = MetaTraderHandler.get_mt5_instance(login) or mt5
         symbols = mt5_inst.symbols_get()
         if symbols:
-            return [s.name for s in symbols if s.visible or s.select]
+            return sorted([s.name for s in symbols])
         return ["BTCUSD", "ETHUSD", "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "XAUUSD", "US30", "GER40"]
 
     @staticmethod
