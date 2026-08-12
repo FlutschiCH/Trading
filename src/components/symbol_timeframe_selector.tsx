@@ -10,6 +10,7 @@ export interface SymbolTimeframeSelectorProps {
   symbolLabel?: string;
   placeholder?: string;
   disabled?: boolean;
+  onlyUseAvailableSymbols?: boolean;
 
   // Single-select
   symbol?: string;
@@ -36,6 +37,7 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
   symbolLabel,
   placeholder = 'Search symbol...',
   disabled = false,
+  onlyUseAvailableSymbols = false,
   symbol = 'EURUSD',
   onSymbolChange,
   timeframe = '15m',
@@ -130,13 +132,16 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
 
   // Combined symbols list
   const combinedSymbols = useMemo(() => {
+    if (onlyUseAvailableSymbols) {
+      return Array.from(new Set([...availableSymbols, symbol].filter(Boolean)));
+    }
     return Array.from(new Set([
       ...mappedMasterSymbols.masterList,
       ...availableSymbols,
       symbol,
       ...favoriteSymbols
     ].filter(Boolean)));
-  }, [mappedMasterSymbols, availableSymbols, symbol, favoriteSymbols]);
+  }, [onlyUseAvailableSymbols, mappedMasterSymbols, availableSymbols, symbol, favoriteSymbols]);
 
   // Combined timeframes list
   const combinedTimeframes = useMemo(() => {
