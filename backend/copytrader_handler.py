@@ -206,15 +206,6 @@ class CopytraderHandler:
             )
             print(summary_msg, flush=True)
             logPrint(f"[Copytrader Engine] Background monitor started ({config_count} active configs, {total_slaves} active slaves).")
-
-            from discord_handler import send_discord_message
-            discord_msg = (
-                f"🚀 **Copytrader Engine Started**\n"
-                f"💻 **Host:** `{current_host}`\n"
-                f"⚙️ **Active Configs Found:** `{config_count}`\n"
-                f"🔗 **Total Active Slaves:** `{total_slaves}`"
-            )
-            send_discord_message(discord_msg)
         except Exception as e:
             logPrint(f"[Copytrader Engine] Error building start message: {e}")
 
