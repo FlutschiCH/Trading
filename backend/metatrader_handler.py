@@ -38,7 +38,9 @@ class MetaTraderHandler(BaseBrokerHandler):
         
         target_dir = os.path.join(mt5_dir, f"mt5_{login}") if login else None
         target_plugin_dir = os.path.join(mt5_dir, f"mt5_plugin_{login}") if login else None
-        path = terminal_path or (os.path.join(target_dir, "terminal64.exe") if target_dir else None)
+        path = terminal_path
+        if not path and target_dir:
+            path = os.path.join(target_dir, "terminal64.exe")
 
         # Check if target account terminal folder exists; if not, copy from mt5_base to provision instance
         if target_dir and not os.path.exists(target_dir):

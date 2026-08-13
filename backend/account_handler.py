@@ -48,6 +48,13 @@ class AccountHandler:
                 SQLHandler.execute_query(create_sqlite)
             except Exception as e:
                 print(f"Error initializing accounts table: {e}", flush=True)
+
+        # Alter table migrations if columns don't exist yet
+        for col_name, col_type in [("terminal_path", "VARCHAR(255)"), ("plugin_path", "VARCHAR(255)")]:
+            try:
+                SQLHandler.execute_query(f"ALTER TABLE accounts ADD COLUMN {col_name} {col_type}")
+            except Exception:
+                pass
         
         AccountHandler._db_initialized = True
 
