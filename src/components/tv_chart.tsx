@@ -765,9 +765,6 @@ export default function TVChart({
         const data = await res.json();
         if (data.status === 'success' && Array.isArray(data.data)) {
           setInternalPositions(data.data);
-          try {
-            localStorage.setItem('wyckoff_active_positions', JSON.stringify(data.data));
-          } catch (e) { }
         }
       } catch (err) {
         console.error('Failed to query positions every 5s:', err);
@@ -1822,11 +1819,6 @@ export default function TVChart({
         openPositionsList = internalPositions;
       } else if (Array.isArray(openPositions) && openPositions.length > 0) {
         openPositionsList = openPositions;
-      } else {
-        try {
-          const stored = localStorage.getItem('wyckoff_active_positions');
-          if (stored) openPositionsList = JSON.parse(stored);
-        } catch (e) { }
       }
 
       const currentSymbolClean = (symbol || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
@@ -2235,13 +2227,6 @@ export default function TVChart({
       positionsList = internalPositions;
     } else if (Array.isArray(openPositions) && openPositions.length > 0) {
       positionsList = openPositions;
-    } else {
-      try {
-        const stored = localStorage.getItem('wyckoff_active_positions');
-        if (stored) {
-          positionsList = JSON.parse(stored);
-        }
-      } catch (e) { }
     }
 
     if (!Array.isArray(positionsList) || positionsList.length === 0) {

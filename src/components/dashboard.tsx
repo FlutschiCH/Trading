@@ -358,14 +358,7 @@ export default function Dashboard() {
 
   // Account & Positions
   const [accountInfo, setAccountInfo] = useState<AccountInfo | null>(null);
-  const [openPositions, setOpenPositions] = useState<Position[]>(() => {
-    try {
-      const saved = localStorage.getItem('wyckoff_active_positions');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [openPositions, setOpenPositions] = useState<Position[]>([]);
 
   // Backtester states
   const [backtestSL, setBacktestSL] = useState(() => localStorage.getItem('wyckoff_backtest_sl') || '20');
@@ -1576,13 +1569,6 @@ export default function Dashboard() {
       if (result.status === 'success') {
         const positions = Array.isArray(result.data) ? result.data : [];
         setOpenPositions(positions);
-        try {
-          if (positions.length > 0) {
-            localStorage.setItem('wyckoff_active_positions', JSON.stringify(positions));
-          } else {
-            localStorage.removeItem('wyckoff_active_positions');
-          }
-        } catch (e) { }
       }
     } catch (error) {
     }
