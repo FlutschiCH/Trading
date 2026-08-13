@@ -181,7 +181,7 @@ class CopytraderHandler:
 
         # Log & notify engine startup status
         try:
-            current_host = socket.gethostname()
+            current_host = socket.gethostname().strip().lower()
             configs = CopytraderHandler.get_all_configs()
             active_configs = []
             total_slaves = 0
@@ -189,8 +189,14 @@ class CopytraderHandler:
             for cfg in configs:
                 if cfg.get("status") != "active":
                     continue
-                target_comp = cfg.get("target_computer", "All")
-                if target_comp != "All" and target_comp.lower() != current_host.lower():
+                target_comp = str(cfg.get("target_computer", "All")).strip().lower()
+                is_match = (
+                    target_comp == "all"
+                    or target_comp == current_host
+                    or (target_comp in current_host or current_host in target_comp)
+                    or ("laptop" in target_comp and ("laptop" in current_host or "marc" in current_host))
+                )
+                if not is_match:
                     continue
                 active_configs.append(cfg)
                 slaves = cfg.get("slaves", [])
@@ -275,7 +281,7 @@ class CopytraderHandler:
 
     @staticmethod
     def _sync_loop():
-        current_host = socket.gethostname()
+        current_host = socket.gethostname().strip().lower()
         while CopytraderHandler._is_running:
             try:
                 configs = CopytraderHandler.get_all_configs()
@@ -283,8 +289,14 @@ class CopytraderHandler:
                     if cfg.get("status") != "active":
                         continue
                     
-                    target_comp = cfg.get("target_computer", "All")
-                    if target_comp != "All" and target_comp.lower() != current_host.lower():
+                    target_comp = str(cfg.get("target_computer", "All")).strip().lower()
+                    is_match = (
+                        target_comp == "all"
+                        or target_comp == current_host
+                        or (target_comp in current_host or current_host in target_comp)
+                        or ("laptop" in target_comp and ("laptop" in current_host or "marc" in current_host))
+                    )
+                    if not is_match:
                         continue
 
                     master_acc = cfg.get("master_account")
