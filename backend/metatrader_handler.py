@@ -491,6 +491,7 @@ class MetaTraderHandler(BaseBrokerHandler):
             vol = round(round(vol / vol_step) * vol_step, 2)
           vol = max(vol_min, min(vol_max, vol))
 
+        user_comment = kwargs.get('comment') or "Wyckoff MT5 Order"
         request_dict = {
             "action": getattr(mt5_inst, 'TRADE_ACTION_DEAL', 1),
             "symbol": matched_symbol,
@@ -499,7 +500,7 @@ class MetaTraderHandler(BaseBrokerHandler):
             "price": float(price),
             "deviation": 20,
             "magic": int(magic) if magic is not None else 123456,
-            "comment": "Wyckoff MT5 Order",
+            "comment": user_comment,
             "type_time": getattr(mt5_inst, 'ORDER_TIME_GTC', 0),
             "type_filling": filling_mode,
         }
@@ -524,6 +525,16 @@ class MetaTraderHandler(BaseBrokerHandler):
         NotificationHandler.play_sound("trade_open")
         order_ticket = str(getattr(result, 'order', None) or getattr(result, 'deal', None) or f"slv_{int(time.time())}")
         return {"status": "success", "message": f"Order successfully executed on MT5. Ticket: {order_ticket}", "ticket": order_ticket, "position_id": order_ticket}
+
+    @staticmethod
+    def execute_trade(action: str, symbol: str, volume: float, price: float = None, sl: float = None, tp: float = None, magic: int = 234000, comment: str = None, **kwargs) -> dict:
+        """Alias for create_order."""
+        return MetaTraderHandler.create_order(symbol=symbol, side=action, volume=volume, price=price, stop_loss=sl, take_profit=tp, magic=magic, comment=comment, **kwargs)
+
+    @staticmethod
+    def copy_trade(action: str, symbol: str, volume: float, price: float = None, sl: float = None, tp: float = None, magic: int = 234000, comment: str = None, **kwargs) -> dict:
+        """Explicit function for copying trades onto slave accounts."""
+        return MetaTraderHandler.create_order(symbol=symbol, side=action, volume=volume, price=price, stop_loss=sl, take_profit=tp, magic=magic, comment=comment, **kwargs)
 
     @staticmethod
     def close_position(position_id: int, symbol: str, side: str, volume: float, **kwargs) -> dict:
@@ -634,6 +645,11 @@ class MetaTraderHandler(BaseBrokerHandler):
             return {"status": "error", "message": f"MT5 modify failed: {comment} (retcode: {retcode})"}
         NotificationHandler.play_sound("alert")
         return {"status": "success", "message": f"Position {position_id} modified successfully."}
+
+    @staticmethod
+    def adjustSLTP(position_id: int, stop_loss: float = None, take_profit: float = None, symbol: str = "EURUSD", **kwargs) -> dict:
+        """Alias method to adjust SL / TP on an open position."""
+        return MetaTraderHandler.modify_position(position_id=position_id, stop_loss=stop_loss, take_profit=take_profit, symbol=symbol, **kwargs)
 
     @staticmethod
     def get_symbols(login: int = 2002061314, password: str = "Godzilla_12", server: str = "JustMarkets-Demo", **kwargs) -> list:

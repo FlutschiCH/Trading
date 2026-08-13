@@ -253,7 +253,7 @@ class CopytraderHandler:
         if broker == "ctrader":
             return CTraderHandler.execute_trade(action=action, symbol=symbol, volume=lots, sl=sl, tp=tp, comment=comment)
         else:
-            return MetaTraderHandler.execute_trade(action=action, symbol=symbol, volume=lots, sl=sl, tp=tp, comment=comment, account_id=account_id)
+            return MetaTraderHandler.copy_trade(action=action, symbol=symbol, volume=lots, sl=sl, tp=tp, comment=comment, account_id=account_id)
 
     @staticmethod
     def _close_position(broker: str, account_id: str, ticket: str, symbol: str, lots: float):
@@ -415,7 +415,7 @@ class CopytraderHandler:
                                                 if abs(curr_sl - sl) > 1e-5 or abs(curr_tp - tp) > 1e-5:
                                                     print(f"[Copytrader Debug] Master trade #{m_ticket} SL/TP changed -> Syncing slave {slave_acc} (#{slave_ticket}) SL {curr_sl}->{sl}, TP {curr_tp}->{tp}", flush=True)
                                                     logPrint(f"[Copytrader] Updating SL/TP on slave {slave_acc} (Ticket: {slave_ticket}): SL {curr_sl}->{sl}, TP {curr_tp}->{tp}")
-                                                    MetaTraderHandler.modify_position(
+                                                    MetaTraderHandler.adjustSLTP(
                                                         position_id=int(slave_ticket),
                                                         stop_loss=sl,
                                                         take_profit=tp,
