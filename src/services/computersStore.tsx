@@ -5,9 +5,23 @@ export interface ComputerItem {
   id?: string;
   name: string;
   hostname?: string;
+  url?: string;
+  ip?: string;
   status?: string;
   last_seen?: string;
 }
+
+export interface TargetOption {
+  label: string;
+  url: string;
+  ip?: string;
+  name?: string;
+}
+
+export const HARDCODED_HOSTS: TargetOption[] = [
+  { label: 'Local Host (Debug)', name: 'Local Host', url: 'http://localhost:8751', ip: '127.0.0.1' },
+  { label: 'Laptop (Live Proxy)', name: 'Laptop', url: 'https://flugrok-production.up.railway.app', ip: '89.217.138.51' },
+];
 
 interface ComputersContextType {
   computers: string[];
@@ -19,7 +33,7 @@ interface ComputersContextType {
 const ComputersContext = createContext<ComputersContextType | undefined>(undefined);
 
 export const ComputersProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [computers, setComputers] = useState<string[]>(['All']);
+  const [computers, setComputers] = useState<string[]>(['All', ...HARDCODED_HOSTS.map(h => `${h.name} (${h.ip})`)]);
   const [rawComputers, setRawComputers] = useState<ComputerItem[]>([]);
   const [loadingComputers, setLoadingComputers] = useState<boolean>(true);
 
@@ -31,7 +45,9 @@ export const ComputersProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const data = await res.json();
         if (data.status === 'success' && Array.isArray(data.computers)) {
           setRawComputers(data.computers);
-          const list = ['All', ...data.computers.map((c: any) => c.name || c.hostname || c)];
+          const hardcodedNames = HARDCODED_HOSTS.map(h => `${h.name} (${h.ip})`);
+          const fetchedNames = data.computers.map((c: any) => c.name || c.hostname || c);
+          const list = ['All', ...hardcodedNames, ...fetchedNames];
           setComputers(Array.from(new Set(list)));
         }
       }

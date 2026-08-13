@@ -1,16 +1,10 @@
 import React, { useState, useEffect } from 'react';
 
-export interface TargetOption {
-  label: string;
-  url: string;
-}
+import { HARDCODED_HOSTS, type TargetOption } from '../services/computersStore';
 
+export type { TargetOption };
 export const LAPTOP_LIVE_URL = 'https://flugrok-production.up.railway.app';
-
-export const TARGET_OPTIONS: TargetOption[] = [
-  { label: 'Local Host (Debug)', url: 'http://localhost:8751' },
-  { label: 'Laptop (Live Proxy)', url: LAPTOP_LIVE_URL },
-];
+export const TARGET_OPTIONS: TargetOption[] = HARDCODED_HOSTS;
 
 
 export const DEFAULT_TARGET_URL = LAPTOP_LIVE_URL;
