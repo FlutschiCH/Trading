@@ -27,7 +27,6 @@ export const setApiBaseUrl = (url: string): void => {
   if (import.meta.env.PROD) return;
   if (typeof window !== 'undefined') {
     localStorage.setItem(STORAGE_KEY, url);
-    window.location.reload();
   }
 };
 
