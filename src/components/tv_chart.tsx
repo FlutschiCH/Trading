@@ -3055,15 +3055,7 @@ export default function TVChart({
           >
             {/* Clickable Active Position Badges on the right side */}
             {(chartSettings.showPositions !== false && chartSettings.showPositionsSvg !== false) && (() => {
-              let positionsList: any[] = [];
-              if (Array.isArray(openPositions) && openPositions.length > 0) {
-                positionsList = openPositions;
-              } else {
-                try {
-                  const stored = localStorage.getItem('wyckoff_active_positions');
-                  if (stored) positionsList = JSON.parse(stored);
-                } catch (e) { }
-              }
+              const positionsList: any[] = Array.isArray(openPositions) ? openPositions : [];
 
               if (!Array.isArray(positionsList) || positionsList.length === 0 || !candlestickSeriesRef.current) return null;
 
