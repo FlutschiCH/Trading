@@ -90,7 +90,6 @@ class TerminalHandler:
             sys.stdout = cls.StreamWrapper(sys.stdout, is_stderr=False)
             sys.stderr = cls.StreamWrapper(sys.stderr, is_stderr=True)
             cls._initialized = True
-            print("[TerminalHandler] Output redirection initialized successfully.", flush=True)
 
     @classmethod
     def add_log(cls, text):
