@@ -1,5 +1,5 @@
 import React from 'react';
-import { useAccountsStore, AccountItem } from '../services/accountsStore';
+import { useAccountsStore, type AccountItem } from '../services/accountsStore';
 
 export interface AccountSelectorProps {
   value: string;
