@@ -251,15 +251,11 @@ export const Copytrader: React.FC = () => {
                 outline: 'none'
               }}
             >
-              {computers.map((c) => {
-                const matchedHost = HARDCODED_HOSTS.find(h => h.name === c);
-                const displayLabel = matchedHost && matchedHost.ip ? `${c} (${matchedHost.ip})` : c;
-                return (
-                  <option key={c} value={c}>
-                    {displayLabel}
-                  </option>
-                );
-              })}
+              {computers.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
             </select>
           </div>
 
