@@ -79,6 +79,20 @@ class AccountHandler:
             except Exception as e:
                 print(f"Error provisioning terminal folder for {account_id}: {e}", flush=True)
 
+        if not os.path.exists(default_plugin) or not any(f.endswith('.pyd') for f in os.listdir(default_plugin) if os.path.isfile(os.path.join(default_plugin, f))):
+            try:
+                import MetaTrader5
+                mt5_pkg_dir = os.path.dirname(MetaTrader5.__file__)
+                if os.path.exists(mt5_pkg_dir):
+                    os.makedirs(default_plugin, exist_ok=True)
+                    for item in os.listdir(mt5_pkg_dir):
+                        s = os.path.join(mt5_pkg_dir, item)
+                        d = os.path.join(default_plugin, item)
+                        if os.path.isfile(s) and not os.path.exists(d):
+                            shutil.copy2(s, d)
+            except Exception as e:
+                print(f"Error initializing mt5_plugin_base template: {e}", flush=True)
+
         if os.path.exists(default_plugin) and not os.path.exists(target_plugin):
             try:
                 shutil.copytree(default_plugin, target_plugin)
