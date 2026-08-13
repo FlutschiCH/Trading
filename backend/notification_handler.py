@@ -121,10 +121,9 @@ class NotificationHandler:
         if os.path.exists(sound_path):
             def _play():
                 try:
-                    from playsound import playsound
-                    playsound(os.path.abspath(sound_path))
-                except Exception as e:
-                    print(f"Error playing sound via playsound: {e}", flush=True)
+                    import winsound
+                    winsound.PlaySound(os.path.abspath(sound_path), winsound.SND_FILENAME | winsound.SND_ASYNC)
+                except Exception:
                     try:
                         import winsound
                         winsound.MessageBeep()
