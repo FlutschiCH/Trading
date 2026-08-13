@@ -333,17 +333,17 @@ class CopytraderHandler:
 
                         master_open_tickets = set()
                         for pos in master_positions:
-                            m_ticket = str(pos.get("ticket") or pos.get("id") or pos.get("position_id", ""))
+                            m_ticket = str(pos.get("position_id") or pos.get("ticket") or pos.get("id") or "")
                             if not m_ticket:
                                 continue
                             master_open_tickets.add(m_ticket)
 
-                            symbol = pos.get("symbol", "BTCUSD")
-                            pos_type = str(pos.get("type", "")).lower()
-                            action = "BUY" if ("buy" in pos_type or pos_type == "0") else "SELL"
+                            symbol = pos.get("symbol", "EURUSD")
+                            pos_side = str(pos.get("trade_side") or pos.get("type") or "").upper()
+                            action = "BUY" if ("BUY" in pos_side or pos_side == "0") else "SELL"
                             master_lots = float(pos.get("volume") or pos.get("lots") or pos.get("size") or 0.01)
-                            sl = float(pos.get("sl") or 0.0)
-                            tp = float(pos.get("tp") or 0.0)
+                            sl = float(pos.get("stop_loss") or pos.get("sl") or 0.0)
+                            tp = float(pos.get("take_profit") or pos.get("tp") or 0.0)
 
                             for slave in slaves:
                                 if slave.get("status") == "paused":
@@ -359,11 +359,11 @@ class CopytraderHandler:
                                     slave_lots = master_lots
                                 slave_lots = max(0.01, slave_lots)
 
-                                # Check if trade is already copied
                                 key = (m_ticket, slave_acc)
                                 if key not in existing_mappings:
+                                    # Trade not yet copied -> Open trade on slave
                                     comment = f"CP_{m_ticket}"
-                                    logPrint(f"[Copytrader] Opening trade on slave {slave_acc}: {action} {slave_lots} {symbol} (Comment: {comment})")
+                                    logPrint(f"[Copytrader] Opening trade on slave {slave_acc}: {action} {slave_lots} {symbol} (SL: {sl}, TP: {tp}, Comment: {comment})")
                                     res = CopytraderHandler._execute_order(
                                         broker=slave_broker,
                                         account_id=slave_acc,
@@ -378,6 +378,27 @@ class CopytraderHandler:
                                         slave_ticket = str(res.get("ticket") or res.get("position_id") or f"slv_{int(time.time())}")
                                         CopytraderHandler._record_mapping(config_id, m_ticket, slave_acc, slave_ticket, symbol, action, slave_lots)
                                         existing_mappings[key] = slave_ticket
+                                else:
+                                    # Trade already copied -> Check and sync SL / TP changes if modified on master
+                                    slave_ticket = existing_mappings[key]
+                                    if slave_broker == "metatrader" and (sl > 0 or tp > 0):
+                                        try:
+                                            slave_positions = CopytraderHandler._get_account_positions(slave_acc, slave_broker)
+                                            slave_pos = next((sp for sp in slave_positions if str(sp.get("position_id") or sp.get("ticket")) == str(slave_ticket)), None)
+                                            if slave_pos:
+                                                curr_sl = float(slave_pos.get("stop_loss") or slave_pos.get("sl") or 0.0)
+                                                curr_tp = float(slave_pos.get("take_profit") or slave_pos.get("tp") or 0.0)
+                                                if abs(curr_sl - sl) > 1e-5 or abs(curr_tp - tp) > 1e-5:
+                                                    logPrint(f"[Copytrader] Updating SL/TP on slave {slave_acc} (Ticket: {slave_ticket}): SL {curr_sl}->{sl}, TP {curr_tp}->{tp}")
+                                                    MetaTraderHandler.modify_position(
+                                                        position_id=int(slave_ticket),
+                                                        stop_loss=sl,
+                                                        take_profit=tp,
+                                                        symbol=symbol,
+                                                        account_id=slave_acc
+                                                    )
+                                        except Exception as mod_err:
+                                            logPrint(f"[Copytrader SL/TP Sync Error]: {mod_err}")
 
                         # Handle position closures: If master ticket closed, close corresponding slave position
                         for (m_ticket, s_acc), s_ticket in list(existing_mappings.items()):
