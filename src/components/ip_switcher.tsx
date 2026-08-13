@@ -31,11 +31,11 @@ export const setApiBaseUrl = (url: string): void => {
   }
 };
 
-interface TargetSwitcherProps {
+interface IPSwitcherProps {
   compact?: boolean;
 }
 
-export const TargetSwitcher: React.FC<TargetSwitcherProps> = ({ compact = false }) => {
+export const IPSwitcher: React.FC<IPSwitcherProps> = ({ compact = false }) => {
   const [currentUrl, setCurrentUrl] = useState<string>(DEFAULT_TARGET_URL);
   const isProd = import.meta.env.PROD;
 
@@ -115,4 +115,3 @@ export const TargetSwitcher: React.FC<TargetSwitcherProps> = ({ compact = false 
     </div>
   );
 };
-

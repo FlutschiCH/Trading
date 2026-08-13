@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Server, RefreshCw, ArrowLeft, Activity, ShieldAlert, Cpu } from 'lucide-react';
-import { TARGET_OPTIONS } from './target_switcher';
+import { TARGET_OPTIONS } from './ip_switcher';
 
 interface HostStatus {
   name: string;

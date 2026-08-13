@@ -11,7 +11,7 @@ import HeaderBar from './header_bar';
 import LandscapeMobileOverview from './landscape_mobile_overview';
 import MobileTabNav, { type MobileTab } from './mobile_tab_nav';
 import { API_BASE_URL } from '../api';
-import { isLocalTarget } from './target_switcher';
+import { isLocalTarget } from './ip_switcher';
 import * as apiService from '../services/apiService';
 import NotificationSettingsView from './notification_settings_view';
 import { AlertManagerPanel } from './alert_manager_panel';

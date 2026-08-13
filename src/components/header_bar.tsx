@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Activity, X, Menu, ChevronDown, Sun, Moon, RefreshCw, ShieldAlert, Terminal, Monitor } from 'lucide-react';
 import { API_BASE_URL } from '../api';
-import { TargetSwitcher } from './target_switcher';
+import { IPSwitcher } from './ip_switcher';
 import AccountSelector from './account_selector';
 import type { AccountInfo } from '../types/trading';
 import { isPollingPaused, setPollingPausedState } from '../services/pollingStore';
@@ -457,7 +457,7 @@ export default function HeaderBar({
 
               {/* Target API & cTrader test buttons */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderTop: '1px solid var(--app-card-border)', paddingTop: '12px' }}>
-                <TargetSwitcher />
+                <IPSwitcher />
               </div>
             </div>
           )}
@@ -982,7 +982,7 @@ export default function HeaderBar({
                 )}
               </div>
 
-              <TargetSwitcher compact />
+              <IPSwitcher compact />
             </div>
           </div>
 
