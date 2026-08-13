@@ -309,11 +309,21 @@ export default function DeployModal({
           </div>
         </div>
 
-        {/* Accounts Multi-Select */}
+        {/* Accounts Selection */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
             Select Execution Accounts / Brokers
           </label>
+          <AccountSelector
+            value={selectedAccounts[0] || ''}
+            onChange={(accId) => {
+              if (accId && !selectedAccounts.includes(accId)) {
+                setSelectedAccounts([accId, ...selectedAccounts.filter(id => id !== accId)]);
+              }
+            }}
+            placeholder="Select Primary Execution Account..."
+            style={{ backgroundColor: 'rgba(15, 23, 42, 0.4)', padding: '8px 12px' }}
+          />
           <div style={{
             backgroundColor: 'rgba(15, 23, 42, 0.4)',
             border: '1px solid #334155',
