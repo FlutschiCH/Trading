@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { X, Server, ShieldAlert, Check, RefreshCw } from 'lucide-react';
 import { API_BASE_URL } from '../api';
 import { TARGET_OPTIONS } from './target_switcher';
+import { useAccountsStore } from '../services/accountsStore';
+import { useComputersStore } from '../services/computersStore';
 
 interface HostStatus {
   name: string;
@@ -90,7 +92,9 @@ export default function DeployModal({
   const [customTo, setCustomTo] = useState<string>(initialCustomTo);
   const [candleLimit, setCandleLimit] = useState<number>(initialCandleLimit);
 
-  const [accounts, setAccounts] = useState<any[]>([]);
+  const { accounts, refreshAccounts } = useAccountsStore();
+  const { computers, rawComputers } = useComputersStore();
+
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>(() => {
     if (initialTargets && initialTargets.length > 0) {
       return initialTargets.map(t => t.account_id);
@@ -99,59 +103,19 @@ export default function DeployModal({
   });
 
   useEffect(() => {
-    if (initialTargets && initialTargets.length > 0) {
-      setSelectedAccounts(initialTargets.map(t => t.account_id));
-    }
-  }, [initialTargets]);
+    refreshAccounts();
+  }, [refreshAccounts]);
 
   useEffect(() => {
-    // Attempt loading from localStorage cache first
-    let cachedList: any[] = [];
-    try {
-      const saved = localStorage.getItem('wyckoff_accounts');
-      if (saved) {
-        cachedList = JSON.parse(saved);
-        setAccounts(cachedList);
-
-        // Auto select active account or first account if we don't have initialTargets
-        if (!initialTargets || initialTargets.length === 0) {
-          const active = cachedList.find((a: any) => a.is_active || a.active);
-          if (active) {
-            setSelectedAccounts([active.account_id]);
-          } else if (cachedList.length > 0) {
-            setSelectedAccounts([cachedList[0].account_id]);
-          }
-        }
+    if ((!initialTargets || initialTargets.length === 0) && accounts.length > 0 && selectedAccounts.length === 0) {
+      const active = accounts.find((a: any) => a.is_active || a.active);
+      if (active) {
+        setSelectedAccounts([active.account_id]);
+      } else {
+        setSelectedAccounts([accounts[0].account_id]);
       }
-    } catch (e) {
-      console.warn("Failed to parse cached accounts:", e);
     }
-
-    const fetchAccounts = async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/accounts`);
-        if (res.ok) {
-          const data = await res.json();
-          // The API returns either { data: [...] } or { accounts: [...] } or direct array
-          const list = data.data || data.accounts || (Array.isArray(data) ? data : []);
-          setAccounts(list);
-          localStorage.setItem('wyckoff_accounts', JSON.stringify(list));
-          // Auto select active account or first account if we don't have initialTargets
-          if (!initialTargets || initialTargets.length === 0) {
-            const active = list.find((a: any) => a.is_active || a.active);
-            if (active) {
-              setSelectedAccounts([active.account_id]);
-            } else if (list.length > 0) {
-              setSelectedAccounts([list[0].account_id]);
-            }
-          }
-        }
-      } catch (err) {
-        console.error('Error fetching accounts', err);
-      }
-    };
-    fetchAccounts();
-  }, []);
+  }, [accounts, initialTargets, selectedAccounts.length]);
 
   const checkHostStatus = async (hostIndex: number) => {
     const host = hosts[hostIndex];
