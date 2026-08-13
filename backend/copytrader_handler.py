@@ -234,12 +234,10 @@ class CopytraderHandler:
                 print(f"[Copytrader] Failed balance check for cTrader account {account_id}: {e}", flush=True)
         else:
             try:
+                # MetaTraderHandler.get_mt5_instance automatically resolves credentials from DB and calls _initialize_mt5
                 mt5_inst = MetaTraderHandler.get_mt5_instance(account_id)
                 if not mt5_inst:
-                    print(f"[Copytrader] Account {account_id} not connected. Resolving credentials and initializing MT5...", flush=True)
-                    login, pwd, srv, term_path = MetaTraderHandler._resolve_credentials(account_id=account_id)
-                    if login and pwd and srv:
-                        MetaTraderHandler._initialize_mt5(login=login, password=pwd, server=srv, terminal_path=term_path)
+                    print(f"[Copytrader] Failed to initialize MT5 instance for account {account_id}", flush=True)
             except Exception as e:
                 print(f"[Copytrader] Failed connection check for MT5 account {account_id}: {e}", flush=True)
 
