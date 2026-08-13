@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Activity, X, Menu, ChevronDown, Sun, Moon, RefreshCw, ShieldAlert, Terminal, Monitor } from 'lucide-react';
 import { API_BASE_URL } from '../api';
 import { TargetSwitcher } from './target_switcher';
+import AccountSelector from './account_selector';
 import type { AccountInfo } from '../types/trading';
 import { isPollingPaused, setPollingPausedState } from '../services/pollingStore';
 
@@ -243,12 +244,15 @@ export default function HeaderBar({
                 ) : (
                   <span style={{ color: 'var(--app-text-muted)', fontSize: '12px' }}>No Active Account</span>
                 )}
-                <select
+                <AccountSelector
                   value={activeAccount?.account_id || ''}
-                  onChange={(e) => {
-                    handleSwitchAccount(e.target.value);
-                    setShowMobileNav(false);
+                  onChange={(accId) => {
+                    if (accId) {
+                      handleSwitchAccount(accId);
+                      setShowMobileNav(false);
+                    }
                   }}
+                  placeholder="Switch account..."
                   style={{
                     backgroundColor: 'var(--app-panel-header-bg)',
                     border: '1px solid var(--app-card-border)',
@@ -256,19 +260,10 @@ export default function HeaderBar({
                     fontSize: '12px',
                     padding: '6px',
                     borderRadius: '6px',
-                    cursor: 'pointer',
-                    outline: 'none',
                     marginTop: '4px',
                     width: '100%',
                   }}
-                >
-                  <option value="" disabled>Switch account...</option>
-                  {accounts.map((acc) => (
-                    <option key={acc.account_id} value={acc.account_id}>
-                      {acc.name} ({acc.broker_type === 'ctrader' ? 'cTrader' : 'MT5'})
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
 
               {/* Quick Actions */}
@@ -1044,9 +1039,12 @@ export default function HeaderBar({
               <span style={{ color: 'var(--app-text-muted)', fontSize: '12px' }}>No Active Account</span>
             )}
 
-            <select
+            <AccountSelector
               value={activeAccount?.account_id || ''}
-              onChange={(e) => handleSwitchAccount(e.target.value)}
+              onChange={(accId) => {
+                if (accId) handleSwitchAccount(accId);
+              }}
+              placeholder="Switch account..."
               style={{
                 backgroundColor: 'var(--app-panel-header-bg)',
                 border: '1px solid var(--app-card-border)',
@@ -1054,17 +1052,9 @@ export default function HeaderBar({
                 fontSize: '12px',
                 padding: '4px 8px',
                 borderRadius: '6px',
-                cursor: 'pointer',
-                outline: 'none',
+                width: 'auto',
               }}
-            >
-              <option value="" disabled>Switch account...</option>
-              {accounts.map((acc) => (
-                <option key={acc.account_id} value={acc.account_id}>
-                  {acc.name} ({acc.broker_type === 'ctrader' ? 'cTrader' : 'MT5'})
-                </option>
-              ))}
-            </select>
+            />
 
             <button
               onClick={() => setShowAccountModal(true)}
