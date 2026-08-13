@@ -612,7 +612,7 @@ class MetaTraderHandler(BaseBrokerHandler):
         return {"status": "success", "message": f"Position {position_id} closed."}
 
     @staticmethod
-    def modify_position(position_id: int, stop_loss: float = None, take_profit: float = None, symbol: str = "EURUSD", login: int = None, password: str = None, server: str = None, **kwargs) -> dict:
+    def modify_position(position_id: int, stop_loss: float = None, take_profit: float = None, symbol: str = None, login: int = None, password: str = None, server: str = None, **kwargs) -> dict:
         login, password, server = MetaTraderHandler._resolve_credentials(login, password, server, **kwargs)
         if not MT5_AVAILABLE:
             return {"status": "error", "message": "MT5 unavailable"}
@@ -625,12 +625,14 @@ class MetaTraderHandler(BaseBrokerHandler):
         target_sl = float(stop_loss) if stop_loss is not None else None
         target_tp = float(take_profit) if take_profit is not None else None
 
-        # If either SL or TP is omitted or 0.0, fetch current position to preserve existing setting
-        if target_sl is None or target_tp is None or target_sl == 0.0 or target_tp == 0.0:
+        # If symbol, SL or TP is omitted or 0.0, fetch current position to preserve existing setting
+        if not symbol or target_sl is None or target_tp is None or target_sl == 0.0 or target_tp == 0.0:
             try:
                 positions = mt5_inst.positions_get(ticket=int(position_id))
                 if positions and len(positions) > 0:
                     curr_pos = positions[0]
+                    if not symbol:
+                        symbol = curr_pos.symbol
                     if target_sl is None or (stop_loss is None and target_sl == 0.0):
                         target_sl = float(curr_pos.sl)
                     if target_tp is None or (take_profit is None and target_tp == 0.0):
