@@ -81,7 +81,8 @@ class MetaTraderHandler(BaseBrokerHandler):
                     print(f"[MetaTrader Plugin Import Warning] Account {login}: {e}", flush=True)
 
         if mt5_module is None or not hasattr(mt5_module, "initialize"):
-            mt5_module = mt5
+            print(f"[MetaTrader Plugin Error] Account {login}: Isolated C-extension module not available in {target_plugin_dir}. Skipping shared fallback.", flush=True)
+            return False
 
         if not login or not password or not server:
             print(f"[MetaTrader Initialization Skipped] Missing required credentials (login={login}, password={'***' if password else None}, server={server})", flush=True)
@@ -95,14 +96,6 @@ class MetaTraderHandler(BaseBrokerHandler):
                     builtins._GLOBAL_MT5_INSTANCES[str(login)] = mt5_module
                     builtins._GLOBAL_MT5_CONNECTION_STATES[str(login)] = True
                     return True
-                elif password and server:
-                    print(f"[MetaTrader Account Switch] Currently on {getattr(acc_info, 'login', 'None')}, logging into {login} on {server}...", flush=True)
-                    login_ok = mt5_module.login(login=int(login), password=password, server=server)
-                    if login_ok:
-                        builtins._GLOBAL_MT5_INSTANCES[str(login)] = mt5_module
-                        builtins._GLOBAL_MT5_CONNECTION_STATES[str(login)] = True
-                        print(f"[MetaTrader Login Switched] Successfully logged into account {login} on {server}", flush=True)
-                        return True
         except Exception as e:
             print(f"[MetaTrader Check Login Exception] {e}", flush=True)
 
