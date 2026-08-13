@@ -69,6 +69,8 @@ class MetaTraderHandler(BaseBrokerHandler):
             if os.path.exists(init_file):
                 module_name = f"MetaTrader5_acc_{login}"
                 try:
+                    if target_plugin_dir not in sys.path:
+                        sys.path.insert(0, target_plugin_dir)
                     spec = importlib.util.spec_from_file_location(module_name, init_file)
                     if spec and spec.loader:
                         mod = importlib.util.module_from_spec(spec)
