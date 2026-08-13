@@ -3,6 +3,7 @@ import { Users, Copy, Plus, Trash2, CheckCircle2, PauseCircle, Play, Laptop, Ser
 import { API_BASE_URL } from '../api';
 import { useAccountsStore } from '../services/accountsStore';
 import { useComputersStore } from '../services/computersStore';
+import AccountSelector from './account_selector';
 
 interface SlaveAccount {
   account_id: string;
@@ -22,7 +23,7 @@ interface CopytraderConfig {
   slaves: SlaveAccount[];
 }
 
-export const CopytraderCard: React.FC = () => {
+export const Copytrader: React.FC = () => {
   const { accounts, refreshAccounts } = useAccountsStore();
   const { computers, refreshComputers } = useComputersStore();
   const [configs, setConfigs] = useState<CopytraderConfig[]>([]);
@@ -150,7 +151,7 @@ export const CopytraderCard: React.FC = () => {
       {/* Top Header Refresh Bar */}
       <div style={{
         display: 'flex',
-        justify: 'space-between',
+        justifyContent: 'space-between',
         alignItems: 'center',
         backgroundColor: '#0f172a',
         padding: '6px 10px',
@@ -258,32 +259,14 @@ export const CopytraderCard: React.FC = () => {
 
           <div>
             <label style={{ display: 'block', fontSize: '10px', color: '#94a3b8', marginBottom: '4px' }}>Master Account</label>
-            <select
+            <AccountSelector
               value={masterAccount}
-              onChange={(e) => {
-                const accId = e.target.value;
+              onChange={(accId, acc) => {
                 setMasterAccount(accId);
-                const matched = accounts.find((a) => a.account_id === accId);
-                if (matched) setMasterBroker(matched.broker_type);
+                if (acc) setMasterBroker(acc.broker_type);
               }}
-              style={{
-                width: '100%',
-                backgroundColor: '#020617',
-                border: '1px solid #334155',
-                borderRadius: '6px',
-                padding: '6px 8px',
-                color: '#f8fafc',
-                fontSize: '12px',
-                outline: 'none'
-              }}
-            >
-              <option value="">Select Master Account...</option>
-              {accounts.map((acc) => (
-                <option key={acc.account_id} value={acc.account_id}>
-                  {acc.name} ({acc.account_id}) - {acc.broker_type.toUpperCase()}
-                </option>
-              ))}
-            </select>
+              placeholder="Select Master Account..."
+            />
           </div>
         </div>
 
@@ -330,34 +313,17 @@ export const CopytraderCard: React.FC = () => {
                   borderRadius: '4px',
                   border: '1px solid #1e293b'
                 }}>
-                  <select
+                  <AccountSelector
                     value={slave.account_id}
-                    onChange={(e) => {
-                      const accId = e.target.value;
-                      const matched = accounts.find((a) => a.account_id === accId);
+                    onChange={(accId, acc) => {
                       handleSlaveChange(idx, 'account_id', accId);
-                      if (matched) handleSlaveChange(idx, 'broker', matched.broker_type);
+                      if (acc) handleSlaveChange(idx, 'broker', acc.broker_type);
                     }}
-                    style={{
-                      flex: 1,
-                      backgroundColor: '#0f172a',
-                      border: '1px solid #334155',
-                      borderRadius: '4px',
-                      padding: '4px 6px',
-                      color: '#f8fafc',
-                      fontSize: '11px',
-                      outline: 'none'
-                    }}
-                  >
-                    <option value="">Select Slave Account...</option>
-                    {accounts
-                      .filter((a) => a.account_id !== masterAccount)
-                      .map((acc) => (
-                        <option key={acc.account_id} value={acc.account_id}>
-                          {acc.name} ({acc.account_id})
-                        </option>
-                      ))}
-                  </select>
+                    placeholder="Select Slave Account..."
+                    filter={(a) => a.account_id !== masterAccount}
+                    showBrokerTag={false}
+                    style={{ flex: 1, backgroundColor: '#0f172a', padding: '4px 6px', fontSize: '11px' }}
+                  />
 
                   <select
                     value={slave.mode}
@@ -557,5 +523,4 @@ export const CopytraderCard: React.FC = () => {
     </div>
   );
 };
-export default CopytraderCard;
-
+export default Copytrader;

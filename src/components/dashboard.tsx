@@ -18,7 +18,7 @@ import { AlertManagerPanel } from './alert_manager_panel';
 import { CandleCollectorPanel } from './candle_collector_panel';
 import { CandleDetailsCard } from './candle_details_card';
 import SymbolMappingCard from './symbol_mapping_card';
-import CopytraderCard from './copytrader_card';
+import Copytrader from './copytrader';
 import LogPanel from './log_panel';
 import type { Candle, AccountInfo, Position } from '../types/trading';
 import { useCandleStore } from '../services/candleStore';
@@ -3249,7 +3249,7 @@ export default function Dashboard() {
                           <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header to Move</span>
                         </div>
                         <div className="no-drag" style={contentStyle}>
-                          <CopytraderCard />
+                          <Copytrader />
                         </div>
                         {renderResizeHandle('copytrader')}
                       </div>
@@ -3261,7 +3261,7 @@ export default function Dashboard() {
               </div>
             )}
             <div style={{ marginTop: '24px' }}>
-              <CopytraderCard />
+              <Copytrader />
             </div>
             {/* Interactive Realtime Log Panel */}
             {showTerminal && (
