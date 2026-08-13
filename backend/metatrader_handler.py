@@ -77,6 +77,18 @@ class MetaTraderHandler(BaseBrokerHandler):
         try:
             if target_plugin_dir not in sys.path:
                 sys.path.insert(0, target_plugin_dir)
+
+            # Register isolated submodule for _core C-extension before module execution
+            core_submodule_name = f"{module_name}._core"
+            pyd_files = [f for f in os.listdir(target_plugin_dir) if f.startswith("_core") and f.endswith(".pyd")]
+            if pyd_files:
+                core_pyd_path = os.path.join(target_plugin_dir, pyd_files[0])
+                core_spec = importlib.util.spec_from_file_location(core_submodule_name, core_pyd_path)
+                if core_spec and core_spec.loader:
+                    core_mod = importlib.util.module_from_spec(core_spec)
+                    sys.modules[core_submodule_name] = core_mod
+                    core_spec.loader.exec_module(core_mod)
+
             spec = importlib.util.spec_from_file_location(module_name, init_file)
             if spec and spec.loader:
                 mod = importlib.util.module_from_spec(spec)
