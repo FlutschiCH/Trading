@@ -25,7 +25,7 @@ def disable_quick_edit():
         except Exception:
             pass
 
-disable_quick_edit()
+# disable_quick_edit()
 
 current_backend_process = None
 process_lock = threading.Lock()
@@ -122,12 +122,7 @@ def check_and_install_dependencies(python_exe):
     if os.path.exists(req_path):
         print("Installing/updating dependencies from requirements.txt...", flush=True)
         try:
-            pip_exe = os.path.join(os.path.dirname(python_exe), "pip")
-            if os.name == 'nt' and not pip_exe.endswith(".exe"):
-                pip_exe += ".exe"
-            if not os.path.exists(pip_exe):
-                pip_exe = "pip"
-            subprocess.run([pip_exe, "install", "-r", "requirements.txt"], cwd="backend", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+            subprocess.run([python_exe, "-m", "pip", "install", "-r", "requirements.txt"], cwd="backend", check=True)
         except Exception as e:
             print(f"Failed to install dependencies: {e}", flush=True)
 
