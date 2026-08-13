@@ -340,12 +340,12 @@ class CopytraderHandler:
                             s_poss = CopytraderHandler._get_account_positions(s_acc, s_brk)
                             slave_info_str.append(f"{s_acc}: {len(s_poss)} trades")
 
-                        print(
-                            f"[Copytrader Loop Debug] Config '{cfg.get('name')}' ({config_id}) | "
-                            f"Master '{master_acc}' ({master_broker}): {len(master_positions)} open trades | "
-                            f"Slaves [{', '.join(slave_info_str)}] | Open Mappings: {len(existing_mappings)}",
-                            flush=True
-                        )
+                        # print(
+                        #     f"[Copytrader Loop Debug] Config '{cfg.get('name')}' ({config_id}) | "
+                        #     f"Master '{master_acc}' ({master_broker}): {len(master_positions)} open trades | "
+                        #     f"Slaves [{', '.join(slave_info_str)}] | Open Mappings: {len(existing_mappings)}",
+                        #     flush=True
+                        #  )
 
                         master_open_tickets = set()
                         for pos in master_positions:
