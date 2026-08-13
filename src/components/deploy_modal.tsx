@@ -4,6 +4,7 @@ import { API_BASE_URL } from '../api';
 import { TARGET_OPTIONS } from './target_switcher';
 import { useAccountsStore } from '../services/accountsStore';
 import { useComputersStore } from '../services/computersStore';
+import AccountSelector from './account_selector';
 
 interface HostStatus {
   name: string;
