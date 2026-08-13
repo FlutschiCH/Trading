@@ -107,6 +107,8 @@ def run_force_git_update():
             except Exception as e:
                 print(f"[Git Warning] Failed to remove .git/index.lock: {e}", flush=True)
 
+        commit_before = get_git_commit()
+
         subprocess.run(["git", "fetch", "--all"], capture_output=True, text=True)
         branch = "main"
         print(f"Target branch: {branch}", flush=True)
@@ -126,6 +128,7 @@ def run_force_git_update():
         else:
             print("Git LFS large files checked successfully.", flush=True)
 
+        commit_after = get_git_commit()
         commit_info = subprocess.run(["git", "log", "-1", "--format=%h - %s (%cr) <%an>"], capture_output=True, text=True)
         GREEN = "\033[92m"
         CYAN = "\033[96m"
@@ -135,6 +138,11 @@ def run_force_git_update():
         print(f"\n{BOLD}{GREEN}======================================================================={RESET}", flush=True)
         print(f"{BOLD}{CYAN}[Git Update Complete] Active Commit: {commit_str}{RESET}", flush=True)
         print(f"{BOLD}{GREEN}=======================================================================\n{RESET}", flush=True)
+
+        if commit_before and commit_after and commit_before != commit_after:
+            print("[Git Update] New commit detected! Restarting autoupdater script process...", flush=True)
+            restart_updater()
+
         return True
     except Exception as e:
         print(f"Git force update warning/error: {e}", flush=True)
