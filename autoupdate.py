@@ -3,14 +3,37 @@ import sys
 import subprocess
 import time
 import threading
-from flask import Flask, jsonify, request
-from flask_cors import CORS
-from gevent.pywsgi import WSGIServer
 
 # Change working directory to the directory of this script to ensure relative paths work
 script_dir = os.path.dirname(os.path.abspath(__file__))
 if script_dir:
     os.chdir(script_dir)
+
+def resolve_python_interpreter():
+    if os.path.exists("backend/.venv/Scripts/python.exe"):
+        return os.path.abspath("backend/.venv/Scripts/python.exe")
+    elif os.path.exists("backend/venv/Scripts/python.exe"):
+        return os.path.abspath("backend/venv/Scripts/python.exe")
+    elif os.path.exists("backend/.venv/bin/python"):
+        return os.path.abspath("backend/.venv/bin/python")
+    return sys.executable
+
+def check_and_install_dependencies(python_exe):
+    req_path = os.path.join("backend", "requirements.txt")
+    if os.path.exists(req_path):
+        print("Installing/updating dependencies from requirements.txt...", flush=True)
+        try:
+            subprocess.run([python_exe, "-m", "pip", "install", "-r", "requirements.txt"], cwd="backend", check=True)
+        except Exception as e:
+            print(f"Failed to install dependencies: {e}", flush=True)
+
+# Run dependency installation FIRST before importing framework modules
+python_interpreter = resolve_python_interpreter()
+check_and_install_dependencies(python_interpreter)
+
+from flask import Flask, jsonify, request
+from flask_cors import CORS
+from gevent.pywsgi import WSGIServer
 
 def disable_quick_edit():
     if sys.platform == "win32":
@@ -117,15 +140,6 @@ def run_force_git_update():
         print(f"Git force update warning/error: {e}", flush=True)
         return False
 
-def check_and_install_dependencies(python_exe):
-    req_path = os.path.join("backend", "requirements.txt")
-    if os.path.exists(req_path):
-        print("Installing/updating dependencies from requirements.txt...", flush=True)
-        try:
-            subprocess.run([python_exe, "-m", "pip", "install", "-r", "requirements.txt"], cwd="backend", check=True)
-        except Exception as e:
-            print(f"Failed to install dependencies: {e}", flush=True)
-
 def main():
     global current_backend_process
     
@@ -133,15 +147,7 @@ def main():
     updater_thread = threading.Thread(target=start_control_server, daemon=True)
     updater_thread.start()
 
-    if os.path.exists("backend/.venv/Scripts/python.exe"):
-        python_exe = os.path.abspath("backend/.venv/Scripts/python.exe")
-    elif os.path.exists("backend/venv/Scripts/python.exe"):
-        python_exe = os.path.abspath("backend/venv/Scripts/python.exe")
-    elif os.path.exists("backend/.venv/bin/python"):
-        python_exe = os.path.abspath("backend/.venv/bin/python")
-    else:
-        python_exe = sys.executable
-
+    python_exe = resolve_python_interpreter()
     print(f"Using Python interpreter: {python_exe}", flush=True)
 
     while True:
