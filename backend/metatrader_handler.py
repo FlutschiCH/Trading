@@ -219,7 +219,7 @@ class MetaTraderHandler(BaseBrokerHandler):
 
         # Match symbol: Check MT5 terminal directly first to bypass DB lookup overhead
         matched_symbol = symbol
-        acc_id_str = str(login)
+        acc_id_str = str(acc_login)
         symbols = mt5_inst.symbols_get()
         if symbols:
             symbol_names = [s.name for s in symbols]
@@ -565,11 +565,11 @@ class MetaTraderHandler(BaseBrokerHandler):
 
     @staticmethod
     def modify_position(position_id: int, stop_loss: float = None, take_profit: float = None, symbol: str = "EURUSD", login: int = 2002061314, password: str = "Godzilla_12", server: str = "JustMarkets-Demo", **kwargs) -> dict:
-        login, password, server = MetaTraderHandler._resolve_credentials(login, password, server, **kwargs)
+        login, password, server, term_path = MetaTraderHandler._resolve_credentials(login, password, server, **kwargs)
         if not MT5_AVAILABLE:
             return {"status": "error", "message": "MT5 unavailable"}
             
-        if not MetaTraderHandler._initialize_mt5(login, password, server):
+        if not MetaTraderHandler._initialize_mt5(login, password, server, terminal_path=term_path):
             return {"status": "error", "message": "Failed to initialize MT5"}
             
         mt5_inst = MetaTraderHandler.get_mt5_instance(login) or mt5
@@ -617,8 +617,8 @@ class MetaTraderHandler(BaseBrokerHandler):
         Gets list of symbols from MT5 terminal directly without fallbacks.
         """
         try:
-            resolved_login, resolved_pwd, resolved_srv = MetaTraderHandler._resolve_credentials(login, password, server, **kwargs)
-            if MT5_AVAILABLE and MetaTraderHandler._initialize_mt5(resolved_login, resolved_pwd, resolved_srv):
+            resolved_login, resolved_pwd, resolved_srv, term_path = MetaTraderHandler._resolve_credentials(login, password, server, **kwargs)
+            if MT5_AVAILABLE and MetaTraderHandler._initialize_mt5(resolved_login, resolved_pwd, resolved_srv, terminal_path=term_path):
                 mt5_inst = MetaTraderHandler.get_mt5_instance(resolved_login) or mt5
                 symbols = mt5_inst.symbols_get()
                 if symbols:
@@ -633,11 +633,11 @@ class MetaTraderHandler(BaseBrokerHandler):
         """
         Fetches historical deals/trades from MetaTrader 5.
         """
-        login, password, server = MetaTraderHandler._resolve_credentials(login, password, server, **kwargs)
+        login, password, server, term_path = MetaTraderHandler._resolve_credentials(login, password, server, **kwargs)
         if not MT5_AVAILABLE:
             return []
 
-        if not MetaTraderHandler._initialize_mt5(login, password, server):
+        if not MetaTraderHandler._initialize_mt5(login, password, server, terminal_path=term_path):
             return []
 
         mt5_inst = MetaTraderHandler.get_mt5_instance(login) or mt5
