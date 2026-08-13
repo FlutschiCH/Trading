@@ -101,8 +101,6 @@ class MetaTraderHandler(BaseBrokerHandler):
         except Exception as e:
             print(f"[MetaTrader Check Login Exception] {e}", flush=True)
 
-        print(f"[MetaTrader Connecting Instance] Account: {login} | Server: {server} | Path: {path}", flush=True)
-
         success = False
         try:
             success = mt5_module.initialize(path=path, login=int(login), password=password, server=server, portable=True, timeout=30000)
