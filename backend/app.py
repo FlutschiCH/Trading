@@ -99,8 +99,28 @@ if __name__ == '__main__':
 
     # Initialize high-performance WSGI Server
     port = int(os.environ.get("PORT", 8751))
-    print(f"Started! Port: {port}...", flush=True)
-    
+
+    # Print host machine & IP banner
+    import socket
+    try:
+        hostname = socket.gethostname()
+        local_ip = "127.0.0.1"
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            s.connect(("8.8.8.8", 80))
+            local_ip = s.getsockname()[0]
+        except Exception:
+            pass
+        finally:
+            s.close()
+        print(f"==================================================", flush=True)
+        print(f"💻 Machine Host: {hostname}", flush=True)
+        print(f"🌐 Local IP:     {local_ip}", flush=True)
+        print(f"🔌 Server Port:   {port}", flush=True)
+        print(f"==================================================", flush=True)
+    except Exception as e:
+        print(f"Started! Port: {port}...", flush=True)
+
     http_server = WSGIServer(('0.0.0.0', port), app, log=CustomWSGILogger())
     
     # Play startup sound once local server is ready
