@@ -20,7 +20,7 @@ export interface TargetOption {
 
 export const HARDCODED_HOSTS: TargetOption[] = [
   { label: 'Local Host (Debug)', name: 'Local Host', url: 'http://localhost:8751', ip: '127.0.0.1' },
-  { label: 'Laptop (Live Proxy)', name: 'Laptop', url: 'https://flugrok-production.up.railway.app', ip: '89.217.138.51' },
+  { label: 'Laptop (Live Proxy)', name: 'marc-laptop', url: 'https://flugrok-production.up.railway.app', ip: '89.217.138.51' },
 ];
 
 interface ComputersContextType {

@@ -190,13 +190,7 @@ class CopytraderHandler:
                 if cfg.get("status") != "active":
                     continue
                 target_comp = str(cfg.get("target_computer", "All")).strip().lower()
-                is_match = (
-                    target_comp == "all"
-                    or target_comp == current_host
-                    or (target_comp in current_host or current_host in target_comp)
-                    or ("laptop" in target_comp and ("laptop" in current_host or "marc" in current_host))
-                )
-                if not is_match:
+                if target_comp != "all" and target_comp != current_host:
                     continue
                 active_configs.append(cfg)
                 slaves = cfg.get("slaves", [])
@@ -290,13 +284,7 @@ class CopytraderHandler:
                         continue
                     
                     target_comp = str(cfg.get("target_computer", "All")).strip().lower()
-                    is_match = (
-                        target_comp == "all"
-                        or target_comp == current_host
-                        or (target_comp in current_host or current_host in target_comp)
-                        or ("laptop" in target_comp and ("laptop" in current_host or "marc" in current_host))
-                    )
-                    if not is_match:
+                    if target_comp != "all" and target_comp != current_host:
                         continue
 
                     master_acc = cfg.get("master_account")
