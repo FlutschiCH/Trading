@@ -256,11 +256,11 @@ class CopytraderHandler:
             return MetaTraderHandler.create_order(symbol=symbol, side=action, volume=lots, stop_loss=sl, take_profit=tp, comment=comment, account_id=account_id)
 
     @staticmethod
-    def _close_position(broker: str, account_id: str, ticket: str, symbol: str, lots: float):
+    def _close_position(broker: str, account_id: str, ticket: str, symbol: str = "", lots: float = 0.0):
         if broker == "ctrader":
             return CTraderHandler.close_position(position_id=ticket)
         else:
-            return MetaTraderHandler.close_position(ticket=ticket, symbol=symbol, volume=lots, account_id=account_id)
+            return MetaTraderHandler.close_position(position_id=int(ticket), symbol=symbol, side="", volume=lots, account_id=account_id)
 
     @staticmethod
     def _get_open_mappings(config_id: str):
@@ -432,7 +432,8 @@ class CopytraderHandler:
                                 slave_broker = slave_config.get("broker", "metatrader") if slave_config else "metatrader"
                                 print(f"[Copytrader Debug] Master ticket #{m_ticket} is no longer open -> Closing slave position #{s_ticket} on account {s_acc}...", flush=True)
                                 logPrint(f"[Copytrader] Master ticket {m_ticket} closed. Closing slave position {s_ticket} on account {s_acc}")
-                                CopytraderHandler._close_position(slave_broker, s_acc, s_ticket, symbol="", lots=0.0)
+                                res_close = CopytraderHandler._close_position(slave_broker, s_acc, s_ticket, symbol="", lots=0.0)
+                                print(f"[Copytrader Debug] Close result for slave {s_acc} (#{s_ticket}): {res_close}", flush=True)
                                 CopytraderHandler._mark_mapping_closed(config_id, m_ticket, s_acc)
             except Exception as e:
                 logPrint(f"[Copytrader Sync Exception]: {e}")
