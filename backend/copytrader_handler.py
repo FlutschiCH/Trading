@@ -197,6 +197,20 @@ class CopytraderHandler:
                 active_slaves = [s for s in slaves if s.get("status") != "paused"]
                 total_slaves += len(active_slaves)
 
+            # Ensure active master & slave accounts are initialized and connected
+            for cfg in active_configs:
+                master_acc = cfg.get("master_account")
+                master_brk = cfg.get("master_broker", "metatrader")
+                if master_acc:
+                    CopytraderHandler._ensure_account_connected(master_acc, master_brk)
+
+                for slave in cfg.get("slaves", []):
+                    if slave.get("status") != "paused":
+                        s_acc = slave.get("account_id")
+                        s_brk = slave.get("broker", "metatrader")
+                        if s_acc:
+                            CopytraderHandler._ensure_account_connected(s_acc, s_brk)
+
             config_count = len(active_configs)
             summary_msg = (
                 f"\n[Copytrader Engine] 🚀 Starting Copytrader Engine:\n"
@@ -208,6 +222,26 @@ class CopytraderHandler:
             logPrint(f"[Copytrader Engine] Background monitor started ({config_count} active configs, {total_slaves} active slaves).")
         except Exception as e:
             logPrint(f"[Copytrader Engine] Error building start message: {e}")
+
+    @staticmethod
+    def _ensure_account_connected(account_id: str, broker: str):
+        if broker == "ctrader":
+            try:
+                bal = CTraderHandler.get_balance()
+                if not bal:
+                    print(f"[Copytrader] Initializing cTrader account {account_id}...", flush=True)
+            except Exception as e:
+                print(f"[Copytrader] Failed balance check for cTrader account {account_id}: {e}", flush=True)
+        else:
+            try:
+                mt5_inst = MetaTraderHandler.get_mt5_instance(account_id)
+                if not mt5_inst:
+                    print(f"[Copytrader] Account {account_id} not connected. Resolving credentials and initializing MT5...", flush=True)
+                    login, pwd, srv, term_path = MetaTraderHandler._resolve_credentials(account_id=account_id)
+                    if login and pwd and srv:
+                        MetaTraderHandler._initialize_mt5(login=login, password=pwd, server=srv, terminal_path=term_path)
+            except Exception as e:
+                print(f"[Copytrader] Failed connection check for MT5 account {account_id}: {e}", flush=True)
 
     @staticmethod
     def _get_account_positions(account_id: str, broker: str):
