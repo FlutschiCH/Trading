@@ -612,7 +612,7 @@ class MetaTraderHandler(BaseBrokerHandler):
         return {"status": "success", "message": f"Position {position_id} closed."}
 
     @staticmethod
-    def modify_position(position_id: int, stop_loss: float = None, take_profit: float = None, symbol: str = "EURUSD", login: int = 2002061314, password: str = "Godzilla_12", server: str = "JustMarkets-Demo", **kwargs) -> dict:
+    def modify_position(position_id: int, stop_loss: float = None, take_profit: float = None, symbol: str = "EURUSD", login: int = None, password: str = None, server: str = None, **kwargs) -> dict:
         login, password, server = MetaTraderHandler._resolve_credentials(login, password, server, **kwargs)
         if not MT5_AVAILABLE:
             return {"status": "error", "message": "MT5 unavailable"}
