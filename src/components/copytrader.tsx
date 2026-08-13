@@ -208,7 +208,7 @@ export const Copytrader: React.FC = () => {
         flexDirection: 'column',
         gap: '12px'
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #1e293b', pb: '8px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #1e293b', paddingBottom: '8px' }}>
           <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#cbd5e1', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
             {editingId ? 'Edit Copytrader Rule' : 'Create Copytrader Setup'}
           </span>
@@ -462,7 +462,7 @@ export const Copytrader: React.FC = () => {
                 padding: '10px 12px',
                 display: 'flex',
                 alignItems: 'center',
-                justifySpace: 'between',
+                justifyContent: 'space-between',
                 gap: '12px'
               }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
