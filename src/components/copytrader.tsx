@@ -316,8 +316,13 @@ export const Copytrader: React.FC = () => {
                   <AccountSelector
                     value={slave.account_id}
                     onChange={(accId, acc) => {
-                      handleSlaveChange(idx, 'account_id', accId);
-                      if (acc) handleSlaveChange(idx, 'broker', acc.broker_type);
+                      const updated = [...slaves];
+                      updated[idx] = {
+                        ...updated[idx],
+                        account_id: accId,
+                        broker: acc ? acc.broker_type : updated[idx].broker,
+                      };
+                      setSlaves(updated);
                     }}
                     placeholder="Select Slave Account..."
                     filter={(a) => String(a.account_id) !== String(masterAccount)}
