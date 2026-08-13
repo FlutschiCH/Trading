@@ -78,6 +78,13 @@ class MetaTraderHandler(BaseBrokerHandler):
             if target_plugin_dir not in sys.path:
                 sys.path.insert(0, target_plugin_dir)
 
+            # Ensure Windows DLL search path includes target_plugin_dir for _core dependent DLLs
+            if sys.platform == "win32" and hasattr(os, "add_dll_directory"):
+                try:
+                    os.add_dll_directory(target_plugin_dir)
+                except Exception:
+                    pass
+
             # Register isolated submodule for _core C-extension before module execution
             core_submodule_name = f"{module_name}._core"
             pyd_files = [f for f in os.listdir(target_plugin_dir) if f.startswith("_core") and f.endswith(".pyd")]
