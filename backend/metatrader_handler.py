@@ -662,12 +662,12 @@ class MetaTraderHandler(BaseBrokerHandler):
         return {"status": "success", "message": f"Position {position_id} modified successfully."}
 
     @staticmethod
-    def adjustSLTP(position_id: int, stop_loss: float = None, take_profit: float = None, symbol: str = "EURUSD", **kwargs) -> dict:
+    def adjustSLTP(position_id: int, stop_loss: float = None, take_profit: float = None, symbol: str = None, **kwargs) -> dict:
         """Alias method to adjust SL / TP on an open position."""
         return MetaTraderHandler.modify_position(position_id=position_id, stop_loss=stop_loss, take_profit=take_profit, symbol=symbol, **kwargs)
 
     @staticmethod
-    def get_symbols(login: int = 2002061314, password: str = "Godzilla_12", server: str = "JustMarkets-Demo", **kwargs) -> list:
+    def get_symbols(login: int = None, password: str = None, server: str = None, **kwargs) -> list:
         """
         Gets list of symbols from MT5 terminal directly without fallbacks.
         """
@@ -684,7 +684,7 @@ class MetaTraderHandler(BaseBrokerHandler):
         return []
 
     @staticmethod
-    def get_history(date_from: int = None, date_to: int = None, login: int = 2002061314, password: str = "Godzilla_12", server: str = "JustMarkets-Demo", **kwargs) -> list:
+    def get_history(date_from: int = None, date_to: int = None, login: int = None, password: str = None, server: str = None, **kwargs) -> list:
         """
         Fetches historical deals/trades from MetaTrader 5.
         """
