@@ -546,6 +546,19 @@ class MetaTraderHandler(BaseBrokerHandler):
         if not mt5_inst:
             return {"status": "error", "message": f"No active MT5 instance found for account '{acc_id}'"}
 
+        # Fetch position details directly if symbol/side/volume are omitted
+        if not symbol or not side or volume <= 0:
+            try:
+                positions = mt5_inst.positions_get(ticket=int(position_id))
+                if positions and len(positions) > 0:
+                    pos = positions[0]
+                    symbol = pos.symbol
+                    buy_type = getattr(mt5_inst, 'POSITION_TYPE_BUY', 0)
+                    side = "BUY" if pos.type == buy_type else "SELL"
+                    volume = float(pos.volume)
+            except Exception as e:
+                print(f"[MetaTrader close_position] Error fetching position #{position_id}: {e}", flush=True)
+
         is_buy = side.upper() == 'BUY'
         action_type = getattr(mt5_inst, 'ORDER_TYPE_SELL', 1) if is_buy else getattr(mt5_inst, 'ORDER_TYPE_BUY', 0)
         

@@ -253,7 +253,7 @@ class CopytraderHandler:
         if broker == "ctrader":
             return CTraderHandler.execute_trade(action=action, symbol=symbol, volume=lots, sl=sl, tp=tp, comment=comment)
         else:
-            return MetaTraderHandler.copy_trade(action=action, symbol=symbol, volume=lots, sl=sl, tp=tp, comment=comment, account_id=account_id)
+            return MetaTraderHandler.create_order(symbol=symbol, side=action, volume=lots, stop_loss=sl, take_profit=tp, comment=comment, account_id=account_id)
 
     @staticmethod
     def _close_position(broker: str, account_id: str, ticket: str, symbol: str, lots: float):
