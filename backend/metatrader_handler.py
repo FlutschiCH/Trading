@@ -165,36 +165,24 @@ class MetaTraderHandler(BaseBrokerHandler):
         req_server = kwargs.get('server') or server
         req_password = kwargs.get('password') or password
 
-        # Check if login looks like the default mock/placeholder value or not provided
-        is_default_mock = str(req_login) == "2002061314" or req_login is None
+        if req_login is None:
+            raise ValueError("No account_id / login provided for MetaTrader credentials lookup.")
 
-        # Load active account from DB
-        if is_default_mock:
-            from account_handler import AccountHandler
-            active_acc = AccountHandler.get_active_account()
-            if active_acc and active_acc.get("broker_type") == "metatrader":
-                return int(active_acc["account_id"]), active_acc.get("password"), active_acc.get("server"), active_acc.get("terminal_path")
-        
-        # Load target account from DB if account_id/login passed
-        if req_login is not None and str(req_login) != "2002061314":
-            from account_handler import AccountHandler
-            accounts = AccountHandler.get_accounts()
-            if isinstance(accounts, list):
-                for acc in accounts:
-                    if str(acc.get('account_id')) == str(req_login):
-                        return int(acc['account_id']), acc.get('password') or req_password, acc.get('server') or req_server, acc.get('terminal_path')
+        from account_handler import AccountHandler
+        accounts = AccountHandler.get_accounts()
+        if isinstance(accounts, list):
+            for acc in accounts:
+                if str(acc.get('account_id')) == str(req_login):
+                    acc_pwd = acc.get('password') or req_password
+                    acc_srv = acc.get('server') or req_server
+                    if not acc_pwd or not acc_srv:
+                        raise ValueError(f"Account {req_login} is missing password or server credentials in DB.")
+                    return int(acc['account_id']), acc_pwd, acc_srv, acc.get('terminal_path')
+
+        if req_password and req_server:
             return int(req_login), req_password, req_server, None
 
-        # If DB had no account, check currently active MT5 terminal account as final fallback
-        if MT5_AVAILABLE:
-            try:
-                acc_info = mt5.account_info()
-                if acc_info is not None:
-                    return acc_info.login, password or "", acc_info.server or "", None
-            except Exception:
-                pass
-
-        raise RuntimeError("No active MetaTrader account found in DB and MT5 terminal is not logged in.")
+        raise RuntimeError(f"MetaTrader account credentials for '{req_login}' not found in DB.")
 
     @staticmethod
     def fetch_candles(symbol: str, timeframe: str, limit: int = 1000, date_from: int = None, date_to: int = None, login: int = None, password: str = None, server: str = None, **kwargs) -> list:
