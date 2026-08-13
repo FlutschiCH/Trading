@@ -521,7 +521,8 @@ class MetaTraderHandler(BaseBrokerHandler):
             return {"status": "error", "message": f"MT5 order failed: {result.comment} (retcode: {result.retcode})"}
             
         NotificationHandler.play_sound("trade_open")
-        return {"status": "success", "message": f"Order successfully executed on MT5. Ticket: {result.order}"}
+        order_ticket = str(getattr(result, 'order', None) or getattr(result, 'deal', None) or f"slv_{int(time.time())}")
+        return {"status": "success", "message": f"Order successfully executed on MT5. Ticket: {order_ticket}", "ticket": order_ticket, "position_id": order_ticket}
 
     @staticmethod
     def close_position(position_id: int, symbol: str, side: str, volume: float, **kwargs) -> dict:
