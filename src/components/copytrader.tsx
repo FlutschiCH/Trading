@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Users, Copy, Plus, Trash2, CheckCircle2, PauseCircle, Play, Laptop, Server, RefreshCw } from 'lucide-react';
 import { API_BASE_URL } from '../api';
 import { useAccountsStore } from '../services/accountsStore';
-import { useComputersStore } from '../services/computersStore';
+import { useComputersStore, HARDCODED_HOSTS } from '../services/computersStore';
 import AccountSelector from './account_selector';
 
 interface SlaveAccount {
@@ -251,9 +251,15 @@ export const Copytrader: React.FC = () => {
                 outline: 'none'
               }}
             >
-              {computers.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
+              {computers.map((c) => {
+                const matchedHost = HARDCODED_HOSTS.find(h => h.name === c);
+                const displayLabel = matchedHost && matchedHost.ip ? `${c} (${matchedHost.ip})` : c;
+                return (
+                  <option key={c} value={c}>
+                    {displayLabel}
+                  </option>
+                );
+              })}
             </select>
           </div>
 

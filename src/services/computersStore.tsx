@@ -33,7 +33,7 @@ interface ComputersContextType {
 const ComputersContext = createContext<ComputersContextType | undefined>(undefined);
 
 export const ComputersProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [computers, setComputers] = useState<string[]>(['All', ...HARDCODED_HOSTS.map(h => `${h.name} (${h.ip})`)]);
+  const [computers, setComputers] = useState<string[]>(['All', ...HARDCODED_HOSTS.map(h => h.name!)]);
   const [rawComputers, setRawComputers] = useState<ComputerItem[]>([]);
   const [loadingComputers, setLoadingComputers] = useState<boolean>(true);
 
@@ -45,7 +45,7 @@ export const ComputersProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const data = await res.json();
         if (data.status === 'success' && Array.isArray(data.computers)) {
           setRawComputers(data.computers);
-          const hardcodedNames = HARDCODED_HOSTS.map(h => `${h.name} (${h.ip})`);
+          const hardcodedNames = HARDCODED_HOSTS.map(h => h.name!);
           const fetchedNames = data.computers.map((c: any) => c.name || c.hostname || c);
           const list = ['All', ...hardcodedNames, ...fetchedNames];
           setComputers(Array.from(new Set(list)));
