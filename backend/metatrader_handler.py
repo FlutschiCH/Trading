@@ -64,26 +64,36 @@ class MetaTraderHandler(BaseBrokerHandler):
         acc_key = str(login) if login else "default"
         mt5_module = None
 
-        if target_plugin_dir and os.path.exists(target_plugin_dir):
-            init_file = os.path.join(target_plugin_dir, "__init__.py")
-            if os.path.exists(init_file):
-                module_name = f"MetaTrader5_acc_{login}"
-                try:
-                    if target_plugin_dir not in sys.path:
-                        sys.path.insert(0, target_plugin_dir)
-                    spec = importlib.util.spec_from_file_location(module_name, init_file)
-                    if spec and spec.loader:
-                        mod = importlib.util.module_from_spec(spec)
-                        mod.__path__ = [target_plugin_dir]
-                        sys.modules[module_name] = mod
-                        spec.loader.exec_module(mod)
-                        mt5_module = mod
-                        print(f"[MetaTrader Plugin Loaded] Account {login}: Loaded isolated module '{module_name}' from {target_plugin_dir}", flush=True)
-                except Exception as e:
-                    print(f"[MetaTrader Plugin Import Warning] Account {login}: {e}", flush=True)
+        if not target_plugin_dir or not os.path.exists(target_plugin_dir):
+            print(f"[MetaTrader Plugin Error] Account {login}: Plugin directory does not exist at '{target_plugin_dir}'", flush=True)
+            return False
+
+        init_file = os.path.join(target_plugin_dir, "__init__.py")
+        if not os.path.exists(init_file):
+            print(f"[MetaTrader Plugin Error] Account {login}: Missing '__init__.py' inside '{target_plugin_dir}'", flush=True)
+            return False
+
+        module_name = f"MetaTrader5_acc_{login}"
+        try:
+            if target_plugin_dir not in sys.path:
+                sys.path.insert(0, target_plugin_dir)
+            spec = importlib.util.spec_from_file_location(module_name, init_file)
+            if spec and spec.loader:
+                mod = importlib.util.module_from_spec(spec)
+                mod.__path__ = [target_plugin_dir]
+                sys.modules[module_name] = mod
+                spec.loader.exec_module(mod)
+                mt5_module = mod
+                print(f"[MetaTrader Plugin Loaded] Account {login}: Loaded isolated module '{module_name}' from {target_plugin_dir}", flush=True)
+            else:
+                print(f"[MetaTrader Plugin Error] Account {login}: Failed to create spec loader from '{init_file}'", flush=True)
+        except Exception as e:
+            import traceback
+            tb_str = traceback.format_exc()
+            print(f"[MetaTrader Plugin Import Failure] Account {login}: Exception while loading '{module_name}' from {target_plugin_dir}:\n{tb_str}", flush=True)
 
         if mt5_module is None or not hasattr(mt5_module, "initialize"):
-            print(f"[MetaTrader Plugin Error] Account {login}: Isolated module not found in {target_plugin_dir}. Explicit failure (no fallbacks allowed).", flush=True)
+            print(f"[MetaTrader Plugin Error] Account {login}: Isolated module '{module_name}' loaded but missing 'initialize()' function.", flush=True)
             return False
 
         if not login or not password or not server:
