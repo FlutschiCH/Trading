@@ -30,8 +30,9 @@ export const AccountsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const res = await fetch(`${API_BASE_URL}/api/accounts`);
       if (res.ok) {
         const data = await res.json();
-        if (data.status === 'success' && Array.isArray(data.accounts)) {
-          setAccounts(data.accounts);
+        const list = Array.isArray(data.data) ? data.data : (Array.isArray(data.accounts) ? data.accounts : []);
+        if (data.status === 'success') {
+          setAccounts(list);
         }
       }
     } catch (e) {
