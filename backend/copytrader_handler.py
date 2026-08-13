@@ -214,7 +214,7 @@ class CopytraderHandler:
         if broker == "ctrader":
             return CTraderHandler.get_open_positions() or []
         else:
-            return MetaTraderHandler.get_open_positions(account_id=account_id) or []
+            return MetaTraderHandler.get_positions(account_id=account_id) or []
 
     @staticmethod
     def _execute_order(broker: str, account_id: str, symbol: str, action: str, lots: float, sl: float = 0.0, tp: float = 0.0, comment: str = ""):
