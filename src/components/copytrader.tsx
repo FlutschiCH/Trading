@@ -320,7 +320,7 @@ export const Copytrader: React.FC = () => {
                       if (acc) handleSlaveChange(idx, 'broker', acc.broker_type);
                     }}
                     placeholder="Select Slave Account..."
-                    filter={(a) => a.account_id !== masterAccount}
+                    filter={(a) => String(a.account_id) !== String(masterAccount)}
                     showBrokerTag={false}
                     style={{ flex: 1, backgroundColor: '#0f172a', padding: '4px 6px', fontSize: '11px' }}
                   />

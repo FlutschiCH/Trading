@@ -24,11 +24,13 @@ export const AccountSelector: React.FC<AccountSelectorProps> = ({
 }) => {
   const { accounts, loadingAccounts } = useAccountsStore();
 
-  const filteredAccounts = filter ? accounts.filter(filter) : accounts;
+  const filteredAccounts = filter
+    ? accounts.filter((a) => filter({ ...a, account_id: String(a.account_id) }))
+    : accounts;
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedId = e.target.value;
-    const selectedAccount = accounts.find((a) => a.account_id === selectedId);
+    const selectedAccount = accounts.find((a) => String(a.account_id) === String(selectedId));
     onChange(selectedId, selectedAccount);
   };
 
@@ -54,7 +56,7 @@ export const AccountSelector: React.FC<AccountSelectorProps> = ({
     >
       <option value="">{loadingAccounts ? 'Loading accounts...' : placeholder}</option>
       {filteredAccounts.map((acc) => (
-        <option key={acc.account_id} value={acc.account_id}>
+        <option key={String(acc.account_id)} value={String(acc.account_id)}>
           {acc.name} ({acc.account_id})
           {showBrokerTag && acc.broker_type ? ` - ${acc.broker_type.toUpperCase()}` : ''}
         </option>
