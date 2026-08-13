@@ -142,9 +142,9 @@ class MetaTraderHandler(BaseBrokerHandler):
 
         if not inst and acc_str:
             print(f"[MetaTrader Fetch Instance] Instance not active for '{acc_str}'. Resolving credentials and initializing...", flush=True)
-            login, password, server = MetaTraderHandler._resolve_credentials(account_id=acc_str)
+            login, password, server, term_path = MetaTraderHandler._resolve_credentials(account_id=acc_str)
             if login and password and server:
-                success = MetaTraderHandler._initialize_mt5(login=login, password=password, server=server)
+                success = MetaTraderHandler._initialize_mt5(login=login, password=password, server=server, terminal_path=term_path)
                 if success:
                     inst = instances.get(acc_str)
 
@@ -173,7 +173,7 @@ class MetaTraderHandler(BaseBrokerHandler):
             from account_handler import AccountHandler
             active_acc = AccountHandler.get_active_account()
             if active_acc and active_acc.get("broker_type") == "metatrader":
-                return int(active_acc["account_id"]), active_acc.get("password"), active_acc.get("server")
+                return int(active_acc["account_id"]), active_acc.get("password"), active_acc.get("server"), active_acc.get("terminal_path")
         
         # Load target account from DB if account_id/login passed
         if req_login is not None and str(req_login) != "2002061314":
@@ -182,15 +182,15 @@ class MetaTraderHandler(BaseBrokerHandler):
             if isinstance(accounts, list):
                 for acc in accounts:
                     if str(acc.get('account_id')) == str(req_login):
-                        return int(acc['account_id']), acc.get('password') or req_password, acc.get('server') or req_server
-            return int(req_login), req_password, req_server
+                        return int(acc['account_id']), acc.get('password') or req_password, acc.get('server') or req_server, acc.get('terminal_path')
+            return int(req_login), req_password, req_server, None
 
         # If DB had no account, check currently active MT5 terminal account as final fallback
         if MT5_AVAILABLE:
             try:
                 acc_info = mt5.account_info()
                 if acc_info is not None:
-                    return acc_info.login, password or "", acc_info.server or ""
+                    return acc_info.login, password or "", acc_info.server or "", None
             except Exception:
                 pass
 
