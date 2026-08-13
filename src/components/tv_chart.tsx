@@ -3122,6 +3122,7 @@ export default function TVChart({
                   if (onSelectTradeRef.current) {
                     onSelectTradeRef.current(pos);
                   }
+                  openSlTpEditModal(pos, 'sl');
                 };
 
                 const handleBadgeMouseDown = (e: React.MouseEvent, type: 'sl' | 'tp') => {
@@ -3481,9 +3482,40 @@ export default function TVChart({
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 'bold', color: slTpEditModal.type === 'sl' ? '#ef4444' : '#10b981', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span>{slTpEditModal.type === 'sl' ? '🛑 Set Stop Loss (SL)' : '🎯 Set Take Profit (TP)'}</span>
-              </h3>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => openSlTpEditModal(slTpEditModal.position, 'sl')}
+                  style={{
+                    backgroundColor: slTpEditModal.type === 'sl' ? '#ef4444' : '#1e293b',
+                    color: '#ffffff',
+                    border: `1px solid ${slTpEditModal.type === 'sl' ? '#ef4444' : '#334155'}`,
+                    borderRadius: '6px',
+                    padding: '4px 10px',
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer'
+                  }}
+                >
+                  🛑 Stop Loss (SL)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openSlTpEditModal(slTpEditModal.position, 'tp')}
+                  style={{
+                    backgroundColor: slTpEditModal.type === 'tp' ? '#10b981' : '#1e293b',
+                    color: '#ffffff',
+                    border: `1px solid ${slTpEditModal.type === 'tp' ? '#10b981' : '#334155'}`,
+                    borderRadius: '6px',
+                    padding: '4px 10px',
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer'
+                  }}
+                >
+                  🎯 Take Profit (TP)
+                </button>
+              </div>
               <button
                 onClick={() => setSlTpEditModal(null)}
                 style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }}
