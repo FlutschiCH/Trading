@@ -333,10 +333,17 @@ class CopytraderHandler:
 
                         # Print detailed per-second debug info
                         active_slaves_list = [str(s.get("account_id")) for s in slaves if s.get("status") != "paused"]
+                        slave_info_str = []
+                        for s_acc in active_slaves_list:
+                            s_cfg = next((s for s in slaves if str(s.get("account_id")) == s_acc), {})
+                            s_brk = s_cfg.get("broker", "metatrader")
+                            s_poss = CopytraderHandler._get_account_positions(s_acc, s_brk)
+                            slave_info_str.append(f"{s_acc}: {len(s_poss)} trades")
+
                         print(
                             f"[Copytrader Loop Debug] Config '{cfg.get('name')}' ({config_id}) | "
                             f"Master '{master_acc}' ({master_broker}): {len(master_positions)} open trades | "
-                            f"Active Slaves {active_slaves_list} | Open Mappings: {len(existing_mappings)}",
+                            f"Slaves [{', '.join(slave_info_str)}] | Open Mappings: {len(existing_mappings)}",
                             flush=True
                         )
 
@@ -435,6 +442,22 @@ class CopytraderHandler:
                                 res_close = CopytraderHandler._close_position(slave_broker, s_acc, s_ticket, symbol="", lots=0.0)
                                 print(f"[Copytrader Debug] Close result for slave {s_acc} (#{s_ticket}): {res_close}", flush=True)
                                 CopytraderHandler._mark_mapping_closed(config_id, m_ticket, s_acc)
+
+                        # Clean up orphaned slave positions whose master ticket was closed while engine was offline
+                        for slave in slaves:
+                            if slave.get("status") == "paused":
+                                continue
+                            s_acc = str(slave.get("account_id"))
+                            s_brk = slave.get("broker", "metatrader")
+                            s_poss = CopytraderHandler._get_account_positions(s_acc, s_brk)
+                            for sp in s_poss:
+                                comment_str = str(sp.get("comment", "")).strip()
+                                sp_ticket = str(sp.get("position_id") or sp.get("ticket"))
+                                # If comment is a master ticket number/CP_<num> not currently open on master, close orphaned slave trade
+                                clean_m_ticket = comment_str.replace("CP_", "").strip()
+                                if clean_m_ticket.isdigit() and clean_m_ticket not in master_open_tickets:
+                                    print(f"[Copytrader Debug] Found orphaned slave trade #{sp_ticket} (Comment: '{comment_str}') on slave {s_acc} whose master ticket is closed -> Closing...", flush=True)
+                                    CopytraderHandler._close_position(s_brk, s_acc, sp_ticket, symbol="", lots=0.0)
             except Exception as e:
                 logPrint(f"[Copytrader Sync Exception]: {e}")
             
