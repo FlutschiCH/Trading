@@ -370,25 +370,38 @@ class CopytraderHandler:
 
                                 key = (m_ticket, slave_acc)
                                 if key not in existing_mappings:
-                                    # Trade not yet copied -> Open trade on slave
-                                    comment = f"CP_{m_ticket}"
-                                    print(f"[Copytrader Debug] Found un-copied master trade #{m_ticket} ({action} {master_lots} {symbol}) -> Copying {slave_lots} to slave {slave_acc}...", flush=True)
-                                    logPrint(f"[Copytrader] Opening trade on slave {slave_acc}: {action} {slave_lots} {symbol} (SL: {sl}, TP: {tp}, Comment: {comment})")
-                                    res = CopytraderHandler._execute_order(
-                                        broker=slave_broker,
-                                        account_id=slave_acc,
-                                        symbol=symbol,
-                                        action=action,
-                                        lots=slave_lots,
-                                        sl=sl,
-                                        tp=tp,
-                                        comment=comment
+                                    # Fetch slave positions and check if any open trade already has comment matching master ticket or CP_<m_ticket>
+                                    slave_positions = CopytraderHandler._get_account_positions(slave_acc, slave_broker)
+                                    existing_slave_pos = next(
+                                        (sp for sp in slave_positions if str(sp.get("comment", "")).strip() in (m_ticket, f"CP_{m_ticket}")),
+                                        None
                                     )
-                                    print(f"[Copytrader Debug] Order execution result for slave {slave_acc}: {res}", flush=True)
-                                    if res and res.get("status") == "success":
-                                        slave_ticket = str(res.get("ticket") or res.get("position_id") or f"slv_{int(time.time())}")
+
+                                    if existing_slave_pos:
+                                        slave_ticket = str(existing_slave_pos.get("position_id") or existing_slave_pos.get("ticket"))
+                                        print(f"[Copytrader Debug] Found pre-existing slave position #{slave_ticket} with matching comment '{m_ticket}' -> Recording mapping...", flush=True)
                                         CopytraderHandler._record_mapping(config_id, m_ticket, slave_acc, slave_ticket, symbol, action, slave_lots)
                                         existing_mappings[key] = slave_ticket
+                                    else:
+                                        # Trade not yet on slave -> Open trade with comment set to master ticket ID
+                                        comment = m_ticket
+                                        print(f"[Copytrader Debug] Found un-copied master trade #{m_ticket} ({action} {master_lots} {symbol}) -> Copying {slave_lots} to slave {slave_acc} (Comment: {comment})...", flush=True)
+                                        logPrint(f"[Copytrader] Opening trade on slave {slave_acc}: {action} {slave_lots} {symbol} (SL: {sl}, TP: {tp}, Comment: {comment})")
+                                        res = CopytraderHandler._execute_order(
+                                            broker=slave_broker,
+                                            account_id=slave_acc,
+                                            symbol=symbol,
+                                            action=action,
+                                            lots=slave_lots,
+                                            sl=sl,
+                                            tp=tp,
+                                            comment=comment
+                                        )
+                                        print(f"[Copytrader Debug] Order execution result for slave {slave_acc}: {res}", flush=True)
+                                        if res and res.get("status") == "success":
+                                            slave_ticket = str(res.get("ticket") or res.get("position_id") or f"slv_{int(time.time())}")
+                                            CopytraderHandler._record_mapping(config_id, m_ticket, slave_acc, slave_ticket, symbol, action, slave_lots)
+                                            existing_mappings[key] = slave_ticket
                                 else:
                                     # Trade already copied -> Check and sync SL / TP changes if modified on master
                                     slave_ticket = existing_mappings[key]

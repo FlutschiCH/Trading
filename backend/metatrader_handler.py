@@ -428,7 +428,8 @@ class MetaTraderHandler(BaseBrokerHandler):
                 "entry_timestamp": int(p.time) - offset,
                 "account_id": acc_id_str,
                 "target_acc_id": acc_id_str,
-                "broker": "metatrader"
+                "broker": "metatrader",
+                "comment": getattr(p, 'comment', '')
             })
         return res
 
