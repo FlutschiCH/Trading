@@ -117,6 +117,7 @@ if __name__ == '__main__':
         print(f"💻 Machine Host: {hostname}", flush=True)
         print(f"🌐 Local IP:     {local_ip}", flush=True)
         print(f"🔌 Server Port:   {port}", flush=True)
+        print(f"🐍 Python Ver:   {sys.version.split()[0]} ({sys.executable})", flush=True)
         print(f"==================================================", flush=True)
     except Exception as e:
         print(f"Started! Port: {port}...", flush=True)

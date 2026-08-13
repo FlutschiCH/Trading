@@ -29,7 +29,7 @@ def check_and_install_dependencies(python_exe):
 
 # Run dependency installation FIRST before importing framework modules
 python_interpreter = resolve_python_interpreter()
-check_and_install_dependencies(python_interpreter)
+# check_and_install_dependencies(python_interpreter)
 
 from flask import Flask, jsonify, request
 from flask_cors import CORS
@@ -153,7 +153,7 @@ def main():
     while True:
         # Force git update every time backend is restarted
         run_force_git_update()
-        check_and_install_dependencies(python_exe)
+        # check_and_install_dependencies(python_exe)
 
         print("Starting backend server (backend/app.py)...", flush=True)
         try:
