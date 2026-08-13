@@ -83,8 +83,7 @@ class MetaTraderHandler(BaseBrokerHandler):
                     print(f"[MetaTrader Plugin Import Warning] Account {login}: {e}", flush=True)
 
         if mt5_module is None or not hasattr(mt5_module, "initialize"):
-            print(f"[MetaTrader Plugin Error] Account {login}: Isolated C-extension module not available in {target_plugin_dir}. Skipping shared fallback.", flush=True)
-            return False
+            mt5_module = mt5
 
         if not login or not password or not server:
             print(f"[MetaTrader Initialization Skipped] Missing required credentials (login={login}, password={'***' if password else None}, server={server})", flush=True)
