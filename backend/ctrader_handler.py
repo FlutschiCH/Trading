@@ -22,6 +22,10 @@ class CTraderHandler(BaseBrokerHandler):
 
     @staticmethod
     def _send_and_receive(payload_type: int, payload: dict, account_id: str = None, token: str = None) -> dict:
+        ENABLE_CTRADER = os.environ.get("CTRADER_ENABLED", "false").lower() == "true"
+        if not ENABLE_CTRADER:
+            raise RuntimeError("cTrader connection is currently inactive.")
+
         from account_handler import AccountHandler
         if account_id and token:
             account_id_str = str(account_id)
