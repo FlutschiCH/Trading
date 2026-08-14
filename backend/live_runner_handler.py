@@ -487,6 +487,7 @@ class LiveRunner:
                 if debug == False:
                     for p in positions:
                         pos_symbol = SymbolMappingHandler.map_to_main(p.get("symbol"), target_acc_id)
+                        broker_symbol = SymbolMappingHandler.map_to_broker(pos_symbol, target_acc_id)
                         if pos_symbol == base_symbol:
                             pos_type = p.get("trade_side", "").upper()
                             is_opposite = (pos_type == "BUY" and should_sell) or (pos_type == "SELL" and should_buy)
@@ -495,7 +496,7 @@ class LiveRunner:
                                     print(f"[Live Runner] Opposite signal detected for target {target_acc_id} on {symbol}. Closing open {pos_type} position...", flush=True)
                                     try:
                                         pos_id = p.get("ticket") or p.get("id") or p.get("position_id")
-                                        handler.close_position(pos_id, **target_kwargs)
+                                        handler.close_position(pos_id, mt5_inst, broker_symbol)
                                         from discord_handler import send_discord_message
                                         send_discord_message(
                                             f"🔄 **Opposite Signal Position Closed**\n"

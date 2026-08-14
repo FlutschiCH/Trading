@@ -537,21 +537,37 @@ class MetaTraderHandler(BaseBrokerHandler):
         return MetaTraderHandler.create_order(symbol=symbol, side=action, volume=volume, price=price, stop_loss=sl, take_profit=tp, magic=magic, comment=comment, **kwargs)
 
     @staticmethod
-    def close_position(position_id: int, symbol: str = None, side: str = None, volume: float = 0.0, **kwargs) -> dict:
+    def close_position(position_id: int, mt5_inst = None, broker_symbol: str = None, **kwargs) -> dict:
         if not MT5_AVAILABLE:
             return {"status": "error", "message": "MT5 unavailable"}
-            
-        acc_id = kwargs.get('account_id') or kwargs.get('account') or kwargs.get('login')
-        mt5_inst = kwargs.get('mt5_inst') or MetaTraderHandler.get_mt5_instance(acc_id)
-        if not mt5_inst:
-            return {"status": "error", "message": f"No active MT5 instance found for account '{acc_id}'"}
 
+        acc_id = kwargs.get('account_id') or kwargs.get('account') or kwargs.get('login')
+        if mt5_inst is None and acc_id:
+            mt5_inst = MetaTraderHandler.get_mt5_instance(acc_id)
+
+        if mt5_inst is None:
+            return {"status": "error", "message": "No MT5 instance provided"}
+            
         try:
-            res = mt5_inst.Close(symbol, int(position_id))
+            # If symbol not supplied, look up position ticket to find broker symbol
+            if not broker_symbol:
+                positions = mt5_inst.positions_get(ticket=int(position_id))
+                if positions and len(positions) > 0:
+                    broker_symbol = positions[0].symbol
+
+            if not broker_symbol:
+                return {"status": "error", "message": f"Could not determine broker symbol for position ticket {position_id}"}
+
+            res = mt5_inst.Close(broker_symbol, ticket=int(position_id))
             from notification_handler import NotificationHandler
-            NotificationHandler.play_sound("trade_close")
-            return {"status": "success", "message": f"Position {position_id} closed via mt5.Close: {res}"}
+            if res is True or res == "Partially":
+                NotificationHandler.play_sound("trade_close")
+                return {"status": "success", "message": f"Position {position_id} closed via mt5.Close: {res}"}
+            else:
+                NotificationHandler.play_sound("error")
+                return {"status": "error", "message": f"Failed to close position {position_id} via mt5.Close, returned: {res}"}
         except Exception as e:
+            print(f"[MetaTrader close_position] Error closing position {position_id}: {e}", flush=True)
             from notification_handler import NotificationHandler
             NotificationHandler.play_sound("error")
             return {"status": "error", "message": f"Failed to close position {position_id} via mt5.Close: {e}"}
