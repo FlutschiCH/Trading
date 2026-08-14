@@ -35,8 +35,20 @@ export const fetchLiveStrategies = async () => {
   return safeJsonParse(response);
 };
 
-export const fetchMetadataSymbols = async (sourcePath: string) => {
-  const response = await throttledFetch(`${API_BASE_URL}/api/${sourcePath}/symbols`);
+export const fetchMetadataSymbols = async (sourcePath: string, accountId?: string) => {
+  const savedId = accountId || localStorage.getItem('wyckoff_active_account_id');
+  let accId = (savedId && !['none', 'null', 'undefined'].includes(String(savedId).trim().toLowerCase())) ? savedId : null;
+  if (!accId) {
+    try {
+      const saved = localStorage.getItem('wyckoff_active_account');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        accId = parsed?.account_id || parsed?.id;
+      }
+    } catch { }
+  }
+  const queryParam = accId ? `?account_id=${encodeURIComponent(accId)}` : '';
+  const response = await throttledFetch(`${API_BASE_URL}/api/${sourcePath}/symbols${queryParam}`);
   return safeJsonParse(response);
 };
 

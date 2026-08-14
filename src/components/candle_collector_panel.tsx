@@ -55,7 +55,19 @@ export const CandleCollectorPanel: React.FC<CandleCollectorPanelProps> = ({ avai
   const fetchBrokerSymbols = async () => {
     setLoadingBrokerSymbols(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/metatrader/symbols`);
+      const savedId = localStorage.getItem('wyckoff_active_account_id');
+      let accId = (savedId && !['none', 'null', 'undefined'].includes(String(savedId).trim().toLowerCase())) ? savedId : null;
+      if (!accId) {
+        try {
+          const saved = localStorage.getItem('wyckoff_active_account');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            accId = parsed?.account_id || parsed?.id;
+          }
+        } catch { }
+      }
+      const queryParam = accId ? `?account_id=${encodeURIComponent(accId)}` : '';
+      const res = await fetch(`${API_BASE_URL}/api/metatrader/symbols${queryParam}`);
       const contentType = res.headers.get('content-type') || '';
       if (res.ok && contentType.includes('application/json')) {
         const data = await res.json();
