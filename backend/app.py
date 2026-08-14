@@ -26,8 +26,8 @@ def disable_quick_edit():
 
 disable_quick_edit()
 
-from terminal_handler import TerminalHandler
-TerminalHandler.init()
+# from terminal_handler import TerminalHandler
+# TerminalHandler.init()
 
 from sql_handler import SQLHandler
 import threading
