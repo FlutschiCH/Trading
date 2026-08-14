@@ -1666,6 +1666,7 @@ export default function Dashboard() {
           }
         }
         const broker = newActive ? newActive.broker_type : 'metatrader';
+        window.dispatchEvent(new CustomEvent('api_target_changed'));
         fetchCandles(broker);
         fetchAccountData(broker, switchedAccId);
         fetchPositionData(broker, switchedAccId);

@@ -48,7 +48,7 @@ export const AccountSelector: React.FC<AccountSelectorProps> = ({
 
   return (
     <select
-      value={value}
+      value={String(value || '')}
       onChange={handleChange}
       disabled={disabled || loadingAccounts}
       className={className}
