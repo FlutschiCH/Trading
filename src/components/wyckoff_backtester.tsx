@@ -1,9 +1,127 @@
 import React from 'react';
+import { createChart, ColorType } from 'lightweight-charts';
 import { formatPrice } from '../App';
 import { API_BASE_URL } from '../api';
 import DeployModal from './deploy_modal';
 import SavedRuns from './saved_runs';
 import { SymbolTimeframeSelector } from './symbol_timeframe_selector';
+
+const BacktestEquityChart = ({ backtestResults, backtestBalance }: { backtestResults: any; backtestBalance?: string }) => {
+  const chartContainerRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!chartContainerRef.current || !backtestResults) return;
+
+    let points: any[] = [];
+    if (Array.isArray(backtestResults.equityCurve) && backtestResults.equityCurve.length > 0) {
+      points = backtestResults.equityCurve;
+    } else {
+      const initBal = parseFloat(backtestBalance || '10000') || 10000;
+      const trades = (backtestResults.completed_trades_raw || [...(backtestResults.trades || [])].reverse());
+      let currentBal = initBal;
+      
+      points.push({ time: (trades[0]?.entryTimestamp || trades[0]?.timestamp || Math.floor(Date.now() / 1000) - 86400 * 30), value: currentBal, drawdown_pct: 0 });
+      
+      let peak = currentBal;
+      trades.forEach((t: any) => {
+        const ts = t.exitTimestamp || t.timestamp || Math.floor(Date.now() / 1000);
+        currentBal += (t.pnl || 0);
+        if (currentBal > peak) peak = currentBal;
+        const ddPct = peak > 0 ? ((peak - currentBal) / peak) * 100 : 0;
+        points.push({ time: ts, value: currentBal, drawdown_pct: ddPct });
+      });
+    }
+
+    // Sort by timestamp and deduplicate identical timestamps for lightweight-charts
+    const sortedMap = new Map<number, any>();
+    points.forEach(p => {
+      const t = Number(p.time);
+      if (!isNaN(t) && t > 0) {
+        sortedMap.set(t, p);
+      }
+    });
+
+    const cleanPoints = Array.from(sortedMap.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([t, p]) => ({ time: t, value: p.value, drawdown_pct: p.drawdown_pct || 0 }));
+
+    if (cleanPoints.length === 0) return;
+
+    const chart = createChart(chartContainerRef.current, {
+      layout: {
+        background: { type: ColorType.Solid, color: '#0f172a' },
+        textColor: '#cbd5e1',
+      },
+      grid: {
+        vertLines: { color: 'rgba(30, 41, 59, 0.6)' },
+        horzLines: { color: 'rgba(30, 41, 59, 0.6)' },
+      },
+      width: chartContainerRef.current.clientWidth || 320,
+      height: 260,
+      timeScale: {
+        timeVisible: true,
+        secondsVisible: false,
+        borderColor: '#1e293b',
+      },
+      rightPriceScale: {
+        borderColor: '#1e293b',
+      },
+    });
+
+    const isProfitable = (cleanPoints[cleanPoints.length - 1]?.value || 0) >= (cleanPoints[0]?.value || 0);
+    const mainColor = isProfitable ? '#10b981' : '#ef4444';
+
+    const areaSeries = chart.addAreaSeries({
+      topColor: isProfitable ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)',
+      bottomColor: isProfitable ? 'rgba(16, 185, 129, 0.02)' : 'rgba(239, 68, 68, 0.02)',
+      lineColor: mainColor,
+      lineWidth: 2,
+      priceFormat: { type: 'volume' },
+    });
+
+    areaSeries.setData(cleanPoints.map(pt => ({ time: pt.time as any, value: pt.value })));
+
+    chart.timeScale().fitContent();
+
+    const handleResize = () => {
+      if (chartContainerRef.current) {
+        chart.applyOptions({ width: chartContainerRef.current.clientWidth });
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      chart.remove();
+    };
+  }, [backtestResults, backtestBalance]);
+
+  const initBal = parseFloat(backtestBalance || '10000') || 10000;
+  const netPnl = backtestResults?.netPnl ?? 0;
+  const endBal = initBal + netPnl;
+  const maxDD = backtestResults?.maxDrawdown ?? 0;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '8px 0' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#0f172a', padding: '8px 12px', borderRadius: '6px', border: '1px solid #1e293b' }}>
+        <div>
+          <span style={{ fontSize: '10px', color: '#94a3b8', display: 'block' }}>Start → End Balance</span>
+          <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#f8fafc' }}>
+            ${initBal.toFixed(2)} → <span style={{ color: netPnl >= 0 ? '#10b981' : '#ef4444' }}>${endBal.toFixed(2)}</span>
+          </span>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <span style={{ fontSize: '10px', color: '#94a3b8', display: 'block' }}>Max Drawdown</span>
+          <span style={{ fontSize: '12px', fontWeight: 'bold', color: maxDD > 5 ? '#ef4444' : '#f59e0b' }}>
+            -{maxDD.toFixed(2)}%
+          </span>
+        </div>
+      </div>
+      <div ref={chartContainerRef} style={{ width: '100%', height: '260px', borderRadius: '6px', overflow: 'hidden', border: '1px solid #1e293b' }} />
+    </div>
+  );
+};
 
 interface WyckoffBacktesterProps {
   symbol: string;
@@ -36,8 +154,8 @@ interface WyckoffBacktesterProps {
   backtestFees: string;
   setBacktestFees: (val: string) => void;
   backtestResults: any;
-  backtestTab: 'trades' | 'weekly' | 'monthly' | 'hourly' | 'favourites';
-  setBacktestTab: (val: 'trades' | 'weekly' | 'monthly' | 'hourly' | 'favourites') => void;
+  backtestTab: 'trades' | 'equity' | 'weekly' | 'monthly' | 'hourly' | 'favourites';
+  setBacktestTab: (val: 'trades' | 'equity' | 'weekly' | 'monthly' | 'hourly' | 'favourites') => void;
   tradeFilter: 'all' | 'wins' | 'losses';
   setTradeFilter: (val: 'all' | 'wins' | 'losses') => void;
   selectedTrade: any;
@@ -2752,6 +2870,21 @@ export default function WyckoffBacktester({
                     Trades ({backtestResults.trades.length})
                   </button>
                   <button
+                    onClick={() => setBacktestTab('equity')}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: backtestTab === 'equity' ? '#10b981' : '#9ca3af',
+                      fontWeight: 'bold',
+                      fontSize: '11px',
+                      cursor: 'pointer',
+                      borderBottom: backtestTab === 'equity' ? '2px solid #10b981' : 'none',
+                      paddingBottom: '2px'
+                    }}
+                  >
+                    📈 Equity & Drawdowns
+                  </button>
+                  <button
                     onClick={() => setBacktestTab('weekly')}
                     style={{
                       background: 'none',
@@ -2814,6 +2947,10 @@ export default function WyckoffBacktester({
                 ⭐ Favourites ({favouriteCandles.length})
               </button>
             </div>
+
+            {backtestTab === 'equity' && backtestResults && (
+              <BacktestEquityChart backtestResults={backtestResults} backtestBalance={backtestBalance} />
+            )}
 
             {backtestTab === 'trades' && backtestResults && (
               <div style={{ display: 'flex', gap: '8px', padding: '6px 0', alignItems: 'center', marginBottom: '4px' }}>

@@ -494,8 +494,25 @@ def run_trade_simulation(
     day_pnl_map = {}
     day_start_bal_map = {}
 
+    first_ts = int(annotated_data[0].get('time', 0)) if annotated_data else 0
+    last_ts = int(annotated_data[-1].get('time', 0)) if annotated_data else 0
+
+    equity_curve = []
+    if first_ts > 0:
+        equity_curve.append({
+            "time": first_ts,
+            "value": float(initial_balance),
+            "balance": float(initial_balance),
+            "drawdown": 0.0,
+            "drawdown_pct": 0.0,
+            "pnl": 0.0
+        })
+
     for t in completed_trades:
-        trade_time_sec = t['timestamp']
+        trade_time_sec = int(t.get('exitTimestamp') or t.get('timestamp') or 0)
+        if trade_time_sec <= 0:
+            trade_time_sec = first_ts
+
         try:
             date_str = str(pd.to_datetime(trade_time_sec, unit='s').date())
         except Exception:
@@ -509,11 +526,23 @@ def run_trade_simulation(
         day_pnl_map[date_str] += t['pnl']
         
         if running_balance > peak_bal:
-            running_balance_copy = running_balance
-            peak_bal = running_balance_copy
-        dd = ((peak_bal - running_balance) / peak_bal) * 100.0 if peak_bal > 0 else 0.0
-        if dd > max_drawdown:
-            max_drawdown = dd
+            peak_bal = running_balance
+        
+        dd_amt = peak_bal - running_balance
+        dd_pct = (dd_amt / peak_bal) * 100.0 if peak_bal > 0 else 0.0
+        if dd_pct > max_drawdown:
+            max_drawdown = dd_pct
+
+        equity_curve.append({
+            "time": trade_time_sec,
+            "value": float(running_balance),
+            "balance": float(running_balance),
+            "drawdown": float(dd_amt),
+            "drawdown_pct": float(dd_pct),
+            "pnl": float(t['pnl']),
+            "outcome": t.get('outcome', ''),
+            "type": t.get('type', '')
+        })
 
     max_daily_loss = 0.0
     daily_loss_breached = False
@@ -557,14 +586,10 @@ def run_trade_simulation(
     except Exception as bt_err:
         print(f"[Trade Simulation] Warning processing trades log: {bt_err}", flush=True)
 
-
-
-    first_ts = int(annotated_data[0].get('time', 0)) if annotated_data else 0
-    last_ts = int(annotated_data[-1].get('time', 0)) if annotated_data else 0
-
     return {
         "trades": reversed_trades,
         "completed_trades_raw": completed_trades,
+        "equityCurve": equity_curve,
         "winRate": float(win_rate),
         "netPnl": float(net_pnl),
         "profitFactor": float(profit_factor),
