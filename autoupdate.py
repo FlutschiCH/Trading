@@ -97,7 +97,7 @@ def disable_quick_edit():
         except Exception:
             pass
 
-# disable_quick_edit()
+disable_quick_edit()
 
 current_backend_process = None
 process_lock = threading.Lock()

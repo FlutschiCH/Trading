@@ -24,7 +24,7 @@ def disable_quick_edit():
         except Exception:
             pass
 
-# disable_quick_edit()
+disable_quick_edit()
 
 from terminal_handler import TerminalHandler
 TerminalHandler.init()
