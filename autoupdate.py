@@ -130,73 +130,6 @@ def start_control_server():
     server = WSGIServer(('0.0.0.0', port), control_app)
     server.serve_forever()
 
-def get_git_commit():
-    try:
-        res = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True)
-        return res.stdout.strip()
-    except Exception as e:
-        print(f"Failed to get git commit hash: {e}", flush=True)
-        return ""
-
-def restart_updater():
-    print("Restarting autoupdater process...", flush=True)
-    executable = sys.executable
-    args = [sys.executable] + sys.argv
-    os.execv(executable, args)
-
-def run_force_git_update():
-    print("Checking for updates from Git (Force Update)...", flush=True)
-    try:
-        # Remove stale .git/index.lock if left behind by interrupted git operations
-        git_lock_file = os.path.join(".git", "index.lock")
-        if os.path.exists(git_lock_file):
-            try:
-                os.remove(git_lock_file)
-                print("[Git Cleanup] Removed stale .git/index.lock file.", flush=True)
-            except Exception as e:
-                print(f"[Git Warning] Failed to remove .git/index.lock: {e}", flush=True)
-
-        commit_before = get_git_commit()
-
-        subprocess.run(["git", "fetch", "--all"], capture_output=True, text=True)
-        branch = "main"
-        print(f"Target branch: {branch}", flush=True)
-
-        subprocess.run(["git", "reset", "--hard"], capture_output=True, text=True)
-        subprocess.run(["git", "checkout", "-B", branch, f"origin/{branch}"], capture_output=True, text=True)
-        
-        res = subprocess.run(["git", "reset", "--hard", f"origin/{branch}"], capture_output=True, text=True)
-        if res.stdout:
-            print("Git reset output:", res.stdout.strip(), flush=True)
-        
-        # Verify and pull Git LFS large files
-        print("Checking Git LFS large files...", flush=True)
-        lfs_res = subprocess.run(["git", "lfs", "pull"], capture_output=True, text=True)
-        if lfs_res.returncode != 0:
-            print(f"[Git Warning] Git LFS pull returned warning/error: {lfs_res.stderr or lfs_res.stdout}", flush=True)
-        else:
-            print("Git LFS large files checked successfully.", flush=True)
-
-        commit_after = get_git_commit()
-        commit_info = subprocess.run(["git", "log", "-1", "--format=%h - %s (%cr) <%an>"], capture_output=True, text=True)
-        GREEN = "\033[92m"
-        CYAN = "\033[96m"
-        BOLD = "\033[1m"
-        RESET = "\033[0m"
-        commit_str = commit_info.stdout.strip() if commit_info.returncode == 0 else "Unknown"
-        print(f"\n{BOLD}{GREEN}======================================================================={RESET}", flush=True)
-        print(f"{BOLD}{CYAN}[Git Update Complete] Active Commit: {commit_str}{RESET}", flush=True)
-        print(f"{BOLD}{GREEN}=======================================================================\n{RESET}", flush=True)
-
-        if commit_before and commit_after and commit_before != commit_after:
-            print("[Git Update] New commit detected! Restarting autoupdater script process...", flush=True)
-            restart_updater()
-
-        return True
-    except Exception as e:
-        print(f"Git force update warning/error: {e}", flush=True)
-        return False
-
 def main():
     global current_backend_process
     
@@ -208,9 +141,6 @@ def main():
     print(f"Using Python interpreter: {python_exe}", flush=True)
 
     while True:
-        # Force git update every time backend is restarted
-        run_force_git_update()
-        # check_and_install_dependencies(python_exe)
 
         print("Starting backend server (backend/app.py)...", flush=True)
         try:
