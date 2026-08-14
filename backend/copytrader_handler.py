@@ -386,13 +386,11 @@ class CopytraderHandler:
 
                                     if existing_slave_pos:
                                         slave_ticket = str(existing_slave_pos.get("position_id") or existing_slave_pos.get("ticket"))
-                                        print(f"[Copytrader Debug] Found pre-existing slave position #{slave_ticket} with matching comment '{m_ticket}' -> Recording mapping...", flush=True)
                                         CopytraderHandler._record_mapping(config_id, m_ticket, slave_acc, slave_ticket, symbol, action, slave_lots)
                                         existing_mappings[key] = slave_ticket
                                     else:
                                         # Trade not yet on slave -> Open trade with comment set to master ticket ID
                                         comment = m_ticket
-                                        print(f"[Copytrader Debug] Found un-copied master trade #{m_ticket} ({action} {master_lots} {symbol}) -> Copying {slave_lots} to slave {slave_acc} (Comment: {comment})...", flush=True)
                                         logPrint(f"[Copytrader] Opening trade on slave {slave_acc}: {action} {slave_lots} {symbol} (SL: {sl}, TP: {tp}, Comment: {comment})")
                                         res = CopytraderHandler._execute_order(
                                             broker=slave_broker,
@@ -404,7 +402,6 @@ class CopytraderHandler:
                                             tp=tp,
                                             comment=comment
                                         )
-                                        print(f"[Copytrader Debug] Order execution result for slave {slave_acc}: {res}", flush=True)
                                         if res and res.get("status") == "success":
                                             slave_ticket = str(res.get("ticket") or res.get("position_id") or f"slv_{int(time.time())}")
                                             CopytraderHandler._record_mapping(config_id, m_ticket, slave_acc, slave_ticket, symbol, action, slave_lots)
@@ -420,7 +417,6 @@ class CopytraderHandler:
                                                 curr_sl = float(slave_pos.get("stop_loss") or slave_pos.get("sl") or 0.0)
                                                 curr_tp = float(slave_pos.get("take_profit") or slave_pos.get("tp") or 0.0)
                                                 if abs(curr_sl - sl) > 1e-5 or abs(curr_tp - tp) > 1e-5:
-                                                    print(f"[Copytrader Debug] Master trade #{m_ticket} SL/TP changed -> Syncing slave {slave_acc} (#{slave_ticket}) SL {curr_sl}->{sl}, TP {curr_tp}->{tp}", flush=True)
                                                     logPrint(f"[Copytrader] Updating SL/TP on slave {slave_acc} (Ticket: {slave_ticket}): SL {curr_sl}->{sl}, TP {curr_tp}->{tp}")
                                                     MetaTraderHandler.adjustSLTP(
                                                         position_id=int(slave_ticket),
@@ -437,10 +433,8 @@ class CopytraderHandler:
                             if m_ticket not in master_open_tickets:
                                 slave_config = next((s for s in slaves if str(s.get("account_id")) == s_acc), None)
                                 slave_broker = slave_config.get("broker", "metatrader") if slave_config else "metatrader"
-                                print(f"[Copytrader Debug] Master ticket #{m_ticket} is no longer open -> Closing slave position #{s_ticket} on account {s_acc}...", flush=True)
                                 logPrint(f"[Copytrader] Master ticket {m_ticket} closed. Closing slave position {s_ticket} on account {s_acc}")
                                 res_close = CopytraderHandler._close_position(slave_broker, s_acc, s_ticket, symbol="", lots=0.0)
-                                print(f"[Copytrader Debug] Close result for slave {s_acc} (#{s_ticket}): {res_close}", flush=True)
                                 CopytraderHandler._mark_mapping_closed(config_id, m_ticket, s_acc)
 
                         # Clean up orphaned slave positions whose master ticket was closed while engine was offline
@@ -456,7 +450,6 @@ class CopytraderHandler:
                                 # If comment is a master ticket number/CP_<num> not currently open on master, close orphaned slave trade
                                 clean_m_ticket = comment_str.replace("CP_", "").strip()
                                 if clean_m_ticket.isdigit() and clean_m_ticket not in master_open_tickets:
-                                    print(f"[Copytrader Debug] Found orphaned slave trade #{sp_ticket} (Comment: '{comment_str}') on slave {s_acc} whose master ticket is closed -> Closing...", flush=True)
                                     CopytraderHandler._close_position(s_brk, s_acc, sp_ticket, symbol="", lots=0.0)
             except Exception as e:
                 logPrint(f"[Copytrader Sync Exception]: {e}")
