@@ -188,7 +188,12 @@ class MetaTraderHandler(BaseBrokerHandler):
         req_password = kwargs.get('password') or password
 
         if req_login is None:
-            raise ValueError("No account_id / login provided for MetaTrader credentials lookup.")
+            from account_handler import AccountHandler
+            active_acc = AccountHandler.get_active_account()
+            if active_acc and active_acc.get("account_id"):
+                req_login = active_acc.get("account_id")
+            else:
+                raise ValueError("No account_id / login provided for MetaTrader credentials lookup.")
 
         from account_handler import AccountHandler
         accounts = AccountHandler.get_accounts()
