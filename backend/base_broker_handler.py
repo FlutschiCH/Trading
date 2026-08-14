@@ -28,7 +28,7 @@ class BaseBrokerHandler(ABC):
 
     @staticmethod
     @abstractmethod
-    def close_position(position_id: int, symbol: str, side: str, volume: float, **kwargs) -> dict:
+    def close_position(position_id: int, symbol: str = None, side: str = None, volume: float = 0.0, **kwargs) -> dict:
         pass
 
     @staticmethod

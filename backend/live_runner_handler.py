@@ -494,7 +494,11 @@ class LiveRunner:
                                 if allow_opposite_close:
                                     print(f"[Live Runner] Opposite signal detected for target {target_acc_id} on {symbol}. Closing open {pos_type} position...", flush=True)
                                     try:
-                                        handler.close_position(p, **target_kwargs)
+                                        pos_id = p.get("ticket") or p.get("id") or p.get("position_id")
+                                        p_sym = p.get("symbol")
+                                        p_side = p.get("trade_side") or p.get("type")
+                                        p_vol = p.get("volume") or p.get("lots") or 0.0
+                                        handler.close_position(pos_id, symbol=p_sym, side=p_side, volume=p_vol, **target_kwargs)
                                         from discord_handler import send_discord_message
                                         send_discord_message(
                                             f"🔄 **Opposite Signal Position Closed**\n"
@@ -637,7 +641,6 @@ if __name__ == '__main__':
             should_buy=True,
             should_sell=False,
             magic=f"{int(time.time())}",
-            debug=True
         )
 
 

@@ -393,7 +393,7 @@ class CTraderHandler(BaseBrokerHandler):
             return {"status": "error", "message": f"cTrader OpenAPI connection error: {str(e)}"}
 
     @staticmethod
-    def close_position(position_id: int, symbol: str, side: str, volume: float, **kwargs) -> dict:
+    def close_position(position_id: int, symbol: str = None, side: str = None, volume: float = 0.0, **kwargs) -> dict:
         try:
             # Close Position using payloadType = 2111 (ProtoOAClosePositionReq)
             payload = {

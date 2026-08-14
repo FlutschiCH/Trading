@@ -537,7 +537,7 @@ class MetaTraderHandler(BaseBrokerHandler):
         return MetaTraderHandler.create_order(symbol=symbol, side=action, volume=volume, price=price, stop_loss=sl, take_profit=tp, magic=magic, comment=comment, **kwargs)
 
     @staticmethod
-    def close_position(position_id: int, symbol: str, side: str, volume: float, **kwargs) -> dict:
+    def close_position(position_id: int, symbol: str = None, side: str = None, volume: float = 0.0, **kwargs) -> dict:
         if not MT5_AVAILABLE:
             return {"status": "error", "message": "MT5 unavailable"}
             
