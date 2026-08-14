@@ -217,6 +217,7 @@ def main():
             env = os.environ.copy()
             env["FLASK_ENV"] = "production"
             env["PYTHONUNBUFFERED"] = "1"
+            env["PYTHONIOENCODING"] = "utf-8"
             with process_lock:
                 current_backend_process = subprocess.Popen(
                     [python_exe, "app.py"],
@@ -225,14 +226,19 @@ def main():
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
                     text=True,
+                    encoding="utf-8",
+                    errors="replace",
                     bufsize=1
                 )
             
             recent_logs = []
             if current_backend_process.stdout:
                 for line in iter(current_backend_process.stdout.readline, ''):
-                    sys.stdout.write(line)
-                    sys.stdout.flush()
+                    try:
+                        sys.stdout.write(line)
+                        sys.stdout.flush()
+                    except Exception:
+                        pass
                     recent_logs.append(line.rstrip('\r\n'))
                     if len(recent_logs) > 200:
                         recent_logs.pop(0)
