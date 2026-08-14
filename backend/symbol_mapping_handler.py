@@ -89,6 +89,7 @@ class SymbolMappingHandler:
         query = "SELECT main_symbol FROM symbol_mappings WHERE broker_symbol = %s AND account_id = %s"
         try:
             res = SQLHandler.execute_query(query, (broker_symbol.strip(), str(account_id).strip()))
+            print(f"[DEBUG map_to_main] broker_symbol='{broker_symbol}', account_id='{account_id}', res={res}", flush=True)
             if res:
                 return res[0]['main_symbol']
         except Exception as e:
