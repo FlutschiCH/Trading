@@ -103,20 +103,25 @@ class MetaTraderHandler(BaseBrokerHandler):
                 sys.modules[module_name] = mod
                 spec.loader.exec_module(mod)
                 mt5_module = mod
-                print(f"[MetaTrader Plugin Loaded] Account {login}: Loaded isolated module '{module_name}' from {target_plugin_dir}", flush=True)
+                from colorama import Fore, Style
+                print(f"{Fore.BLUE}[MetaTrader Plugin Loaded]{Style.RESET_ALL} Account {login}: Loaded isolated module '{module_name}' from {target_plugin_dir}", flush=True)
             else:
-                print(f"[MetaTrader Plugin Error] Account {login}: Failed to create spec loader from '{init_file}'", flush=True)
+                from colorama import Fore, Style
+                print(f"{Fore.RED}[MetaTrader Plugin Error]{Style.RESET_ALL} Account {login}: Failed to create spec loader from '{init_file}'", flush=True)
         except Exception as e:
             import traceback
             tb_str = traceback.format_exc()
-            print(f"[MetaTrader Plugin Import Failure] Account {login}: Exception while loading '{module_name}' from {target_plugin_dir}:\n{tb_str}", flush=True)
+            from colorama import Fore, Style
+            print(f"{Fore.RED}[MetaTrader Plugin Import Failure]{Style.RESET_ALL} Account {login}: Exception while loading '{module_name}' from {target_plugin_dir}:\n{tb_str}", flush=True)
 
         if mt5_module is None or not hasattr(mt5_module, "initialize"):
-            print(f"[MetaTrader Plugin Error] Account {login}: Isolated module '{module_name}' loaded but missing 'initialize()' function.", flush=True)
+            from colorama import Fore, Style
+            print(f"{Fore.RED}[MetaTrader Plugin Error]{Style.RESET_ALL} Account {login}: Isolated module '{module_name}' loaded but missing 'initialize()' function.", flush=True)
             return False
 
         if not login or not password or not server:
-            print(f"[MetaTrader Initialization Skipped] Missing required credentials (login={login}, password={'***' if password else None}, server={server})", flush=True)
+            from colorama import Fore, Style
+            print(f"{Fore.YELLOW}[MetaTrader Initialization Skipped]{Style.RESET_ALL} Missing required credentials (login={login}, password={'***' if password else None}, server={server})", flush=True)
             return False
 
         try:
@@ -128,7 +133,8 @@ class MetaTraderHandler(BaseBrokerHandler):
                     builtins._GLOBAL_MT5_CONNECTION_STATES[str(login)] = True
                     return True
         except Exception as e:
-            print(f"[MetaTrader Check Login Exception] {e}", flush=True)
+            from colorama import Fore, Style
+            print(f"{Fore.RED}[MetaTrader Check Login Exception]{Style.RESET_ALL} {e}", flush=True)
 
         success = False
         try:
@@ -137,7 +143,8 @@ class MetaTraderHandler(BaseBrokerHandler):
                 mt5_module.login(login=int(login), password=password, server=server)
             else:
                 err_code, err_desc = mt5_module.last_error() if hasattr(mt5_module, "last_error") else ("unknown", "unknown")
-                print(f"[MetaTrader Initialization Failure] Account: {login} | Path: {path} | Error: {err_code} ({err_desc})", flush=True)
+                from colorama import Fore, Style
+                print(f"{Fore.RED}[MetaTrader Initialization Failure]{Style.RESET_ALL} Account: {login} | Path: {path} | Error: {err_code} ({err_desc})", flush=True)
         except Exception as e:
             err_code, err_desc = ("exception", str(e))
             if hasattr(mt5_module, "last_error"):
@@ -145,12 +152,14 @@ class MetaTraderHandler(BaseBrokerHandler):
                     err_code, err_desc = mt5_module.last_error()
                 except Exception:
                     pass
-            print(f"[MetaTrader Initialization Exception] Account: {login} | Path: {path} | Error: {err_code} ({err_desc})", flush=True)
+            from colorama import Fore, Style
+            print(f"{Fore.RED}[MetaTrader Initialization Exception]{Style.RESET_ALL} Account: {login} | Path: {path} | Error: {err_code} ({err_desc})", flush=True)
 
         if success and login:
             builtins._GLOBAL_MT5_INSTANCES[str(login)] = mt5_module
             builtins._GLOBAL_MT5_CONNECTION_STATES[str(login)] = True
-            print(f"[MetaTrader Connected Instance] Account: {login} | Server: {server} | Path: {path}", flush=True)
+            from colorama import Fore, Style
+            print(f"{Fore.GREEN}[MetaTrader Connected Instance]{Style.RESET_ALL} Account: {login} | Server: {server} | Path: {path}", flush=True)
         return success
 
     @staticmethod
@@ -163,7 +172,8 @@ class MetaTraderHandler(BaseBrokerHandler):
         inst = instances.get(acc_str) if acc_str else None
 
         if not inst and acc_str:
-            print(f"[MetaTrader Fetch Instance] Instance not active for '{acc_str}'. Resolving credentials and initializing...", flush=True)
+            from colorama import Fore, Style
+            print(f"{Fore.CYAN}[MetaTrader Fetch Instance]{Style.RESET_ALL} Instance not active for '{acc_str}'. Resolving credentials and initializing...", flush=True)
             login, password, server = MetaTraderHandler._resolve_credentials(account_id=acc_str)
             if login and password and server:
                 success = MetaTraderHandler._initialize_mt5(login=login, password=password, server=server)

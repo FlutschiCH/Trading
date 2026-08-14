@@ -204,16 +204,19 @@ class StrategyHandler:
         progress_callback = None,
         entry_stability_rule: str = 'default',
         broker: str = 'metatrader',
-        session_config: dict = None
+        session_config: dict = None,
+        timeframe: str = '5m'
     ) -> dict:
         """
         Runs the full Wyckoff structure analysis backtest in Python.
         """
-        print(f"\n[Backtest] Starting Wyckoff Structure Analysis backtest for {symbol} on {len(candles)} candles...", flush=True)
+        tf = timeframe
+        from colorama import Fore, Style
+        print(f"\n{Fore.CYAN}[Backtest]{Style.RESET_ALL} Starting Wyckoff Structure Analysis backtest for {symbol} on {len(candles)} candles...", flush=True)
         
         # Sanitize Break-Even vs RR (Break-Even cannot be >= RR)
         if use_break_even and be_trigger_r >= rr:
-            print(f"[Backtest] Warning: Break-Even trigger ({be_trigger_r}R) >= RR ({rr}R). Disabling Break-Even to prevent non-sensical simulation.", flush=True)
+            print(f"{Fore.YELLOW}[Backtest]{Style.RESET_ALL} Warning: Break-Even trigger ({be_trigger_r}R) >= RR ({rr}R). Disabling Break-Even to prevent non-sensical simulation.", flush=True)
             use_break_even = False
 
         # 1. Run Market Data Analysis (0% to 50% progress)
@@ -308,11 +311,14 @@ class StrategyHandler:
                     max_drawdown=sim_result["maxDrawdown"],
                     payload_dict=results_to_save
                 )
-                print(f"[SQLHandler] Successfully saved backtest run '{backtest_id_str}' to MySQL DB.", flush=True)
+                from colorama import Fore, Style
+                print(f"{Fore.GREEN}[SQLHandler]{Style.RESET_ALL} Successfully saved backtest run '{backtest_id_str}' to MySQL DB.", flush=True)
             except Exception as sql_err:
-                print(f"[SQLHandler] Failed auto-persisting single backtest run: {sql_err}", flush=True)
+                from colorama import Fore, Style
+                print(f"{Fore.RED}[SQLHandler]{Style.RESET_ALL} Failed auto-persisting single backtest run: {sql_err}", flush=True)
         except Exception as e:
-            print(f"Failed to process backtest results: {e}", flush=True)
+            from colorama import Fore, Style
+            print(f"{Fore.RED}[StrategyHandler]{Style.RESET_ALL} Failed to process backtest results: {e}", flush=True)
 
 
 

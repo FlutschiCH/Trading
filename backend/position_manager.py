@@ -9,6 +9,8 @@ from backtest_helpers import get_pip_size
 from discord_handler import send_discord_message
 from notification_handler import NotificationHandler
 
+from colorama import Fore, Style
+
 class PositionManager:
     _thread = None
     _stop_event = threading.Event()
@@ -18,19 +20,19 @@ class PositionManager:
     @classmethod
     def start(cls):
         if cls._thread and cls._thread.is_alive():
-            print("[Position Manager] Already running.", flush=True)
+            print(f"{Fore.YELLOW}[Position Manager]{Style.RESET_ALL} Already running.", flush=True)
             return
         cls._stop_event.clear()
         cls._thread = threading.Thread(target=cls._run_loop, daemon=True)
         cls._thread.start()
-        print("[Position Manager] Started background position manager thread.", flush=True)
+        print(f"{Fore.GREEN}[Position Manager]{Style.RESET_ALL} Started background position manager thread.", flush=True)
 
     @classmethod
     def stop(cls):
         cls._stop_event.set()
         if cls._thread:
             cls._thread.join(timeout=5)
-            print("[Position Manager] Stopped background position manager thread.", flush=True)
+            print(f"{Fore.YELLOW}[Position Manager]{Style.RESET_ALL} Stopped background position manager thread.", flush=True)
 
     @classmethod
     def _run_loop(cls):

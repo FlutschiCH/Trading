@@ -166,7 +166,8 @@ def run_trade_simulation(
 
     total_candles = len(annotated_data)
     last_percent = -1
-    print(f"\n[Trade Simulation] Starting simulation for {symbol} on {total_candles} candles...", flush=True)
+    from colorama import Fore, Style
+    print(f"\n{Fore.CYAN}[Trade Simulation]{Style.RESET_ALL} Starting simulation for {symbol} on {total_candles} candles...", flush=True)
 
     for i, c in enumerate(annotated_data):
         if check_cancelled and check_cancelled():
@@ -188,7 +189,7 @@ def run_trade_simulation(
                 bar_length = 20
                 filled_length = int(bar_length * percent // 100)
                 bar = '#' * filled_length + '-' * (bar_length - filled_length)
-                print(f"\r[Trade Simulation Progress] |{bar}| {percent}% ({i+1}/{total_candles})", end="", flush=True)
+                print(f"\r{Fore.CYAN}[Trade Simulation Progress]{Style.RESET_ALL} |{Fore.GREEN}{bar}{Style.RESET_ALL}| {percent}% ({i+1}/{total_candles})", end="", flush=True)
                 if percent == 100:
                     print(flush=True)
                 if progress_callback:
@@ -582,9 +583,11 @@ def run_trade_simulation(
         
         be_str = f"be{be_trigger_r}" if use_break_even else "be_off"
         clean_sym = str(symbol).replace('/', '_').replace('.', '_').lower()
-        print(f"[Trade Simulation] Successfully processed {len(completed_trades)} backtest trades for {symbol} (Saved to MySQL DB)", flush=True)
+        from colorama import Fore, Style
+        print(f"{Fore.GREEN}[Trade Simulation]{Style.RESET_ALL} Successfully processed {len(completed_trades)} backtest trades for {symbol} (Saved to MySQL DB)", flush=True)
     except Exception as bt_err:
-        print(f"[Trade Simulation] Warning processing trades log: {bt_err}", flush=True)
+        from colorama import Fore, Style
+        print(f"{Fore.YELLOW}[Trade Simulation]{Style.RESET_ALL} Warning processing trades log: {bt_err}", flush=True)
 
     return {
         "trades": reversed_trades,

@@ -41,7 +41,8 @@ class AlertHandler:
             cls._running = True
             cls._monitor_thread = threading.Thread(target=cls._monitoring_loop, daemon=True)
             cls._monitor_thread.start()
-            print("[ALERT_HANDLER] Background monitoring started.", flush=True)
+            from colorama import Fore, Style
+            print(f"{Fore.GREEN}[ALERT_HANDLER]{Style.RESET_ALL} Background monitoring started.", flush=True)
 
     @classmethod
     def stop_monitoring(cls):

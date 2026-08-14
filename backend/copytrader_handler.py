@@ -212,16 +212,18 @@ class CopytraderHandler:
                             CopytraderHandler._ensure_account_connected(s_acc, s_brk)
 
             config_count = len(active_configs)
+            from colorama import Fore, Style
             summary_msg = (
-                f"\n[Copytrader Engine] 🚀 Starting Copytrader Engine:\n"
-                f"   • Active Configurations Found: {config_count}\n"
-                f"   • Total Active Slaves Connected: {total_slaves}\n"
-                f"   • Host Machine: {current_host}\n"
+                f"\n{Fore.CYAN}[Copytrader Engine]{Style.RESET_ALL} 🚀 Starting Copytrader Engine:\n"
+                f"   • Active Configurations Found: {Style.BRIGHT}{config_count}{Style.RESET_ALL}\n"
+                f"   • Total Active Slaves Connected: {Style.BRIGHT}{total_slaves}{Style.RESET_ALL}\n"
+                f"   • Host Machine: {Style.BRIGHT}{current_host}{Style.RESET_ALL}\n"
             )
             print(summary_msg, flush=True)
             logPrint(f"[Copytrader Engine] Background monitor started ({config_count} active configs, {total_slaves} active slaves).")
         except Exception as e:
-            logPrint(f"[Copytrader Engine] Error building start message: {e}")
+            from colorama import Fore, Style
+            logPrint(f"{Fore.RED}[Copytrader Engine]{Style.RESET_ALL} Error building start message: {e}")
 
     @staticmethod
     def _ensure_account_connected(account_id: str, broker: str):

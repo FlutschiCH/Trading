@@ -200,17 +200,18 @@ class LiveRunner:
                 f"Rule={strategy.get('entryStabilityRule', 'default')}"
             )
 
+            from colorama import Fore, Style
             print(
-                f"\n[Live Runner] 🚀 Starting Strategy Execution:\n"
-                f"   • Strategy: '{strat_name}' (ID: {strategy_id})\n"
-                f"   • Symbol / Timeframe: {symbol} ({timeframe})\n"
+                f"\n{Fore.CYAN}[Live Runner]{Style.RESET_ALL} 🚀 Starting Strategy Execution:\n"
+                f"   • Strategy: '{Style.BRIGHT}{strat_name}{Style.RESET_ALL}' (ID: {strategy_id})\n"
+                f"   • Symbol / Timeframe: {Style.BRIGHT}{symbol}{Style.RESET_ALL} ({timeframe})\n"
                 f"   • Source Broker: {broker_name}\n"
                 f"   • Target(s): {targets_formatted}\n"
                 f"   • Parameters: {params_formatted}\n",
                 flush=True
             )
             
-            print(f"[Live Runner] Warm-up: Fetching candles for strategy {strategy_id} ({symbol} {timeframe}) from broker='{broker_name}' (Account ID: '{strat_acc_id}') using backtest settings: opt={opt}, limit={limit}, date_from={date_from}, date_to={date_to}", flush=True)
+            print(f"{Fore.CYAN}[Live Runner]{Style.RESET_ALL} Warm-up: Fetching candles for strategy {strategy_id} ({symbol} {timeframe}) from broker='{broker_name}' (Account ID: '{strat_acc_id}') using backtest settings: opt={opt}, limit={limit}, date_from={date_from}, date_to={date_to}", flush=True)
             candles = handler.fetch_candles(
                 symbol=symbol,
                 timeframe=timeframe,
@@ -220,7 +221,7 @@ class LiveRunner:
                 login=strat_acc_id,
                 account_id=strat_acc_id
             )
-            print(f"[Live Runner DEBUG] Warm-up: Fetch returned {len(candles) if candles else 0} candles for strategy {strategy_id} (Broker: '{broker_name}', Account ID: '{strat_acc_id}')", flush=True)
+            print(f"{Fore.CYAN}[Live Runner DEBUG]{Style.RESET_ALL} Warm-up: Fetch returned {len(candles) if candles else 0} candles for strategy {strategy_id} (Broker: '{broker_name}', Account ID: '{strat_acc_id}')", flush=True)
             if candles:
                 # Run backtest logic to initialize candles and trades cache
                 from strategy_handler import StrategyHandler

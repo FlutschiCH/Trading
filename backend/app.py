@@ -29,14 +29,21 @@ disable_quick_edit()
 # from terminal_handler import TerminalHandler
 # TerminalHandler.init()
 
+from colorama import init, Fore, Style
+init(autoreset=True)
+
+print(f"{Fore.CYAN}[INIT]{Style.RESET_ALL} Loading SQL Handler...")
 from sql_handler import SQLHandler
 import threading
 threading.Thread(target=SQLHandler.get_mysql_connection, daemon=True).start()
 
+print(f"{Fore.CYAN}[INIT]{Style.RESET_ALL} Loading Flask & Routes...")
 from flask import Flask
 from flask_cors import CORS
 from gevent.pywsgi import WSGIServer
 from routes import api_blueprint  # Aggregated blueprint
+
+print(f"{Fore.CYAN}[INIT]{Style.RESET_ALL} Loading & Starting Handlers...")
 from live_strategy_handler import LiveStrategyHandler
 from position_manager import PositionManager
 from candle_collector_handler import CandleCollectorHandler
@@ -44,9 +51,13 @@ from alert_handler import AlertHandler
 from copytrader_handler import CopytraderHandler
 
 PositionManager.start()
+print(f"  {Fore.GREEN}✓{Style.RESET_ALL} PositionManager started")
 CandleCollectorHandler.start_background_collector()
+print(f"  {Fore.GREEN}✓{Style.RESET_ALL} CandleCollectorHandler started")
 AlertHandler.start_monitoring()
+print(f"  {Fore.GREEN}✓{Style.RESET_ALL} AlertHandler started")
 CopytraderHandler.start()
+print(f"  {Fore.GREEN}✓{Style.RESET_ALL} CopytraderHandler started")
 
 
 app = Flask(__name__)
@@ -113,12 +124,12 @@ if __name__ == '__main__':
             pass
         finally:
             s.close()
-        print(f"==================================================", flush=True)
-        print(f"💻 Machine Host: {hostname}", flush=True)
-        print(f"🌐 Local IP:     {local_ip}", flush=True)
-        print(f"🔌 Server Port:   {port}", flush=True)
-        print(f"🐍 Python Ver:   {sys.version.split()[0]} ({sys.executable})", flush=True)
-        print(f"==================================================", flush=True)
+        print(f"{Fore.MAGENTA}=================================================={Style.RESET_ALL}", flush=True)
+        print(f"{Fore.GREEN}💻 Machine Host: {Style.BRIGHT}{hostname}{Style.RESET_ALL}", flush=True)
+        print(f"{Fore.GREEN}🌐 Local IP:     {Style.BRIGHT}{local_ip}{Style.RESET_ALL}", flush=True)
+        print(f"{Fore.GREEN}🔌 Server Port:   {Style.BRIGHT}{port}{Style.RESET_ALL}", flush=True)
+        print(f"{Fore.GREEN}🐍 Python Ver:   {Style.BRIGHT}{sys.version.split()[0]} ({sys.executable}){Style.RESET_ALL}", flush=True)
+        print(f"{Fore.MAGENTA}=================================================={Style.RESET_ALL}", flush=True)
     except Exception as e:
         print(f"Started! Port: {port}...", flush=True)
 
