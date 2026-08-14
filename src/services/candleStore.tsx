@@ -170,7 +170,7 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           }
         } catch (e) {}
         if (!activeAccId) {
-          activeAccId = localStorage.getItem('wyckoff_active_account_id') || localStorage.getItem('active_account_id') || undefined;
+          activeAccId = localStorage.getItem('broker_account') || localStorage.getItem('wyckoff_active_account_id') || localStorage.getItem('active_account_id') || undefined;
         }
 
         if (activeAccId && ['none', 'null', 'undefined'].includes(String(activeAccId).trim().toLowerCase())) {

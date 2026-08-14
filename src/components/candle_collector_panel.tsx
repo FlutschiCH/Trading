@@ -55,7 +55,7 @@ export const CandleCollectorPanel: React.FC<CandleCollectorPanelProps> = ({ avai
   const fetchBrokerSymbols = async () => {
     setLoadingBrokerSymbols(true);
     try {
-      const savedId = localStorage.getItem('wyckoff_active_account_id');
+      const savedId = localStorage.getItem('broker_account') || localStorage.getItem('wyckoff_active_account_id');
       let accId = (savedId && !['none', 'null', 'undefined'].includes(String(savedId).trim().toLowerCase())) ? savedId : null;
       if (!accId) {
         try {

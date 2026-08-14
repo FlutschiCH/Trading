@@ -117,7 +117,7 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
       const brokersData = await brokersRes.json();
       if (brokersData && brokersData.status === 'success' && Array.isArray(brokersData.data)) {
         const brokers: any[] = brokersData.data;
-        const targetAccId = accountId || localStorage.getItem('active_account_id') || localStorage.getItem('wyckoff_active_account');
+        const targetAccId = accountId || localStorage.getItem('broker_account') || localStorage.getItem('wyckoff_active_account_id') || localStorage.getItem('active_account_id') || localStorage.getItem('wyckoff_active_account');
         let matchedBroker = targetAccId ? brokers.find(b => String(b.account_id) === String(targetAccId)) : null;
         if (!matchedBroker && brokers.length > 0) {
           matchedBroker = brokers[0];

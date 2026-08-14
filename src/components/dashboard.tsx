@@ -1541,7 +1541,7 @@ export default function Dashboard() {
   };
 
   const getSelectedAccountId = () => {
-    const savedId = localStorage.getItem('wyckoff_active_account_id');
+    const savedId = localStorage.getItem('broker_account') || localStorage.getItem('wyckoff_active_account_id');
     if (isValidAcc(savedId)) {
       return savedId;
     }
@@ -1629,11 +1629,13 @@ export default function Dashboard() {
       const data = await res.json();
       if (data.status === 'success' && data.data) {
         setActiveAccount(data.data);
+        localStorage.setItem('broker_account', data.data.account_id);
         localStorage.setItem('wyckoff_active_account', JSON.stringify(data.data));
         localStorage.setItem('wyckoff_active_account_id', data.data.account_id);
         return data.data;
       } else {
         setActiveAccount(null);
+        localStorage.removeItem('broker_account');
         localStorage.removeItem('wyckoff_active_account');
         localStorage.removeItem('wyckoff_active_account_id');
         return null;
@@ -1656,6 +1658,7 @@ export default function Dashboard() {
         const newActive = await fetchActiveAccount();
         const switchedAccId = newActive ? newActive.account_id : accountId;
         if (newActive) {
+          localStorage.setItem('broker_account', newActive.account_id);
           localStorage.setItem('wyckoff_active_account', JSON.stringify(newActive));
           localStorage.setItem('wyckoff_active_account_id', newActive.account_id);
           if (newActive.broker_type && (newActive.broker_type === 'metatrader' || newActive.broker_type === 'ctrader')) {

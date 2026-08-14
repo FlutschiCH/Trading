@@ -36,7 +36,7 @@ export const fetchLiveStrategies = async () => {
 };
 
 export const fetchMetadataSymbols = async (sourcePath: string, accountId?: string) => {
-  const savedId = accountId || localStorage.getItem('wyckoff_active_account_id');
+  const savedId = accountId || localStorage.getItem('broker_account') || localStorage.getItem('wyckoff_active_account_id');
   let accId = (savedId && !['none', 'null', 'undefined'].includes(String(savedId).trim().toLowerCase())) ? savedId : null;
   if (!accId) {
     try {
