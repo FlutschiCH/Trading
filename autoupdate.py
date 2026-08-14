@@ -3,11 +3,58 @@ import sys
 import subprocess
 import time
 import threading
+import json
+import traceback
 
 # Change working directory to the directory of this script to ensure relative paths work
 script_dir = os.path.dirname(os.path.abspath(__file__))
 if script_dir:
     os.chdir(script_dir)
+
+def log_crash_to_json(event_type: str, details: dict):
+    try:
+        log_file = os.path.join(script_dir, "autoupdate_crash_log.json")
+        entries = []
+        if os.path.exists(log_file):
+            try:
+                with open(log_file, "r", encoding="utf-8") as f:
+                    entries = json.load(f)
+                    if not isinstance(entries, list):
+                        entries = []
+            except Exception:
+                entries = []
+        
+        entry = {
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "event": event_type,
+            "details": details
+        }
+        entries.append(entry)
+        # Keep last 50 crash entries
+        entries = entries[-50:]
+        with open(log_file, "w", encoding="utf-8") as f:
+            json.dump(entries, f, indent=2, ensure_ascii=False)
+        print(f"[Crash Logger] Crash details saved to {log_file}", flush=True)
+    except Exception as err:
+        print(f"[Crash Logger Error] Failed to write JSON crash log: {err}", flush=True)
+
+def handle_uncaught_exception(exc_type, exc_value, exc_tb):
+    if issubclass(exc_type, KeyboardInterrupt):
+        sys.__excepthook__(exc_type, exc_value, exc_tb)
+        return
+    err_msg = "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
+    print(f"\n❌ [CRITICAL CRASH DETECTED IN AUTOUPDATE]\n{err_msg}", flush=True)
+    log_crash_to_json("updater_crash", {
+        "error": str(exc_value),
+        "traceback": err_msg
+    })
+    print("\n[CRASH] Press Enter or wait 60 seconds to exit terminal...", flush=True)
+    try:
+        input()
+    except Exception:
+        time.sleep(60)
+
+sys.excepthook = handle_uncaught_exception
 
 def resolve_python_interpreter():
     if os.path.exists(r"C:\Program Files\Python311\python.exe"):
@@ -171,12 +218,36 @@ def main():
             env["FLASK_ENV"] = "production"
             env["PYTHONUNBUFFERED"] = "1"
             with process_lock:
-                current_backend_process = subprocess.Popen([python_exe, "app.py"], cwd="backend", env=env)
+                current_backend_process = subprocess.Popen(
+                    [python_exe, "app.py"],
+                    cwd="backend",
+                    env=env,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1
+                )
             
+            recent_logs = []
+            if current_backend_process.stdout:
+                for line in iter(current_backend_process.stdout.readline, ''):
+                    sys.stdout.write(line)
+                    sys.stdout.flush()
+                    recent_logs.append(line.rstrip('\r\n'))
+                    if len(recent_logs) > 200:
+                        recent_logs.pop(0)
+
             current_backend_process.wait()
             exit_code = current_backend_process.returncode
             print(f"Backend exited with code {exit_code}.", flush=True)
             
+            if exit_code != 0 and exit_code != 99:
+                log_crash_to_json("backend_crash", {
+                    "exit_code": exit_code,
+                    "python_interpreter": python_exe,
+                    "recent_logs": recent_logs[-40:]
+                })
+
             if exit_code == 99:
                 print("Exit code 99 received. Stopping autoupdater.", flush=True)
                 break
@@ -187,7 +258,12 @@ def main():
             print("Autoupdater terminated by user.", flush=True)
             break
         except Exception as e:
-            print(f"Error running backend: {e}", flush=True)
+            err_msg = traceback.format_exc()
+            print(f"Error running backend: {e}\n{err_msg}", flush=True)
+            log_crash_to_json("updater_loop_error", {
+                "error": str(e),
+                "traceback": err_msg
+            })
             time.sleep(5)
 
 if __name__ == '__main__':
