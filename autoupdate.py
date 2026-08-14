@@ -176,20 +176,20 @@ def main():
             current_backend_process.wait()
             exit_code = current_backend_process.returncode
             print(f"Backend exited with code {exit_code}.", flush=True)
-            
-            if exit_code != 0 and exit_code != 99:
+
+            if exit_code == 99:
+                print("Exit code 99 received. Stopping autoupdater.", flush=True)
+                sys.exit(99)
+
+            if exit_code != 0:
                 log_crash_to_json("backend_crash", {
                     "exit_code": exit_code,
                     "python_interpreter": python_exe,
                     "recent_logs": recent_logs[-40:]
                 })
 
-            if exit_code == 99:
-                print("Exit code 99 received. Stopping autoupdater.", flush=True)
-                break
-            
-            print("Restarting backend in 3 seconds...", flush=True)
-            time.sleep(3)
+            print("Backend process exited. Exiting autoupdate.py to trigger Git update in run_autoupdate.bat...", flush=True)
+            sys.exit(0)
         except KeyboardInterrupt:
             print("Autoupdater terminated by user.", flush=True)
             break
