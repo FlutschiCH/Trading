@@ -10,7 +10,9 @@ if script_dir:
     os.chdir(script_dir)
 
 def resolve_python_interpreter():
-    if os.path.exists("backend/.venv/Scripts/python.exe"):
+    if os.path.exists(r"C:\Program Files\Python311\python.exe"):
+        return r"C:\Program Files\Python311\python.exe"
+    elif os.path.exists("backend/.venv/Scripts/python.exe"):
         return os.path.abspath("backend/.venv/Scripts/python.exe")
     elif os.path.exists("backend/venv/Scripts/python.exe"):
         return os.path.abspath("backend/venv/Scripts/python.exe")
