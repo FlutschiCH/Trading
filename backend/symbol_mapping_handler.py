@@ -93,5 +93,5 @@ class SymbolMappingHandler:
                 return res[0]['main_symbol']
         except Exception as e:
             print(f"Error mapping symbol to main: {e}", flush=True)
-        return None
+        return broker_symbol
 
