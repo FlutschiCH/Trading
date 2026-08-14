@@ -35,6 +35,7 @@ def save_strategy():
         "riskPct": float(payload.get("riskPct", 1.0)),
         "useBreakEven": bool(payload.get("useBreakEven", False)),
         "beTriggerR": float(payload.get("beTriggerR", 1.0)),
+        "allowOppositeClose": bool(payload.get("allowOppositeClose", True)),
         "lookbackWindow": int(payload.get("lookbackWindow", 20)),
         "deployedAt": time.strftime("%Y-%m-%d %H:%M:%S"),
         "timezone": payload.get("timezone", "Local"),

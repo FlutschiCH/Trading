@@ -478,38 +478,41 @@ class LiveRunner:
                 from broker_handler import BrokerHandler
                 handler = BrokerHandler.get_handler(target_broker)
 
-                # 1. Check if we already have an open position for this strategy magic number on this target
+                # 1. Check if we already have open positions for this symbol on this target
                 positions = handler.get_positions(**target_kwargs) or []
-                active_pos = None
-                for p in positions:
-                    pos_symbol = SymbolMappingHandler.map_to_main(p.get("symbol"), target_acc_id)
-                    if pos_symbol == base_symbol:
-                        active_pos = p
-                        break
-
                 allow_opposite_close = strategy.get("allowOppositeClose", True)
                 direction = "BUY" if should_buy else "SELL"
+                skip_entry = False
 
-                if active_pos and debug == False:
-                    pos_type = active_pos.get("trade_side", "").upper()
-                    is_opposite = (pos_type == "BUY" and should_sell) or (pos_type == "SELL" and should_buy)
-                    
-                    if is_opposite and allow_opposite_close:
-                        print(f"[Live Runner] Opposite signal detected for target {target_acc_id} on {symbol}. Closing open {pos_type} position...", flush=True)
-                        try:
-                            handler.close_position(active_pos, **target_kwargs)
-                            from discord_handler import send_discord_message
-                            send_discord_message(
-                                f"🔄 **Opposite Signal Position Closed**\n"
-                                f"🎛️ **Strategy ID:** `{strategy_id}`\n"
-                                f"📊 **Symbol:** `{symbol}`\n"
-                                f"🚫 **Closed Position:** `{pos_type}`"
-                            )
-                        except Exception as close_err:
-                            print(f"[Live Runner] Failed to close opposite position: {close_err}", flush=True)
-                    else:
-                        print(f"[Live Runner] Position already open ({pos_type}) for target {target_acc_id} on {symbol}. Skipping entry (allowOppositeClose={allow_opposite_close}).", flush=True)
-                        continue
+                if debug == False:
+                    for p in positions:
+                        pos_symbol = SymbolMappingHandler.map_to_main(p.get("symbol"), target_acc_id)
+                        if pos_symbol == base_symbol:
+                            pos_type = p.get("trade_side", "").upper()
+                            is_opposite = (pos_type == "BUY" and should_sell) or (pos_type == "SELL" and should_buy)
+                            if is_opposite:
+                                if allow_opposite_close:
+                                    print(f"[Live Runner] Opposite signal detected for target {target_acc_id} on {symbol}. Closing open {pos_type} position...", flush=True)
+                                    try:
+                                        handler.close_position(p, **target_kwargs)
+                                        from discord_handler import send_discord_message
+                                        send_discord_message(
+                                            f"🔄 **Opposite Signal Position Closed**\n"
+                                            f"🎛️ **Strategy ID:** `{strategy_id}`\n"
+                                            f"📊 **Symbol:** `{symbol}`\n"
+                                            f"🚫 **Closed Position:** `{pos_type}`"
+                                        )
+                                    except Exception as close_err:
+                                        print(f"[Live Runner] Failed to close opposite position: {close_err}", flush=True)
+                                else:
+                                    print(f"[Live Runner] Opposite position open ({pos_type}) for target {target_acc_id} on {symbol}, but allowOppositeClose=False. Skipping entry.", flush=True)
+                                    skip_entry = True
+                            elif pos_type == direction:
+                                print(f"[Live Runner] Position already open in same direction ({pos_type}) for target {target_acc_id} on {symbol}. Skipping entry.", flush=True)
+                                skip_entry = True
+
+                if skip_entry:
+                    continue
 
                 # 2. Get Account Info for sizing
                 acct = handler.get_account_info(**target_kwargs)
