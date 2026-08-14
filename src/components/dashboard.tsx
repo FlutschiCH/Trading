@@ -1760,7 +1760,7 @@ export default function Dashboard() {
     fetchActiveAccount();
   }, []);
 
-  // 2-Second positions background polling loop
+  // 5-Second positions background polling loop
   useEffect(() => {
     let isCancelled = false;
 
@@ -1772,7 +1772,7 @@ export default function Dashboard() {
       if (!isCancelled) {
         fetchPositionData();
       }
-    }, 2000);
+    }, 5000);
 
     return () => {
       isCancelled = true;
