@@ -546,85 +546,15 @@ class MetaTraderHandler(BaseBrokerHandler):
         if not mt5_inst:
             return {"status": "error", "message": f"No active MT5 instance found for account '{acc_id}'"}
 
-        # If mt5_inst has Close method (e.g. wrapper), try using it directly
-        if hasattr(mt5_inst, 'Close') and callable(getattr(mt5_inst, 'Close')):
-            try:
-                res = mt5_inst.Close(symbol, int(position_id)) if symbol else mt5_inst.Close(int(position_id))
-                return {"status": "success", "message": f"Position {position_id} closed via mt5.Close: {res}"}
-            except Exception as close_err:
-                print(f"[MetaTrader close_position] mt5.Close failed: {close_err}", flush=True)
-
-        # Fetch position details directly if symbol/side/volume are omitted
-        if not symbol or not side or volume <= 0:
-            try:
-                positions = mt5_inst.positions_get(ticket=int(position_id))
-                if positions and len(positions) > 0:
-                    pos = positions[0]
-                    symbol = pos.symbol
-                    buy_type = getattr(mt5_inst, 'POSITION_TYPE_BUY', 0)
-                    side = "BUY" if pos.type == buy_type else "SELL"
-                    volume = float(pos.volume)
-            except Exception as e:
-                print(f"[MetaTrader close_position] Error fetching position #{position_id}: {e}", flush=True)
-
-        if hasattr(mt5_inst, 'Close') and callable(getattr(mt5_inst, 'Close')):
-            try:
-                res = mt5_inst.Close(symbol, int(position_id))
-                return {"status": "success", "message": f"Position {position_id} closed via mt5.Close: {res}"}
-            except Exception as close_err:
-                print(f"[MetaTrader close_position] mt5.Close failed: {close_err}", flush=True)
-
-        is_buy = side.upper() == 'BUY'
-        action_type = getattr(mt5_inst, 'ORDER_TYPE_SELL', 1) if is_buy else getattr(mt5_inst, 'ORDER_TYPE_BUY', 0)
-        
-        tick = mt5_inst.symbol_info_tick(symbol)
-        if tick is None:
-            return {"status": "error", "message": f"Failed to get price tick for {symbol}"}
-        price = tick.bid if is_buy else tick.ask
-        
-        symbol_info = mt5_inst.symbol_info(symbol)
-        filling_mode = getattr(mt5_inst, 'ORDER_FILLING_IOC', 1)
-        if symbol_info is not None and hasattr(symbol_info, "filling_mode"):
-          modes = symbol_info.filling_mode
-          if modes & 2:
-            filling_mode = getattr(mt5_inst, 'ORDER_FILLING_IOC', 1)
-          elif modes & 1:
-            filling_mode = getattr(mt5_inst, 'ORDER_FILLING_FOK', 0)
-          else:
-            filling_mode = getattr(mt5_inst, 'ORDER_FILLING_RETURN', 2)
-
-        vol = round(float(volume), 2)
-        if symbol_info is not None:
-          vol_min = getattr(symbol_info, "volume_min", 0.01)
-          vol_max = getattr(symbol_info, "volume_max", 100.0)
-          vol_step = getattr(symbol_info, "volume_step", 0.01)
-          if vol_step > 0:
-            vol = round(round(vol / vol_step) * vol_step, 2)
-          vol = max(vol_min, min(vol_max, vol))
-
-        request_dict = {
-            "action": getattr(mt5_inst, 'TRADE_ACTION_DEAL', 1),
-            "symbol": symbol,
-            "volume": float(vol),
-            "type": action_type,
-            "position": int(position_id),
-            "price": float(price),
-            "deviation": 20,
-            "magic": 234000,
-            "comment": "Auto-Close Session Position",
-            "type_time": getattr(mt5_inst, 'ORDER_TIME_GTC', 0),
-            "type_filling": filling_mode,
-        }
-        result = mt5_inst.order_send(request_dict)
-        from notification_handler import NotificationHandler
-        done_ret = getattr(mt5_inst, 'TRADE_RETCODE_DONE', 10009)
-        if result is None or result.retcode != done_ret:
-            comment = result.comment if result else "None"
-            retcode = result.retcode if result else -1
+        try:
+            res = mt5_inst.Close(symbol, int(position_id))
+            from notification_handler import NotificationHandler
+            NotificationHandler.play_sound("trade_close")
+            return {"status": "success", "message": f"Position {position_id} closed via mt5.Close: {res}"}
+        except Exception as e:
+            from notification_handler import NotificationHandler
             NotificationHandler.play_sound("error")
-            return {"status": "error", "message": f"MT5 close failed: {comment} (retcode: {retcode})"}
-        NotificationHandler.play_sound("trade_close")
-        return {"status": "success", "message": f"Position {position_id} closed."}
+            return {"status": "error", "message": f"Failed to close position {position_id} via mt5.Close: {e}"}
 
     @staticmethod
     def modify_position(position_id: int, stop_loss: float = None, take_profit: float = None, symbol: str = None, login: int = None, password: str = None, server: str = None, **kwargs) -> dict:
