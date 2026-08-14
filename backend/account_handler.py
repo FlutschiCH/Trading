@@ -163,11 +163,11 @@ class AccountHandler:
     @staticmethod
     def get_active_account():
         AccountHandler.init_db()
-        rows = SQLHandler.execute_query("SELECT * FROM accounts WHERE is_active = 1 LIMIT 1")
+        rows = SQLHandler.execute_query("SELECT * FROM accounts WHERE is_active = 1 AND broker_type != 'ctrader' LIMIT 1")
         if rows:
             return rows[0]
-        # Fallback to the first account if none is set active
-        rows = SQLHandler.execute_query("SELECT * FROM accounts LIMIT 1")
+        # Fallback to the first non-cTrader account if none is set active
+        rows = SQLHandler.execute_query("SELECT * FROM accounts WHERE broker_type != 'ctrader' ORDER BY name ASC LIMIT 1")
         if rows:
             return rows[0]
         return None
