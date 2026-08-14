@@ -1971,10 +1971,9 @@ export default function Dashboard() {
     localStorage.setItem('wyckoff_trades_poll_interval', tradesPollInterval.toString());
   }, [tradesPollInterval]);
 
-  // Fetch account/positions data on initial load and setup interval polling when autoPollTrades is enabled.
+  // Fetch account data on initial load and setup interval polling when autoPollTrades is enabled.
   useEffect(() => {
     fetchAccountData();
-    fetchPositionData();
 
     if (!autoPollTrades) return;
 
@@ -1982,7 +1981,6 @@ export default function Dashboard() {
     const ms = Math.max(15, tradesPollInterval) * 1000;
     const interval = setInterval(() => {
       fetchAccountData();
-      fetchPositionData();
     }, ms);
 
     return () => clearInterval(interval);

@@ -772,7 +772,7 @@ export default function TVChart({
     };
 
     fetchPositions();
-    const interval = setInterval(fetchPositions, 5000);
+    const interval = setInterval(fetchPositions, 15000);
     return () => clearInterval(interval);
   }, [symbol, candleSource]);
 
