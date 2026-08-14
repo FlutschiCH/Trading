@@ -113,19 +113,14 @@ if __name__ == '__main__':
             pass
         finally:
             s.close()
-        BLUE = "\033[94m"
-        CYAN = "\033[96m"
-        BOLD = "\033[1m"
-        RESET = "\033[0m"
-
-        print(f"{BOLD}{BLUE}=================================================={RESET}", flush=True)
-        print(f"{BOLD}{CYAN}💻 Machine Host: {hostname}{RESET}", flush=True)
-        print(f"{BOLD}{CYAN}🌐 Local IP:     {local_ip}{RESET}", flush=True)
-        print(f"{BOLD}{CYAN}🔌 Server Port:   {port}{RESET}", flush=True)
-        print(f"{BOLD}{CYAN}🐍 Python Ver:   {sys.version.split()[0]} ({sys.executable}){RESET}", flush=True)
-        print(f"{BOLD}{BLUE}=================================================={RESET}", flush=True)
+        print(f"==================================================", flush=True)
+        print(f"💻 Machine Host: {hostname}", flush=True)
+        print(f"🌐 Local IP:     {local_ip}", flush=True)
+        print(f"🔌 Server Port:   {port}", flush=True)
+        print(f"🐍 Python Ver:   {sys.version.split()[0]} ({sys.executable})", flush=True)
+        print(f"==================================================", flush=True)
     except Exception as e:
-        print(f"\033[94mStarted! Port: {port}...\033[0m", flush=True)
+        print(f"Started! Port: {port}...", flush=True)
 
     http_server = WSGIServer(('0.0.0.0', port), app, log=CustomWSGILogger())
     

@@ -56,27 +56,8 @@ class LoggerHandler:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         formatted = f"[{timestamp}] [{level.upper()}] [{category}] {msg}"
         
-        # Color coding for terminal output
-        GREEN = "\033[92m"
-        RED = "\033[91m"
-        YELLOW = "\033[93m"
-        CYAN = "\033[96m"
-        BLUE = "\033[94m"
-        BOLD = "\033[1m"
-        RESET = "\033[0m"
-
-        lower_msg = str(msg).lower()
-        if "fail" in lower_msg or "error" in lower_msg or "exception" in lower_msg or level.upper() in ("ERROR", "FAIL"):
-            color = RED
-        elif "connected" in lower_msg or "success" in lower_msg or level.upper() in ("SUCCESS", "OK"):
-            color = GREEN
-        elif "warn" in lower_msg or level.upper() == "WARN":
-            color = YELLOW
-        else:
-            color = CYAN
-
-        formatted_console = f"{BOLD}{BLUE}[{timestamp}]{RESET} {color}[{level.upper()}]{RESET} {color}[{category}]{RESET} {color}{msg}{RESET}"
-        print(formatted_console, flush=True)
+        # Standard print to stdout so TerminalHandler streams it to SSE LogPanel
+        print(formatted, flush=True)
 
         # Append log entry to logs.json
         entry = {
