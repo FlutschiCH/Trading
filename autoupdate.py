@@ -152,27 +152,9 @@ def main():
                 current_backend_process = subprocess.Popen(
                     [python_exe, "app.py"],
                     cwd="backend",
-                    env=env,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    text=True,
-                    encoding="utf-8",
-                    errors="replace",
-                    bufsize=1
+                    env=env
                 )
             
-            recent_logs = []
-            if current_backend_process.stdout:
-                for line in iter(current_backend_process.stdout.readline, ''):
-                    try:
-                        sys.stdout.write(line)
-                        sys.stdout.flush()
-                    except Exception:
-                        pass
-                    recent_logs.append(line.rstrip('\r\n'))
-                    if len(recent_logs) > 200:
-                        recent_logs.pop(0)
-
             current_backend_process.wait()
             exit_code = current_backend_process.returncode
             print(f"Backend exited with code {exit_code}.", flush=True)
@@ -184,8 +166,7 @@ def main():
             if exit_code != 0:
                 log_crash_to_json("backend_crash", {
                     "exit_code": exit_code,
-                    "python_interpreter": python_exe,
-                    "recent_logs": recent_logs[-40:]
+                    "python_interpreter": python_exe
                 })
 
             print("Backend process exited. Exiting autoupdate.py to trigger Git update in run_autoupdate.bat...", flush=True)
