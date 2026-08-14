@@ -44,6 +44,9 @@ export const AccountsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   useEffect(() => {
     refreshAccounts();
+    const handleTargetChange = () => refreshAccounts();
+    window.addEventListener('api_target_changed', handleTargetChange);
+    return () => window.removeEventListener('api_target_changed', handleTargetChange);
   }, [refreshAccounts]);
 
   return (

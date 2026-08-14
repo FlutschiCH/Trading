@@ -1505,7 +1505,31 @@ export default function Dashboard() {
       }
     };
     loadLiveStrategyAndPerms();
-  }, []);
+
+    const handleTargetChange = async () => {
+      console.log('🔄 [IPSwitcher] Target API switched. Refreshing dashboard data without page reload...');
+      fetchAccounts();
+      fetchActiveAccount();
+      fetchAccountData();
+      fetchPositionData();
+      fetchHistoryTrades();
+      fetchFavourites();
+      try {
+        const data = await apiService.fetchLiveStrategies();
+        if (data && data.status === 'success' && Array.isArray(data.strategies)) {
+          setLiveStrategies(data.strategies);
+        }
+      } catch (err) {
+        console.error("Failed to fetch live strategies on target switch:", err);
+      }
+      fetchCandles(candleSource, false, true);
+    };
+
+    window.addEventListener('api_target_changed', handleTargetChange);
+    return () => {
+      window.removeEventListener('api_target_changed', handleTargetChange);
+    };
+  }, [candleSource]);
 
   const isValidAcc = (id: any) => {
     if (!id) return false;

@@ -60,6 +60,9 @@ export const ComputersProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   useEffect(() => {
     refreshComputers();
+    const handleTargetChange = () => refreshComputers();
+    window.addEventListener('api_target_changed', handleTargetChange);
+    return () => window.removeEventListener('api_target_changed', handleTargetChange);
   }, [refreshComputers]);
 
   return (
