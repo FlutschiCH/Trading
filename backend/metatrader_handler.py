@@ -546,6 +546,14 @@ class MetaTraderHandler(BaseBrokerHandler):
         if not mt5_inst:
             return {"status": "error", "message": f"No active MT5 instance found for account '{acc_id}'"}
 
+        # If mt5_inst has Close method (e.g. wrapper), try using it directly
+        if hasattr(mt5_inst, 'Close') and callable(getattr(mt5_inst, 'Close')):
+            try:
+                res = mt5_inst.Close(symbol, int(position_id)) if symbol else mt5_inst.Close(int(position_id))
+                return {"status": "success", "message": f"Position {position_id} closed via mt5.Close: {res}"}
+            except Exception as close_err:
+                print(f"[MetaTrader close_position] mt5.Close failed: {close_err}", flush=True)
+
         # Fetch position details directly if symbol/side/volume are omitted
         if not symbol or not side or volume <= 0:
             try:
@@ -558,6 +566,13 @@ class MetaTraderHandler(BaseBrokerHandler):
                     volume = float(pos.volume)
             except Exception as e:
                 print(f"[MetaTrader close_position] Error fetching position #{position_id}: {e}", flush=True)
+
+        if hasattr(mt5_inst, 'Close') and callable(getattr(mt5_inst, 'Close')):
+            try:
+                res = mt5_inst.Close(symbol, int(position_id))
+                return {"status": "success", "message": f"Position {position_id} closed via mt5.Close: {res}"}
+            except Exception as close_err:
+                print(f"[MetaTrader close_position] mt5.Close failed: {close_err}", flush=True)
 
         is_buy = side.upper() == 'BUY'
         action_type = getattr(mt5_inst, 'ORDER_TYPE_SELL', 1) if is_buy else getattr(mt5_inst, 'ORDER_TYPE_BUY', 0)
