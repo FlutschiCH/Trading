@@ -31,6 +31,7 @@ class LiveStrategyHandler:
             riskPct DOUBLE NOT NULL,
             useBreakEven TINYINT(1) NOT NULL,
             beTriggerR DOUBLE NOT NULL,
+            allowOppositeClose TINYINT(1) DEFAULT 1,
             lookbackWindow INT NOT NULL,
             deployedAt VARCHAR(50) NOT NULL,
             timezone VARCHAR(10) DEFAULT 'Local',
@@ -59,6 +60,10 @@ class LiveStrategyHandler:
         try:
             SQLHandler.execute_query(create_mysql)
             SQLHandler.execute_query(create_targets_table)
+            try:
+                SQLHandler.execute_query("ALTER TABLE live_strategies ADD COLUMN allowOppositeClose TINYINT(1) DEFAULT 1")
+            except Exception:
+                pass
             LiveStrategyHandler._db_initialized = True
         except Exception as e:
             print(f"Error initializing live_strategies DB table: {e}", flush=True)
@@ -77,11 +82,11 @@ class LiveStrategyHandler:
         query = """
         INSERT INTO live_strategies (
             id, name, symbol, status, timeframe, slVal, slType, rr, size, 
-            useRiskSizing, riskPct, useBreakEven, beTriggerR, lookbackWindow, deployedAt,
+            useRiskSizing, riskPct, useBreakEven, beTriggerR, allowOppositeClose, lookbackWindow, deployedAt,
             timezone, sessions, useGlobalClose, globalCloseTime, entryStabilityRule, broker, account_id, target_computer,
             dateRangeOption, customFrom, customTo, candleLimit
         ) VALUES (
-            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
             %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
         ) ON DUPLICATE KEY UPDATE 
             name=VALUES(name),
@@ -96,6 +101,7 @@ class LiveStrategyHandler:
             riskPct=VALUES(riskPct),
             useBreakEven=VALUES(useBreakEven),
             beTriggerR=VALUES(beTriggerR),
+            allowOppositeClose=VALUES(allowOppositeClose),
             lookbackWindow=VALUES(lookbackWindow),
             deployedAt=VALUES(deployedAt),
             timezone=VALUES(timezone),
@@ -133,6 +139,7 @@ class LiveStrategyHandler:
             strategy["riskPct"],
             1 if strategy["useBreakEven"] else 0,
             strategy["beTriggerR"],
+            1 if strategy.get("allowOppositeClose", True) else 0,
             strategy["lookbackWindow"],
             strategy["deployedAt"],
             strategy.get("timezone", "Local"),
@@ -287,6 +294,7 @@ class LiveStrategyHandler:
             "riskPct": float(row["riskPct"]),
             "useBreakEven": bool(row["useBreakEven"]),
             "beTriggerR": float(row["beTriggerR"]),
+            "allowOppositeClose": bool(row.get("allowOppositeClose", True)),
             "lookbackWindow": int(row["lookbackWindow"]),
             "deployedAt": row["deployedAt"],
             "timezone": row.get("timezone", "Local") or "Local",
