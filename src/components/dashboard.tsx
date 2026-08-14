@@ -22,6 +22,7 @@ import Copytrader from './copytrader';
 import LogPanel from './log_panel';
 import type { Candle, AccountInfo, Position } from '../types/trading';
 import { useCandleStore } from '../services/candleStore';
+import { usePositionsStore } from '../services/positionsStore';
 import { isPollingPaused } from '../services/pollingStore';
 
 
@@ -220,6 +221,8 @@ export default function Dashboard() {
     setActiveStrategyId,
     fetchCandles: storeFetchCandles,
   } = useCandleStore();
+
+  const { positions, refreshPositions: storeRefreshPositions } = usePositionsStore();
 
 
   const [availableSymbols, setAvailableSymbols] = useState<string[]>([
@@ -1579,23 +1582,7 @@ export default function Dashboard() {
   };
 
   const fetchPositionData = async (overrideBroker?: string, overrideAccId?: string) => {
-    if (isPollingPaused()) return;
-    const accId = overrideAccId || getSelectedAccountId();
-    if (!isValidAcc(accId)) return;
-    const broker = overrideBroker || candleSource;
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/trade/positions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ broker: broker, account_id: accId })
-      });
-      const result = await response.json();
-      if (result.status === 'success') {
-        const positions = Array.isArray(result.data) ? result.data : [];
-        setOpenPositions(positions);
-      }
-    } catch (error) {
-    }
+    return storeRefreshPositions(overrideBroker, overrideAccId);
   };
 
   const fetchHistoryTrades = async (overrideBroker?: string, overrideAccId?: string) => {
@@ -1760,25 +1747,7 @@ export default function Dashboard() {
     fetchActiveAccount();
   }, []);
 
-  // 5-Second positions background polling loop
-  useEffect(() => {
-    let isCancelled = false;
 
-    // Initial fetch of account and position data
-    fetchAccountData();
-    fetchPositionData();
-
-    const interval = setInterval(() => {
-      if (!isCancelled) {
-        fetchPositionData();
-      }
-    }, 5000);
-
-    return () => {
-      isCancelled = true;
-      clearInterval(interval);
-    };
-  }, [candleSource, activeAccount]);
 
   const handleClosePosition = async (pos: any) => {
     if (isProdHost && !isAuthenticated) {

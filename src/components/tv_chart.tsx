@@ -6,6 +6,7 @@ import { calculateDateBounds } from '../App';
 import { API_BASE_URL } from '../api';
 import type { Candle } from '../types/trading';
 import { SymbolTimeframeSelector } from './symbol_timeframe_selector';
+import { usePositionsStore } from '../services/positionsStore';
 
 class SessionBoxRenderer implements SeriesPrimitivePaneRenderer {
   private _sessionCoords: any[];
@@ -734,49 +735,8 @@ export default function TVChart({
     setInternalPositions(openPositions);
   }, [openPositions]);
 
-  // Query open positions every 5 seconds
-  useEffect(() => {
-    const fetchPositions = async () => {
-      try {
-        const savedId = localStorage.getItem('wyckoff_active_account_id');
-        let accId = (savedId && !['none', 'null', 'undefined'].includes(String(savedId).trim().toLowerCase())) ? savedId : null;
-        if (!accId) {
-          try {
-            const saved = localStorage.getItem('wyckoff_active_account');
-            if (saved) {
-              const parsed = JSON.parse(saved);
-              const candidate = parsed?.account_id || parsed?.id;
-              if (candidate && !['none', 'null', 'undefined'].includes(String(candidate).trim().toLowerCase())) {
-                accId = candidate;
-              }
-            }
-          } catch (e) { }
-        }
-
-        if (isPollingPaused()) return;
-        if (!accId || ['none', 'null', 'undefined'].includes(String(accId).trim().toLowerCase())) return;
-
-        const broker = candleSource || 'metatrader';
-        const res = await fetch(`${API_BASE_URL}/api/trade/positions`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ broker, symbol, account_id: accId })
-        });
-        const data = await res.json();
-        if (data.status === 'success' && Array.isArray(data.data)) {
-          setInternalPositions(data.data);
-        }
-      } catch (err) {
-        console.error('Failed to query positions every 5s:', err);
-      }
-    };
-
-    fetchPositions();
-    const interval = setInterval(fetchPositions, 15000);
-    return () => clearInterval(interval);
-  }, [symbol, candleSource]);
-
-  const activeOpenPositions = internalPositions;
+  const { positions: storePositions } = usePositionsStore();
+  const activeOpenPositions = storePositions;
 
   // Candle polling handled centrally by CandleStore (15s interval)
   const [chartHeight, setChartHeight] = useState(window.innerWidth < 768 ? 380 : 680);

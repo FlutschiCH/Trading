@@ -6,14 +6,17 @@ import App from './App.tsx'
 import { CandleProvider } from './services/candleStore'
 import { AccountsProvider } from './services/accountsStore'
 import { ComputersProvider } from './services/computersStore'
+import { PositionsProvider } from './services/positionsStore'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <AccountsProvider>
       <ComputersProvider>
-        <CandleProvider>
-          <App />
-        </CandleProvider>
+        <PositionsProvider>
+          <CandleProvider>
+            <App />
+          </CandleProvider>
+        </PositionsProvider>
       </ComputersProvider>
     </AccountsProvider>
   </StrictMode>,
