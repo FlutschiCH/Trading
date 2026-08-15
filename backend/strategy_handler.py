@@ -1,5 +1,6 @@
 import pandas as pd
 import json
+import time
 from indicator_handler import IndicatorHandler
 from trading_handler import TradingHandler
 
