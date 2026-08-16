@@ -1530,17 +1530,19 @@ export default function WyckoffBacktester({
               {(effectiveSymbols.length > 1 || effectiveTimeframes.length > 1) && (
                 <div style={{
                   display: 'flex',
+                  flexWrap: 'wrap',
                   alignItems: 'center',
                   gap: '6px',
-                  overflowX: 'auto',
-                  padding: '6px 8px',
-                  backgroundColor: '#0f172a',
+                  maxHeight: '130px',
+                  overflowY: 'auto',
+                  padding: '8px 10px',
+                  backgroundColor: 'var(--app-panel-header-bg, #0f172a)',
                   borderRadius: '6px',
-                  border: '1px solid #1e293b',
+                  border: '1px solid var(--app-card-border, #1e293b)',
                   fontSize: '11px',
                   marginTop: '4px'
                 }}>
-                  <span style={{ color: '#9ca3af', fontWeight: 600, whiteSpace: 'nowrap', fontSize: '10px' }}>
+                  <span style={{ color: 'var(--app-text-muted, #9ca3af)', fontWeight: 600, whiteSpace: 'nowrap', fontSize: '10px', width: '100%', marginBottom: '2px' }}>
                     🔀 Active Combos ({effectiveSymbols.length * effectiveTimeframes.length}):
                   </span>
                   {effectiveSymbols.flatMap(s => effectiveTimeframes.map(tf => ({ s, tf }))).map(({ s, tf }) => {
@@ -1557,9 +1559,9 @@ export default function WyckoffBacktester({
                           fontWeight: 600,
                           cursor: 'pointer',
                           whiteSpace: 'nowrap',
-                          border: isCurrent ? '1px solid #38bdf8' : '1px solid #334155',
-                          backgroundColor: isCurrent ? 'rgba(56, 189, 248, 0.2)' : '#1e293b',
-                          color: isCurrent ? '#38bdf8' : '#94a3b8'
+                          border: isCurrent ? '1px solid #38bdf8' : '1px solid var(--app-card-border, #334155)',
+                          backgroundColor: isCurrent ? 'rgba(56, 189, 248, 0.2)' : 'var(--app-input-bg, #1e293b)',
+                          color: isCurrent ? '#38bdf8' : 'var(--app-text, #94a3b8)'
                         }}
                       >
                         {s} • {tf}
