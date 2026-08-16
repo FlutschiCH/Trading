@@ -1067,58 +1067,52 @@ export default function Dashboard() {
         }),
       });
 
-      if (!response.body) {
-        throw new Error("No response body available for streaming");
-      }
+      const initData = await response.json();
+      const jobId = initData.job_id || backtestId;
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder("utf-8");
-      let done = false;
-      let buffer = "";
+      // Poll status endpoint
+      let isDone = false;
+      while (!isDone) {
+        if (controller.signal.aborted) break;
+        await new Promise((r) => setTimeout(r, 1000));
 
-      while (!done) {
-        const { value, done: doneReading } = await reader.read();
-        done = doneReading;
-        if (value) {
-          buffer += decoder.decode(value, { stream: !done });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
+        const statusRes = await fetch(`${API_BASE_URL}/api/backtest/status/${jobId}`);
+        if (!statusRes.ok) continue;
 
-          for (const line of lines) {
-            if (line.trim()) {
-              try {
-                const parsed = JSON.parse(line.trim());
-                if (parsed.progress !== undefined) {
-                  setBacktestProgress(parsed.progress);
-                }
-                if (parsed.status === 'success' && parsed.data) {
-                  const resData = parsed.data;
-                  setBacktestResults(resData);
-                  setFvgs(resData.fvgs || []);
-                  if (resData.trades && resData.trades.length > 0) {
-                    setSelectedTrade(resData.trades[0]);
-                  } else {
-                    setSelectedTrade(null);
-                  }
+        const statusData = await statusRes.json();
+        const job = statusData.job;
 
-                  // Notify if a signal occurs on the latest candle
-                  const analyzedCandles = resData.candles || [];
-                  if (analyzedCandles.length > 0) {
-                    const lastCandle = analyzedCandles[analyzedCandles.length - 1];
-                    if (lastCandle.backtest_signal && lastCandle.time !== lastNotifiedSignalRef.current) {
-                      lastNotifiedSignalRef.current = lastCandle.time;
-                      triggerPWAEventNotification(
-                        `⚡ Wyckoff Signal Triggered!`,
-                        `${lastCandle.backtest_signal} signal found on ${symbol} (${timeframe}) at price $${lastCandle.close.toFixed(2)}`
-                      );
-                    }
-                  }
-                } else if (parsed.status === 'error') {
-                  throw new Error(parsed.message || "Unknown backtest error");
-                }
-              } catch (parseErr) {
-                console.error("Failed to parse JSON chunk:", parseErr);
+        if (job) {
+          if (job.progress !== undefined) {
+            setBacktestProgress(Math.round(job.progress));
+          }
+
+          if (job.status === 'completed') {
+            isDone = true;
+            const resData = job.results || {};
+            setBacktestResults(resData);
+            setFvgs(resData.fvgs || []);
+            if (resData.trades && resData.trades.length > 0) {
+              setSelectedTrade(resData.trades[0]);
+            } else {
+              setSelectedTrade(null);
+            }
+
+            const analyzedCandles = resData.candles || [];
+            if (analyzedCandles.length > 0) {
+              const lastCandle = analyzedCandles[analyzedCandles.length - 1];
+              if (lastCandle.backtest_signal && lastCandle.time !== lastNotifiedSignalRef.current) {
+                lastNotifiedSignalRef.current = lastCandle.time;
+                triggerPWAEventNotification(
+                  `⚡ Wyckoff Signal Triggered!`,
+                  `${lastCandle.backtest_signal} signal found on ${symbol} (${timeframe}) at price $${lastCandle.close.toFixed(2)}`
+                );
               }
+            }
+          } else if (job.status === 'failed' || job.status === 'cancelled') {
+            isDone = true;
+            if (job.status === 'failed') {
+              console.error("Backtest failed:", job.step_info);
             }
           }
         }
@@ -1212,47 +1206,40 @@ export default function Dashboard() {
         throw new Error(`Server returned status ${response.status}: ${errText}`);
       }
 
-      if (!response.body) {
-        throw new Error("No response body available for streaming");
-      }
+      const initData = await response.json();
+      const jobId = initData.job_id || backtestId;
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder("utf-8");
-      let done = false;
-      let buffer = "";
+      let isDone = false;
+      while (!isDone) {
+        if (controller.signal.aborted) break;
+        await new Promise((r) => setTimeout(r, 1000));
 
-      while (!done) {
-        const { value, done: doneReading } = await reader.read();
-        done = doneReading;
-        if (value) {
-          buffer += decoder.decode(value, { stream: !done });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
+        const statusRes = await fetch(`${API_BASE_URL}/api/backtest/status/${jobId}`);
+        if (!statusRes.ok) continue;
 
-          for (const line of lines) {
-            if (line.trim()) {
-              try {
-                const parsed = JSON.parse(line.trim());
-                if (parsed.progress !== undefined) {
-                  setBacktestProgress(parsed.progress);
-                }
-                if (parsed.currentRun !== undefined && parsed.totalRuns !== undefined) {
-                  setBacktestRunInfo({ current: parsed.currentRun, total: parsed.totalRuns });
-                }
-                if (parsed.status === 'success' && parsed.data) {
-                  const resData = parsed.data;
-                  if (resData.results) {
-                    setOptimizationResults(resData.results);
-                    console.log(`[Optimization Complete] Finished ${resData.results.length} backtests successfully.`);
-                  }
-                } else if (parsed.status === 'error') {
-                  console.error("[Optimization Stream Error]", parsed.message);
-                  alert(`Optimization Error: ${parsed.message}`);
-                  throw new Error(parsed.message || "Unknown optimization error");
-                }
-              } catch (parseErr) {
-                console.error("Failed to parse JSON chunk:", parseErr);
-              }
+        const statusData = await statusRes.json();
+        const job = statusData.job;
+
+        if (job) {
+          if (job.progress !== undefined) {
+            setBacktestProgress(Math.round(job.progress));
+          }
+
+          if (job.checkpoint_index !== undefined && job.checkpoint_data?.total_combos) {
+            setBacktestRunInfo({ current: job.checkpoint_index, total: job.checkpoint_data.total_combos });
+          }
+
+          if (job.status === 'completed') {
+            isDone = true;
+            const resData = job.results || {};
+            if (resData.grid) {
+              setOptimizationResults(resData.grid);
+              console.log(`[Optimization Complete] Finished ${resData.grid.length} backtests successfully.`);
+            }
+          } else if (job.status === 'failed' || job.status === 'cancelled') {
+            isDone = true;
+            if (job.status === 'failed') {
+              alert(`Optimization Failed: ${job.step_info || 'Unknown error'}`);
             }
           }
         }

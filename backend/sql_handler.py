@@ -253,6 +253,127 @@ class SQLHandler:
             print(f"[SQLHandler] Error deleting saved backtest {backtest_id}: {e}", flush=True)
             return False
 
+    @classmethod
+    def init_backtest_jobs_table(cls):
+        """Creates table for async backtest jobs and progress tracking."""
+        query = """
+        CREATE TABLE IF NOT EXISTS backtest_jobs (
+            job_id VARCHAR(128) PRIMARY KEY,
+            type VARCHAR(32) NOT NULL DEFAULT 'single',
+            status VARCHAR(32) NOT NULL DEFAULT 'queued',
+            progress FLOAT DEFAULT 0.0,
+            step_info VARCHAR(255) DEFAULT '',
+            checkpoint_index INT DEFAULT 0,
+            checkpoint_data LONGTEXT,
+            params LONGTEXT,
+            results LONGTEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        """
+        try:
+            cls.execute_query(query)
+        except Exception as e:
+            print(f"[SQLHandler] Error initializing backtest_jobs table: {e}", flush=True)
+
+    @classmethod
+    def create_backtest_job(cls, job_id: str, job_type: str, params: dict) -> bool:
+        cls.init_backtest_jobs_table()
+        query = """
+        INSERT INTO backtest_jobs (job_id, type, status, progress, params)
+        VALUES (%s, %s, 'queued', 0.0, %s)
+        ON DUPLICATE KEY UPDATE type=VALUES(type), status='queued', progress=0.0, params=VALUES(params)
+        """
+        try:
+            cls.execute_query(query, (job_id, job_type, json.dumps(params)))
+            return True
+        except Exception as e:
+            print(f"[SQLHandler] Error creating backtest job {job_id}: {e}", flush=True)
+            return False
+
+    @classmethod
+    def update_backtest_job_progress(cls, job_id: str, status: str = None, progress: float = None, step_info: str = None, checkpoint_index: int = None, checkpoint_data: dict = None, results: dict = None) -> bool:
+        cls.init_backtest_jobs_table()
+        updates = []
+        params = []
+        if status is not None:
+            updates.append("status = %s")
+            params.append(status)
+        if progress is not None:
+            updates.append("progress = %s")
+            params.append(progress)
+        if step_info is not None:
+            updates.append("step_info = %s")
+            params.append(step_info)
+        if checkpoint_index is not None:
+            updates.append("checkpoint_index = %s")
+            params.append(checkpoint_index)
+        if checkpoint_data is not None:
+            updates.append("checkpoint_data = %s")
+            params.append(json.dumps(checkpoint_data))
+        if results is not None:
+            updates.append("results = %s")
+            params.append(json.dumps(results))
+
+        if not updates:
+            return True
+
+        query = f"UPDATE backtest_jobs SET {', '.join(updates)} WHERE job_id = %s"
+        params.append(job_id)
+        try:
+            cls.execute_query(query, tuple(params))
+            return True
+        except Exception as e:
+            print(f"[SQLHandler] Error updating backtest job {job_id}: {e}", flush=True)
+            return False
+
+    @classmethod
+    def get_backtest_job(cls, job_id: str) -> dict:
+        cls.init_backtest_jobs_table()
+        query = "SELECT * FROM backtest_jobs WHERE job_id = %s"
+        try:
+            rows = cls.execute_query(query, (job_id,))
+            if rows and isinstance(rows, list):
+                row = rows[0]
+                if row.get('params') and isinstance(row['params'], str):
+                    try:
+                        row['params'] = json.loads(row['params'])
+                    except Exception:
+                        pass
+                if row.get('checkpoint_data') and isinstance(row['checkpoint_data'], str):
+                    try:
+                        row['checkpoint_data'] = json.loads(row['checkpoint_data'])
+                    except Exception:
+                        pass
+                if row.get('results') and isinstance(row['results'], str):
+                    try:
+                        row['results'] = json.loads(row['results'])
+                    except Exception:
+                        pass
+                return row
+        except Exception as e:
+            print(f"[SQLHandler] Error fetching backtest job {job_id}: {e}", flush=True)
+        return None
+
+    @classmethod
+    def get_unfinished_backtest_jobs(cls) -> list:
+        cls.init_backtest_jobs_table()
+        query = "SELECT * FROM backtest_jobs WHERE status IN ('queued', 'running', 'interrupted')"
+        try:
+            rows = cls.execute_query(query)
+            if isinstance(rows, list):
+                for row in rows:
+                    if row.get('params') and isinstance(row['params'], str):
+                        try:
+                            row['params'] = json.loads(row['params'])
+                        except Exception:
+                            pass
+                return rows
+        except Exception as e:
+            print(f"[SQLHandler] Error fetching unfinished backtest jobs: {e}", flush=True)
+        return []
+
+
 
     @classmethod
     def execute_query(cls, query: str, params: tuple = None) -> list:

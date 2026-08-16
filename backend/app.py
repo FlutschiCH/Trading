@@ -35,7 +35,21 @@ init(autoreset=True)
 print(f"{Fore.CYAN}[INIT]{Style.RESET_ALL} Loading SQL Handler...")
 from sql_handler import SQLHandler
 import threading
+
+def check_interrupted_backtests():
+    try:
+        unfinished = SQLHandler.get_unfinished_backtest_jobs()
+        if unfinished:
+            print(f"{Fore.YELLOW}[Reboot Recovery]{Style.RESET_ALL} Found {len(unfinished)} unfinished backtest jobs. Updating status to 'interrupted'.", flush=True)
+            for j in unfinished:
+                job_id = j.get('job_id')
+                SQLHandler.update_backtest_job_progress(job_id, status='interrupted', step_info='Interrupted by server restart/reboot. Ready to resume.')
+    except Exception as e:
+        print(f"[Reboot Recovery] Error checking unfinished jobs: {e}", flush=True)
+
 threading.Thread(target=SQLHandler.get_mysql_connection, daemon=True).start()
+threading.Thread(target=check_interrupted_backtests, daemon=True).start()
+
 
 print(f"{Fore.CYAN}[INIT]{Style.RESET_ALL} Loading Flask & Routes...")
 from flask import Flask

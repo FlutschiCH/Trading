@@ -21,149 +21,68 @@ cancelled_backtests = set()
 @strategy_routes.route('/backtest/cancel', methods=['POST'])
 def cancel_backtest():
     payload = request.get_json(silent=True) or {}
-    backtest_id = payload.get('backtestId')
+    backtest_id = payload.get('backtestId') or payload.get('job_id')
     if backtest_id:
         cancelled_backtests.add(str(backtest_id))
-    return jsonify({"status": "success", "message": "Backtest cancellation flag set successfully"})
+        from sql_handler import SQLHandler
+        SQLHandler.update_backtest_job_progress(str(backtest_id), status='cancelled', step_info='Cancelled by user')
+    return jsonify({"status": "success", "message": "Backtest cancellation requested"})
+
+@strategy_routes.route('/backtest/status/<job_id>', methods=['GET'])
+def get_backtest_status(job_id):
+    from sql_handler import SQLHandler
+    job = SQLHandler.get_backtest_job(job_id)
+    if not job:
+        return jsonify({"status": "error", "message": "Job not found"}), 404
+    return jsonify({"status": "success", "job": job})
+
+@strategy_routes.route('/backtest/resume/<job_id>', methods=['POST'])
+def resume_backtest_job(job_id):
+    import subprocess
+    import sys
+    from sql_handler import SQLHandler
+    job = SQLHandler.get_backtest_job(job_id)
+    if not job:
+        return jsonify({"status": "error", "message": "Job not found"}), 404
+
+    python_executable = sys.executable
+    worker_script = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'backtest_worker.py')
+    cmd = [python_executable, worker_script, '--job_id', str(job_id), '--resume']
+
+    SQLHandler.update_backtest_job_progress(str(job_id), status='running', step_info='Resuming worker process...')
+    subprocess.Popen(cmd, creationflags=subprocess.CREATE_NEW_CONSOLE if os.name == 'nt' else 0)
+
+    return jsonify({"status": "accepted", "job_id": str(job_id), "message": "Job resume requested"})
 
 @strategy_routes.route('/backtest', methods=['POST'])
 def backtest():
     """
-    Exposes Python-based backtesting engine to frontend dashboard.
+    Exposes Python-based backtesting engine to frontend dashboard asynchronously.
     """
+    import uuid
+    import subprocess
+    import sys
+    from sql_handler import SQLHandler
+
     print(f"[Backend] /api/backtest endpoint hit at {time.strftime('%Y-%m-%d %H:%M:%S')}", flush=True)
     payload = request.get_json(silent=True) or {}
-    symbol = payload.get('symbol', 'BTCUSD')
-    candle_source = payload.get('candleSource', 'metatrader')
-    timeframe = payload.get('timeframe') or payload.get('interval', '15m')
-    limit = int(payload.get('limit', 1000))
-    date_from = payload.get('date_from')
-    date_to = payload.get('date_to')
+    job_id = payload.get('backtestId') or str(uuid.uuid4())
 
-    account_id = payload.get('account_id') or payload.get('account') or payload.get('login')
-    if not account_id and candle_source == 'metatrader':
-        try:
-            from account_handler import AccountHandler
-            active_acc = AccountHandler.get_active_account()
-            if active_acc:
-                account_id = active_acc.get('account_id')
-        except Exception:
-            pass
+    # Create job in MySQL DB
+    SQLHandler.create_backtest_job(job_id=job_id, job_type='single', params=payload)
 
-    # Fetch up-to-date candles on the backend
-    from broker_handler import BrokerHandler
-    handler = BrokerHandler.get_handler(candle_source)
-    candles = handler.fetch_candles(
-        symbol=symbol,
-        timeframe=timeframe,
-        limit=limit,
-        date_from=date_from,
-        date_to=date_to,
-        login=account_id,
-        account_id=account_id
-    )
-    
-    # If running against recent candles (no fixed end date specified), trim off the current in-progress live candle
-    if len(candles) > 1 and not date_to:
-        candles = candles[:-1]
-    
-    if not candles:
-        return jsonify({"status": "error", "message": "Failed to fetch up-to-date candles for backtest."}), 400
-    sl_val = float(payload.get('slVal', 1.0))
-    sl_type = payload.get('slType', 'pct')
-    rr = float(payload.get('rr', 2.0))
-    size = float(payload.get('size', 1.0))
-    initial_balance = float(payload.get('initialBalance', 10000.0))
-    use_risk_sizing = bool(payload.get('useRiskSizing', False))
-    risk_pct = float(payload.get('riskPct', 1.0))
-    use_break_even = bool(payload.get('useBreakEven', False))
-    be_trigger_r = float(payload.get('beTriggerR', 1.0))
-    be_offset_mode = payload.get('beOffsetMode', 'half_r')
-    lookback_window = int(payload.get('lookbackWindow', 20))
-    fees_percent = float(payload.get('feesPercent', 0.0))
-    daily_retry_limit = int(payload.get('dailyRetryLimit', 0))
-    allow_opposite_close = bool(payload.get('allowOppositeClose', True))
-    backtest_id = payload.get('backtestId')
-    
-    timezone = payload.get('timezone', 'Local')
-    sessions = payload.get('sessions', [])
-    use_global_close = bool(payload.get('useGlobalClose', False))
-    global_close_time = payload.get('globalCloseTime', '')
-    entry_stability_rule = payload.get('entryStabilityRule', 'default')
+    # Spawn worker subprocess
+    python_executable = sys.executable
+    worker_script = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'backtest_worker.py')
+    cmd = [python_executable, worker_script, '--job_id', str(job_id)]
 
-    def check_cancelled():
-        if backtest_id and str(backtest_id) in cancelled_backtests:
-            return True
-        return False
+    subprocess.Popen(cmd, creationflags=subprocess.CREATE_NEW_CONSOLE if os.name == 'nt' else 0)
 
-    import queue
-    import threading
-    from flask import Response
-
-    q = queue.Queue()
-
-    def run_in_thread():
-        try:
-            def cb(pct):
-                q.put({"progress": int(15 + (pct / 100) * 83)})
-                
-            res = StrategyHandler.run_backtest(
-                candles=candles,
-                symbol=symbol,
-                sl_val=sl_val,
-                sl_type=sl_type,
-                rr=rr,
-                size=size,
-                initial_balance=initial_balance,
-                use_risk_sizing=use_risk_sizing,
-                risk_pct=risk_pct,
-                use_break_even=use_break_even,
-                be_trigger_r=be_trigger_r,
-                be_offset_mode=be_offset_mode,
-                lookback_window=lookback_window,
-                fees_percent=fees_percent,
-                daily_retry_limit=daily_retry_limit,
-                allow_opposite_close=allow_opposite_close,
-                check_cancelled=check_cancelled,
-                date_from=date_from,
-                date_to=date_to,
-                timezone=timezone,
-                sessions=sessions,
-                use_global_close=use_global_close,
-                global_close_time=global_close_time,
-                progress_callback=cb,
-                entry_stability_rule=entry_stability_rule,
-                broker=candle_source
-            )
-            q.put({"status": "success", "data": res})
-        except Exception as e:
-            q.put({"status": "error", "message": str(e)})
-        finally:
-            q.put(None)
-
-    t = threading.Thread(target=run_in_thread, daemon=True)
-    t.start()
-
-    def generate():
-        import json
-        yield json.dumps({"progress": 10}) + "\n"
-        while True:
-            try:
-                item = q.get()
-                if item is None:
-                    break
-                yield json.dumps(item) + "\n"
-            except Exception as e:
-                yield json.dumps({"status": "error", "message": str(e)}) + "\n"
-                break
-        
-        if backtest_id and str(backtest_id) in cancelled_backtests:
-            try:
-                cancelled_backtests.remove(str(backtest_id))
-            except KeyError:
-                pass
-
-    return Response(generate(), mimetype='application/x-ndjson')
+    return jsonify({
+        "status": "accepted",
+        "job_id": str(job_id),
+        "message": "Backtest started in background worker"
+    }), 202
 
 @strategy_routes.route('/risk', methods=['GET', 'POST'])
 def risk():
@@ -216,20 +135,18 @@ def historical_candles():
             headers={'User-Agent': 'Mozilla/5.0'}
         )
         with urllib.request.urlopen(req, timeout=5) as response:
-            data = json.loads(response.read().decode('utf-8'))
+            data = json.loads(response.read().decode())
             candles = []
             for item in data:
                 candles.append({
-                    "time": int(item[0]) // 1000,
-                    "open": float(item[1]),
-                    "high": float(item[2]),
-                    "low": float(item[3]),
-                    "close": float(item[4]),
-                    "volume": float(item[5])
+                    'time': int(item[0]) // 1000,
+                    'open': float(item[1]),
+                    'high': float(item[2]),
+                    'low': float(item[3]),
+                    'close': float(item[4]),
+                    'volume': float(item[5])
                 })
-            from candle_sanitizer import sanitize_and_fill_candles
-            sanitized_candles = sanitize_and_fill_candles(candles, timeframe=timeframe)
-            return jsonify({"status": "success", "data": sanitized_candles})
+            return jsonify({"status": "success", "data": candles})
     except Exception as e:
         print(f"Failed to fetch {binance_symbol} from Binance API: {e}. Returning empty list.", flush=True)
         return jsonify({"status": "success", "data": []})
@@ -237,154 +154,32 @@ def historical_candles():
 @strategy_routes.route('/backtest/optimize', methods=['POST'])
 def backtest_optimize():
     """
-    Exposes parameter optimization backtests to frontend dashboard.
+    Exposes parameter optimization backtests to frontend dashboard asynchronously.
     """
+    import uuid
+    import subprocess
+    import sys
+    from sql_handler import SQLHandler
+
     payload = request.get_json(silent=True) or {}
-    account_id = payload.get('account_id') or payload.get('accountId')
-    symbol = payload.get('symbol', 'BTCUSD')
-    candle_source = payload.get('candleSource', 'metatrader')
-    timeframe = payload.get('timeframe') or payload.get('interval', '15m')
-    limit = int(payload.get('limit', 1000))
-    date_from = payload.get('date_from')
-    date_to = payload.get('date_to')
+    job_id = payload.get('backtestId') or str(uuid.uuid4())
 
-    sl_val = float(payload.get('slVal', 1.0))
-    sl_type = payload.get('slType', 'pct')
-    size = float(payload.get('size', 1.0))
-    initial_balance = float(payload.get('initialBalance', 10000.0))
-    use_risk_sizing = bool(payload.get('useRiskSizing', False))
-    risk_pct = float(payload.get('riskPct', 1.0))
-    use_break_even = bool(payload.get('useBreakEven', False))
-    be_trigger_r = float(payload.get('beTriggerR', 1.0))
-    be_offset_mode = payload.get('beOffsetMode', 'half_r')
-    lookback_window = int(payload.get('lookbackWindow', 20))
-    fees_percent = float(payload.get('feesPercent', 0.0))
-    daily_retry_limit = int(payload.get('dailyRetryLimit', 0))
-    allow_opposite_close = bool(payload.get('allowOppositeClose', True))
-    backtest_id = payload.get('backtestId')
-    
-    rr_start = float(payload.get('rrStart', 1.0))
-    rr_end = float(payload.get('rrEnd', 5.0))
-    rr_step = float(payload.get('rrStep', 0.5))
-    
-    timezone = payload.get('timezone', 'Local')
-    sessions = payload.get('sessions', [])
-    use_global_close = bool(payload.get('useGlobalClose', False))
-    global_close_time = payload.get('globalCloseTime', '')
-    entry_stability_rule = payload.get('entryStabilityRule', 'default')
+    # Create job in MySQL DB
+    SQLHandler.create_backtest_job(job_id=job_id, job_type='optimize', params=payload)
 
-    # Grid parameters
-    symbols = payload.get('symbols', [])
-    timeframes = payload.get('timeframes', [])
-    sl_range_mode = bool(payload.get('slRangeMode', False))
-    sl_start = float(payload.get('slStart')) if payload.get('slStart') is not None else None
-    sl_end = float(payload.get('slEnd')) if payload.get('slEnd') is not None else None
-    sl_step = float(payload.get('slStep')) if payload.get('slStep') is not None else None
-    be_range_mode = bool(payload.get('beRangeMode', False))
-    be_start = float(payload.get('beStart')) if payload.get('beStart') is not None else None
-    be_end = float(payload.get('beEnd')) if payload.get('beEnd') is not None else None
-    be_step = float(payload.get('beStep')) if payload.get('beStep') is not None else None
+    # Spawn worker subprocess
+    python_executable = sys.executable
+    worker_script = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'backtest_worker.py')
+    cmd = [python_executable, worker_script, '--job_id', str(job_id)]
 
-    be_offset_range_mode = bool(payload.get('beOffsetRangeMode', False))
-    be_offset_start = float(payload.get('beOffsetStart')) if payload.get('beOffsetStart') is not None else None
-    be_offset_end = float(payload.get('beOffsetEnd')) if payload.get('beOffsetEnd') is not None else None
-    be_offset_step = float(payload.get('beOffsetStep')) if payload.get('beOffsetStep') is not None else None
+    subprocess.Popen(cmd, creationflags=subprocess.CREATE_NEW_CONSOLE if os.name == 'nt' else 0)
 
-    def check_cancelled():
-        if backtest_id and str(backtest_id) in cancelled_backtests:
-            return True
-        return False
+    return jsonify({
+        "status": "accepted",
+        "job_id": str(job_id),
+        "message": "Optimization started in background worker"
+    }), 202
 
-    import queue
-    import threading
-    from flask import Response
-    import json
-
-    q = queue.Queue()
-
-    def run_optimization_in_thread():
-        try:
-            def cb(pct, current_run=None, total_runs=None):
-                payload = {"progress": int(pct)}
-                if current_run is not None and total_runs is not None:
-                    payload["currentRun"] = current_run
-                    payload["totalRuns"] = total_runs
-                q.put(payload)
-
-            res = StrategyHandler.run_optimization(
-                symbol=symbol,
-                sl_val=sl_val,
-                sl_type=sl_type,
-                size=size,
-                initial_balance=initial_balance,
-                use_risk_sizing=use_risk_sizing,
-                risk_pct=risk_pct,
-                use_break_even=use_break_even,
-                be_trigger_r=be_trigger_r,
-                be_offset_mode=be_offset_mode,
-                lookback_window=lookback_window,
-                rr_start=rr_start,
-                rr_end=rr_end,
-                rr_step=rr_step,
-                fees_percent=fees_percent,
-                daily_retry_limit=daily_retry_limit,
-                allow_opposite_close=allow_opposite_close,
-                check_cancelled=check_cancelled,
-                date_from=date_from,
-                date_to=date_to,
-                timezone=timezone,
-                sessions=sessions,
-                use_global_close=use_global_close,
-                global_close_time=global_close_time,
-                progress_callback=cb,
-                entry_stability_rule=entry_stability_rule,
-                candle_source=candle_source,
-                account_id=account_id,
-                limit=limit,
-                symbols=symbols,
-                timeframes=timeframes,
-                sl_range_mode=sl_range_mode,
-                sl_start=sl_start,
-                sl_end=sl_end,
-                sl_step=sl_step,
-                be_range_mode=be_range_mode,
-                be_start=be_start,
-                be_end=be_end,
-                be_step=be_step,
-                be_offset_range_mode=be_offset_range_mode,
-                be_offset_start=be_offset_start,
-                be_offset_end=be_offset_end,
-                be_offset_step=be_offset_step
-            )
-            q.put({"status": "success", "data": res})
-        except Exception as e:
-            q.put({"status": "error", "message": str(e)})
-        finally:
-            q.put(None)
-
-    t = threading.Thread(target=run_optimization_in_thread, daemon=True)
-    t.start()
-
-    def generate():
-        yield json.dumps({"progress": 5}) + "\n"
-        while True:
-            try:
-                item = q.get()
-                if item is None:
-                    break
-                yield json.dumps(item) + "\n"
-            except Exception as e:
-                yield json.dumps({"status": "error", "message": str(e)}) + "\n"
-                break
-
-        
-        if backtest_id and str(backtest_id) in cancelled_backtests:
-            try:
-                cancelled_backtests.remove(str(backtest_id))
-            except KeyError:
-                pass
-
-    return Response(generate(), mimetype='application/x-ndjson')
 
 
 @strategy_routes.route('/backtest/results', methods=['GET'])
