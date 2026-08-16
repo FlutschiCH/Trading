@@ -800,20 +800,6 @@ export default function WyckoffBacktester({
     }
   };
 
-  const handleDeleteSavedBacktest = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this saved backtest?")) return;
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/backtest/saved/${id}`, { method: 'DELETE' });
-      const json = await res.json();
-      if (json.status === 'success') {
-        // Deleted successfully
-      } else {
-        alert("Failed to delete saved backtest: " + json.message);
-      }
-    } catch (e: any) {
-      alert("Error deleting backtest: " + e.message);
-    }
-  };
 
   // Profile management states
   const [showProfileModal, setShowProfileModal] = React.useState(false);
