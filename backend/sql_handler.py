@@ -374,9 +374,16 @@ class SQLHandler:
             return False
 
     @classmethod
-    def delete_all_backtest_jobs(cls, status: str = None) -> bool:
+    def delete_all_backtest_jobs(cls, status=None, active_only: bool = False) -> bool:
         cls.init_backtest_jobs_table()
-        if status:
+        if active_only:
+            query = "DELETE FROM backtest_jobs WHERE status IN ('queued', 'running', 'interrupted')"
+            params = ()
+        elif isinstance(status, (list, tuple)):
+            format_strings = ','.join(['%s'] * len(status))
+            query = f"DELETE FROM backtest_jobs WHERE status IN ({format_strings})"
+            params = tuple(status)
+        elif status:
             query = "DELETE FROM backtest_jobs WHERE status = %s"
             params = (status,)
         else:

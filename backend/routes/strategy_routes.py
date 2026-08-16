@@ -55,7 +55,8 @@ def delete_backtest_job_endpoint(job_id):
 def delete_all_backtest_jobs_endpoint():
     from sql_handler import SQLHandler
     status_filter = request.args.get('status')
-    success = SQLHandler.delete_all_backtest_jobs(status=status_filter)
+    active_only = request.args.get('active_only', '').lower() in ('true', '1')
+    success = SQLHandler.delete_all_backtest_jobs(status=status_filter, active_only=active_only)
     if success:
         return jsonify({"status": "success", "message": "Backtest jobs deleted"})
     return jsonify({"status": "error", "message": "Failed to delete jobs"}), 500
