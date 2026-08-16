@@ -1208,7 +1208,6 @@ export default function Dashboard() {
       if (!response.ok) {
         const errText = await response.text();
         console.error(`[Optimization Error] Server returned HTTP ${response.status}:`, errText);
-        alert(`Optimization HTTP Error (${response.status}): ${errText}`);
         throw new Error(`Server returned status ${response.status}: ${errText}`);
       }
 
@@ -1220,37 +1219,41 @@ export default function Dashboard() {
         if (controller.signal.aborted) break;
         await new Promise((r) => setTimeout(r, 1000));
 
-        const statusRes = await fetch(`${API_BASE_URL}/api/backtest/status/${jobId}`);
-        if (!statusRes.ok) continue;
+        try {
+          const statusRes = await fetch(`${API_BASE_URL}/api/backtest/status/${jobId}`);
+          if (!statusRes.ok) continue;
 
-        const statusData = await statusRes.json();
-        const job = statusData.job;
+          const statusData = await statusRes.json();
+          const job = statusData.job;
 
-        if (job) {
-          if (job.progress !== undefined) {
-            setBacktestProgress(Math.round(job.progress));
-          }
-
-          setBacktestRunInfo((prev: any) => ({
-            ...prev,
-            current: job.checkpoint_index || prev?.current || 0,
-            total: job.checkpoint_data?.total_combos || prev?.total || 0,
-            etaSeconds: job.estimated_seconds_remaining
-          }));
-
-          if (job.status === 'completed') {
-            isDone = true;
-            const resData = job.results || {};
-            if (resData.grid) {
-              setOptimizationResults(resData.grid);
-              console.log(`[Optimization Complete] Finished ${resData.grid.length} backtests successfully.`);
+          if (job) {
+            if (job.progress !== undefined) {
+              setBacktestProgress(Math.round(job.progress));
             }
-          } else if (job.status === 'failed' || job.status === 'cancelled') {
-            isDone = true;
-            if (job.status === 'failed') {
-              alert(`Optimization Failed: ${job.step_info || 'Unknown error'}`);
+
+            setBacktestRunInfo((prev: any) => ({
+              ...prev,
+              current: job.checkpoint_index || prev?.current || 0,
+              total: job.checkpoint_data?.total_combos || prev?.total || 0,
+              etaSeconds: job.estimated_seconds_remaining
+            }));
+
+            if (job.status === 'completed') {
+              isDone = true;
+              const resData = job.results || {};
+              if (resData.grid) {
+                setOptimizationResults(resData.grid);
+                console.log(`[Optimization Complete] Finished ${resData.grid.length} backtests successfully.`);
+              }
+            } else if (job.status === 'failed' || job.status === 'cancelled') {
+              isDone = true;
+              if (job.status === 'failed') {
+                console.error(`[Optimization Failed] ${job.step_info || 'Unknown error'}`);
+              }
             }
           }
+        } catch (pollErr) {
+          console.warn("[Optimization Poller] Server unreachable or down, waiting to retry...", pollErr);
         }
       }
     } catch (e: any) {
@@ -1258,7 +1261,6 @@ export default function Dashboard() {
         console.log("Optimization aborted by user.");
       } else {
         console.error("Failed to run optimization on backend:", e);
-        alert(`Optimization Failed: ${e.message || 'Network/Server Error'}`);
       }
     } finally {
       console.timeEnd("Backtest execution duration");
