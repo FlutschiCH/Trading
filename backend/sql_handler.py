@@ -262,6 +262,7 @@ class SQLHandler:
             type VARCHAR(32) NOT NULL DEFAULT 'single',
             status VARCHAR(32) NOT NULL DEFAULT 'queued',
             progress FLOAT DEFAULT 0.0,
+            estimated_seconds_remaining INT DEFAULT 0,
             step_info VARCHAR(255) DEFAULT '',
             checkpoint_index INT DEFAULT 0,
             checkpoint_data LONGTEXT,
@@ -292,7 +293,7 @@ class SQLHandler:
             return False
 
     @classmethod
-    def update_backtest_job_progress(cls, job_id: str, status: str = None, progress: float = None, step_info: str = None, checkpoint_index: int = None, checkpoint_data: dict = None, results: dict = None) -> bool:
+    def update_backtest_job_progress(cls, job_id: str, status: str = None, progress: float = None, step_info: str = None, checkpoint_index: int = None, checkpoint_data: dict = None, results: dict = None, estimated_seconds_remaining: int = None) -> bool:
         cls.init_backtest_jobs_table()
         updates = []
         params = []
@@ -302,6 +303,9 @@ class SQLHandler:
         if progress is not None:
             updates.append("progress = %s")
             params.append(progress)
+        if estimated_seconds_remaining is not None:
+            updates.append("estimated_seconds_remaining = %s")
+            params.append(estimated_seconds_remaining)
         if step_info is not None:
             updates.append("step_info = %s")
             params.append(step_info)
@@ -314,6 +318,7 @@ class SQLHandler:
         if results is not None:
             updates.append("results = %s")
             params.append(json.dumps(results))
+
 
         if not updates:
             return True

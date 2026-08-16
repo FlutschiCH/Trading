@@ -1086,6 +1086,12 @@ export default function Dashboard() {
           if (job.progress !== undefined) {
             setBacktestProgress(Math.round(job.progress));
           }
+          if (job.estimated_seconds_remaining !== undefined) {
+            setBacktestRunInfo((prev: any) => ({
+              ...prev,
+              etaSeconds: job.estimated_seconds_remaining
+            }));
+          }
 
           if (job.status === 'completed') {
             isDone = true;
@@ -1225,9 +1231,12 @@ export default function Dashboard() {
             setBacktestProgress(Math.round(job.progress));
           }
 
-          if (job.checkpoint_index !== undefined && job.checkpoint_data?.total_combos) {
-            setBacktestRunInfo({ current: job.checkpoint_index, total: job.checkpoint_data.total_combos });
-          }
+          setBacktestRunInfo((prev: any) => ({
+            ...prev,
+            current: job.checkpoint_index || prev?.current || 0,
+            total: job.checkpoint_data?.total_combos || prev?.total || 0,
+            etaSeconds: job.estimated_seconds_remaining
+          }));
 
           if (job.status === 'completed') {
             isDone = true;

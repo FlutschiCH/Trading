@@ -32,13 +32,22 @@ def run_worker(job_id: str, is_resume: bool = False):
             return True
         return False
 
+    start_time = time.time()
+
     def progress_cb(pct):
         if check_cancelled():
             return
+        elapsed = time.time() - start_time
+        eta_sec = 0
+        if pct > 0:
+            total_est = elapsed / (float(pct) / 100.0)
+            eta_sec = int(max(0, total_est - elapsed))
+
         SQLHandler.update_backtest_job_progress(
             job_id,
             status='running',
             progress=float(pct),
+            estimated_seconds_remaining=eta_sec,
             step_info=f"Processing backtest ({int(pct)}%)..."
         )
 
@@ -116,7 +125,7 @@ def run_worker(job_id: str, is_resume: bool = False):
             if check_cancelled():
                 sys.exit(0)
 
-            SQLHandler.update_backtest_job_progress(job_id, status='completed', progress=100.0, step_info='Completed', results=res)
+            SQLHandler.update_backtest_job_progress(job_id, status='completed', progress=100.0, estimated_seconds_remaining=0, step_info='Completed', results=res)
 
         elif job_type == 'optimize':
             print(f"[BacktestWorker] Running optimization backtest for job {job_id}...", flush=True)
@@ -135,7 +144,16 @@ def run_worker(job_id: str, is_resume: bool = False):
                             sys.exit(0)
                         combo_idx += 1
                         pct = (combo_idx / total_combos) * 100.0
-                        SQLHandler.update_backtest_job_progress(job_id, status='running', progress=pct, step_info=f"Combo {combo_idx}/{total_combos} (SL:{sl}, RR:{rr}, BE:{be})")
+                        elapsed = time.time() - start_time
+                        eta_sec = int(max(0, (elapsed / (combo_idx / float(total_combos))) - elapsed))
+
+                        SQLHandler.update_backtest_job_progress(
+                            job_id,
+                            status='running',
+                            progress=pct,
+                            estimated_seconds_remaining=eta_sec,
+                            step_info=f"Combo {combo_idx}/{total_combos} (SL:{sl}, RR:{rr}, BE:{be})"
+                        )
 
                         use_be = (be != 'none')
                         be_trig = float(be) if use_be else 1.0
@@ -179,12 +197,17 @@ def run_worker(job_id: str, is_resume: bool = False):
                             "profit_factor": summary.get('profit_factor', 0.0)
                         })
                         # Save checkpoint
-                        SQLHandler.update_backtest_job_progress(job_id, checkpoint_index=combo_idx, checkpoint_data={"completed_combos": combo_idx, "results_grid": results_grid})
+                        SQLHandler.update_backtest_job_progress(
+                            job_id,
+                            checkpoint_index=combo_idx,
+                            checkpoint_data={"completed_combos": combo_idx, "total_combos": total_combos, "results_grid": results_grid}
+                        )
 
             if check_cancelled():
                 sys.exit(0)
 
-            SQLHandler.update_backtest_job_progress(job_id, status='completed', progress=100.0, step_info='Completed', results={"grid": results_grid})
+            SQLHandler.update_backtest_job_progress(job_id, status='completed', progress=100.0, estimated_seconds_remaining=0, step_info='Completed', results={"grid": results_grid})
+
 
     except Exception as err:
         print(f"[BacktestWorker] Error in worker execution for job {job_id}: {err}", flush=True)

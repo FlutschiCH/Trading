@@ -1325,13 +1325,26 @@ export default function WyckoffBacktester({
             onMouseOver={(e) => !loadingBacktest && (e.currentTarget.style.backgroundColor = '#2563eb')}
             onMouseOut={(e) => !loadingBacktest && (e.currentTarget.style.backgroundColor = '#3b82f6')}
           >
-            {loadingBacktest ? (
-              backtestRunInfo && backtestRunInfo.total > 1
-                ? `⏳ Run ${backtestRunInfo.current}/${backtestRunInfo.total} (${backtestProgress}%)`
-                : `⏳ Running ${backtestProgress}%...`
-            ) : (
+            {loadingBacktest ? (() => {
+              const etaSec = backtestRunInfo?.etaSeconds;
+              const formatETA = (sec?: number) => {
+                if (sec === undefined || sec === null || sec <= 0) return '';
+                if (sec < 60) return `~${sec}s left`;
+                const m = Math.floor(sec / 60);
+                const s = sec % 60;
+                return `~${m}m ${s}s left`;
+              };
+              const etaStr = formatETA(etaSec);
+              const etaPart = etaStr ? ` | ${etaStr}` : '';
+
+              if (backtestRunInfo && backtestRunInfo.total > 1) {
+                return `⏳ Run ${backtestRunInfo.current}/${backtestRunInfo.total} (${backtestProgress}%${etaPart})`;
+              }
+              return `⏳ Running ${backtestProgress}%${etaPart}...`;
+            })() : (
               '🔄 Run Backtest'
             )}
+
 
 
           </button>
