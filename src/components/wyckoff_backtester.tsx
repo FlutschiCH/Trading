@@ -1490,24 +1490,15 @@ export default function WyckoffBacktester({
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <div style={{
                 display: 'flex',
-                alignItems: 'center',
-<<<<<<< Updated upstream
                 justifyContent: 'space-between',
-                backgroundColor: '#0f172a',
-                padding: '10px 14px',
-                borderRadius: '6px',
-                border: '1px solid #1e293b'
-=======
                 gap: '6px',
                 overflowX: 'auto',
-                padding: '6px 8px',
+                padding: '10px 14px',
                 backgroundColor: 'var(--app-panel-header-bg, #0f172a)',
                 borderRadius: '6px',
                 border: '1px solid var(--app-card-border, #1e293b)',
                 fontSize: '11px',
                 marginTop: '4px'
->>>>>>> Stashed changes
-              }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600 }}>Active Symbol (from Chart):</span>
                   <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#38bdf8' }}>{symbol}</span>
