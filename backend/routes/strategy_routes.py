@@ -72,8 +72,9 @@ def backtest():
     payload = request.get_json(silent=True) or {}
     job_id = payload.get('backtestId') or str(uuid.uuid4())
 
-    # Create job in MySQL DB
+    # Create job in MySQL DB and set initial state immediately
     SQLHandler.create_backtest_job(job_id=job_id, job_type='single', params=payload)
+    SQLHandler.update_backtest_job_progress(job_id, status='running', progress=1.0, step_info='Worker process initializing...')
 
     # Spawn worker subprocess
     python_executable = sys.executable
@@ -168,8 +169,9 @@ def backtest_optimize():
     payload = request.get_json(silent=True) or {}
     job_id = payload.get('backtestId') or str(uuid.uuid4())
 
-    # Create job in MySQL DB
+    # Create job in MySQL DB and set initial state immediately
     SQLHandler.create_backtest_job(job_id=job_id, job_type='optimize', params=payload)
+    SQLHandler.update_backtest_job_progress(job_id, status='running', progress=1.0, step_info='Worker process initializing...')
 
     # Spawn worker subprocess
     python_executable = sys.executable
