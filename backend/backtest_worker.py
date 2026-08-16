@@ -3,6 +3,8 @@ import sys
 import json
 import time
 import argparse
+from colorama import init, Fore, Style
+init(autoreset=True)
 
 # Ensure backend root directory is in sys.path
 backend_dir = os.path.dirname(os.path.abspath(__file__))
@@ -14,10 +16,10 @@ from strategy_handler import StrategyHandler
 from broker_handler import BrokerHandler
 
 def run_worker(job_id: str, is_resume: bool = False):
-    print(f"[BacktestWorker] Starting worker for job_id={job_id} (resume={is_resume})", flush=True)
+    print(f"{Fore.CYAN}[BacktestWorker]{Style.RESET_ALL} Starting worker for job_id={job_id} (resume={is_resume})", flush=True)
     job = SQLHandler.get_backtest_job(job_id)
     if not job:
-        print(f"[BacktestWorker] Job {job_id} not found in database.", flush=True)
+        print(f"{Fore.YELLOW}[BacktestWorker]{Style.RESET_ALL} Job {job_id} not found in database.", flush=True)
         sys.exit(1)
 
     params = job.get('params', {})
@@ -96,7 +98,7 @@ def run_worker(job_id: str, is_resume: bool = False):
         execution_start_time = time.time()
 
         if job_type == 'single':
-            print(f"[BacktestWorker] Running single backtest for job {job_id}...", flush=True)
+            print(f"{Fore.CYAN}[BacktestWorker]{Style.RESET_ALL} Running single backtest for job {job_id}...", flush=True)
             res = StrategyHandler.run_backtest(
                 candles=candles,
                 symbol=symbol,
@@ -137,7 +139,7 @@ def run_worker(job_id: str, is_resume: bool = False):
             SQLHandler.update_backtest_job_progress(job_id, status='completed', progress=100.0, estimated_seconds_remaining=0, step_info='Completed', results=res)
 
         elif job_type == 'optimize':
-            print(f"[BacktestWorker] Running optimization backtest for job {job_id}...", flush=True)
+            print(f"{Fore.CYAN}[BacktestWorker]{Style.RESET_ALL} Running optimization backtest for job {job_id}...", flush=True)
             sl_ranges = params.get('sl_ranges') or params.get('slRanges') or [0.5, 1.0, 1.5, 2.0]
             rr_ranges = params.get('rr_ranges') or params.get('rrRanges') or [1.5, 2.0, 2.5, 3.0]
             be_ranges = params.get('be_ranges') or params.get('beRanges') or ['none', '0.5', '1.0']
@@ -239,7 +241,7 @@ def run_worker(job_id: str, is_resume: bool = False):
 
 
     except Exception as err:
-        print(f"[BacktestWorker] Error in worker execution for job {job_id}: {err}", flush=True)
+        print(f"{Fore.RED}[BacktestWorker]{Style.RESET_ALL} Error in worker execution for job {job_id}: {err}", flush=True)
         import traceback
         traceback.print_exc()
         SQLHandler.update_backtest_job_progress(job_id, status='failed', step_info=f"Error: {str(err)}")
