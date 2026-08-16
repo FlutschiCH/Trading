@@ -1209,11 +1209,11 @@ export default function WyckoffBacktester({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            backgroundColor: '#0f172a',
-            border: '1px solid #1e3a8a',
+            backgroundColor: 'var(--app-panel-header-bg, #0f172a)',
+            border: '1px solid var(--app-card-border, #1e3a8a)',
             padding: '6px 12px',
             borderRadius: '6px',
-            color: '#38bdf8',
+            color: 'var(--app-text, #38bdf8)',
             fontSize: '11px',
             fontWeight: 600,
             marginBottom: '6px'
@@ -1505,11 +1505,22 @@ export default function WyckoffBacktester({
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
+<<<<<<< Updated upstream
                 justifyContent: 'space-between',
                 backgroundColor: '#0f172a',
                 padding: '10px 14px',
                 borderRadius: '6px',
                 border: '1px solid #1e293b'
+=======
+                gap: '6px',
+                overflowX: 'auto',
+                padding: '6px 8px',
+                backgroundColor: 'var(--app-panel-header-bg, #0f172a)',
+                borderRadius: '6px',
+                border: '1px solid var(--app-card-border, #1e293b)',
+                fontSize: '11px',
+                marginTop: '4px'
+>>>>>>> Stashed changes
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600 }}>Active Symbol (from Chart):</span>
@@ -2507,19 +2518,19 @@ export default function WyckoffBacktester({
         {((optimizationResults && optimizationResults.length > 0) || totalRunCombinations > 1) && (
           <CollapsibleCard title="🏆 Grid Optimization Leaderboard (Sorted by Profit)" isCollapsed={collapsedSections.optimization ?? false} onToggle={() => toggleSection('optimization')}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#0f172a', padding: '6px 10px', borderRadius: '6px', border: '1px solid #1e293b' }}>
-                <span style={{ color: '#38bdf8', fontSize: '11px', fontWeight: 'bold' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--app-panel-header-bg, #0f172a)', padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--app-card-border, #1e293b)' }}>
+                <span style={{ color: 'var(--app-text, #38bdf8)', fontSize: '11px', fontWeight: 'bold' }}>
                   Ranked Configurations ({((optimizationResults && optimizationResults.length) || (totalRunCombinations > 1 ? 3 : 0))} results)
                 </span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ color: '#9ca3af', fontSize: '10px' }}>Sort by:</span>
+                  <span style={{ color: 'var(--app-text-muted, #9ca3af)', fontSize: '10px' }}>Sort by:</span>
                   <select
                     value={optSortBy}
                     onChange={(e) => setOptSortBy(e.target.value as any)}
                     style={{
-                      backgroundColor: '#1f2937',
-                      color: '#ffffff',
-                      border: '1px solid #374151',
+                      backgroundColor: 'var(--app-input-bg, #1f2937)',
+                      color: 'var(--app-input-text, #ffffff)',
+                      border: '1px solid var(--app-input-border, #374151)',
                       borderRadius: '4px',
                       padding: '2px 6px',
                       fontSize: '10px',
@@ -2686,7 +2697,7 @@ export default function WyckoffBacktester({
             <>
               {selectedLeaderboardCombo && (
                 <div style={{
-                  backgroundColor: '#0f172a',
+                  backgroundColor: 'var(--app-panel-header-bg, #0f172a)',
                   border: '1px solid #3b82f6',
                   borderRadius: '6px',
                   padding: '8px 12px',
@@ -3192,9 +3203,9 @@ export default function WyckoffBacktester({
                       flexDirection: 'column',
                       alignItems: 'stretch',
                       gap: '10px',
-                      border: '1px solid #334155',
+                      border: '1px solid var(--app-card-border, #334155)',
                       padding: '12px',
-                      backgroundColor: '#0f172a'
+                      backgroundColor: 'var(--app-card-bg, #0f172a)'
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -3319,8 +3330,8 @@ export default function WyckoffBacktester({
             pointerEvents: 'all'
           }}>
             <div style={{
-              backgroundColor: '#0f172a',
-              border: '1px solid #1e293b',
+              backgroundColor: 'var(--app-card-bg, #0f172a)',
+              border: '1px solid var(--app-card-border, #1e293b)',
               borderRadius: '12px',
               width: '100%',
               maxWidth: '480px',
@@ -3328,28 +3339,28 @@ export default function WyckoffBacktester({
               display: 'flex',
               flexDirection: 'column',
               gap: '16px',
-              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.7)',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
               position: 'relative'
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ margin: 0, color: '#ffffff', fontSize: '14px', fontWeight: 'bold' }}>
+                <h3 style={{ margin: 0, color: 'var(--app-text, #ffffff)', fontSize: '14px', fontWeight: 'bold' }}>
                   Manage Backtest Profiles ({broker.toUpperCase()})
                 </h3>
                 <button
                   onClick={() => setShowProfileModal(false)}
-                  style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: '18px', fontWeight: 'bold' }}
+                  style={{ background: 'none', border: 'none', color: 'var(--app-text-muted, #9ca3af)', cursor: 'pointer', fontSize: '18px', fontWeight: 'bold' }}
                 >
                   ✕
                 </button>
               </div>
 
-              <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '-8px' }}>
+              <div style={{ fontSize: '11px', color: 'var(--app-text-muted, #94a3b8)', marginTop: '-8px' }}>
                 Symbol: <span style={{ color: '#38bdf8', fontWeight: 'bold' }}>{symbol}</span> | Timeframe: <span style={{ color: '#38bdf8', fontWeight: 'bold' }}>{timeframe}</span>
               </div>
 
               {/* Save New Profile Section */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', backgroundColor: 'rgba(30, 41, 59, 0.4)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#cbd5e1' }}>Save Current Settings</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', backgroundColor: 'var(--app-panel-header-bg, rgba(30, 41, 59, 0.4))', padding: '12px', borderRadius: '8px', border: '1px solid var(--app-card-border, rgba(255,255,255,0.05))' }}>
+                <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--app-text, #cbd5e1)' }}>Save Current Settings</span>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <input
                     type="text"
@@ -3358,10 +3369,10 @@ export default function WyckoffBacktester({
                     onChange={(e) => setNewProfileName(e.target.value)}
                     style={{
                       flex: 1,
-                      backgroundColor: '#1e293b',
-                      border: '1px solid #334155',
+                      backgroundColor: 'var(--app-input-bg, #1e293b)',
+                      border: '1px solid var(--app-input-border, #334155)',
                       borderRadius: '4px',
-                      color: '#ffffff',
+                      color: 'var(--app-input-text, #ffffff)',
                       padding: '6px 10px',
                       fontSize: '12px'
                     }}
@@ -3385,9 +3396,9 @@ export default function WyckoffBacktester({
                 <button
                   onClick={handleSaveDefault}
                   style={{
-                    backgroundColor: 'rgba(71, 85, 105, 0.4)',
-                    color: '#cbd5e1',
-                    border: '1px solid #475569',
+                    backgroundColor: 'var(--app-hover-bg, rgba(71, 85, 105, 0.4))',
+                    color: 'var(--app-text, #cbd5e1)',
+                    border: '1px solid var(--app-input-border, #475569)',
                     padding: '5px',
                     borderRadius: '4px',
                     cursor: 'pointer',
@@ -3402,11 +3413,11 @@ export default function WyckoffBacktester({
 
               {/* List Profiles Section */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#cbd5e1' }}>Saved Profiles for {symbol} • {timeframe}</span>
+                <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--app-text, #cbd5e1)' }}>Saved Profiles for {symbol} • {timeframe}</span>
                 {loadingProfiles ? (
-                  <span style={{ fontSize: '11px', color: '#9ca3af' }}>Loading profiles...</span>
+                  <span style={{ fontSize: '11px', color: 'var(--app-text-muted, #9ca3af)' }}>Loading profiles...</span>
                 ) : profiles.length === 0 ? (
-                  <span style={{ fontSize: '11px', color: '#64748b', fontStyle: 'italic' }}>No profiles saved yet for this symbol & timeframe.</span>
+                  <span style={{ fontSize: '11px', color: 'var(--app-text-muted, #64748b)', fontStyle: 'italic' }}>No profiles saved yet for this symbol & timeframe.</span>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '180px', overflowY: 'auto', paddingRight: '4px' }}>
                     {profiles.map(p => (
@@ -3416,16 +3427,16 @@ export default function WyckoffBacktester({
                           display: 'flex',
                           justifyContent: 'space-between',
                           alignItems: 'center',
-                          backgroundColor: '#1e293b',
+                          backgroundColor: 'var(--app-panel-header-bg, #1e293b)',
                           padding: '8px 12px',
                           borderRadius: '6px',
-                          border: '1px solid #334155',
+                          border: '1px solid var(--app-card-border, #334155)',
                           fontSize: '12px'
                         }}
                       >
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                          <span style={{ fontWeight: 'bold', color: '#ffffff' }}>{p.name}</span>
-                          <span style={{ color: '#64748b', fontSize: '9px' }}>{p.updated_at}</span>
+                          <span style={{ fontWeight: 'bold', color: 'var(--app-text, #ffffff)' }}>{p.name}</span>
+                          <span style={{ color: 'var(--app-text-muted, #64748b)', fontSize: '9px' }}>{p.updated_at}</span>
                         </div>
                         <div style={{ display: 'flex', gap: '6px' }}>
                           <button
