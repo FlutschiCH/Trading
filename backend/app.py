@@ -38,14 +38,24 @@ import threading
 
 def check_interrupted_backtests():
     try:
+        import sys
+        import subprocess
         unfinished = SQLHandler.get_unfinished_backtest_jobs()
         if unfinished:
-            print(f"{Fore.YELLOW}[Reboot Recovery]{Style.RESET_ALL} Found {len(unfinished)} unfinished backtest jobs. Updating status to 'interrupted'.", flush=True)
+            print(f"{Fore.YELLOW}[Reboot Recovery]{Style.RESET_ALL} Found {len(unfinished)} unfinished backtest jobs. Resuming background workers...", flush=True)
+            python_executable = sys.executable
+            worker_script = os.path.join(os.path.dirname(__file__), 'backtest_worker.py')
+
             for j in unfinished:
                 job_id = j.get('job_id')
-                SQLHandler.update_backtest_job_progress(job_id, status='interrupted', step_info='Interrupted by server restart/reboot. Ready to resume.')
+                if not job_id:
+                    continue
+                SQLHandler.update_backtest_job_progress(job_id, status='running', step_info='Resuming worker process post server restart...')
+                cmd = [python_executable, worker_script, '--job_id', str(job_id), '--resume']
+                subprocess.Popen(cmd, creationflags=subprocess.CREATE_NEW_CONSOLE if os.name == 'nt' else 0)
+                print(f"{Fore.CYAN}[Reboot Recovery]{Style.RESET_ALL} Automatically resumed backtest worker for job_id={job_id}", flush=True)
     except Exception as e:
-        print(f"[Reboot Recovery] Error checking unfinished jobs: {e}", flush=True)
+        print(f"[Reboot Recovery] Error resuming unfinished jobs: {e}", flush=True)
 
 threading.Thread(target=SQLHandler.get_mysql_connection, daemon=True).start()
 threading.Thread(target=check_interrupted_backtests, daemon=True).start()
