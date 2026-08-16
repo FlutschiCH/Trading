@@ -89,7 +89,8 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest }: SavedRunsPro
     <div style={{
       position: 'fixed',
       top: 0, left: 0, right: 0, bottom: 0,
-      backgroundColor: 'rgba(0,0,0,0.75)',
+      backgroundColor: 'rgba(0,0,0,0.65)',
+      backdropFilter: 'blur(4px)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -97,8 +98,9 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest }: SavedRunsPro
       padding: '20px'
     }}>
       <div style={{
-        backgroundColor: '#0f172a',
-        border: '1px solid #334155',
+        backgroundColor: 'var(--app-card-bg, #0f172a)',
+        border: '1px solid var(--app-card-border, #334155)',
+        color: 'var(--app-text, #f8fafc)',
         borderRadius: '12px',
         width: '1050px',
         maxWidth: '95vw',
@@ -111,21 +113,21 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest }: SavedRunsPro
         {/* Modal Header */}
         <div style={{
           padding: '16px 20px',
-          borderBottom: '1px solid #1e293b',
+          borderBottom: '1px solid var(--app-card-border, #1e293b)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span style={{ fontSize: '18px' }}>📁</span>
-            <h3 style={{ margin: 0, color: '#f8fafc', fontSize: '16px', fontWeight: 600 }}>Saved Backtest Runs (MySQL Database)</h3>
+            <h3 style={{ margin: 0, color: 'var(--app-text, #f8fafc)', fontSize: '16px', fontWeight: 600 }}>Saved Backtest Runs (MySQL Database)</h3>
           </div>
           <button
             onClick={onClose}
             style={{
               backgroundColor: 'transparent',
               border: 'none',
-              color: '#94a3b8',
+              color: 'var(--app-text-muted, #94a3b8)',
               fontSize: '18px',
               cursor: 'pointer',
               padding: '4px 8px'
@@ -138,8 +140,8 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest }: SavedRunsPro
         {/* Toolbar & Filters */}
         <div style={{
           padding: '12px 20px',
-          backgroundColor: '#1e293b',
-          borderBottom: '1px solid #334155',
+          backgroundColor: 'var(--app-panel-header-bg, #1e293b)',
+          borderBottom: '1px solid var(--app-card-border, #334155)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
@@ -147,14 +149,14 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest }: SavedRunsPro
           gap: '12px'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <label style={{ color: '#cbd5e1', fontSize: '12px', fontWeight: 500 }}>Filter Symbol:</label>
+            <label style={{ color: 'var(--app-text, #cbd5e1)', fontSize: '12px', fontWeight: 500 }}>Filter Symbol:</label>
             <select
               value={sbFilterSymbol}
               onChange={(e) => setSbFilterSymbol(e.target.value)}
               style={{
-                backgroundColor: '#0f172a',
-                color: '#f8fafc',
-                border: '1px solid #475569',
+                backgroundColor: 'var(--app-input-bg, #0f172a)',
+                color: 'var(--app-input-text, #f8fafc)',
+                border: '1px solid var(--app-input-border, #475569)',
                 padding: '4px 8px',
                 borderRadius: '4px',
                 fontSize: '12px'
@@ -165,16 +167,16 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest }: SavedRunsPro
                 <option key={sym} value={sym}>{sym}</option>
               ))}
             </select>
-            <span style={{ color: '#94a3b8', fontSize: '12px' }}>
+            <span style={{ color: 'var(--app-text-muted, #94a3b8)', fontSize: '12px' }}>
               ({savedBacktestsList.filter(item => sbFilterSymbol === 'all' || item.symbol === sbFilterSymbol).length} saved runs)
             </span>
           </div>
           <button
             onClick={fetchSavedBacktests}
             style={{
-              backgroundColor: '#334155',
-              color: '#f8fafc',
-              border: '1px solid #475569',
+              backgroundColor: 'var(--app-card-border, #334155)',
+              color: 'var(--app-text, #f8fafc)',
+              border: '1px solid var(--app-input-border, #475569)',
               padding: '4px 10px',
               borderRadius: '4px',
               fontSize: '12px',
@@ -188,13 +190,13 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest }: SavedRunsPro
         {/* Table Container */}
         <div style={{ padding: '16px 20px', overflowY: 'auto', flex: 1 }}>
           {loadingSavedBacktests ? (
-            <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>Loading saved backtests from database...</div>
+            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--app-text-muted, #94a3b8)' }}>Loading saved backtests from database...</div>
           ) : savedBacktestsList.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>No saved backtests found in MySQL database. Run backtests to auto-save results!</div>
+            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--app-text-muted, #94a3b8)' }}>No saved backtests found in MySQL database. Run backtests to auto-save results!</div>
           ) : (
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
               <thead>
-                <tr style={{ backgroundColor: '#1e293b', color: '#cbd5e1', borderBottom: '1px solid #334155' }}>
+                <tr style={{ backgroundColor: 'var(--app-panel-header-bg, #1e293b)', color: 'var(--app-text, #cbd5e1)', borderBottom: '1px solid var(--app-card-border, #334155)' }}>
                   <th style={{ padding: '10px', cursor: 'pointer' }} onClick={() => { setSbSortField('created_at'); setSbSortDir(prev => prev === 'desc' ? 'asc' : 'desc'); }}>Date {sbSortField === 'created_at' ? (sbSortDir === 'desc' ? '▼' : '▲') : ''}</th>
                   <th style={{ padding: '10px', cursor: 'pointer' }} onClick={() => { setSbSortField('symbol'); setSbSortDir(prev => prev === 'desc' ? 'asc' : 'desc'); }}>Symbol {sbSortField === 'symbol' ? (sbSortDir === 'desc' ? '▼' : '▲') : ''}</th>
                   <th style={{ padding: '10px' }}>TF</th>
@@ -220,11 +222,11 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest }: SavedRunsPro
                     return sbSortDir === 'desc' ? valB - valA : valA - valB;
                   })
                   .map((row) => (
-                    <tr key={row.id} style={{ borderBottom: '1px solid #1e293b', color: '#f8fafc' }}>
-                      <td style={{ padding: '10px', color: '#94a3b8' }}>{row.created_at || 'N/A'}</td>
+                    <tr key={row.id} style={{ borderBottom: '1px solid var(--app-card-border, #1e293b)', color: 'var(--app-text, #f8fafc)' }}>
+                      <td style={{ padding: '10px', color: 'var(--app-text-muted, #94a3b8)' }}>{row.created_at || 'N/A'}</td>
                       <td style={{ padding: '10px', fontWeight: 600, color: '#38bdf8' }}>{row.symbol}</td>
                       <td style={{ padding: '10px' }}>{row.timeframe}</td>
-                      <td style={{ padding: '10px', color: '#cbd5e1' }}>SL: {row.sl_val} | RR: 1:{row.rr} | BE: {row.be_trigger_r}R</td>
+                      <td style={{ padding: '10px', color: 'var(--app-text-muted, #cbd5e1)' }}>SL: {row.sl_val} | RR: 1:{row.rr} | BE: {row.be_trigger_r}R</td>
                       <td style={{ padding: '10px' }}>{row.trades_cnt}</td>
                       <td style={{ padding: '10px', color: row.win_rate >= 50 ? '#4ade80' : '#f87171' }}>{row.win_rate ? row.win_rate.toFixed(1) : 0}%</td>
                       <td style={{ padding: '10px', fontWeight: 600, color: row.net_pnl >= 0 ? '#4ade80' : '#f87171' }}>
@@ -291,7 +293,7 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest }: SavedRunsPro
           <div style={{
             position: 'absolute',
             top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: 'rgba(15, 23, 42, 0.95)',
+            backgroundColor: 'var(--app-card-bg, #0f172a)',
             borderRadius: '12px',
             padding: '24px',
             display: 'flex',
@@ -299,15 +301,15 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest }: SavedRunsPro
             zIndex: 10000,
             overflowY: 'auto'
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #334155', paddingBottom: '12px' }}>
-              <h4 style={{ margin: 0, color: '#f8fafc', fontSize: '16px', fontWeight: 600 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid var(--app-card-border, #334155)', paddingBottom: '12px' }}>
+              <h4 style={{ margin: 0, color: 'var(--app-text, #f8fafc)', fontSize: '16px', fontWeight: 600 }}>
                 📋 Parameters Overview (Run ID: {infoModalRun.id})
               </h4>
               <button
                 onClick={() => setInfoModalRun(null)}
                 style={{
-                  backgroundColor: '#334155',
-                  color: '#cbd5e1',
+                  backgroundColor: 'var(--app-panel-header-bg, #334155)',
+                  color: 'var(--app-text, #cbd5e1)',
                   border: 'none',
                   borderRadius: '4px',
                   padding: '4px 10px',
@@ -319,13 +321,13 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest }: SavedRunsPro
               </button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '12px', color: '#e2e8f0', fontSize: '13px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '12px', color: 'var(--app-text, #e2e8f0)', fontSize: '13px' }}>
               {Object.keys(infoModalRun.settings || {}).length === 0 ? (
-                <div style={{ color: '#94a3b8' }}>No parameter settings stored for this run.</div>
+                <div style={{ color: 'var(--app-text-muted, #94a3b8)' }}>No parameter settings stored for this run.</div>
               ) : (
                 Object.entries(infoModalRun.settings).map(([key, val]) => (
-                  <div key={key} style={{ backgroundColor: '#1e293b', padding: '10px 12px', borderRadius: '6px', border: '1px solid #334155' }}>
-                    <div style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 600, marginBottom: '2px' }}>
+                  <div key={key} style={{ backgroundColor: 'var(--app-panel-header-bg, #1e293b)', padding: '10px 12px', borderRadius: '6px', border: '1px solid var(--app-card-border, #334155)' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--app-text-muted, #94a3b8)', textTransform: 'uppercase', fontWeight: 600, marginBottom: '2px' }}>
                       {key.replace(/_/g, ' ')}
                     </div>
                     <div style={{ color: '#38bdf8', fontWeight: 500, wordBreak: 'break-all' }}>
