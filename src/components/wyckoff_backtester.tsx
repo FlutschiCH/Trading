@@ -1499,6 +1499,7 @@ export default function WyckoffBacktester({
                 border: '1px solid var(--app-card-border, #1e293b)',
                 fontSize: '11px',
                 marginTop: '4px'
+              }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600 }}>Active Symbol (from Chart):</span>
                   <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#38bdf8' }}>{symbol}</span>
