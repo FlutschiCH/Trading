@@ -33,6 +33,7 @@ def run_worker(job_id: str, is_resume: bool = False):
         return False
 
     start_time = time.time()
+    last_combo_duration = None
 
     def progress_cb(pct):
         if check_cancelled():
@@ -40,6 +41,7 @@ def run_worker(job_id: str, is_resume: bool = False):
         elapsed = time.time() - start_time
         eta_sec = 0
         if pct > 0:
+            # Total estimate based on average rate across the entire duration so far
             total_est = elapsed / (float(pct) / 100.0)
             eta_sec = int(max(0, total_est - elapsed))
 
@@ -90,6 +92,9 @@ def run_worker(job_id: str, is_resume: bool = False):
         if check_cancelled():
             sys.exit(0)
 
+        # Record start of actual strategy computations (after fetching data overhead)
+        execution_start_time = time.time()
+
         if job_type == 'single':
             print(f"[BacktestWorker] Running single backtest for job {job_id}...", flush=True)
             res = StrategyHandler.run_backtest(
@@ -125,6 +130,10 @@ def run_worker(job_id: str, is_resume: bool = False):
             if check_cancelled():
                 sys.exit(0)
 
+            total_elapsed = round(time.time() - start_time, 2)
+            if isinstance(res, dict):
+                res['total_duration_sec'] = total_elapsed
+
             SQLHandler.update_backtest_job_progress(job_id, status='completed', progress=100.0, estimated_seconds_remaining=0, step_info='Completed', results=res)
 
         elif job_type == 'optimize':
@@ -136,6 +145,7 @@ def run_worker(job_id: str, is_resume: bool = False):
             total_combos = len(sl_ranges) * len(rr_ranges) * len(be_ranges)
             combo_idx = 0
             results_grid = []
+            combo_durations = []
 
             for sl in sl_ranges:
                 for rr in rr_ranges:
@@ -144,8 +154,16 @@ def run_worker(job_id: str, is_resume: bool = False):
                             sys.exit(0)
                         combo_idx += 1
                         pct = (combo_idx / total_combos) * 100.0
-                        elapsed = time.time() - start_time
-                        eta_sec = int(max(0, (elapsed / (combo_idx / float(total_combos))) - elapsed))
+
+                        # Calculate average duration per combo executed so far to estimate remaining total time
+                        if combo_durations:
+                            avg_combo_time = sum(combo_durations) / len(combo_durations)
+                        else:
+                            # Before first combo completes, estimate using total wall time elapsed
+                            avg_combo_time = (time.time() - execution_start_time) / max(1, combo_idx)
+
+                        remaining_combos = total_combos - (combo_idx - 1)
+                        eta_sec = int(max(0, remaining_combos * avg_combo_time))
 
                         SQLHandler.update_backtest_job_progress(
                             job_id,
@@ -155,6 +173,7 @@ def run_worker(job_id: str, is_resume: bool = False):
                             step_info=f"Combo {combo_idx}/{total_combos} (SL:{sl}, RR:{rr}, BE:{be})"
                         )
 
+                        combo_start = time.time()
                         use_be = (be != 'none')
                         be_trig = float(be) if use_be else 1.0
 
@@ -186,6 +205,8 @@ def run_worker(job_id: str, is_resume: bool = False):
                             broker=candle_source,
                             timeframe=timeframe
                         )
+                        combo_durations.append(time.time() - combo_start)
+
                         summary = sub_res.get('summary', {})
                         results_grid.append({
                             "sl": sl,
@@ -206,7 +227,15 @@ def run_worker(job_id: str, is_resume: bool = False):
             if check_cancelled():
                 sys.exit(0)
 
-            SQLHandler.update_backtest_job_progress(job_id, status='completed', progress=100.0, estimated_seconds_remaining=0, step_info='Completed', results={"grid": results_grid})
+            total_elapsed = round(time.time() - start_time, 2)
+            SQLHandler.update_backtest_job_progress(
+                job_id,
+                status='completed',
+                progress=100.0,
+                estimated_seconds_remaining=0,
+                step_info='Completed',
+                results={"grid": results_grid, "total_duration_sec": total_elapsed, "avg_combo_duration_sec": round(sum(combo_durations)/len(combo_durations), 3) if combo_durations else 0.0}
+            )
 
 
     except Exception as err:
