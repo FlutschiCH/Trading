@@ -85,6 +85,21 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest }: SavedRunsPro
     }
   };
 
+  const handleDeleteAllSavedBacktests = async () => {
+    if (!confirm("Are you sure you want to delete ALL saved backtests from the database?")) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/backtest/jobs`, { method: 'DELETE' });
+      const json = await res.json();
+      if (json.status === 'success') {
+        fetchSavedBacktests();
+      } else {
+        alert("Failed to delete jobs: " + (json.message || "Unknown error"));
+      }
+    } catch (err: any) {
+      alert("Error deleting saved backtests: " + err.message);
+    }
+  };
+
   return (
     <div style={{
       position: 'fixed',
@@ -122,19 +137,38 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest }: SavedRunsPro
             <span style={{ fontSize: '18px' }}>📁</span>
             <h3 style={{ margin: 0, color: 'var(--app-text, #f8fafc)', fontSize: '16px', fontWeight: 600 }}>Saved Backtest Runs (MySQL Database)</h3>
           </div>
-          <button
-            onClick={onClose}
-            style={{
-              backgroundColor: 'transparent',
-              border: 'none',
-              color: 'var(--app-text-muted, #94a3b8)',
-              fontSize: '18px',
-              cursor: 'pointer',
-              padding: '4px 8px'
-            }}
-          >
-            ✕
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {savedBacktestsList.length > 0 && (
+              <button
+                onClick={handleDeleteAllSavedBacktests}
+                style={{
+                  backgroundColor: '#ef4444',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '4px 10px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                🗑️ Clear All Runs
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              style={{
+                backgroundColor: 'transparent',
+                border: 'none',
+                color: 'var(--app-text-muted, #94a3b8)',
+                fontSize: '18px',
+                cursor: 'pointer',
+                padding: '4px 8px'
+              }}
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
         {/* Toolbar & Filters */}

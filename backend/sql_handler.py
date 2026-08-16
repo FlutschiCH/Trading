@@ -363,6 +363,33 @@ class SQLHandler:
         return None
 
     @classmethod
+    def delete_backtest_job(cls, job_id: str) -> bool:
+        cls.init_backtest_jobs_table()
+        query = "DELETE FROM backtest_jobs WHERE job_id = %s"
+        try:
+            cls.execute_query(query, (job_id,))
+            return True
+        except Exception as e:
+            print(f"[SQLHandler] Error deleting backtest job {job_id}: {e}", flush=True)
+            return False
+
+    @classmethod
+    def delete_all_backtest_jobs(cls, status: str = None) -> bool:
+        cls.init_backtest_jobs_table()
+        if status:
+            query = "DELETE FROM backtest_jobs WHERE status = %s"
+            params = (status,)
+        else:
+            query = "DELETE FROM backtest_jobs"
+            params = ()
+        try:
+            cls.execute_query(query, params)
+            return True
+        except Exception as e:
+            print(f"[SQLHandler] Error deleting backtest jobs: {e}", flush=True)
+            return False
+
+    @classmethod
     def get_unfinished_backtest_jobs(cls) -> list:
         cls.init_backtest_jobs_table()
         query = "SELECT * FROM backtest_jobs WHERE status IN ('queued', 'running', 'interrupted')"

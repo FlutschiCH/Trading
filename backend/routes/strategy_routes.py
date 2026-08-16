@@ -40,6 +40,26 @@ def get_backtest_status(job_id):
         return jsonify({"status": "error", "message": "Job not found"}), 404
     return jsonify({"status": "success", "job": job})
 
+@strategy_routes.route('/backtest/job/<job_id>', methods=['DELETE'])
+def delete_backtest_job_endpoint(job_id):
+    from sql_handler import SQLHandler
+    # Request cancellation if running
+    cancelled_backtests.add(str(job_id))
+    SQLHandler.update_backtest_job_progress(str(job_id), status='cancelled', step_info='Cancelled and deleted by user')
+    success = SQLHandler.delete_backtest_job(str(job_id))
+    if success:
+        return jsonify({"status": "success", "message": f"Job {job_id} deleted"})
+    return jsonify({"status": "error", "message": "Failed to delete job"}), 500
+
+@strategy_routes.route('/backtest/jobs', methods=['DELETE'])
+def delete_all_backtest_jobs_endpoint():
+    from sql_handler import SQLHandler
+    status_filter = request.args.get('status')
+    success = SQLHandler.delete_all_backtest_jobs(status=status_filter)
+    if success:
+        return jsonify({"status": "success", "message": "Backtest jobs deleted"})
+    return jsonify({"status": "error", "message": "Failed to delete jobs"}), 500
+
 @strategy_routes.route('/backtest/resume/<job_id>', methods=['POST'])
 def resume_backtest_job(job_id):
     import subprocess
