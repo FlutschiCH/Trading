@@ -129,8 +129,45 @@ def run_worker(job_id: str, is_resume: bool = False):
             return True
         return False
 
+    import urllib.request
+
+    def send_local_update(progress: float = None, status: str = None, step_info: str = None, results: dict = None, est_sec: int = None):
+        try:
+            port = int(os.environ.get("PORT", 8080))
+            url = f"http://127.0.0.1:{port}/api/backtest/internal-update"
+            payload = {"job_id": str(job_id)}
+            if progress is not None:
+                payload["progress"] = float(progress)
+            if status is not None:
+                payload["status"] = status
+            if step_info is not None:
+                payload["step_info"] = step_info
+            if results is not None:
+                payload["results"] = results
+            if est_sec is not None:
+                payload["estimated_seconds_remaining"] = est_sec
+
+            req = urllib.request.Request(
+                url,
+                data=json.dumps(payload).encode('utf-8'),
+                headers={'Content-Type': 'application/json'}
+            )
+            with urllib.request.urlopen(req, timeout=1):
+                pass
+        except Exception:
+            pass
+
+    last_progress_update = 0.0
+
     def progress_cb(pct):
-        pass
+        nonlocal last_progress_update
+        try:
+            val = float(pct)
+            if val - last_progress_update >= 2.0 or val >= 100.0:
+                last_progress_update = val
+                send_local_update(progress=val, status='running', step_info=f"Running strategy analysis ({int(val)}%)...")
+        except Exception:
+            pass
 
     try:
         symbol = params.get('symbol', 'BTCUSD')
@@ -246,14 +283,8 @@ def run_worker(job_id: str, is_resume: bool = False):
             except Exception as save_err:
                 print(f"[BacktestWorker] Warning: Failed to save single backtest run: {save_err}", flush=True)
 
-            # Update job status in backtest_jobs table to completed with results
-            SQLHandler.update_backtest_job_progress(
-                job_id=job_id,
-                status='completed',
-                progress=100.0,
-                step_info='Finished',
-                results=res if isinstance(res, dict) else {}
-            )
+            # Update job status via local HTTP callback to Flask in-memory cache and MySQL
+            send_local_update(progress=100.0, status='completed', step_info='Finished', results=res if isinstance(res, dict) else {})
 
         elif job_type == 'optimize':
             symbols = params.get('symbols') or [symbol]
@@ -327,14 +358,8 @@ def run_worker(job_id: str, is_resume: bool = False):
             except Exception as save_err:
                 print(f"[BacktestWorker] Warning: Failed to save optimization run: {save_err}", flush=True)
 
-            # Update job status in backtest_jobs table to completed with results
-            SQLHandler.update_backtest_job_progress(
-                job_id=job_id,
-                status='completed',
-                progress=100.0,
-                step_info='Finished',
-                results=res if isinstance(res, dict) else {}
-            )
+            # Update job status via local HTTP callback to Flask in-memory cache and MySQL
+            send_local_update(progress=100.0, status='completed', step_info='Finished', results=res if isinstance(res, dict) else {})
 
     except Exception as err:
         print(f"{Fore.RED}[BacktestWorker]{Style.RESET_ALL} Error in worker execution for job {job_id}: {err}", flush=True)

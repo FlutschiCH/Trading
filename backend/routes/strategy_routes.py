@@ -21,6 +21,7 @@ def analyze():
     return jsonify(result)
 
 cancelled_backtests = set()
+_in_memory_job_cache = {}
 
 @strategy_routes.route('/backtest/cancel', methods=['POST'])
 def cancel_backtest():
@@ -30,14 +31,73 @@ def cancel_backtest():
         cancelled_backtests.add(str(backtest_id))
         from sql_handler import SQLHandler
         SQLHandler.update_backtest_job_progress(str(backtest_id), status='cancelled', step_info='Cancelled by user')
+        if str(backtest_id) in _in_memory_job_cache:
+            _in_memory_job_cache[str(backtest_id)]['status'] = 'cancelled'
     return jsonify({"status": "success", "message": "Backtest cancellation requested"})
+
+@strategy_routes.route('/backtest/internal-update', methods=['POST'])
+def internal_worker_update():
+    """
+    Receives high-speed in-memory progress callbacks from backtest worker processes over 127.0.0.1.
+    """
+    payload = request.get_json(silent=True) or {}
+    job_id = str(payload.get('job_id', ''))
+    if not job_id:
+        return jsonify({"status": "error", "message": "Missing job_id"}), 400
+
+    if job_id not in _in_memory_job_cache:
+        _in_memory_job_cache[job_id] = {
+            'job_id': job_id,
+            'status': payload.get('status', 'running'),
+            'progress': payload.get('progress', 0.0),
+            'step_info': payload.get('step_info', ''),
+            'estimated_seconds_remaining': payload.get('estimated_seconds_remaining', 0),
+            'results': None
+        }
+    else:
+        cache_item = _in_memory_job_cache[job_id]
+        if 'status' in payload:
+            cache_item['status'] = payload['status']
+        if 'progress' in payload:
+            cache_item['progress'] = payload['progress']
+        if 'step_info' in payload:
+            cache_item['step_info'] = payload['step_info']
+        if 'estimated_seconds_remaining' in payload:
+            cache_item['estimated_seconds_remaining'] = payload['estimated_seconds_remaining']
+        if 'results' in payload and payload['results'] is not None:
+            cache_item['results'] = payload['results']
+
+    status = payload.get('status')
+    results = payload.get('results')
+    # If completed or failed, also update MySQL DB to ensure persistence across server restarts
+    if status in ('completed', 'failed', 'cancelled'):
+        try:
+            from sql_handler import SQLHandler
+            SQLHandler.update_backtest_job_progress(
+                job_id=job_id,
+                status=status,
+                progress=payload.get('progress', 100.0),
+                step_info=payload.get('step_info', ''),
+                results=results
+            )
+        except Exception as err:
+            print(f"[strategy_routes] Warning: Failed to persist job status to MySQL: {err}", flush=True)
+
+    return jsonify({"status": "success"})
 
 @strategy_routes.route('/backtest/status/<job_id>', methods=['GET'])
 def get_backtest_status(job_id):
+    job_id_str = str(job_id)
+    if job_id_str in _in_memory_job_cache:
+        return jsonify({"status": "success", "job": _in_memory_job_cache[job_id_str]})
+
     from sql_handler import SQLHandler
-    job = SQLHandler.get_backtest_job(job_id)
+    job = SQLHandler.get_backtest_job(job_id_str)
     if not job:
         return jsonify({"status": "error", "message": "Job not found"}), 404
+    
+    # Store in memory for future fast polling
+    _in_memory_job_cache[job_id_str] = job
     return jsonify({"status": "success", "job": job})
 
 @strategy_routes.route('/backtest/job/<job_id>', methods=['DELETE'])
