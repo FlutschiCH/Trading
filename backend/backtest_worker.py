@@ -248,6 +248,15 @@ def run_worker(job_id: str, is_resume: bool = False):
             except Exception as save_err:
                 print(f"[BacktestWorker] Warning: Failed to save single backtest run: {save_err}", flush=True)
 
+            # Update job status in backtest_jobs table to completed with results
+            SQLHandler.update_backtest_job_progress(
+                job_id=job_id,
+                status='completed',
+                progress=100.0,
+                step_info='Finished',
+                results=res if isinstance(res, dict) else {}
+            )
+
         elif job_type == 'optimize':
             symbols = params.get('symbols') or [symbol]
             timeframes = params.get('timeframes') or [timeframe]
@@ -319,6 +328,15 @@ def run_worker(job_id: str, is_resume: bool = False):
                 print(f"{Fore.GREEN}[BacktestWorker SavedRun]{Style.RESET_ALL} Saved completed optimization run 'opt_{job_id}' ({len(results_grid)} combos) to MySQL saved_backtests table.", flush=True)
             except Exception as save_err:
                 print(f"[BacktestWorker] Warning: Failed to save optimization run: {save_err}", flush=True)
+
+            # Update job status in backtest_jobs table to completed with results
+            SQLHandler.update_backtest_job_progress(
+                job_id=job_id,
+                status='completed',
+                progress=100.0,
+                step_info='Finished',
+                results=res if isinstance(res, dict) else {}
+            )
 
     except Exception as err:
         print(f"{Fore.RED}[BacktestWorker]{Style.RESET_ALL} Error in worker execution for job {job_id}: {err}", flush=True)
