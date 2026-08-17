@@ -100,6 +100,12 @@ def disable_quick_edit():
 disable_quick_edit()
 
 restart_requested = False
+current_backend_process = None
+process_lock = threading.Lock()
+
+# Secondary Control Flask Server
+control_app = Flask(__name__)
+CORS(control_app)
 
 @control_app.route('/api/restart', methods=['POST'])
 def handle_restart():
