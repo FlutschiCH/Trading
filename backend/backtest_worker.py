@@ -129,10 +129,17 @@ def run_worker(job_id: str, is_resume: bool = False):
             return True
         return False
 
-    start_time = time.time()
+    last_progress_update = 0.0
 
     def progress_cb(pct):
-        pass
+        nonlocal last_progress_update
+        try:
+            val = float(pct)
+            if val - last_progress_update >= 2.0 or val >= 100.0:
+                last_progress_update = val
+                SQLHandler.update_backtest_job_progress(job_id, progress=val, step_info=f"Running strategy analysis ({int(val)}%)...")
+        except Exception:
+            pass
 
     try:
         symbol = params.get('symbol', 'BTCUSD')
