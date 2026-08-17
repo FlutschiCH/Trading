@@ -136,6 +136,28 @@ def run_worker(job_id: str, is_resume: bool = False):
             if isinstance(res, dict):
                 res['total_duration_sec'] = total_elapsed
 
+            # Auto-save single backtest run to saved_backtests table
+            try:
+                summary = res.get('summary', {}) if isinstance(res, dict) else {}
+                SQLHandler.save_backtest_run(
+                    backtest_id=f"single_{job_id}",
+                    symbol=symbol,
+                    timeframe=timeframe,
+                    broker=candle_source,
+                    sl_val=float(params.get('slVal', 1.0)),
+                    sl_type=params.get('slType', 'pct'),
+                    rr=float(params.get('rr', 2.0)),
+                    be_trigger_r=float(params.get('beTriggerR', 1.0)) if params.get('useBreakEven') else 0.0,
+                    net_pnl=float(summary.get('net_profit', 0.0)),
+                    win_rate=float(summary.get('win_rate', 0.0)),
+                    trades_cnt=int(summary.get('total_trades', 0)),
+                    profit_factor=float(summary.get('profit_factor', 0.0)),
+                    max_drawdown=float(summary.get('max_drawdown', 0.0)),
+                    payload_dict=res if isinstance(res, dict) else {}
+                )
+            except Exception as save_err:
+                print(f"[BacktestWorker] Warning: Failed to auto-save single backtest run: {save_err}", flush=True)
+
             SQLHandler.update_backtest_job_progress(job_id, status='completed', progress=100.0, estimated_seconds_remaining=0, step_info='Completed', results=res)
 
         elif job_type == 'optimize':
@@ -219,7 +241,30 @@ def run_worker(job_id: str, is_resume: bool = False):
                             "total_trades": summary.get('total_trades', 0),
                             "profit_factor": summary.get('profit_factor', 0.0)
                         })
-                        # Save checkpoint
+
+                        # Save individual backtest run to saved_backtests table immediately
+                        try:
+                            combo_run_id = f"opt_{job_id}_c{combo_idx}"
+                            SQLHandler.save_backtest_run(
+                                backtest_id=combo_run_id,
+                                symbol=symbol,
+                                timeframe=timeframe,
+                                broker=candle_source,
+                                sl_val=float(sl),
+                                sl_type=params.get('slType', 'pct'),
+                                rr=float(rr),
+                                be_trigger_r=be_trig,
+                                net_pnl=float(summary.get('net_profit', 0.0)),
+                                win_rate=float(summary.get('win_rate', 0.0)),
+                                trades_cnt=int(summary.get('total_trades', 0)),
+                                profit_factor=float(summary.get('profit_factor', 0.0)),
+                                max_drawdown=float(summary.get('max_drawdown', 0.0)),
+                                payload_dict=sub_res
+                            )
+                        except Exception as save_err:
+                            print(f"[BacktestWorker] Warning: Failed to auto-save combo run {combo_idx}: {save_err}", flush=True)
+
+                        # Save checkpoint to job progress
                         SQLHandler.update_backtest_job_progress(
                             job_id,
                             checkpoint_index=combo_idx,
