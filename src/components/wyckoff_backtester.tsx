@@ -613,8 +613,8 @@ export default function WyckoffBacktester({
   const beRangeMode = globalRangeMode;
   const beOffsetRangeMode = globalRangeMode;
 
-  const effectiveSymbols = activeSymbols.length > 0 ? activeSymbols : [symbol];
-  const effectiveTimeframes = activeTimeframes.length > 0 ? activeTimeframes : [timeframe];
+  const effectiveSymbols = globalRangeMode ? (activeSymbols.length > 0 ? activeSymbols : [symbol]) : [symbol];
+  const effectiveTimeframes = globalRangeMode ? (activeTimeframes.length > 0 ? activeTimeframes : [timeframe]) : [timeframe];
 
   // Searchable Multi-Select Dropdown States & Refs
   const [symbolSearchQuery, setSymbolSearchQuery] = React.useState('');
