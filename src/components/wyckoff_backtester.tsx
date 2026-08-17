@@ -475,10 +475,6 @@ export default function WyckoffBacktester({
       .catch(err => console.error("Error fetching symbol mappings for backtester:", err));
   }, []);
 
-  // Map of 1 master main_symbol -> broker targets
-  const mappedMasterSymbols = React.useMemo(() => {
-    const masterSet = new Set<string>();
-
   // Indicator Confirmation Layer Rules State
   const [indicatorRules, setIndicatorRules] = React.useState<any[]>(() => {
     try {
@@ -525,6 +521,10 @@ export default function WyckoffBacktester({
   const handleDeleteIndicatorRule = (id: string) => {
     setIndicatorRules(indicatorRules.filter(r => r.id !== id));
   };
+
+  // Map of 1 master main_symbol -> broker targets
+  const mappedMasterSymbols = React.useMemo(() => {
+    const masterSet = new Set<string>();
     const mainToBrokerMap: Record<string, string[]> = {};
 
     symbolMappings.forEach((m: any) => {
