@@ -93,25 +93,9 @@ def run_worker(job_id: str, is_resume: bool = False):
         return False
 
     start_time = time.time()
-    last_combo_duration = None
 
     def progress_cb(pct):
-        if check_cancelled():
-            return
-        elapsed = time.time() - start_time
-        eta_sec = 0
-        if pct > 0:
-            # Total estimate based on average rate across the entire duration so far
-            total_est = elapsed / (float(pct) / 100.0)
-            eta_sec = int(max(0, total_est - elapsed))
-
-        SQLHandler.update_backtest_job_progress(
-            job_id,
-            status='running',
-            progress=float(pct),
-            estimated_seconds_remaining=eta_sec,
-            step_info=f"Processing backtest ({int(pct)}%)..."
-        )
+        pass
 
     try:
         symbol = params.get('symbol', 'BTCUSD')
@@ -149,7 +133,6 @@ def run_worker(job_id: str, is_resume: bool = False):
 
         if not candles:
             print(f"{Fore.RED}[BacktestWorker Data Error]{Style.RESET_ALL} Failed to fetch candles for '{symbol}' from broker '{candle_source}'. Zero candles returned.", flush=True)
-            SQLHandler.update_backtest_job_progress(job_id, status='failed', step_info="Failed to fetch candles for backtest.")
             sys.exit(1)
 
         first_c = candles[0]
@@ -163,9 +146,6 @@ def run_worker(job_id: str, is_resume: bool = False):
             t_last = str(last_c.get('time'))
 
         print(f"{Fore.GREEN}[BacktestWorker Data Success]{Style.RESET_ALL} Retrieved {len(candles)} candles for '{symbol}'. Start: {t_first} | End: {t_last} | First Close: {first_c.get('close')} | Last Close: {last_c.get('close')}", flush=True)
-
-        if check_cancelled():
-            sys.exit(0)
 
         # Record start of actual strategy computations (after fetching data overhead)
         execution_start_time = time.time()
@@ -189,7 +169,6 @@ def run_worker(job_id: str, is_resume: bool = False):
                 fees_percent=float(params.get('feesPercent', 0.0)),
                 daily_retry_limit=int(params.get('dailyRetryLimit', 0)),
                 allow_opposite_close=bool(params.get('allowOppositeClose', True)),
-                check_cancelled=check_cancelled,
                 date_from=date_from,
                 date_to=date_to,
                 timezone=params.get('timezone', 'Local'),
@@ -202,16 +181,13 @@ def run_worker(job_id: str, is_resume: bool = False):
                 timeframe=timeframe
             )
 
-            if check_cancelled():
-                sys.exit(0)
-
             total_elapsed = round(time.time() - start_time, 2)
             if isinstance(res, dict):
                 res['total_duration_sec'] = total_elapsed
                 summary = res.get('summary', {})
                 print(f"{Fore.GREEN}[BacktestWorker Finished]{Style.RESET_ALL} Job {job_id} finished in {total_elapsed}s | Net PnL: ${summary.get('net_profit', 0.0):.2f} | Trades: {summary.get('total_trades', 0)} | WinRate: {summary.get('win_rate', 0.0):.1f}%", flush=True)
 
-            # Auto-save single backtest run to saved_backtests table
+            # Auto-save single backtest run to saved_backtests table ONCE at completion
             try:
                 summary = res.get('summary', {}) if isinstance(res, dict) else {}
                 SQLHandler.save_backtest_run(
@@ -230,10 +206,9 @@ def run_worker(job_id: str, is_resume: bool = False):
                     max_drawdown=float(summary.get('max_drawdown', 0.0)),
                     payload_dict=res if isinstance(res, dict) else {}
                 )
+                print(f"{Fore.GREEN}[BacktestWorker SavedRun]{Style.RESET_ALL} Saved completed single backtest run 'single_{job_id}' to MySQL saved_backtests table.", flush=True)
             except Exception as save_err:
-                print(f"[BacktestWorker] Warning: Failed to auto-save single backtest run: {save_err}", flush=True)
-
-            SQLHandler.update_backtest_job_progress(job_id, status='completed', progress=100.0, estimated_seconds_remaining=0, step_info='Completed', results=res)
+                print(f"[BacktestWorker] Warning: Failed to save single backtest run: {save_err}", flush=True)
 
         elif job_type == 'optimize':
             sl_ranges = params.get('sl_ranges') or params.get('slRanges') or [0.5, 1.0, 1.5, 2.0]
@@ -251,31 +226,8 @@ def run_worker(job_id: str, is_resume: bool = False):
             for sl in sl_ranges:
                 for rr in rr_ranges:
                     for be in be_ranges:
-                        if check_cancelled():
-                            print(f"{Fore.YELLOW}[BacktestWorker]{Style.RESET_ALL} Job {job_id} was cancelled by user. Exiting worker process.", flush=True)
-                            sys.exit(0)
                         combo_idx += 1
                         pct = (combo_idx / total_combos) * 100.0
-
-                        # Calculate average duration per combo executed so far to estimate remaining total time
-                        if combo_durations:
-                            avg_combo_time = sum(combo_durations) / len(combo_durations)
-                        else:
-                            # Before first combo completes, estimate using total wall time elapsed
-                            avg_combo_time = (time.time() - execution_start_time) / max(1, combo_idx)
-
-                        remaining_combos = total_combos - (combo_idx - 1)
-                        eta_sec = int(max(0, remaining_combos * avg_combo_time))
-
-                        print(f"\n{Fore.CYAN}[BacktestWorker Debug]{Style.RESET_ALL} Running Combo {combo_idx}/{total_combos} ({pct:.1f}%) -> SL={sl}, RR={rr}, BE={be} | Estimated ETA: {eta_sec}s", flush=True)
-
-                        SQLHandler.update_backtest_job_progress(
-                            job_id,
-                            status='running',
-                            progress=pct,
-                            estimated_seconds_remaining=eta_sec,
-                            step_info=f"Combo {combo_idx}/{total_combos} (SL:{sl}, RR:{rr}, BE:{be})"
-                        )
 
                         combo_start = time.time()
                         use_be = (be != 'none')
@@ -298,7 +250,6 @@ def run_worker(job_id: str, is_resume: bool = False):
                             fees_percent=float(params.get('feesPercent', 0.0)),
                             daily_retry_limit=int(params.get('dailyRetryLimit', 0)),
                             allow_opposite_close=bool(params.get('allowOppositeClose', True)),
-                            check_cancelled=check_cancelled,
                             date_from=date_from,
                             date_to=date_to,
                             timezone=params.get('timezone', 'Local'),
@@ -313,9 +264,8 @@ def run_worker(job_id: str, is_resume: bool = False):
                         combo_durations.append(c_dur)
 
                         summary = sub_res.get('summary', {})
-                        print(f"{Fore.GREEN}[BacktestWorker Combo {combo_idx} Finished]{Style.RESET_ALL} Time: {c_dur}s | Net PnL: ${summary.get('net_profit', 0.0):.2f} | Trades: {summary.get('total_trades', 0)} | WinRate: {summary.get('win_rate', 0.0):.1f}%", flush=True)
+                        print(f"{Fore.GREEN}[BacktestWorker Combo {combo_idx}/{total_combos} Finished]{Style.RESET_ALL} Time: {c_dur}s | Net PnL: ${summary.get('net_profit', 0.0):.2f} | Trades: {summary.get('total_trades', 0)} | WinRate: {summary.get('win_rate', 0.0):.1f}%", flush=True)
 
-                        summary = sub_res.get('summary', {})
                         results_grid.append({
                             "sl": sl,
                             "rr": rr,
@@ -326,55 +276,32 @@ def run_worker(job_id: str, is_resume: bool = False):
                             "profit_factor": summary.get('profit_factor', 0.0)
                         })
 
-                        # Save individual backtest run to saved_backtests table immediately
-                        try:
-                            combo_run_id = f"opt_{job_id}_c{combo_idx}"
-                            SQLHandler.save_backtest_run(
-                                backtest_id=combo_run_id,
-                                symbol=symbol,
-                                timeframe=timeframe,
-                                broker=candle_source,
-                                sl_val=float(sl),
-                                sl_type=params.get('slType', 'pct'),
-                                rr=float(rr),
-                                be_trigger_r=be_trig,
-                                net_pnl=float(summary.get('net_profit', 0.0)),
-                                win_rate=float(summary.get('win_rate', 0.0)),
-                                trades_cnt=int(summary.get('total_trades', 0)),
-                                profit_factor=float(summary.get('profit_factor', 0.0)),
-                                max_drawdown=float(summary.get('max_drawdown', 0.0)),
-                                payload_dict=sub_res
-                            )
-                            print(f"{Fore.GREEN}[BacktestWorker SavedRun]{Style.RESET_ALL} Auto-saved combo {combo_idx} (id: {combo_run_id}) to MySQL saved_backtests table.", flush=True)
-                        except Exception as save_err:
-                            print(f"{Fore.RED}[BacktestWorker Save Error]{Style.RESET_ALL} Failed to auto-save combo run {combo_idx}: {save_err}", flush=True)
-
-                        # Save checkpoint to job progress
-                        SQLHandler.update_backtest_job_progress(
-                            job_id,
-                            checkpoint_index=combo_idx,
-                            checkpoint_data={"completed_combos": combo_idx, "total_combos": total_combos, "results_grid": results_grid}
-                        )
-
-            if check_cancelled():
-                sys.exit(0)
-
             total_elapsed = round(time.time() - start_time, 2)
-            SQLHandler.update_backtest_job_progress(
-                job_id,
-                status='completed',
-                progress=100.0,
-                estimated_seconds_remaining=0,
-                step_info='Completed',
-                results={"grid": results_grid, "total_duration_sec": total_elapsed, "avg_combo_duration_sec": round(sum(combo_durations)/len(combo_durations), 3) if combo_durations else 0.0}
-            )
-
+            try:
+                SQLHandler.save_backtest_run(
+                    backtest_id=f"opt_{job_id}",
+                    symbol=symbol,
+                    timeframe=timeframe,
+                    broker=candle_source,
+                    sl_val=0.0,
+                    sl_type='optimization',
+                    rr=0.0,
+                    be_trigger_r=0.0,
+                    net_pnl=0.0,
+                    win_rate=0.0,
+                    trades_cnt=total_combos,
+                    profit_factor=0.0,
+                    max_drawdown=0.0,
+                    payload_dict={"grid": results_grid, "total_duration_sec": total_elapsed}
+                )
+                print(f"{Fore.GREEN}[BacktestWorker SavedRun]{Style.RESET_ALL} Saved completed optimization run 'opt_{job_id}' to MySQL saved_backtests table.", flush=True)
+            except Exception as save_err:
+                print(f"[BacktestWorker] Warning: Failed to save optimization run: {save_err}", flush=True)
 
     except Exception as err:
         print(f"{Fore.RED}[BacktestWorker]{Style.RESET_ALL} Error in worker execution for job {job_id}: {err}", flush=True)
         import traceback
         traceback.print_exc()
-        SQLHandler.update_backtest_job_progress(job_id, status='failed', step_info=f"Error: {str(err)}")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Standalone Backtest Worker Process")
