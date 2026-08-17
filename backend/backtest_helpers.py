@@ -190,8 +190,8 @@ def run_trade_simulation(
                 filled_length = int(bar_length * percent // 100)
                 bar = '#' * filled_length + '-' * (bar_length - filled_length)
                 print(f"\r{Fore.CYAN}[Trade Simulation Progress]{Style.RESET_ALL} |{Fore.GREEN}{bar}{Style.RESET_ALL}| {percent}% ({i+1}/{total_candles})", end="", flush=True)
-                if percent == 100:
-                    print(flush=True)
+                if percent >= 100 or i == total_candles - 1:
+                    print("", flush=True)
                 if progress_callback:
                     try:
                         progress_callback(50 + int(percent / 2))
