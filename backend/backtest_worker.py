@@ -208,6 +208,8 @@ def run_worker(job_id: str, is_resume: bool = False):
             total_elapsed = round(time.time() - start_time, 2)
             if isinstance(res, dict):
                 res['total_duration_sec'] = total_elapsed
+                summary = res.get('summary', {})
+                print(f"{Fore.GREEN}[BacktestWorker Finished]{Style.RESET_ALL} Job {job_id} finished in {total_elapsed}s | Net PnL: ${summary.get('net_profit', 0.0):.2f} | Trades: {summary.get('total_trades', 0)} | WinRate: {summary.get('win_rate', 0.0):.1f}%", flush=True)
 
             # Auto-save single backtest run to saved_backtests table
             try:

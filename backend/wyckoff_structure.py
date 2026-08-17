@@ -90,9 +90,7 @@ class WyckoffStructure:
                     bar_length = 20
                     filled_length = int(bar_length * percent // 100)
                     bar = '█' * filled_length + '-' * (bar_length - filled_length)
-                    print(f"\r[Wyckoff Analysis Progress] |{bar}| {percent}% ({i+1}/{n})", end="", flush=True)
-                    if percent >= 100 or i == n - 1:
-                        print("", flush=True)
+                    print(f"\r[Wyckoff Analysis Progress] |{bar}| {percent}% ({i+1}/{n})", end="" if percent < 100 and i < n - 1 else "\n", flush=True)
                     try:
                         progress_callback(percent)
                     except Exception:
