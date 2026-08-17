@@ -42,16 +42,31 @@ def run_worker(job_id: str, is_resume: bool = False):
     params = job.get('params', {})
     job_type = job.get('type', 'single')
 
-    symbol = params.get('symbol', 'BTCUSD')
-    timeframe = params.get('timeframe') or params.get('interval', '15m')
+    symbols = params.get('symbols') or [params.get('symbol', 'BTCUSD')]
+    timeframes = params.get('timeframes') or [params.get('timeframe') or params.get('interval', '15m')]
 
     if job_type == 'single':
         total_jobs = 1
     else:
-        sl_ranges = params.get('sl_ranges') or params.get('slRanges') or [0.5, 1.0, 1.5, 2.0]
-        rr_ranges = params.get('rr_ranges') or params.get('rrRanges') or [1.5, 2.0, 2.5, 3.0]
-        be_ranges = params.get('be_ranges') or params.get('beRanges') or ['none', '0.5', '1.0']
-        total_jobs = len(sl_ranges) * len(rr_ranges) * len(be_ranges)
+        # Calculate RR steps
+        rr_s = float(params.get('rrStart', 1.0))
+        rr_e = float(params.get('rrEnd', 5.0))
+        rr_st = float(params.get('rrStep', 0.5))
+        rr_cnt = max(1, int(round((rr_e - rr_s) / rr_st)) + 1)
+
+        # Calculate SL steps
+        if params.get('slRangeMode') and params.get('slStart') is not None and params.get('slEnd') is not None and params.get('slStep'):
+            sl_cnt = max(1, int(round((float(params['slEnd']) - float(params['slStart'])) / float(params['slStep']))) + 1)
+        else:
+            sl_cnt = 1
+
+        # Calculate BE steps
+        if params.get('useBreakEven') and params.get('beRangeMode') and params.get('beStart') is not None and params.get('beEnd') is not None and params.get('beStep'):
+            be_cnt = max(1, int(round((float(params['beEnd']) - float(params['beStart'])) / float(params['beStep']))) + 1)
+        else:
+            be_cnt = 1
+
+        total_jobs = len(symbols) * len(timeframes) * sl_cnt * rr_cnt * be_cnt
 
     est_sec = total_jobs * 10
     if est_sec < 60:
@@ -61,8 +76,10 @@ def run_worker(job_id: str, is_resume: bool = False):
     else:
         est_time_str = f"{est_sec // 3600}h {(est_sec % 3600) // 60}m {est_sec % 60}s"
 
-    print(f"{Fore.CYAN}[BacktestWorker Target]{Style.RESET_ALL} Symbol: '{symbol}' | Timeframe: '{timeframe}' | Type: '{job_type}'", flush=True)
-    print(f"{Fore.CYAN}[BacktestWorker Plan]{Style.RESET_ALL} Total Jobs: {total_jobs} | Estimated Runtime (~10s/job): {est_time_str}", flush=True)
+    symbols_str = ", ".join(symbols)
+    tf_str = ", ".join(timeframes)
+    print(f"{Fore.CYAN}[BacktestWorker Target]{Style.RESET_ALL} Symbols ({len(symbols)}): [{symbols_str}] | Timeframes ({len(timeframes)}): [{tf_str}] | Type: '{job_type}'", flush=True)
+    print(f"{Fore.CYAN}[BacktestWorker Plan]{Style.RESET_ALL} Total Combos: {total_jobs} | Estimated Runtime (~10s/job): {est_time_str}", flush=True)
     SQLHandler.update_backtest_job_progress(job_id, status='running', progress=5.0, step_info='Fetching candles from broker...')
 
     def handle_exit_signal(sig=None, frame=None):
@@ -231,78 +248,61 @@ def run_worker(job_id: str, is_resume: bool = False):
                 print(f"[BacktestWorker] Warning: Failed to save single backtest run: {save_err}", flush=True)
 
         elif job_type == 'optimize':
-            sl_ranges = params.get('sl_ranges') or params.get('slRanges') or [0.5, 1.0, 1.5, 2.0]
-            rr_ranges = params.get('rr_ranges') or params.get('rrRanges') or [1.5, 2.0, 2.5, 3.0]
-            be_ranges = params.get('be_ranges') or params.get('beRanges') or ['none', '0.5', '1.0']
+            symbols = params.get('symbols') or [symbol]
+            timeframes = params.get('timeframes') or [timeframe]
+            print(f"{Fore.CYAN}[BacktestWorker]{Style.RESET_ALL} Starting multi-parameter optimization matrix for job {job_id}...", flush=True)
 
-            total_combos = len(sl_ranges) * len(rr_ranges) * len(be_ranges)
-            print(f"{Fore.CYAN}[BacktestWorker]{Style.RESET_ALL} Starting optimization for job {job_id}: {total_combos} total combinations for symbol '{symbol}' ({len(candles)} candles).", flush=True)
-            print(f"{Fore.CYAN}[BacktestWorker]{Style.RESET_ALL} Ranges -> SL: {sl_ranges} | RR: {rr_ranges} | BE: {be_ranges}", flush=True)
-
-            combo_idx = 0
-            results_grid = []
-            combo_durations = []
-
-            for sl in sl_ranges:
-                for rr in rr_ranges:
-                    for be in be_ranges:
-                        combo_idx += 1
-                        pct = (combo_idx / total_combos) * 100.0
-
-                        combo_start = time.time()
-                        use_be = (be != 'none')
-                        be_trig = float(be) if use_be else 1.0
-
-                        sub_res = StrategyHandler.run_backtest(
-                            candles=candles,
-                            symbol=symbol,
-                            sl_val=float(sl),
-                            sl_type=params.get('slType', 'pct'),
-                            rr=float(rr),
-                            size=float(params.get('size', 1.0)),
-                            initial_balance=float(params.get('initialBalance', 10000.0)),
-                            use_risk_sizing=bool(params.get('useRiskSizing', False)),
-                            risk_pct=float(params.get('riskPct', 1.0)),
-                            use_break_even=use_be,
-                            be_trigger_r=be_trig,
-                            be_offset_mode=params.get('beOffsetMode', 'half_r'),
-                            lookback_window=int(params.get('lookbackWindow', 20)),
-                            fees_percent=float(params.get('feesPercent', 0.0)),
-                            daily_retry_limit=int(params.get('dailyRetryLimit', 0)),
-                            allow_opposite_close=bool(params.get('allowOppositeClose', True)),
-                            date_from=date_from,
-                            date_to=date_to,
-                            timezone=params.get('timezone', 'Local'),
-                            sessions=params.get('sessions', []),
-                            use_global_close=bool(params.get('useGlobalClose', False)),
-                            global_close_time=params.get('globalCloseTime', ''),
-                            entry_stability_rule=params.get('entryStabilityRule', 'default'),
-                            broker=candle_source,
-                            timeframe=timeframe
-                        )
-                        c_dur = round(time.time() - combo_start, 3)
-                        combo_durations.append(c_dur)
-
-                        summary = sub_res.get('summary', {})
-                        print(f"{Fore.GREEN}[BacktestWorker Combo {combo_idx}/{total_combos} Finished]{Style.RESET_ALL} Time: {c_dur}s | Net PnL: ${summary.get('net_profit', 0.0):.2f} | Trades: {summary.get('total_trades', 0)} | WinRate: {summary.get('win_rate', 0.0):.1f}%", flush=True)
-
-                        results_grid.append({
-                            "sl": sl,
-                            "rr": rr,
-                            "be": be,
-                            "net_profit": summary.get('net_profit', 0.0),
-                            "win_rate": summary.get('win_rate', 0.0),
-                            "total_trades": summary.get('total_trades', 0),
-                            "profit_factor": summary.get('profit_factor', 0.0),
-                            "max_drawdown": summary.get('max_drawdown', 0.0)
-                        })
+            res = StrategyHandler.run_optimization(
+                symbol=symbol,
+                sl_val=float(params.get('slVal', 1.0)),
+                sl_type=params.get('slType', 'pct'),
+                size=float(params.get('size', 1.0)),
+                initial_balance=float(params.get('initialBalance', 10000.0)),
+                use_risk_sizing=bool(params.get('useRiskSizing', False)),
+                risk_pct=float(params.get('riskPct', 1.0)),
+                use_break_even=bool(params.get('useBreakEven', False)),
+                be_trigger_r=float(params.get('beTriggerR', 1.0)),
+                be_offset_mode=params.get('beOffsetMode', 'half_r'),
+                lookback_window=int(params.get('lookbackWindow', 20)),
+                rr_start=float(params.get('rrStart', 1.0)),
+                rr_end=float(params.get('rrEnd', 5.0)),
+                rr_step=float(params.get('rrStep', 0.5)),
+                fees_percent=float(params.get('feesPercent', 0.0)),
+                daily_retry_limit=int(params.get('dailyRetryLimit', 0)),
+                allow_opposite_close=bool(params.get('allowOppositeClose', True)),
+                date_from=date_from,
+                date_to=date_to,
+                timezone=params.get('timezone', 'Local'),
+                sessions=params.get('sessions', []),
+                use_global_close=bool(params.get('useGlobalClose', False)),
+                global_close_time=params.get('globalCloseTime', ''),
+                entry_stability_rule=params.get('entryStabilityRule', 'default'),
+                candle_source=candle_source,
+                account_id=account_id,
+                limit=limit,
+                symbols=symbols,
+                timeframes=timeframes,
+                sl_range_mode=bool(params.get('slRangeMode', False)),
+                sl_start=float(params.get('slStart')) if params.get('slStart') is not None else None,
+                sl_end=float(params.get('slEnd')) if params.get('slEnd') is not None else None,
+                sl_step=float(params.get('slStep')) if params.get('slStep') is not None else None,
+                be_range_mode=bool(params.get('beRangeMode', False)),
+                be_start=float(params.get('beStart')) if params.get('beStart') is not None else None,
+                be_end=float(params.get('beEnd')) if params.get('beEnd') is not None else None,
+                be_step=float(params.get('beStep')) if params.get('beStep') is not None else None,
+                be_offset_range_mode=bool(params.get('beOffsetRangeMode', False)),
+                be_offset_start=float(params.get('beOffsetStart')) if params.get('beOffsetStart') is not None else None,
+                be_offset_end=float(params.get('beOffsetEnd')) if params.get('beOffsetEnd') is not None else None,
+                be_offset_step=float(params.get('beOffsetStep')) if params.get('beOffsetStep') is not None else None
+            )
 
             total_elapsed = round(time.time() - start_time, 2)
+            results_grid = res.get('results', []) if isinstance(res, dict) else []
             try:
                 SQLHandler.save_backtest_run(
                     backtest_id=f"opt_{job_id}",
-                    symbol=symbol,
-                    timeframe=timeframe,
+                    symbol=", ".join(symbols),
+                    timeframe=", ".join(timeframes),
                     broker=candle_source,
                     sl_val=0.0,
                     sl_type='optimization',
@@ -310,12 +310,12 @@ def run_worker(job_id: str, is_resume: bool = False):
                     be_trigger_r=0.0,
                     net_pnl=0.0,
                     win_rate=0.0,
-                    trades_cnt=total_combos,
+                    trades_cnt=len(results_grid),
                     profit_factor=0.0,
                     max_drawdown=0.0,
                     payload_dict={"grid": results_grid, "total_duration_sec": total_elapsed}
                 )
-                print(f"{Fore.GREEN}[BacktestWorker SavedRun]{Style.RESET_ALL} Saved completed optimization run 'opt_{job_id}' to MySQL saved_backtests table.", flush=True)
+                print(f"{Fore.GREEN}[BacktestWorker SavedRun]{Style.RESET_ALL} Saved completed optimization run 'opt_{job_id}' ({len(results_grid)} combos) to MySQL saved_backtests table.", flush=True)
             except Exception as save_err:
                 print(f"[BacktestWorker] Warning: Failed to save optimization run: {save_err}", flush=True)
 
