@@ -1029,6 +1029,10 @@ export default function Dashboard() {
     try {
       setBacktestProgress(0);
       const bounds = calculateDateBounds(dateRangeOption, customFrom, customTo);
+      const reqSymbol = rangeParams?.symbol || symbol;
+      const reqTimeframe = rangeParams?.timeframe || timeframe;
+      console.log(`[Dashboard runBacktest] Submitting single backtest request. Symbol: "${reqSymbol}", Timeframe: "${reqTimeframe}", Source: "${candleSource}"`, { rangeParams, bounds });
+
       const response = await fetch(`${API_BASE_URL}/api/backtest`, {
         method: 'POST',
         headers: {
@@ -1038,9 +1042,9 @@ export default function Dashboard() {
         body: JSON.stringify({
           account_id: getSelectedAccountId(),
           candleSource,
-          timeframe,
+          timeframe: reqTimeframe,
           limit: candleLimit,
-          symbol,
+          symbol: reqSymbol,
           slVal: parseFloat(backtestSL) || 1.0,
           slType: backtestSLType,
           rr: parseFloat(backtestRR) || 2,
@@ -1161,6 +1165,10 @@ export default function Dashboard() {
       setOptimizationResults(null);
       const bounds = calculateDateBounds(dateRangeOption, customFrom, customTo);
       console.log(`[Optimization] Sending request to ${API_BASE_URL}/api/backtest/optimize...`);
+      const reqSymbol = rangeParams?.symbol || symbol;
+      const reqTimeframe = rangeParams?.timeframe || timeframe;
+      console.log(`[Dashboard runOptimization] Submitting optimization request. Symbol: "${reqSymbol}", Timeframe: "${reqTimeframe}", Source: "${candleSource}", Effective Symbols:`, rangeParams?.symbols);
+
       const response = await fetch(`${API_BASE_URL}/api/backtest/optimize`, {
         method: 'POST',
         headers: {
@@ -1170,9 +1178,9 @@ export default function Dashboard() {
         body: JSON.stringify({
           account_id: getSelectedAccountId(),
           candleSource,
-          timeframe,
+          timeframe: reqTimeframe,
           limit: candleLimit,
-          symbol,
+          symbol: reqSymbol,
           slVal: parseFloat(backtestSL) || 1.0,
           slType: backtestSLType,
           size: parseFloat(backtestSize) || 1,

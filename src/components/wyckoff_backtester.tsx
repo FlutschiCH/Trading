@@ -1281,9 +1281,13 @@ export default function WyckoffBacktester({
             disabled={loadingBacktest}
             onClick={() => {
               if (loadingBacktest) return;
-              console.log(`[Wyckoff Backtester] Run Backtest clicked (Combinations: ${totalRunCombinations}) at:`, new Date().toLocaleTimeString());
+              const targetSymbol = effectiveSymbols[0] || symbol;
+              const targetTimeframe = effectiveTimeframes[0] || timeframe;
+              console.log(`[Wyckoff Backtester] Run Backtest clicked (Combos: ${totalRunCombinations}). Symbol: "${targetSymbol}", Effective Symbols:`, effectiveSymbols, "Timeframe:", targetTimeframe);
               console.time("Backtest execution duration");
               const rangeParams = {
+                symbol: targetSymbol,
+                timeframe: targetTimeframe,
                 slRangeMode,
                 slStart: parseFloat(slStart) || 0.0,
                 slEnd: parseFloat(slEnd) || 0.0,
