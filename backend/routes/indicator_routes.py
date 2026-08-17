@@ -1,9 +1,16 @@
 from flask import Blueprint, request, jsonify
 from indicator_handler import IndicatorHandler
+from indicator_helper import IndicatorHelper
 import pandas as pd
 import numpy as np
 
 indicator_routes = Blueprint('indicator_routes', __name__)
+
+@indicator_routes.route('/indicators/list', methods=['GET'])
+def list_indicators():
+    """Returns dynamically discovered indicators and their parameter signatures."""
+    indicators = IndicatorHelper.get_all_indicators()
+    return jsonify({"status": "success", "data": indicators})
 
 @indicator_routes.route('/indicators/catalog', methods=['GET'])
 def get_indicator_catalog():
