@@ -42,7 +42,27 @@ def run_worker(job_id: str, is_resume: bool = False):
     params = job.get('params', {})
     job_type = job.get('type', 'single')
 
-    # Update job status to running
+    symbol = params.get('symbol', 'BTCUSD')
+    timeframe = params.get('timeframe') or params.get('interval', '15m')
+
+    if job_type == 'single':
+        total_jobs = 1
+    else:
+        sl_ranges = params.get('sl_ranges') or params.get('slRanges') or [0.5, 1.0, 1.5, 2.0]
+        rr_ranges = params.get('rr_ranges') or params.get('rrRanges') or [1.5, 2.0, 2.5, 3.0]
+        be_ranges = params.get('be_ranges') or params.get('beRanges') or ['none', '0.5', '1.0']
+        total_jobs = len(sl_ranges) * len(rr_ranges) * len(be_ranges)
+
+    est_sec = total_jobs * 10
+    if est_sec < 60:
+        est_time_str = f"{est_sec} seconds"
+    elif est_sec < 3600:
+        est_time_str = f"{est_sec // 60}m {est_sec % 60}s"
+    else:
+        est_time_str = f"{est_sec // 3600}h {(est_sec % 3600) // 60}m {est_sec % 60}s"
+
+    print(f"{Fore.CYAN}[BacktestWorker Target]{Style.RESET_ALL} Symbol: '{symbol}' | Timeframe: '{timeframe}' | Type: '{job_type}'", flush=True)
+    print(f"{Fore.CYAN}[BacktestWorker Plan]{Style.RESET_ALL} Total Jobs: {total_jobs} | Estimated Runtime (~10s/job): {est_time_str}", flush=True)
     SQLHandler.update_backtest_job_progress(job_id, status='running', progress=5.0, step_info='Fetching candles from broker...')
 
     def handle_exit_signal(sig=None, frame=None):
