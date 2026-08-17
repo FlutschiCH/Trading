@@ -302,7 +302,12 @@ def run_worker(job_id: str, is_resume: bool = False):
     except Exception as err:
         print(f"{Fore.RED}[BacktestWorker]{Style.RESET_ALL} Error in worker execution for job {job_id}: {err}", flush=True)
         import traceback
-        traceback.print_exc()
+    print(f"\n{Fore.GREEN}[BacktestWorker]{Style.RESET_ALL} Worker execution finished. Window will remain open until closed.", flush=True)
+    try:
+        input("\nPress Enter to close window...")
+    except Exception:
+        while True:
+            time.sleep(3600)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Standalone Backtest Worker Process")
