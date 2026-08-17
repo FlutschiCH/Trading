@@ -658,7 +658,8 @@ class StrategyHandler:
             try:
                 # Auto-persist iteration run to MySQL database
                 from sql_handler import SQLHandler
-                backtest_id_str = f"bt_{s.lower()}_{tf}_sl{sl}_rr{rr}_be{be_file_str}_{int(time.time())}"
+                be_str = str(be) if be is not None else "off"
+                backtest_id_str = f"bt_{s.lower()}_{tf}_sl{sl}_rr{rr}_be{be_str}_{int(time.time())}"
                 SQLHandler.save_backtest_run(
                     backtest_id=backtest_id_str,
                     symbol=s,
