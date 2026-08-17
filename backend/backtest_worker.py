@@ -63,15 +63,28 @@ def run_worker(job_id: str, is_resume: bool = False):
         pass
 
     # Windows specific console close handler (X button)
-    if os.name == 'nt':
+    if sys.platform == "win32":
         try:
-            import win32api
-            def win32_handler(dwCtrlType):
-                handle_exit_signal()
+            import ctypes
+            from ctypes import wintypes
+
+            PHANDLER_ROUTINE = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.DWORD)
+
+            def win_ctrl_handler(ctrl_type):
+                # 0: CTRL_C_EVENT, 1: CTRL_BREAK_EVENT, 2: CTRL_CLOSE_EVENT, 5: CTRL_LOGOFF_EVENT, 6: CTRL_SHUTDOWN_EVENT
+                print(f"\n{Fore.YELLOW}[BacktestWorker]{Style.RESET_ALL} Received console signal {ctrl_type} (X closed). Cancelling & deleting job {job_id}...", flush=True)
+                try:
+                    SQLHandler.update_backtest_job_progress(job_id, status='cancelled', step_info='Worker window closed by user (X clicked)')
+                    SQLHandler.delete_backtest_job(job_id)
+                except Exception as ex:
+                    print(f"Error handling console close: {ex}", flush=True)
                 return True
-            win32api.SetConsoleCtrlHandler(win32_handler, True)
-        except ImportError:
-            pass
+
+            global _win_ctrl_handler_ref
+            _win_ctrl_handler_ref = PHANDLER_ROUTINE(win_ctrl_handler)
+            ctypes.windll.kernel32.SetConsoleCtrlHandler(_win_ctrl_handler_ref, True)
+        except Exception as err:
+            print(f"[BacktestWorker] Console handler setup notice: {err}", flush=True)
 
     def check_cancelled():
         current_job = SQLHandler.get_backtest_job(job_id)
