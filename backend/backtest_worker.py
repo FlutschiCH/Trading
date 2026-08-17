@@ -3,6 +3,8 @@ import sys
 import json
 import time
 import argparse
+import signal
+import atexit
 from colorama import init, Fore, Style
 init(autoreset=True)
 
@@ -27,6 +29,34 @@ def run_worker(job_id: str, is_resume: bool = False):
 
     # Update job status to running
     SQLHandler.update_backtest_job_progress(job_id, status='running', progress=5.0, step_info='Fetching candles from broker...')
+
+    def handle_exit_signal(sig=None, frame=None):
+        print(f"\n{Fore.YELLOW}[BacktestWorker]{Style.RESET_ALL} Worker window closed/terminated for job {job_id}. Updating status to cancelled...", flush=True)
+        try:
+            SQLHandler.update_backtest_job_progress(job_id, status='cancelled', step_info='Worker window closed by user (X clicked)')
+        except Exception:
+            pass
+        sys.exit(0)
+
+    # Register OS signal handlers (SIGINT, SIGTERM, SIGBREAK)
+    try:
+        signal.signal(signal.SIGINT, handle_exit_signal)
+        signal.signal(signal.SIGTERM, handle_exit_signal)
+        if hasattr(signal, 'SIGBREAK'):
+            signal.signal(signal.SIGBREAK, handle_exit_signal)
+    except Exception:
+        pass
+
+    # Windows specific console close handler (X button)
+    if os.name == 'nt':
+        try:
+            import win32api
+            def win32_handler(dwCtrlType):
+                handle_exit_signal()
+                return True
+            win32api.SetConsoleCtrlHandler(win32_handler, True)
+        except ImportError:
+            pass
 
     def check_cancelled():
         current_job = SQLHandler.get_backtest_job(job_id)
