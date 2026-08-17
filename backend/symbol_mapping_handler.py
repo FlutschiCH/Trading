@@ -86,10 +86,9 @@ class SymbolMappingHandler:
     @staticmethod
     def map_to_main(broker_symbol: str, account_id: str) -> str:
         SymbolMappingHandler.init_db()
-        query = "SELECT main_symbol FROM symbol_mappings WHERE broker_symbol = %s AND account_id = %s"
+        query = "SELECT main_symbol FROM symbol_mappings WHERE UPPER(broker_symbol) = %s AND account_id = %s"
         try:
-            res = SQLHandler.execute_query(query, (broker_symbol.strip(), str(account_id).strip()))
-            print(f"[DEBUG map_to_main] broker_symbol='{broker_symbol}', account_id='{account_id}', res={res}", flush=True)
+            res = SQLHandler.execute_query(query, (broker_symbol.upper().strip(), str(account_id).strip()))
             if res:
                 return res[0]['main_symbol']
         except Exception as e:
