@@ -206,12 +206,14 @@ def run_worker(job_id: str, is_resume: bool = False):
             SQLHandler.update_backtest_job_progress(job_id, status='completed', progress=100.0, estimated_seconds_remaining=0, step_info='Completed', results=res)
 
         elif job_type == 'optimize':
-            print(f"{Fore.CYAN}[BacktestWorker]{Style.RESET_ALL} Running optimization backtest for job {job_id}...", flush=True)
             sl_ranges = params.get('sl_ranges') or params.get('slRanges') or [0.5, 1.0, 1.5, 2.0]
             rr_ranges = params.get('rr_ranges') or params.get('rrRanges') or [1.5, 2.0, 2.5, 3.0]
             be_ranges = params.get('be_ranges') or params.get('beRanges') or ['none', '0.5', '1.0']
 
             total_combos = len(sl_ranges) * len(rr_ranges) * len(be_ranges)
+            print(f"{Fore.CYAN}[BacktestWorker]{Style.RESET_ALL} Starting optimization for job {job_id}: {total_combos} total combinations for symbol '{symbol}' ({len(candles)} candles).", flush=True)
+            print(f"{Fore.CYAN}[BacktestWorker]{Style.RESET_ALL} Ranges -> SL: {sl_ranges} | RR: {rr_ranges} | BE: {be_ranges}", flush=True)
+
             combo_idx = 0
             results_grid = []
             combo_durations = []
@@ -220,6 +222,7 @@ def run_worker(job_id: str, is_resume: bool = False):
                 for rr in rr_ranges:
                     for be in be_ranges:
                         if check_cancelled():
+                            print(f"{Fore.YELLOW}[BacktestWorker]{Style.RESET_ALL} Job {job_id} was cancelled by user. Exiting worker process.", flush=True)
                             sys.exit(0)
                         combo_idx += 1
                         pct = (combo_idx / total_combos) * 100.0
@@ -233,6 +236,8 @@ def run_worker(job_id: str, is_resume: bool = False):
 
                         remaining_combos = total_combos - (combo_idx - 1)
                         eta_sec = int(max(0, remaining_combos * avg_combo_time))
+
+                        print(f"\n{Fore.CYAN}[BacktestWorker Debug]{Style.RESET_ALL} Running Combo {combo_idx}/{total_combos} ({pct:.1f}%) -> SL={sl}, RR={rr}, BE={be} | Estimated ETA: {eta_sec}s", flush=True)
 
                         SQLHandler.update_backtest_job_progress(
                             job_id,
@@ -274,7 +279,11 @@ def run_worker(job_id: str, is_resume: bool = False):
                             broker=candle_source,
                             timeframe=timeframe
                         )
-                        combo_durations.append(time.time() - combo_start)
+                        c_dur = round(time.time() - combo_start, 3)
+                        combo_durations.append(c_dur)
+
+                        summary = sub_res.get('summary', {})
+                        print(f"{Fore.GREEN}[BacktestWorker Combo {combo_idx} Finished]{Style.RESET_ALL} Time: {c_dur}s | Net PnL: ${summary.get('net_profit', 0.0):.2f} | Trades: {summary.get('total_trades', 0)} | WinRate: {summary.get('win_rate', 0.0):.1f}%", flush=True)
 
                         summary = sub_res.get('summary', {})
                         results_grid.append({
