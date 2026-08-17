@@ -118,6 +118,8 @@ def run_worker(job_id: str, is_resume: bool = False):
             except Exception:
                 pass
 
+        print(f"{Fore.CYAN}[BacktestWorker Data]{Style.RESET_ALL} Fetching candles for '{symbol}' ({timeframe}) | Source: '{candle_source}' | Account: '{account_id}' | Limit: {limit} | Range: {date_from} -> {date_to}", flush=True)
+
         handler = BrokerHandler.get_handler(candle_source)
         candles = handler.fetch_candles(
             symbol=symbol,
@@ -133,8 +135,21 @@ def run_worker(job_id: str, is_resume: bool = False):
             candles = candles[:-1]
 
         if not candles:
+            print(f"{Fore.RED}[BacktestWorker Data Error]{Style.RESET_ALL} Failed to fetch candles for '{symbol}' from broker '{candle_source}'. Zero candles returned.", flush=True)
             SQLHandler.update_backtest_job_progress(job_id, status='failed', step_info="Failed to fetch candles for backtest.")
             sys.exit(1)
+
+        first_c = candles[0]
+        last_c = candles[-1]
+        try:
+            from datetime import datetime
+            t_first = datetime.utcfromtimestamp(int(first_c.get('time', 0))).strftime('%Y-%m-%d %H:%M:%S UTC')
+            t_last = datetime.utcfromtimestamp(int(last_c.get('time', 0))).strftime('%Y-%m-%d %H:%M:%S UTC')
+        except Exception:
+            t_first = str(first_c.get('time'))
+            t_last = str(last_c.get('time'))
+
+        print(f"{Fore.GREEN}[BacktestWorker Data Success]{Style.RESET_ALL} Retrieved {len(candles)} candles for '{symbol}'. Start: {t_first} | End: {t_last} | First Close: {first_c.get('close')} | Last Close: {last_c.get('close')}", flush=True)
 
         if check_cancelled():
             sys.exit(0)

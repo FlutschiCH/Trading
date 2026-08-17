@@ -167,7 +167,17 @@ def run_trade_simulation(
     total_candles = len(annotated_data)
     last_percent = -1
     from colorama import Fore, Style
-    print(f"\n{Fore.CYAN}[Trade Simulation]{Style.RESET_ALL} Starting simulation for {symbol} on {total_candles} candles...", flush=True)
+    first_c = annotated_data[0] if annotated_data else {}
+    last_c = annotated_data[-1] if annotated_data else {}
+    try:
+        from datetime import datetime
+        t_start_str = datetime.utcfromtimestamp(int(first_c.get('time', 0))).strftime('%Y-%m-%d %H:%M:%S UTC')
+        t_end_str = datetime.utcfromtimestamp(int(last_c.get('time', 0))).strftime('%Y-%m-%d %H:%M:%S UTC')
+    except Exception:
+        t_start_str = str(first_c.get('time'))
+        t_end_str = str(last_c.get('time'))
+
+    print(f"\n{Fore.CYAN}[Trade Simulation]{Style.RESET_ALL} Starting simulation for {symbol} on {total_candles} candles | Range: {t_start_str} -> {t_end_str} | PipSize: {pip_size} | LotMultiplier: {lot_size} | Precision: {precision}", flush=True)
 
     for i, c in enumerate(annotated_data):
         if check_cancelled and check_cancelled():
