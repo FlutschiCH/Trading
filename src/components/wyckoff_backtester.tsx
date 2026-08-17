@@ -843,9 +843,11 @@ export default function WyckoffBacktester({
   };
 
 
-  // Profile management states
+  // Profile / Template management states
   const [showProfileModal, setShowProfileModal] = React.useState(false);
   const [profiles, setProfiles] = React.useState<any[]>([]);
+  const [allProfiles, setAllProfiles] = React.useState<any[]>([]);
+  const [templateTab, setTemplateTab] = React.useState<'current' | 'all'>('current');
   const [newProfileName, setNewProfileName] = React.useState('');
   const [loadingProfiles, setLoadingProfiles] = React.useState(false);
 
@@ -861,6 +863,7 @@ export default function WyckoffBacktester({
       const data = await response.json();
       if (data.status === 'success') {
         setProfiles(data.profiles || []);
+        setAllProfiles(data.all_profiles || data.profiles || []);
       }
     } catch (e) {
       console.error("Error fetching profiles:", e);
@@ -868,6 +871,25 @@ export default function WyckoffBacktester({
       setLoadingProfiles(false);
     }
   };
+
+  const handleToggleFavoriteProfile = async (id: number, currentFavStatus: boolean) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/backtest-settings/profiles/favorite`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, is_favorite: !currentFavStatus })
+      });
+      const data = await response.json();
+      if (data.status === 'success') {
+        fetchProfiles();
+      } else {
+        alert(`Error updating favorite status: ${data.message}`);
+      }
+    } catch (err: any) {
+      alert(`Network error: ${err.message || err}`);
+    }
+  };
+
 
   const handleSaveProfile = async () => {
     if (isReadOnly) {
@@ -1296,7 +1318,7 @@ export default function WyckoffBacktester({
               onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#334155'}
               onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#475569'}
             >
-              💾 Save Settings
+              📋 Templates
             </button>
           )}
           <button
@@ -3537,7 +3559,7 @@ export default function WyckoffBacktester({
 
 
 
-        {/* Settings Profiles Modal */}
+        {/* Settings Templates Modal */}
         {showProfileModal && (
           <div style={{
             position: 'fixed',
@@ -3558,7 +3580,7 @@ export default function WyckoffBacktester({
               border: '1px solid var(--app-card-border, #1e293b)',
               borderRadius: '12px',
               width: '100%',
-              maxWidth: '480px',
+              maxWidth: '520px',
               padding: '20px',
               display: 'flex',
               flexDirection: 'column',
@@ -3568,7 +3590,7 @@ export default function WyckoffBacktester({
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h3 style={{ margin: 0, color: 'var(--app-text, #ffffff)', fontSize: '14px', fontWeight: 'bold' }}>
-                  Manage Backtest Profiles ({broker.toUpperCase()})
+                  📋 Strategy Settings Templates ({broker.toUpperCase()})
                 </h3>
                 <button
                   onClick={() => setShowProfileModal(false)}
@@ -3579,16 +3601,16 @@ export default function WyckoffBacktester({
               </div>
 
               <div style={{ fontSize: '11px', color: 'var(--app-text-muted, #94a3b8)', marginTop: '-8px' }}>
-                Symbol: <span style={{ color: '#38bdf8', fontWeight: 'bold' }}>{symbol}</span> | Timeframe: <span style={{ color: '#38bdf8', fontWeight: 'bold' }}>{timeframe}</span>
+                Active Target: <span style={{ color: '#38bdf8', fontWeight: 'bold' }}>{symbol}</span> | <span style={{ color: '#38bdf8', fontWeight: 'bold' }}>{timeframe}</span>
               </div>
 
-              {/* Save New Profile Section */}
+              {/* Save New Template Section */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', backgroundColor: 'var(--app-panel-header-bg, rgba(30, 41, 59, 0.4))', padding: '12px', borderRadius: '8px', border: '1px solid var(--app-card-border, rgba(255,255,255,0.05))' }}>
-                <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--app-text, #cbd5e1)' }}>Save Current Settings</span>
+                <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--app-text, #cbd5e1)' }}>Save Current Settings as Template</span>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <input
                     type="text"
-                    placeholder="Profile name (e.g. Scalping, Conservative)..."
+                    placeholder="Template name (e.g. Scalping, Conservative, Crypto-Aggressive)..."
                     value={newProfileName}
                     onChange={(e) => setNewProfileName(e.target.value)}
                     style={{
@@ -3614,7 +3636,7 @@ export default function WyckoffBacktester({
                       fontWeight: 'bold',
                     }}
                   >
-                    Save Profile
+                    💾 Save Template
                   </button>
                 </div>
                 <button
@@ -3631,71 +3653,125 @@ export default function WyckoffBacktester({
                     marginTop: '4px'
                   }}
                 >
-                  💾 Save as Default (loads automatically on Symbol select)
+                  📌 Save as Default for {symbol} • {timeframe}
                 </button>
               </div>
 
-              {/* List Profiles Section */}
+              {/* Template Tabs & List Section */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--app-text, #cbd5e1)' }}>Saved Profiles for {symbol} • {timeframe}</span>
+                <div style={{ display: 'flex', borderBottom: '1px solid #1e293b', gap: '12px' }}>
+                  <button
+                    onClick={() => setTemplateTab('current')}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      borderBottom: templateTab === 'current' ? '2px solid #38bdf8' : '2px solid transparent',
+                      color: templateTab === 'current' ? '#38bdf8' : '#94a3b8',
+                      padding: '6px 4px',
+                      fontSize: '11px',
+                      fontWeight: 'bold',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Targeted ({symbol} • {timeframe}) ({profiles.length})
+                  </button>
+                  <button
+                    onClick={() => setTemplateTab('all')}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      borderBottom: templateTab === 'all' ? '2px solid #38bdf8' : '2px solid transparent',
+                      color: templateTab === 'all' ? '#38bdf8' : '#94a3b8',
+                      padding: '6px 4px',
+                      fontSize: '11px',
+                      fontWeight: 'bold',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    All Saved Templates ({allProfiles.length})
+                  </button>
+                </div>
+
                 {loadingProfiles ? (
-                  <span style={{ fontSize: '11px', color: 'var(--app-text-muted, #9ca3af)' }}>Loading profiles...</span>
-                ) : profiles.length === 0 ? (
-                  <span style={{ fontSize: '11px', color: 'var(--app-text-muted, #64748b)', fontStyle: 'italic' }}>No profiles saved yet for this symbol & timeframe.</span>
+                  <span style={{ fontSize: '11px', color: 'var(--app-text-muted, #9ca3af)' }}>Loading templates...</span>
+                ) : (templateTab === 'current' ? profiles : allProfiles).length === 0 ? (
+                  <span style={{ fontSize: '11px', color: 'var(--app-text-muted, #64748b)', fontStyle: 'italic', padding: '8px 0' }}>
+                    {templateTab === 'current' ? `No templates saved yet for ${symbol} • ${timeframe}.` : 'No saved templates found.'}
+                  </span>
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '180px', overflowY: 'auto', paddingRight: '4px' }}>
-                    {profiles.map(p => (
-                      <div
-                        key={p.id}
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          backgroundColor: 'var(--app-panel-header-bg, #1e293b)',
-                          padding: '8px 12px',
-                          borderRadius: '6px',
-                          border: '1px solid var(--app-card-border, #334155)',
-                          fontSize: '12px'
-                        }}
-                      >
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                          <span style={{ fontWeight: 'bold', color: 'var(--app-text, #ffffff)' }}>{p.name}</span>
-                          <span style={{ color: 'var(--app-text-muted, #64748b)', fontSize: '9px' }}>{p.updated_at}</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '220px', overflowY: 'auto', paddingRight: '4px' }}>
+                    {(templateTab === 'current' ? profiles : allProfiles).map(p => {
+                      const isFav = Boolean(p.is_favorite);
+                      return (
+                        <div
+                          key={p.id}
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            backgroundColor: 'var(--app-panel-header-bg, #1e293b)',
+                            padding: '8px 12px',
+                            borderRadius: '6px',
+                            border: isFav ? '1px solid #f59e0b' : '1px solid var(--app-card-border, #334155)',
+                            fontSize: '12px'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <button
+                              onClick={() => handleToggleFavoriteProfile(p.id, isFav)}
+                              title={isFav ? "Unmark Favorite" : "Mark Favorite"}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                fontSize: '14px',
+                                padding: 0
+                              }}
+                            >
+                              {isFav ? '⭐' : '☆'}
+                            </button>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                              <span style={{ fontWeight: 'bold', color: 'var(--app-text, #ffffff)' }}>{p.name}</span>
+                              <span style={{ color: 'var(--app-text-muted, #64748b)', fontSize: '9px' }}>
+                                {p.symbol && p.timeframe ? `${p.symbol} • ${p.timeframe} | ` : ''}{p.updated_at}
+                              </span>
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            <button
+                              onClick={() => handleLoadProfile(p.id)}
+                              style={{
+                                backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                                color: '#10b981',
+                                border: '1px solid #10b981',
+                                padding: '3px 8px',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '10px',
+                                fontWeight: 'bold'
+                              }}
+                            >
+                              Load
+                            </button>
+                            <button
+                              onClick={() => handleDeleteProfile(p.id, p.name)}
+                              style={{
+                                backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                                color: '#ef4444',
+                                border: '1px solid #ef4444',
+                                padding: '3px 8px',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '10px',
+                                fontWeight: 'bold'
+                              }}
+                            >
+                              Delete
+                            </button>
+                          </div>
                         </div>
-                        <div style={{ display: 'flex', gap: '6px' }}>
-                          <button
-                            onClick={() => handleLoadProfile(p.id)}
-                            style={{
-                              backgroundColor: 'rgba(16, 185, 129, 0.2)',
-                              color: '#10b981',
-                              border: '1px solid #10b981',
-                              padding: '3px 8px',
-                              borderRadius: '4px',
-                              cursor: 'pointer',
-                              fontSize: '10px',
-                              fontWeight: 'bold'
-                            }}
-                          >
-                            Load
-                          </button>
-                          <button
-                            onClick={() => handleDeleteProfile(p.id, p.name)}
-                            style={{
-                              backgroundColor: 'rgba(239, 68, 68, 0.2)',
-                              color: '#ef4444',
-                              border: '1px solid #ef4444',
-                              padding: '3px 8px',
-                              borderRadius: '4px',
-                              cursor: 'pointer',
-                              fontSize: '10px',
-                              fontWeight: 'bold'
-                            }}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>

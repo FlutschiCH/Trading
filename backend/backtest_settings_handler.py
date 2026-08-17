@@ -48,6 +48,7 @@ class BacktestSettingsHandler:
             symbol VARCHAR(50) NOT NULL,
             timeframe VARCHAR(10) NOT NULL,
             settings_json TEXT NOT NULL,
+            is_favorite TINYINT(1) DEFAULT 0,
             updated_at VARCHAR(50) NOT NULL,
             UNIQUE KEY unique_name_symbol_tf (name, symbol, timeframe)
         )
@@ -59,6 +60,7 @@ class BacktestSettingsHandler:
             symbol TEXT NOT NULL,
             timeframe TEXT NOT NULL,
             settings_json TEXT NOT NULL,
+            is_favorite INTEGER DEFAULT 0,
             updated_at TEXT NOT NULL,
             UNIQUE (name, symbol, timeframe)
         )
@@ -70,6 +72,13 @@ class BacktestSettingsHandler:
                 SQLHandler.execute_query(create_sqlite)
             except Exception as e2:
                 print(f"Error initializing backtest_settings_profiles SQLite table: {e2}", flush=True)
+
+        # Ensure column exists if table was created previously
+        try:
+            SQLHandler.execute_query("ALTER TABLE backtest_settings_profiles ADD COLUMN is_favorite INTEGER DEFAULT 0")
+        except Exception:
+            pass
+
 
     @staticmethod
     def save_settings(symbol: str, timeframe: str, settings: dict) -> dict:
@@ -175,17 +184,42 @@ class BacktestSettingsHandler:
             return {"status": "error", "message": str(e)}
 
     @staticmethod
-    def list_profiles(symbol: str, timeframe: str) -> dict:
+    def list_profiles(symbol: str = None, timeframe: str = None) -> dict:
         """
-        Lists all saved settings profiles for a specific symbol and timeframe.
+        Lists saved settings profiles/templates. If symbol and timeframe are provided,
+        lists for that symbol/timeframe as well as all templates across all symbols/timeframes.
+        Sorted by favorite status first, then updated_at DESC.
         """
         BacktestSettingsHandler.init_profiles_db()
-        query = "SELECT id, name, updated_at FROM backtest_settings_profiles WHERE symbol = %s AND timeframe = %s ORDER BY name ASC"
         try:
-            rows = SQLHandler.execute_query(query, (symbol, timeframe))
-            return {"status": "success", "profiles": rows}
+            if symbol and timeframe and symbol != 'all' and timeframe != 'all':
+                query = "SELECT id, name, symbol, timeframe, is_favorite, updated_at FROM backtest_settings_profiles WHERE symbol = %s AND timeframe = %s ORDER BY is_favorite DESC, updated_at DESC"
+                rows = SQLHandler.execute_query(query, (symbol, timeframe))
+                # Also fetch all templates so the user can use templates saved under other symbols/timeframes
+                all_query = "SELECT id, name, symbol, timeframe, is_favorite, updated_at FROM backtest_settings_profiles ORDER BY is_favorite DESC, updated_at DESC"
+                all_rows = SQLHandler.execute_query(all_query)
+                return {"status": "success", "profiles": rows, "all_profiles": all_rows}
+            else:
+                query = "SELECT id, name, symbol, timeframe, is_favorite, updated_at FROM backtest_settings_profiles ORDER BY is_favorite DESC, updated_at DESC"
+                rows = SQLHandler.execute_query(query)
+                return {"status": "success", "profiles": rows, "all_profiles": rows}
         except Exception as e:
             print(f"Error listing backtest profiles: {e}", flush=True)
+            return {"status": "error", "message": str(e)}
+
+    @staticmethod
+    def toggle_favorite_profile(profile_id: int, is_favorite: bool) -> dict:
+        """
+        Toggles or sets the favorite status of a settings profile template.
+        """
+        BacktestSettingsHandler.init_profiles_db()
+        fav_val = 1 if is_favorite else 0
+        query = "UPDATE backtest_settings_profiles SET is_favorite = %s WHERE id = %s"
+        try:
+            SQLHandler.execute_query(query, (fav_val, profile_id))
+            return {"status": "success", "message": "Favorite status updated!"}
+        except Exception as e:
+            print(f"Error toggling favorite for profile {profile_id}: {e}", flush=True)
             return {"status": "error", "message": str(e)}
 
     @staticmethod
@@ -201,3 +235,4 @@ class BacktestSettingsHandler:
         except Exception as e:
             print(f"Error deleting backtest profile {profile_id}: {e}", flush=True)
             return {"status": "error", "message": str(e)}
+

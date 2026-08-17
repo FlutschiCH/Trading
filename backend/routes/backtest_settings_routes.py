@@ -65,6 +65,18 @@ def load_profile():
     res = BacktestSettingsHandler.load_profile(int(profile_id))
     return jsonify(res)
 
+@backtest_settings_routes.route('/backtest-settings/profiles/favorite', methods=['POST'])
+def toggle_favorite_profile():
+    payload = request.get_json(silent=True) or {}
+    profile_id = payload.get('id')
+    is_favorite = payload.get('is_favorite')
+
+    if profile_id is None:
+        return jsonify({"status": "error", "message": "Missing profile ID."}), 400
+
+    res = BacktestSettingsHandler.toggle_favorite_profile(int(profile_id), bool(is_favorite))
+    return jsonify(res)
+
 @backtest_settings_routes.route('/backtest-settings/profiles/delete', methods=['POST'])
 def delete_profile():
     payload = request.get_json(silent=True) or {}
@@ -75,3 +87,4 @@ def delete_profile():
 
     res = BacktestSettingsHandler.delete_profile(int(profile_id))
     return jsonify(res)
+
