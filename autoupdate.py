@@ -99,25 +99,21 @@ def disable_quick_edit():
 
 disable_quick_edit()
 
-current_backend_process = None
-process_lock = threading.Lock()
-
-# Secondary Control Flask Server
-control_app = Flask(__name__)
-CORS(control_app)
+restart_requested = False
 
 @control_app.route('/api/restart', methods=['POST'])
 def handle_restart():
-    global current_backend_process
+    global current_backend_process, restart_requested
+    restart_requested = True
     with process_lock:
         if current_backend_process and current_backend_process.poll() is None:
-            print("[Updater Server] Terminating backend process via restart API...", flush=True)
+            print("[Updater Server] Terminating backend process via restart API to trigger Git update in BAT...", flush=True)
             current_backend_process.terminate()
             try:
                 current_backend_process.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 current_backend_process.kill()
-    return jsonify({"status": "restarting", "message": "Backend restart triggered"}), 200
+    return jsonify({"status": "restarting", "message": "Backend restart & Git pull triggered"}), 200
 
 @control_app.route('/api/health', methods=['GET'])
 def handle_health():
@@ -131,7 +127,7 @@ def start_control_server():
     server.serve_forever()
 
 def main():
-    global current_backend_process
+    global current_backend_process, restart_requested
     
     # Start updater control server thread on port 8081
     updater_thread = threading.Thread(target=start_control_server, daemon=True)
@@ -141,7 +137,7 @@ def main():
     print(f"Using Python interpreter: {python_exe}", flush=True)
 
     while True:
-
+        restart_requested = False
         print("Starting backend server (backend/app.py)...", flush=True)
         try:
             env = os.environ.copy()
@@ -161,7 +157,11 @@ def main():
 
             if exit_code == 99:
                 print("Exit code 99 received. Stopping autoupdater.", flush=True)
-                break
+                sys.exit(99)
+
+            if restart_requested or exit_code == 0:
+                print("Restart requested via API/exit 0. Exiting autoupdate.py to trigger Git pull in BAT...", flush=True)
+                sys.exit(0)
 
             if exit_code != 0:
                 log_crash_to_json("backend_crash", {
@@ -173,7 +173,7 @@ def main():
             time.sleep(3)
         except KeyboardInterrupt:
             print("Autoupdater terminated by user.", flush=True)
-            break
+            sys.exit(0)
         except Exception as e:
             err_msg = traceback.format_exc()
             print(f"Error running backend: {e}\n{err_msg}", flush=True)
