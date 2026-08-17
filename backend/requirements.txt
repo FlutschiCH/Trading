@@ -8,6 +8,7 @@ mysql-connector-python
 python-dotenv
 MetaTrader5; sys_platform == 'win32'
 websocket-client
+websockets
 pyopenssl
 pywebpush
 cryptography
