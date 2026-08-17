@@ -29,6 +29,11 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest }: SavedRunsPro
   const [sbSortField, setSbSortField] = useState<string>('created_at');
   const [sbSortDir, setSbSortDir] = useState<'asc' | 'desc'>('desc');
   const [sbFilterSymbol, setSbFilterSymbol] = useState<string>('all');
+  const [sbMaxDrawdown, setSbMaxDrawdown] = useState<string>('');
+  const [sbMinNetPnl, setSbMinNetPnl] = useState<string>('');
+  const [sbMinWinRate, setSbMinWinRate] = useState<string>('');
+  const [sbMinTrades, setSbMinTrades] = useState<string>('');
+  const [sbMinProfitFactor, setSbMinProfitFactor] = useState<string>('');
 
   // Parameters info popup state
   const [infoModalRun, setInfoModalRun] = useState<{ id: string; settings: any } | null>(null);
@@ -180,27 +185,160 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest }: SavedRunsPro
           flexWrap: 'wrap',
           gap: '12px'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <label style={{ color: 'var(--app-text, #cbd5e1)', fontSize: '12px', fontWeight: 500 }}>Filter Symbol:</label>
-            <select
-              value={sbFilterSymbol}
-              onChange={(e) => setSbFilterSymbol(e.target.value)}
-              style={{
-                backgroundColor: 'var(--app-input-bg, #0f172a)',
-                color: 'var(--app-input-text, #f8fafc)',
-                border: '1px solid var(--app-input-border, #475569)',
-                padding: '4px 8px',
-                borderRadius: '4px',
-                fontSize: '12px'
-              }}
-            >
-              <option value="all">All Symbols</option>
-              {Array.from(new Set(savedBacktestsList.map(item => item.symbol))).map(sym => (
-                <option key={sym} value={sym}>{sym}</option>
-              ))}
-            </select>
+          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <label style={{ color: 'var(--app-text, #cbd5e1)', fontSize: '12px', fontWeight: 500 }}>Symbol:</label>
+              <select
+                value={sbFilterSymbol}
+                onChange={(e) => setSbFilterSymbol(e.target.value)}
+                style={{
+                  backgroundColor: 'var(--app-input-bg, #0f172a)',
+                  color: 'var(--app-input-text, #f8fafc)',
+                  border: '1px solid var(--app-input-border, #475569)',
+                  padding: '4px 8px',
+                  borderRadius: '4px',
+                  fontSize: '12px'
+                }}
+              >
+                <option value="all">All Symbols</option>
+                {Array.from(new Set(savedBacktestsList.map(item => item.symbol))).map(sym => (
+                  <option key={sym} value={sym}>{sym}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <label style={{ color: 'var(--app-text, #cbd5e1)', fontSize: '12px', fontWeight: 500 }}>Max DD (%):</label>
+              <input
+                type="number"
+                placeholder="e.g. 3"
+                value={sbMaxDrawdown}
+                onChange={(e) => setSbMaxDrawdown(e.target.value)}
+                style={{
+                  width: '65px',
+                  backgroundColor: 'var(--app-input-bg, #0f172a)',
+                  color: 'var(--app-input-text, #f8fafc)',
+                  border: '1px solid var(--app-input-border, #475569)',
+                  padding: '4px 6px',
+                  borderRadius: '4px',
+                  fontSize: '12px'
+                }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <label style={{ color: 'var(--app-text, #cbd5e1)', fontSize: '12px', fontWeight: 500 }}>Min PnL ($):</label>
+              <input
+                type="number"
+                placeholder="e.g. 300"
+                value={sbMinNetPnl}
+                onChange={(e) => setSbMinNetPnl(e.target.value)}
+                style={{
+                  width: '75px',
+                  backgroundColor: 'var(--app-input-bg, #0f172a)',
+                  color: 'var(--app-input-text, #f8fafc)',
+                  border: '1px solid var(--app-input-border, #475569)',
+                  padding: '4px 6px',
+                  borderRadius: '4px',
+                  fontSize: '12px'
+                }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <label style={{ color: 'var(--app-text, #cbd5e1)', fontSize: '12px', fontWeight: 500 }}>Min Win%:</label>
+              <input
+                type="number"
+                placeholder="e.g. 50"
+                value={sbMinWinRate}
+                onChange={(e) => setSbMinWinRate(e.target.value)}
+                style={{
+                  width: '65px',
+                  backgroundColor: 'var(--app-input-bg, #0f172a)',
+                  color: 'var(--app-input-text, #f8fafc)',
+                  border: '1px solid var(--app-input-border, #475569)',
+                  padding: '4px 6px',
+                  borderRadius: '4px',
+                  fontSize: '12px'
+                }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <label style={{ color: 'var(--app-text, #cbd5e1)', fontSize: '12px', fontWeight: 500 }}>Min Trades:</label>
+              <input
+                type="number"
+                placeholder="e.g. 10"
+                value={sbMinTrades}
+                onChange={(e) => setSbMinTrades(e.target.value)}
+                style={{
+                  width: '65px',
+                  backgroundColor: 'var(--app-input-bg, #0f172a)',
+                  color: 'var(--app-input-text, #f8fafc)',
+                  border: '1px solid var(--app-input-border, #475569)',
+                  padding: '4px 6px',
+                  borderRadius: '4px',
+                  fontSize: '12px'
+                }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <label style={{ color: 'var(--app-text, #cbd5e1)', fontSize: '12px', fontWeight: 500 }}>Min PF:</label>
+              <input
+                type="number"
+                step="0.1"
+                placeholder="e.g. 1.5"
+                value={sbMinProfitFactor}
+                onChange={(e) => setSbMinProfitFactor(e.target.value)}
+                style={{
+                  width: '65px',
+                  backgroundColor: 'var(--app-input-bg, #0f172a)',
+                  color: 'var(--app-input-text, #f8fafc)',
+                  border: '1px solid var(--app-input-border, #475569)',
+                  padding: '4px 6px',
+                  borderRadius: '4px',
+                  fontSize: '12px'
+                }}
+              />
+            </div>
+
+            {(sbFilterSymbol !== 'all' || sbMaxDrawdown || sbMinNetPnl || sbMinWinRate || sbMinTrades || sbMinProfitFactor) && (
+              <button
+                onClick={() => {
+                  setSbFilterSymbol('all');
+                  setSbMaxDrawdown('');
+                  setSbMinNetPnl('');
+                  setSbMinWinRate('');
+                  setSbMinTrades('');
+                  setSbMinProfitFactor('');
+                }}
+                style={{
+                  backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                  color: '#ef4444',
+                  border: '1px solid #ef4444',
+                  padding: '3px 8px',
+                  borderRadius: '4px',
+                  fontSize: '11px',
+                  cursor: 'pointer'
+                }}
+              >
+                ✕ Reset Filters
+              </button>
+            )}
+
             <span style={{ color: 'var(--app-text-muted, #94a3b8)', fontSize: '12px' }}>
-              ({savedBacktestsList.filter(item => sbFilterSymbol === 'all' || item.symbol === sbFilterSymbol).length} saved runs)
+              ({
+                savedBacktestsList.filter(item => {
+                  if (sbFilterSymbol !== 'all' && item.symbol !== sbFilterSymbol) return false;
+                  if (sbMaxDrawdown !== '' && item.max_drawdown !== undefined && item.max_drawdown !== null && item.max_drawdown > parseFloat(sbMaxDrawdown)) return false;
+                  if (sbMinNetPnl !== '' && item.net_pnl < parseFloat(sbMinNetPnl)) return false;
+                  if (sbMinWinRate !== '' && item.win_rate < parseFloat(sbMinWinRate)) return false;
+                  if (sbMinTrades !== '' && item.trades_cnt < parseInt(sbMinTrades)) return false;
+                  if (sbMinProfitFactor !== '' && item.profit_factor < parseFloat(sbMinProfitFactor)) return false;
+                  return true;
+                }).length
+              } / {savedBacktestsList.length} runs)
             </span>
           </div>
           <button
@@ -243,7 +381,15 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest }: SavedRunsPro
               </thead>
               <tbody>
                 {savedBacktestsList
-                  .filter(item => sbFilterSymbol === 'all' || item.symbol === sbFilterSymbol)
+                  .filter(item => {
+                    if (sbFilterSymbol !== 'all' && item.symbol !== sbFilterSymbol) return false;
+                    if (sbMaxDrawdown !== '' && item.max_drawdown !== undefined && item.max_drawdown !== null && item.max_drawdown > parseFloat(sbMaxDrawdown)) return false;
+                    if (sbMinNetPnl !== '' && item.net_pnl < parseFloat(sbMinNetPnl)) return false;
+                    if (sbMinWinRate !== '' && item.win_rate < parseFloat(sbMinWinRate)) return false;
+                    if (sbMinTrades !== '' && item.trades_cnt < parseInt(sbMinTrades)) return false;
+                    if (sbMinProfitFactor !== '' && item.profit_factor < parseFloat(sbMinProfitFactor)) return false;
+                    return true;
+                  })
                   .sort((a, b) => {
                     let valA = (a as any)[sbSortField];
                     let valB = (b as any)[sbSortField];
