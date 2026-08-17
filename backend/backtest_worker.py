@@ -8,6 +8,21 @@ import atexit
 from colorama import init, Fore, Style
 init(autoreset=True)
 
+def disable_quick_edit():
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            kernel32 = ctypes.windll.kernel32
+            h_input = kernel32.GetStdHandle(-10)
+            mode = ctypes.c_ulong()
+            if kernel32.GetConsoleMode(h_input, ctypes.byref(mode)):
+                new_mode = (mode.value & ~0x0040) | 0x0080
+                kernel32.SetConsoleMode(h_input, new_mode)
+        except Exception:
+            pass
+
+disable_quick_edit()
+
 # Ensure backend root directory is in sys.path
 backend_dir = os.path.dirname(os.path.abspath(__file__))
 if backend_dir not in sys.path:
