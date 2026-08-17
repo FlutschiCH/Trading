@@ -273,7 +273,8 @@ def run_worker(job_id: str, is_resume: bool = False):
                             "net_profit": summary.get('net_profit', 0.0),
                             "win_rate": summary.get('win_rate', 0.0),
                             "total_trades": summary.get('total_trades', 0),
-                            "profit_factor": summary.get('profit_factor', 0.0)
+                            "profit_factor": summary.get('profit_factor', 0.0),
+                            "max_drawdown": summary.get('max_drawdown', 0.0)
                         })
 
             total_elapsed = round(time.time() - start_time, 2)

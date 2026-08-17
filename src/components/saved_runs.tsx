@@ -237,6 +237,7 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest }: SavedRunsPro
                   <th style={{ padding: '10px', cursor: 'pointer' }} onClick={() => { setSbSortField('win_rate'); setSbSortDir(prev => prev === 'desc' ? 'asc' : 'desc'); }}>Win Rate {sbSortField === 'win_rate' ? (sbSortDir === 'desc' ? '▼' : '▲') : ''}</th>
                   <th style={{ padding: '10px', cursor: 'pointer' }} onClick={() => { setSbSortField('net_pnl'); setSbSortDir(prev => prev === 'desc' ? 'asc' : 'desc'); }}>Net PnL {sbSortField === 'net_pnl' ? (sbSortDir === 'desc' ? '▼' : '▲') : ''}</th>
                   <th style={{ padding: '10px', cursor: 'pointer' }} onClick={() => { setSbSortField('profit_factor'); setSbSortDir(prev => prev === 'desc' ? 'asc' : 'desc'); }}>PF {sbSortField === 'profit_factor' ? (sbSortDir === 'desc' ? '▼' : '▲') : ''}</th>
+                  <th style={{ padding: '10px', cursor: 'pointer' }} onClick={() => { setSbSortField('max_drawdown'); setSbSortDir(prev => prev === 'desc' ? 'asc' : 'desc'); }}>DD {sbSortField === 'max_drawdown' ? (sbSortDir === 'desc' ? '▼' : '▲') : ''}</th>
                   <th style={{ padding: '10px', textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
@@ -265,6 +266,7 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest }: SavedRunsPro
                         {row.net_pnl >= 0 ? `+$${row.net_pnl.toFixed(2)}` : `-$${Math.abs(row.net_pnl).toFixed(2)}`}
                       </td>
                       <td style={{ padding: '10px' }}>{row.profit_factor ? row.profit_factor.toFixed(2) : '0.00'}</td>
+                      <td style={{ padding: '10px', color: '#f87171' }}>{row.max_drawdown !== undefined && row.max_drawdown !== null ? `${Number(row.max_drawdown).toFixed(2)}%` : '0.00%'}</td>
                       <td style={{ padding: '10px', textAlign: 'right' }}>
                         <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
                           <button
