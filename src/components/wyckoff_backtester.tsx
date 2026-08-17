@@ -478,6 +478,53 @@ export default function WyckoffBacktester({
   // Map of 1 master main_symbol -> broker targets
   const mappedMasterSymbols = React.useMemo(() => {
     const masterSet = new Set<string>();
+
+  // Indicator Confirmation Layer Rules State
+  const [indicatorRules, setIndicatorRules] = React.useState<any[]>(() => {
+    try {
+      const saved = localStorage.getItem('wyckoff_indicator_rules');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('wyckoff_indicator_rules', JSON.stringify(indicatorRules));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [indicatorRules]);
+
+  // New Rule Form State
+  const [newRuleInd, setNewRuleInd] = React.useState('rsi');
+  const [newRulePeriod, setNewRulePeriod] = React.useState('14');
+  const [newRuleOperator, setNewRuleOperator] = React.useState('<');
+  const [newRuleTarget, setNewRuleTarget] = React.useState('30');
+  const [newRuleSignalType, setNewRuleSignalType] = React.useState<'buy' | 'sell' | 'both'>('buy');
+
+  const handleAddIndicatorRule = () => {
+    const periodNum = parseInt(newRulePeriod) || 14;
+    const ruleObj = {
+      id: Math.random().toString(36).substring(2, 9),
+      indicator: newRuleInd,
+      params: { period: periodNum },
+      operator: newRuleOperator,
+      target: newRuleTarget,
+      signal_type: newRuleSignalType,
+      enabled: true
+    };
+    setIndicatorRules([...indicatorRules, ruleObj]);
+  };
+
+  const handleToggleIndicatorRule = (id: string) => {
+    setIndicatorRules(indicatorRules.map(r => r.id === id ? { ...r, enabled: !r.enabled } : r));
+  };
+
+  const handleDeleteIndicatorRule = (id: string) => {
+    setIndicatorRules(indicatorRules.filter(r => r.id !== id));
+  };
     const mainToBrokerMap: Record<string, string[]> = {};
 
     symbolMappings.forEach((m: any) => {
@@ -1297,7 +1344,8 @@ export default function WyckoffBacktester({
                 beEnd: parseFloat(beEnd) || 0.0,
                 beStep: parseFloat(beStep) || 1.0,
                 symbols: effectiveSymbols,
-                timeframes: effectiveTimeframes
+                timeframes: effectiveTimeframes,
+                indicatorRules: indicatorRules.filter((r: any) => r.enabled !== false)
               };
               if (totalRunCombinations > 1 || isOptimizeMode) {
                 onRunOptimization(rangeParams);
@@ -2343,17 +2391,201 @@ export default function WyckoffBacktester({
           </div>
         </CollapsibleCard>
 
-        <CollapsibleCard title="Indicators" isCollapsed={collapsedSections.indicators} onToggle={() => toggleSection('indicators')}>
-          <div style={{ display: 'flex', gap: '16px' }}>
-            <label style={{ color: '#cbd5e1', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                checked={enabledIndicators?.fvg}
-                onChange={(e) => setEnabledIndicators({ ...enabledIndicators, fvg: e.target.checked })}
-                style={{ cursor: 'pointer' }}
-              />
-              Fair Value Gap (FVG)
-            </label>
+        <CollapsibleCard title={`Indicators Confirmation Layer (${indicatorRules.filter((r: any) => r.enabled).length} Active Rules)`} isCollapsed={collapsedSections.indicators} onToggle={() => toggleSection('indicators')}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {/* Chart Overlay Indicators */}
+            <div style={{ display: 'flex', gap: '16px', borderBottom: '1px solid #1e293b', paddingBottom: '8px' }}>
+              <label style={{ color: '#cbd5e1', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={enabledIndicators?.fvg}
+                  onChange={(e) => setEnabledIndicators({ ...enabledIndicators, fvg: e.target.checked })}
+                  style={{ cursor: 'pointer' }}
+                />
+                Show Fair Value Gap (FVG) on Chart
+              </label>
+            </div>
+
+            {/* Active Indicator Rules List */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <span style={{ color: '#94a3b8', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Signal Confirmation Filters (AND Rules)
+              </span>
+
+              {indicatorRules.length === 0 ? (
+                <span style={{ fontSize: '11px', color: '#64748b', fontStyle: 'italic' }}>
+                  No active indicator rules. Base strategy signals execute without indicator filtering (100% backward compatible).
+                </span>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '160px', overflowY: 'auto' }}>
+                  {indicatorRules.map((rule: any) => {
+                    const signalBadgeColor = rule.signal_type === 'buy' ? '#10b981' : rule.signal_type === 'sell' ? '#ef4444' : '#3b82f6';
+                    return (
+                      <div
+                        key={rule.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          backgroundColor: '#1e293b',
+                          border: '1px solid #334155',
+                          borderRadius: '6px',
+                          padding: '6px 10px',
+                          fontSize: '11px',
+                          opacity: rule.enabled !== false ? 1 : 0.4
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <input
+                            type="checkbox"
+                            checked={rule.enabled !== false}
+                            onChange={() => handleToggleIndicatorRule(rule.id)}
+                            style={{ cursor: 'pointer' }}
+                          />
+                          <span style={{
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            fontSize: '9px',
+                            fontWeight: 'bold',
+                            backgroundColor: `${signalBadgeColor}22`,
+                            color: signalBadgeColor,
+                            border: `1px solid ${signalBadgeColor}55`,
+                            textTransform: 'uppercase'
+                          }}>
+                            {rule.signal_type}
+                          </span>
+                          <span style={{ color: '#f8fafc', fontWeight: 600 }}>
+                            {rule.indicator.toUpperCase()}({rule.params?.period || ''}) {rule.operator} {rule.target}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteIndicatorRule(rule.id)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#ef4444',
+                            cursor: 'pointer',
+                            fontWeight: 'bold',
+                            fontSize: '12px'
+                          }}
+                          title="Remove Rule"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Add New Rule Form */}
+            <div style={{
+              backgroundColor: 'rgba(15, 23, 42, 0.6)',
+              border: '1px border-dashed #334155',
+              borderRadius: '6px',
+              padding: '10px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px'
+            }}>
+              <span style={{ color: '#38bdf8', fontSize: '10px', fontWeight: 'bold' }}>+ Add Confirmation Filter Rule</span>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : '1fr 1fr 1fr 1fr 1fr', gap: '6px' }}>
+                {/* Indicator Selection */}
+                <div>
+                  <label style={{ color: '#9ca3af', fontSize: '9px', display: 'block', marginBottom: '2px' }}>Indicator</label>
+                  <select
+                    value={newRuleInd}
+                    onChange={(e) => setNewRuleInd(e.target.value)}
+                    style={{ ...styles.input, fontSize: '10px', padding: '4px' }}
+                  >
+                    <option value="rsi">RSI</option>
+                    <option value="ema">EMA</option>
+                    <option value="sma">SMA</option>
+                    <option value="wma">WMA</option>
+                    <option value="rma">RMA</option>
+                    <option value="macd">MACD</option>
+                    <option value="atr">ATR</option>
+                  </select>
+                </div>
+
+                {/* Period */}
+                <div>
+                  <label style={{ color: '#9ca3af', fontSize: '9px', display: 'block', marginBottom: '2px' }}>Period</label>
+                  <input
+                    type="number"
+                    value={newRulePeriod}
+                    onChange={(e) => setNewRulePeriod(e.target.value)}
+                    style={{ ...styles.input, fontSize: '10px', padding: '4px' }}
+                    min="1"
+                  />
+                </div>
+
+                {/* Operator */}
+                <div>
+                  <label style={{ color: '#9ca3af', fontSize: '9px', display: 'block', marginBottom: '2px' }}>Operator</label>
+                  <select
+                    value={newRuleOperator}
+                    onChange={(e) => setNewRuleOperator(e.target.value)}
+                    style={{ ...styles.input, fontSize: '10px', padding: '4px' }}
+                  >
+                    <option value="<">&lt; (Less than)</option>
+                    <option value=">">&gt; (Greater than)</option>
+                    <option value="<=">&lt;= (Less or equal)</option>
+                    <option value=">=">&gt;= (Greater or equal)</option>
+                    <option value="==">== (Equal)</option>
+                    <option value="crosses_above">crosses_above</option>
+                    <option value="crosses_below">crosses_below</option>
+                  </select>
+                </div>
+
+                {/* Target */}
+                <div>
+                  <label style={{ color: '#9ca3af', fontSize: '9px', display: 'block', marginBottom: '2px' }}>Target</label>
+                  <input
+                    type="text"
+                    value={newRuleTarget}
+                    onChange={(e) => setNewRuleTarget(e.target.value)}
+                    style={{ ...styles.input, fontSize: '10px', padding: '4px' }}
+                    placeholder="30 or close"
+                  />
+                </div>
+
+                {/* Signal Scope */}
+                <div>
+                  <label style={{ color: '#9ca3af', fontSize: '9px', display: 'block', marginBottom: '2px' }}>Signal</label>
+                  <select
+                    value={newRuleSignalType}
+                    onChange={(e) => setNewRuleSignalType(e.target.value as any)}
+                    style={{ ...styles.input, fontSize: '10px', padding: '4px' }}
+                  >
+                    <option value="buy">BUY Only</option>
+                    <option value="sell">SELL Only</option>
+                    <option value="both">BOTH</option>
+                  </select>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleAddIndicatorRule}
+                style={{
+                  backgroundColor: 'rgba(56, 189, 248, 0.15)',
+                  color: '#38bdf8',
+                  border: '1px solid #38bdf8',
+                  padding: '6px',
+                  borderRadius: '4px',
+                  fontSize: '11px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  marginTop: '4px'
+                }}
+              >
+                + Add Indicator Rule Filter
+              </button>
+            </div>
           </div>
         </CollapsibleCard>
 

@@ -215,7 +215,8 @@ def run_worker(job_id: str, is_resume: bool = False):
                 progress_callback=progress_cb,
                 entry_stability_rule=params.get('entryStabilityRule', 'default'),
                 broker=candle_source,
-                timeframe=timeframe
+                timeframe=timeframe,
+                indicator_rules=params.get('indicatorRules', params.get('indicator_rules', []))
             )
 
             total_elapsed = round(time.time() - start_time, 2)

@@ -151,6 +151,12 @@ class StrategyHandler:
             should_buy = False
             should_sell = False
 
+        # Indicator confirmation layer check
+        if c.get('indicator_buy_valid') is False:
+            should_buy = False
+        if c.get('indicator_sell_valid') is False:
+            should_sell = False
+
         state.update({
             'accum_consec_bars': accum_consec_bars,
             'dist_consec_bars': dist_consec_bars,
@@ -165,16 +171,27 @@ class StrategyHandler:
         return should_buy, should_sell, state
 
     @staticmethod
-    def analyze_market_data(bars_list: list, lookback: int = 20, progress_callback=None) -> dict:
+    def analyze_market_data(bars_list: list, lookback: int = 20, progress_callback=None, indicator_rules: list = None) -> dict:
         """
         Takes raw candlestick data, runs Wyckoff structure analysis,
-        and returns the annotated dataset.
+        evaluates indicator rules layer, and returns the annotated dataset.
         """
         if not bars_list:
             return {"status": "success", "data": [], "fvgs": []}
             
         from wyckoff_handler import WyckoffHandler
         wyckoff_candles = WyckoffHandler.analyze_wyckoff_structure(bars_list, lookback=lookback, progress_callback=progress_callback)
+
+        if indicator_rules and len(indicator_rules) > 0 and len(wyckoff_candles) > 0:
+            try:
+                df = pd.DataFrame(wyckoff_candles)
+                buy_mask, sell_mask = IndicatorHandler.evaluate_indicator_rules(df, indicator_rules)
+                for idx, c in enumerate(wyckoff_candles):
+                    c['indicator_buy_valid'] = bool(buy_mask.iloc[idx])
+                    c['indicator_sell_valid'] = bool(sell_mask.iloc[idx])
+            except Exception as e:
+                print(f"[StrategyHandler] Warning: indicator rules evaluation failed: {e}", flush=True)
+
         return {"status": "success", "data": wyckoff_candles, "fvgs": []}
 
     @staticmethod
@@ -206,7 +223,8 @@ class StrategyHandler:
         entry_stability_rule: str = 'default',
         broker: str = 'metatrader',
         session_config: dict = None,
-        timeframe: str = '5m'
+        timeframe: str = '5m',
+        indicator_rules: list = None
     ) -> dict:
         """
         Runs the full Wyckoff structure analysis backtest in Python.
@@ -225,7 +243,7 @@ class StrategyHandler:
         if progress_callback:
             wrapped_cb = lambda p: progress_callback(int(p / 2))
             
-        analysis = StrategyHandler.analyze_market_data(candles, lookback=lookback_window, progress_callback=wrapped_cb)
+        analysis = StrategyHandler.analyze_market_data(candles, lookback=lookback_window, progress_callback=wrapped_cb, indicator_rules=indicator_rules)
         annotated_data = list(analysis.get('data', []))
         
         # 2. Run Trade Simulation (50% to 100% progress)

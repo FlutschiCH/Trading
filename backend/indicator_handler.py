@@ -299,3 +299,98 @@ class IndicatorHandler:
                 "params": {}
             }
         }
+
+    @staticmethod
+    def evaluate_indicator_rules(df: pd.DataFrame, indicator_rules: list) -> tuple:
+        """
+        Evaluates a list of indicator rules against a DataFrame.
+        Returns (indicator_buy_valid: pd.Series[bool], indicator_sell_valid: pd.Series[bool]).
+        If indicator_rules is empty, returns all-True series for maximum backward compatibility.
+        """
+        if not indicator_rules or len(indicator_rules) == 0 or df.empty:
+            all_true = pd.Series(True, index=df.index)
+            return all_true, all_true
+
+        buy_mask = pd.Series(True, index=df.index)
+        sell_mask = pd.Series(True, index=df.index)
+
+        # Cache calculated indicator series to avoid duplicate computation
+        computed_cache = {}
+
+        for rule in indicator_rules:
+            if not rule.get('enabled', True):
+                continue
+
+            ind_name = str(rule.get('indicator', '')).lower()
+            params = rule.get('params', {})
+            operator = str(rule.get('operator', '<')).lower()
+            target = rule.get('target', 0)
+            signal_type = str(rule.get('signal_type', 'both')).lower()
+
+            if not ind_name:
+                continue
+
+            cache_key = f"{ind_name}_{json.dumps(params, sort_keys=True)}"
+            if cache_key in computed_cache:
+                ind_val = computed_cache[cache_key]
+            else:
+                try:
+                    res = IndicatorHandler.compute(df, ind_name, **params)
+                    if isinstance(res, pd.DataFrame):
+                        # For MACD or multi-column indicators, pick primary column or specified output_col
+                        output_col = rule.get('output_col', 'macd' if 'macd' in res.columns else res.columns[0])
+                        ind_val = res[output_col]
+                    else:
+                        ind_val = res
+                    computed_cache[cache_key] = ind_val
+                except Exception as e:
+                    print(f"[IndicatorHandler] Warning: failed to compute {ind_name} with params {params}: {e}")
+                    continue
+
+            # Determine target series or scalar
+            if isinstance(target, str):
+                if target.lower() in df.columns:
+                    target_series = df[target.lower()]
+                elif target.lower() in computed_cache:
+                    target_series = computed_cache[target.lower()]
+                else:
+                    # Attempt numeric parse
+                    try:
+                        target_series = float(target)
+                    except ValueError:
+                        target_series = 0.0
+            else:
+                try:
+                    target_series = float(target)
+                except (ValueError, TypeError):
+                    target_series = 0.0
+
+            # Compute boolean mask for current rule
+            if operator == '<':
+                rule_mask = (ind_val < target_series)
+            elif operator == '>':
+                rule_mask = (ind_val > target_series)
+            elif operator == '<=':
+                rule_mask = (ind_val <= target_series)
+            elif operator == '>=':
+                rule_mask = (ind_val >= target_series)
+            elif operator in ('==', '='):
+                rule_mask = (ind_val == target_series)
+            elif operator == 'crosses_above':
+                t_prev = target_series.shift(1) if isinstance(target_series, pd.Series) else target_series
+                rule_mask = (ind_val > target_series) & (ind_val.shift(1) <= t_prev)
+            elif operator == 'crosses_below':
+                t_prev = target_series.shift(1) if isinstance(target_series, pd.Series) else target_series
+                rule_mask = (ind_val < target_series) & (ind_val.shift(1) >= t_prev)
+            else:
+                rule_mask = pd.Series(True, index=df.index)
+
+            rule_mask = rule_mask.fillna(False)
+
+            if signal_type in ('buy', 'both'):
+                buy_mask = buy_mask & rule_mask
+            if signal_type in ('sell', 'both'):
+                sell_mask = sell_mask & rule_mask
+
+        return buy_mask, sell_mask
+
