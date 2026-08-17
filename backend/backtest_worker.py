@@ -343,8 +343,9 @@ def run_worker(job_id: str, is_resume: bool = False):
                                 max_drawdown=float(summary.get('max_drawdown', 0.0)),
                                 payload_dict=sub_res
                             )
+                            print(f"{Fore.GREEN}[BacktestWorker SavedRun]{Style.RESET_ALL} Auto-saved combo {combo_idx} (id: {combo_run_id}) to MySQL saved_backtests table.", flush=True)
                         except Exception as save_err:
-                            print(f"[BacktestWorker] Warning: Failed to auto-save combo run {combo_idx}: {save_err}", flush=True)
+                            print(f"{Fore.RED}[BacktestWorker Save Error]{Style.RESET_ALL} Failed to auto-save combo run {combo_idx}: {save_err}", flush=True)
 
                         # Save checkpoint to job progress
                         SQLHandler.update_backtest_job_progress(
