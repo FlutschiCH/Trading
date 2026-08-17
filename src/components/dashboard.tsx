@@ -1100,6 +1100,7 @@ export default function Dashboard() {
           if (job.status === 'completed') {
             isDone = true;
             const resData = job.results || {};
+            setIsLiveFeed(false);
             setBacktestResults(resData);
             setFvgs(resData.fvgs || []);
             if (resData.trades && resData.trades.length > 0) {
