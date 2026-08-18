@@ -2566,6 +2566,8 @@ export default function Dashboard() {
                         onRunOptimization={runOptimization}
                         onSaveSettings={saveBacktestSettings}
                         onLoadSpecificResults={loadSpecificResults}
+                        onSymbolChange={setSymbol}
+                        onTimeframeChange={setTimeframe}
                       />
                     </div>
                   </div>
@@ -3024,6 +3026,8 @@ export default function Dashboard() {
                             onRunOptimization={runOptimization}
                             onSaveSettings={saveBacktestSettings}
                             onLoadSpecificResults={loadSpecificResults}
+                            onSymbolChange={setSymbol}
+                            onTimeframeChange={setTimeframe}
                           />
                         </div>
                         {renderResizeHandle('backtester')}

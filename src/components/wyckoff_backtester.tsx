@@ -203,6 +203,8 @@ interface WyckoffBacktesterProps {
   setSelectedSymbols?: (syms: string[]) => void;
   selectedTimeframes?: string[];
   setSelectedTimeframes?: (tfs: string[]) => void;
+  onSymbolChange?: (sym: string) => void;
+  onTimeframeChange?: (tf: string) => void;
 
   // Optimization props
   isOptimizeMode: boolean;
@@ -372,6 +374,8 @@ export default function WyckoffBacktester({
   setSelectedSymbols,
   selectedTimeframes,
   setSelectedTimeframes,
+  onSymbolChange,
+  onTimeframeChange,
   onLoadSpecificResults,
 }: WyckoffBacktesterProps) {
   const [copied, setCopied] = React.useState(false);
@@ -820,13 +824,18 @@ export default function WyckoffBacktester({
           if (s.initial_balance !== undefined) setBacktestBalance(String(s.initial_balance));
           if (s.use_risk_sizing !== undefined) setUseRiskSizing(s.use_risk_sizing);
           if (s.risk_pct !== undefined) setBacktestRiskPct(String(s.risk_pct));
+          if (s.symbol && onSymbolChange) onSymbolChange(s.symbol);
+          if (s.timeframe && onTimeframeChange) onTimeframeChange(s.timeframe);
         }
+        if (fullPayload.symbol && onSymbolChange) onSymbolChange(fullPayload.symbol);
+        if (fullPayload.timeframe && onTimeframeChange) onTimeframeChange(fullPayload.timeframe);
+
         if (onLoadSpecificResults && fullPayload.settings) {
           const s = fullPayload.settings;
           onLoadSpecificResults(
             s.broker || 'metatrader',
-            s.symbol || symbol,
-            s.timeframe || timeframe,
+            s.symbol || fullPayload.symbol || symbol,
+            s.timeframe || fullPayload.timeframe || timeframe,
             String(s.sl_val || '1.0'),
             String(s.rr || '2.0'),
             s.be_trigger_r !== undefined ? String(s.be_trigger_r) : 'off'
@@ -1570,30 +1579,15 @@ export default function WyckoffBacktester({
         >
           {!globalRangeMode ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                gap: '6px',
-                overflowX: 'auto',
-                padding: '10px 14px',
-                backgroundColor: 'var(--app-panel-header-bg, #0f172a)',
-                borderRadius: '6px',
-                border: '1px solid var(--app-card-border, #1e293b)',
-                fontSize: '11px',
-                marginTop: '4px'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600 }}>Active Symbol (from Chart):</span>
-                  <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#38bdf8' }}>{symbol}</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600 }}>Timeframe:</span>
-                  <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#f59e0b' }}>{timeframe}</span>
-                </div>
-              </div>
-              <span style={{ fontSize: '10px', color: '#64748b', fontStyle: 'italic' }}>
-                💡 Single Backtest runs on the active symbol from the TV Chart. Switch to the <strong>Range / Optimization Backtest</strong> tab above to select multiple symbols and timeframes.
-              </span>
+              <SymbolTimeframeSelector
+                multiSelect={false}
+                symbol={symbol}
+                onSymbolChange={onSymbolChange}
+                timeframe={timeframe}
+                onTimeframeChange={onTimeframeChange}
+                availableSymbols={availableSymbols}
+                availableTimeframes={availableTimeframes}
+              />
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
