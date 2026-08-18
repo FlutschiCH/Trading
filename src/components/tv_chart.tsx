@@ -1767,12 +1767,7 @@ export default function TVChart({
         })
         .filter((m) => m !== null) : [];
 
-      let openPositionsList: any[] = [];
-      if (Array.isArray(internalPositions) && internalPositions.length > 0) {
-        openPositionsList = internalPositions;
-      } else if (Array.isArray(openPositions) && openPositions.length > 0) {
-        openPositionsList = openPositions;
-      }
+      const openPositionsList: any[] = storePositions.length > 0 ? storePositions : (Array.isArray(openPositions) ? openPositions : []);
 
       const currentSymbolClean = (symbol || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
       const matchingOpenPositions = (openPositionsList || []).filter((p) => {
