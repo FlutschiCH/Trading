@@ -88,17 +88,26 @@ def internal_worker_update():
 @strategy_routes.route('/backtest/status/<job_id>', methods=['GET'])
 def get_backtest_status(job_id):
     job_id_str = str(job_id)
-    if job_id_str in _in_memory_job_cache:
-        return jsonify({"status": "success", "job": _in_memory_job_cache[job_id_str]})
+    cached = _in_memory_job_cache.get(job_id_str)
+    
+    # If job in cache is already completed/failed and has results, return cached immediately
+    if cached and cached.get('status') in ('completed', 'failed', 'cancelled') and cached.get('results') is not None:
+        return jsonify({"status": "success", "job": cached})
 
+    # Otherwise query MySQL DB to ensure we get the latest progress or completed payload
     from sql_handler import SQLHandler
     job = SQLHandler.get_backtest_job(job_id_str)
     if not job:
+        if cached:
+            return jsonify({"status": "success", "job": cached})
         return jsonify({"status": "error", "message": "Job not found"}), 404
     
-    # Store in memory for future fast polling
-    _in_memory_job_cache[job_id_str] = job
-    return jsonify({"status": "success", "job": job})
+    # Update cache with latest MySQL state
+    if cached:
+        cached.update(job)
+    else:
+        _in_memory_job_cache[job_id_str] = job
+    return jsonify({"status": "success", "job": _in_memory_job_cache[job_id_str]})
 
 @strategy_routes.route('/backtest/job/<job_id>', methods=['DELETE'])
 def delete_backtest_job_endpoint(job_id):
@@ -156,6 +165,14 @@ def backtest():
     # Create job in MySQL DB and set initial state immediately
     SQLHandler.create_backtest_job(job_id=job_id, job_type='single', params=payload)
     SQLHandler.update_backtest_job_progress(job_id, status='running', progress=1.0, step_info='Worker process initializing...')
+    _in_memory_job_cache[str(job_id)] = {
+        'job_id': str(job_id),
+        'status': 'running',
+        'progress': 1.0,
+        'step_info': 'Worker process initializing...',
+        'estimated_seconds_remaining': 0,
+        'results': None
+    }
 
     # Spawn worker subprocess
     python_executable = sys.executable
@@ -253,6 +270,14 @@ def backtest_optimize():
     # Create job in MySQL DB and set initial state immediately
     SQLHandler.create_backtest_job(job_id=job_id, job_type='optimize', params=payload)
     SQLHandler.update_backtest_job_progress(job_id, status='running', progress=1.0, step_info='Worker process initializing...')
+    _in_memory_job_cache[str(job_id)] = {
+        'job_id': str(job_id),
+        'status': 'running',
+        'progress': 1.0,
+        'step_info': 'Worker process initializing...',
+        'estimated_seconds_remaining': 0,
+        'results': None
+    }
 
     # Spawn worker subprocess
     python_executable = sys.executable
