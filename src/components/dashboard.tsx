@@ -2413,7 +2413,7 @@ export default function Dashboard() {
                     <TVChart
                       theme={theme}
                       symbol={symbol}
-                      openPositions={openPositions}
+                      openPositions={positions}
                       onSymbolChange={setSymbol}
                       timeframe={timeframe}
                       onTimeframeChange={setTimeframe}
@@ -2690,7 +2690,7 @@ export default function Dashboard() {
                       <LiveTradesPanel
                         dailyPnl={dailyPnl}
                         weeklyPnl={weeklyPnl}
-                        openPositions={openPositions}
+                        openPositions={positions}
                         handleClosePosition={handleClosePosition}
                         isMobileLayout={true}
                       />
@@ -2817,7 +2817,7 @@ export default function Dashboard() {
                           <TVChart
                             theme={theme}
                             symbol={symbol}
-                            openPositions={openPositions}
+                            openPositions={positions}
                             onSymbolChange={setSymbol}
                             timeframe={timeframe}
                             onTimeframeChange={setTimeframe}
@@ -3149,7 +3149,7 @@ export default function Dashboard() {
                           <LiveTradesPanel
                             dailyPnl={dailyPnl}
                             weeklyPnl={weeklyPnl}
-                            openPositions={openPositions}
+                            openPositions={positions}
                             handleClosePosition={handleClosePosition}
                             isMobileLayout={false}
                           />
