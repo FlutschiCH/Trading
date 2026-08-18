@@ -361,7 +361,6 @@ export default function Dashboard() {
 
   // Account & Positions
   const [accountInfo, setAccountInfo] = useState<AccountInfo | null>(null);
-  const [openPositions, setOpenPositions] = useState<Position[]>([]);
 
   // Backtester states
   const [backtestSL, setBacktestSL] = useState(() => localStorage.getItem('wyckoff_backtest_sl') || '20');
@@ -424,14 +423,14 @@ export default function Dashboard() {
         ? `⏳ Run ${backtestRunInfo.current}/${backtestRunInfo.total} (${backtestProgress}%)`
         : `⏳ Running ${backtestProgress}%...`;
       document.title = runText;
-    } else if (openPositions && openPositions.length > 0) {
-      const totalPnl = openPositions.reduce((sum, pos) => sum + (Number(pos.unrealized_profit) || 0), 0);
+    } else if (positions && positions.length > 0) {
+      const totalPnl = positions.reduce((sum, pos) => sum + (Number(pos.unrealized_profit) || 0), 0);
       const pnlSign = totalPnl >= 0 ? '+' : '';
       document.title = `${pnlSign}$${totalPnl.toFixed(2)}`;
     } else {
       document.title = `${symbol ? `${symbol} - ` : ''}Wyckoff Trading Platform`;
     }
-  }, [loadingBacktest, backtestProgress, backtestRunInfo, openPositions, symbol]);
+  }, [loadingBacktest, backtestProgress, backtestRunInfo, positions, symbol]);
 
   const handleExecuteTradeAgain = async () => {
     if (!selectedTrade) return;
@@ -2262,7 +2261,7 @@ export default function Dashboard() {
     return 1.0;
   };
 
-  const liveTrades = openPositions.map((pos: any) => {
+  const liveTrades = positions.map((pos: any) => {
     let slPrice = pos.stop_loss;
     let tpPrice = pos.take_profit;
 

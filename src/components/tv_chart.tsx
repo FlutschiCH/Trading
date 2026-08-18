@@ -728,13 +728,6 @@ export default function TVChart({
     localStorage.setItem('tv_chart_settings', JSON.stringify(chartSettings));
   }, [chartSettings]);
 
-  // Internal state to hold active open positions when updated via 5s polling
-  const [internalPositions, setInternalPositions] = useState<any[]>(openPositions);
-
-  useEffect(() => {
-    setInternalPositions(openPositions);
-  }, [openPositions]);
-
   const { positions: storePositions } = usePositionsStore();
   const activeOpenPositions = storePositions;
 
@@ -2182,12 +2175,7 @@ export default function TVChart({
 
   // Effect for rendering active live positions (Entry, SL, TP)
   useEffect(() => {
-    let positionsList: any[] = [];
-    if (Array.isArray(internalPositions) && internalPositions.length > 0) {
-      positionsList = internalPositions;
-    } else if (Array.isArray(openPositions) && openPositions.length > 0) {
-      positionsList = openPositions;
-    }
+    const positionsList: any[] = storePositions.length > 0 ? storePositions : (Array.isArray(openPositions) ? openPositions : []);
 
     if (!Array.isArray(positionsList) || positionsList.length === 0) {
       if (activePositionsRef.current.length > 0) {
@@ -2341,7 +2329,7 @@ export default function TVChart({
         }
       }
     });
-  }, [internalPositions, openPositions, chartSettings.showPositions, chartSettings.showPositionsEntry, chartSettings.showPositionsSlTp, activeCandles, symbol]);
+  }, [storePositions, openPositions, chartSettings.showPositions, chartSettings.showPositionsEntry, chartSettings.showPositionsSlTp, activeCandles, symbol]);
 
   const handleSVGMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
     if (activeTool === 'none' || activeTool === 'delete') return;
@@ -3008,7 +2996,7 @@ export default function TVChart({
           >
             {/* Clickable Active Position Badges on the right side */}
             {(chartSettings.showPositions !== false && chartSettings.showPositionsSvg !== false) && (() => {
-              const positionsList: any[] = Array.isArray(openPositions) ? openPositions : [];
+              const positionsList: any[] = storePositions.length > 0 ? storePositions : (Array.isArray(openPositions) ? openPositions : []);
 
               if (!Array.isArray(positionsList) || positionsList.length === 0 || !candlestickSeriesRef.current) return null;
 

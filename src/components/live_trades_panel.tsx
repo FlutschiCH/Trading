@@ -1,4 +1,5 @@
 import React from 'react';
+import { usePositionsStore } from '../services/positionsStore';
 
 interface Position {
   position_id: number;
@@ -19,7 +20,7 @@ interface HistoryTrade {
 interface LiveTradesPanelProps {
   dailyPnl: number;
   weeklyPnl: number;
-  openPositions: Position[];
+  openPositions?: Position[];
   handleClosePosition: (position: Position) => void;
   isMobileLayout?: boolean;
 }
@@ -27,10 +28,12 @@ interface LiveTradesPanelProps {
 export default function LiveTradesPanel({
   dailyPnl,
   weeklyPnl,
-  openPositions,
+  openPositions: propsPositions,
   handleClosePosition,
   isMobileLayout = false,
 }: LiveTradesPanelProps) {
+  const { positions: storePositions } = usePositionsStore();
+  const openPositions = storePositions.length > 0 ? storePositions : (propsPositions || []);
   if (isMobileLayout) {
     return (
       <div style={{ padding: '16px' }}>
