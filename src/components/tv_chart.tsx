@@ -2711,6 +2711,12 @@ export default function TVChart({
                 const closeTimestamp = Number(lastCandle.time) + getTimeframeSeconds(timeframe);
                 const d = new Date(closeTimestamp * 1000);
                 if (isNaN(d.getTime())) return null;
+
+                // Check if candle time is older than 5 minutes (300,000 ms) compared to computer time
+                const candleTimeMs = Number(lastCandle.time) * 1000;
+                const nowMs = Date.now();
+                const isOutOfSync = (nowMs - candleTimeMs) > 5 * 60 * 1000;
+
                 const day = String(d.getDate()).padStart(2, '0');
                 const month = String(d.getMonth() + 1).padStart(2, '0');
                 const year = d.getFullYear();
@@ -2721,18 +2727,20 @@ export default function TVChart({
                 return (
                   <div style={{
                     fontSize: '11px',
-                    color: isLight ? '#475569' : '#94a3b8',
-                    backgroundColor: isLight ? '#f1f5f9' : '#1e293b',
-                    border: isLight ? '1px solid #cbd5e1' : '1px solid #334155',
+                    color: isOutOfSync ? '#ffffff' : (isLight ? '#475569' : '#94a3b8'),
+                    backgroundColor: isOutOfSync ? '#ef4444' : (isLight ? '#f1f5f9' : '#1e293b'),
+                    border: isOutOfSync ? '1px solid #dc2626' : (isLight ? '1px solid #cbd5e1' : '1px solid #334155'),
                     padding: '4px 8px',
                     borderRadius: '4px',
                     fontFamily: 'monospace',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '4px',
-                    whiteSpace: 'nowrap'
-                  }} title="Last Candle Time">
-                    <span style={{ color: '#3b82f6', fontWeight: 'bold' }}>🕒</span> {formattedTime}
+                    whiteSpace: 'nowrap',
+                    fontWeight: isOutOfSync ? 'bold' : 'normal',
+                    boxShadow: isOutOfSync ? '0 0 10px rgba(239, 68, 68, 0.4)' : 'none'
+                  }} title={isOutOfSync ? "Candle data is out of sync (>5m delayed)" : "Last Candle Time"}>
+                    <span style={{ color: isOutOfSync ? '#ffffff' : '#3b82f6', fontWeight: 'bold' }}>🕒</span> {formattedTime} {isOutOfSync && '(Out of Sync)'}
                   </div>
                 );
               })()}
