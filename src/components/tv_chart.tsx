@@ -476,7 +476,6 @@ export default function TVChart({
       .then(res => res.json())
       .then(data => {
         if (data && data.status === 'success' && Array.isArray(data.data)) {
-          console.log('🔀 [Symbol Mappings Return] (Chart):', data.data);
           setSymbolMappings(data.data);
         }
       })

@@ -248,7 +248,6 @@ export default function Dashboard() {
         }
 
         const cleanList = Array.from(new Set(symList.filter(Boolean)));
-        console.log(`📈 [Broker Symbols Return] (${sourcePath}):`, cleanList);
         if (cleanList.length > 0) {
           setAvailableSymbols(cleanList);
         }
