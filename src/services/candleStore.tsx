@@ -207,13 +207,8 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             });
             updated = Array.from(map.values()).sort((a, b) => a.time - b.time);
           } else {
-            const map = new Map<number, Candle>();
-            prev.forEach(c => map.set(c.time, c));
-            rawCandles.forEach(c => {
-              const existing = map.get(c.time);
-              map.set(c.time, existing ? { ...existing, ...c } : c);
-            });
-            updated = Array.from(map.values()).sort((a, b) => a.time - b.time);
+            // Full refresh (e.g. timeframe change, symbol change, or explicit refresh) -> replace completely
+            updated = rawCandles;
           }
 
           // Check if data actually changed to prevent redundant chart re-renders when market is closed (e.g. weekends)
