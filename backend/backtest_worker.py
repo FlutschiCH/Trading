@@ -254,7 +254,7 @@ def run_worker(job_id: str, is_resume: bool = False):
                 indicator_rules=params.get('indicatorRules', params.get('indicator_rules', []))
             )
 
-            total_elapsed = round(time.time() - start_time, 2)
+            total_elapsed = round(time.time() - execution_start_time, 2)
             if isinstance(res, dict):
                 res['total_duration_sec'] = total_elapsed
                 summary = res.get('summary', {})
@@ -335,7 +335,7 @@ def run_worker(job_id: str, is_resume: bool = False):
                 be_offset_step=float(params.get('beOffsetStep')) if params.get('beOffsetStep') is not None else None
             )
 
-            total_elapsed = round(time.time() - start_time, 2)
+            total_elapsed = round(time.time() - execution_start_time, 2)
             results_grid = res.get('results', []) if isinstance(res, dict) else []
             try:
                 SQLHandler.save_backtest_run(
