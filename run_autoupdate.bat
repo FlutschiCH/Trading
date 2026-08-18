@@ -7,12 +7,19 @@ echo [AutoUpdater Bat] Checking for latest Git updates...
 echo =======================================================================
 
 if exist ".git\index.lock" (
+    echo [AutoUpdater Bat] Removing stale .git\index.lock...
     del /f /q ".git\index.lock" 2>nul
 )
 
+if exist ".git\refs\heads\main.lock" (
+    echo [AutoUpdater Bat] Removing stale main.lock...
+    del /f /q ".git\refs\heads\main.lock" 2>nul
+)
+
+git checkout -- . 2>nul
 git fetch --all
 git reset --hard origin/main
-git lfs pull
+git lfs pull 2>nul
 
 echo.
 echo [AutoUpdater Bat] Starting Python backend manager...
