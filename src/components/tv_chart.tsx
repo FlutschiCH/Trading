@@ -2056,7 +2056,7 @@ export default function TVChart({
     }
 
     updateDrawingCoordinates();
-  }, [activeCandles, visibleTrades, actualFilter, chartSettings.showTrades, chartSettings.showTrLines, chartSettings.showPositions, replayTime, internalPositions, openPositions]);
+  }, [activeCandles, visibleTrades, actualFilter, chartSettings.showTrades, chartSettings.showTrLines, chartSettings.showPositions, replayTime, storePositions, openPositions]);
 
   // Update price format and precision dynamically based on candle data
   useEffect(() => {
