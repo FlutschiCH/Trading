@@ -1101,6 +1101,12 @@ export default function Dashboard() {
             const resData = job.results || {};
             setIsLiveFeed(false);
             setBacktestResults(resData);
+            if (resData.symbol && resData.symbol !== symbol) {
+              setSymbol(resData.symbol);
+            }
+            if (resData.timeframe && resData.timeframe !== timeframe) {
+              setTimeframe(resData.timeframe);
+            }
             setFvgs(resData.fvgs || []);
             if (resData.trades && resData.trades.length > 0) {
               setSelectedTrade(resData.trades[0]);
@@ -1285,6 +1291,9 @@ export default function Dashboard() {
       const res = await fetch(url);
       const json = await res.json();
       if (json.status === 'success' && json.data) {
+        setIsLiveFeed(false);
+        if (symbol) setSymbol(symbol);
+        if (timeframe) setTimeframe(timeframe);
         setBacktestResults(json.data);
         setFvgs(json.data.fvgs || []);
         if (json.data.trades && json.data.trades.length > 0) {
