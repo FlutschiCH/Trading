@@ -3250,7 +3250,28 @@ export default function Dashboard() {
                 })}
               </div>
             )}
-            <div style={{ marginTop: '24px' }}>
+            {/* Copytrader Master / Slave Engine Card */}
+            <div style={{
+              marginTop: '24px',
+              backgroundColor: 'var(--app-card-bg, #111827)',
+              border: '1px solid var(--app-card-border, #1f2937)',
+              borderRadius: '8px',
+              padding: '16px',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+            }}>
+              <div style={{
+                fontSize: '14px',
+                fontWeight: 600,
+                color: 'var(--app-text, #f3f4f6)',
+                marginBottom: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                paddingBottom: '12px',
+                borderBottom: '1px solid var(--app-card-border, #1f2937)'
+              }}>
+                <span>🔄 Copytrader Master / Slave Engine</span>
+              </div>
               <Copytrader />
             </div>
             {/* Interactive Realtime Log Panel */}
