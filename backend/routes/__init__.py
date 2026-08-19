@@ -21,11 +21,13 @@ from routes.alert_routes import alert_bp
 from routes.sltp_sync_routes import sltp_sync_routes
 from routes.copytrader_routes import copytrader_routes
 from routes.computer_routes import computer_routes
+from routes.trade_analyzer_routes import trade_analyzer_routes
 
 # Create consolidated api blueprint
 api_blueprint = Blueprint('api', __name__)
 
 # Register sub-blueprints
+api_blueprint.register_blueprint(trade_analyzer_routes)
 api_blueprint.register_blueprint(copytrader_routes)
 api_blueprint.register_blueprint(computer_routes)
 api_blueprint.register_blueprint(strategy_routes)

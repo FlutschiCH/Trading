@@ -19,6 +19,7 @@ import { CandleCollectorPanel } from './candle_collector_panel';
 import { CandleDetailsCard } from './candle_details_card';
 import SymbolMappingCard from './symbol_mapping_card';
 import Copytrader from './copytrader';
+import TradeAnalyzerCard from './trade_analyzer_card';
 import LogPanel from './log_panel';
 import type { Candle, AccountInfo, Position } from '../types/trading';
 import { useCandleStore } from '../services/candleStore';
@@ -3250,6 +3251,11 @@ export default function Dashboard() {
                 })}
               </div>
             )}
+            {/* Trade Analyzer Card */}
+            <div style={{ marginTop: '24px' }}>
+              <TradeAnalyzerCard />
+            </div>
+
             {/* Copytrader Master / Slave Engine Card */}
             <div style={{
               marginTop: '24px',
