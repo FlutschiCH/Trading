@@ -146,7 +146,7 @@ def run_worker(job_id: str, is_resume: bool = False):
             print(f"[BacktestWorker Update Warning] Direct DB update failed: {db_err}", flush=True)
 
         try:
-            port = int(os.environ.get("PORT", 8080))
+            port = int(os.environ.get("PORT", 8751))
             url = f"http://127.0.0.1:{port}/api/backtest/internal-update"
             payload = {"job_id": str(job_id)}
             if progress is not None:
