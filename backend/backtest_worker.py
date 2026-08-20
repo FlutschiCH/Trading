@@ -132,6 +132,19 @@ def run_worker(job_id: str, is_resume: bool = False):
     import urllib.request
 
     def send_local_update(progress: float = None, status: str = None, step_info: str = None, results: dict = None, est_sec: int = None):
+        print(f"{Fore.CYAN}[BacktestWorker Update]{Style.RESET_ALL} Sending update for job {job_id}: status={status}, progress={progress}", flush=True)
+        # Always update MySQL database directly first for ultimate reliability
+        try:
+            SQLHandler.update_backtest_job_progress(
+                job_id=str(job_id),
+                status=status if status else 'running',
+                progress=float(progress) if progress is not None else 0.0,
+                step_info=step_info if step_info else '',
+                results=results
+            )
+        except Exception as db_err:
+            print(f"[BacktestWorker Update Warning] Direct DB update failed: {db_err}", flush=True)
+
         try:
             port = int(os.environ.get("PORT", 8080))
             url = f"http://127.0.0.1:{port}/api/backtest/internal-update"
@@ -152,10 +165,10 @@ def run_worker(job_id: str, is_resume: bool = False):
                 data=json.dumps(payload).encode('utf-8'),
                 headers={'Content-Type': 'application/json'}
             )
-            with urllib.request.urlopen(req, timeout=1):
+            with urllib.request.urlopen(req, timeout=2):
                 pass
-        except Exception:
-            pass
+        except Exception as http_err:
+            print(f"[BacktestWorker Update Warning] HTTP notification to main backend failed: {http_err}", flush=True)
 
     last_progress_update = 0.0
 
@@ -364,6 +377,11 @@ def run_worker(job_id: str, is_resume: bool = False):
     except Exception as err:
         print(f"{Fore.RED}[BacktestWorker]{Style.RESET_ALL} Error in worker execution for job {job_id}: {err}", flush=True)
         import traceback
+        traceback.print_exc()
+        try:
+            send_local_update(progress=100.0, status='failed', step_info=f"Worker error: {str(err)}")
+        except Exception:
+            pass
     print(f"\n{Fore.GREEN}[BacktestWorker]{Style.RESET_ALL} Worker execution finished. Window will close automatically in 60 seconds (or press Enter)...", flush=True)
     try:
         if sys.platform == "win32":
