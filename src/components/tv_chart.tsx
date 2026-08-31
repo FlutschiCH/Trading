@@ -7,6 +7,7 @@ import { API_BASE_URL } from '../api';
 import { SymbolTimeframeSelector } from './symbol_timeframe_selector';
 import { usePositionsStore } from '../services/positionsStore';
 import DebugComponentBadge from './debug_component_badge';
+import type { Candle } from '../types/trading';
 
 class SessionBoxRenderer implements SeriesPrimitivePaneRenderer {
   private _sessionCoords: any[];

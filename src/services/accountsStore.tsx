@@ -11,6 +11,9 @@ export interface AccountItem {
   status?: string;
   balance?: number;
   equity?: number;
+  password?: string;
+  terminal_path?: string;
+  plugin_path?: string;
 }
 
 interface AccountsContextType {

@@ -328,7 +328,7 @@ export default function Dashboard() {
   const [backtestRunInfo, setBacktestRunInfo] = useState<{ current: number; total: number } | null>(null);
 
 
-  const [view, setView] = useState<'dashboard' | 'mappings' | 'trades' | 'computers' | 'notifications' | 'alerts'>('dashboard');
+  const [view, setView] = useState<'dashboard' | 'mappings' | 'trades' | 'computers' | 'notifications' | 'alerts' | 'news'>('dashboard');
 
   const [connectionMode, setConnectionMode] = useState<'openapi' | 'fix'>('fix');
   const [showMobileNav, setShowMobileNav] = useState<boolean>(false);
