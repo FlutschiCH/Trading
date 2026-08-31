@@ -1,0 +1,156 @@
+from flask import Blueprint, request, jsonify
+from broker_handler import BrokerHandler
+
+trading_routes = Blueprint('trading_routes', __name__)
+
+def _get_handler(payload):
+    broker_name = payload.get('broker', 'ctrader')
+    return BrokerHandler.get_handler(broker_name)
+
+@trading_routes.route('/trade/account', methods=['POST'])
+def account():
+    payload = request.get_json(force=True) or {}
+    # print(f"[TradingRoutes] /trade/account payload: {payload}", flush=True)
+    broker_name = payload.pop('broker', None)
+    account_id = payload.pop('account_id', None)
+    data = BrokerHandler.get_account_info(broker_name=broker_name, account_id=account_id, **payload)
+    return jsonify(data)
+
+@trading_routes.route('/trade/positions', methods=['POST'])
+def positions():
+    payload = request.get_json(force=True) or {}
+    # print(f"[TradingRoutes] /trade/positions payload: {payload}", flush=True)
+    broker_name = payload.pop('broker', None)
+    account_id = payload.pop('account_id', None)
+    data = BrokerHandler.get_positions(broker_name=broker_name, account_id=account_id, **payload)
+    return jsonify({"status": "success", "data": data})
+
+@trading_routes.route('/trade/order', methods=['POST'])
+def order():
+    try:
+        payload = request.get_json(force=True) or {}
+    except Exception:
+        return jsonify({"status": "error", "message": "Invalid JSON format"}), 400
+
+    symbol = payload.get('symbol', 'EURUSD')
+    side = payload.get('order_type') or payload.get('side', 'buy')
+    volume = float(payload.get('volume', 0.01))
+    price = payload.get('price')
+    if price is not None:
+        price = float(price)
+
+    stop_loss = payload.get('stop_loss')
+    if stop_loss is not None:
+        stop_loss = float(stop_loss)
+    take_profit = payload.get('take_profit')
+    if take_profit is not None:
+        take_profit = float(take_profit)
+
+    magic = payload.get('magic')
+    if magic is not None:
+        try:
+            magic = int(magic)
+        except (ValueError, TypeError):
+            magic = 123456
+    else:
+        magic = 123456
+
+    handler = _get_handler(payload)
+    result = handler.create_order(
+        symbol=symbol,
+        side=side,
+        volume=volume,
+        price=price,
+        stop_loss=stop_loss,
+        take_profit=take_profit,
+        magic=magic
+    )
+    return jsonify(result)
+
+@trading_routes.route('/trade/close', methods=['POST'])
+def close():
+    try:
+        payload = request.get_json(force=True) or {}
+    except Exception:
+        return jsonify({"status": "error", "message": "Invalid JSON"}), 400
+
+    position_id = payload.get('position_id')
+    symbol = payload.get('symbol', 'EURUSD')
+    side = payload.get('side', 'buy')
+    volume = float(payload.get('volume', 0.01))
+
+    handler = _get_handler(payload)
+    result = handler.close_position(position_id, symbol, side, volume)
+    return jsonify(result)
+
+@trading_routes.route('/trade/modify_position', methods=['POST'])
+def modify_position():
+    try:
+        payload = request.get_json(force=True) or {}
+    except Exception:
+        return jsonify({"status": "error", "message": "Invalid JSON"}), 400
+
+    position_id = payload.get('position_id')
+    stop_loss = payload.get('stop_loss')
+    take_profit = payload.get('take_profit')
+    symbol = payload.get('symbol', 'EURUSD')
+    broker = payload.get('broker')
+    account_id = payload.get('account_id')
+
+    print(f"\n[Trade Modify Request] Pos ID: {position_id} | Account: {account_id} | Broker: {broker} | Symbol: {symbol} | SL: {stop_loss} | TP: {take_profit}", flush=True)
+
+    if position_id is None:
+        print(f"❌ [Trade Modify Failure] Missing position_id in payload: {payload}", flush=True)
+        return jsonify({"status": "error", "message": "Missing position_id"}), 400
+
+    handler = _get_handler(payload)
+    kwargs = {k: v for k, v in payload.items() if k not in ('position_id', 'stop_loss', 'take_profit', 'symbol')}
+    result = handler.modify_position(position_id, stop_loss=stop_loss, take_profit=take_profit, symbol=symbol, **kwargs)
+
+    if isinstance(result, dict) and result.get("status") == "error":
+        print(f"❌ [Trade Modify FAILURE] Pos ID: {position_id} (Acc: {account_id}) | Error: {result.get('message')}", flush=True)
+    else:
+        print(f"✅ [Trade Modify SUCCESS] Pos ID: {position_id} (Acc: {account_id}) | Result: {result}", flush=True)
+
+    return jsonify(result)
+
+@trading_routes.route('/trade/candles', methods=['POST'])
+def candles():
+    try:
+        payload = request.get_json(force=True) or {}
+    except Exception:
+        return jsonify({"status": "error", "message": "Invalid JSON"}), 400
+
+    broker_name = payload.get('broker', 'ctrader')
+    symbol = payload.get('symbol', 'EURUSD')
+    timeframe = payload.get('interval', '15m')
+    limit = int(payload.get('limit', 1000))
+    date_from = payload.get('date_from')
+    date_to = payload.get('date_to')
+
+    if date_from is not None:
+        date_from = int(date_from)
+    if date_to is not None:
+        date_to = int(date_to)
+
+    from broker_handler import BrokerHandler
+    try:
+        account_id = payload.get('account_id')
+        p = payload.copy() if isinstance(payload, dict) else {}
+        for k in ('symbol', 'interval', 'timeframe', 'limit', 'date_from', 'date_to', 'broker', 'account_id'):
+            p.pop(k, None)
+        candles_data = BrokerHandler.fetch_candles(broker_name=broker_name, account_id=account_id, symbol=symbol, timeframe=timeframe, limit=limit, date_from=date_from, date_to=date_to, **p)
+    except (ValueError, RuntimeError) as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
+
+    return jsonify({
+        "status": "success",
+        "candles": candles_data,
+        "trades": []
+    })
+
+@trading_routes.route('/trade/history', methods=['POST'])
+def history():
+    payload = request.get_json(force=True) or {}
+    handler = _get_handler(payload)
+    return jsonify(handler.get_history())

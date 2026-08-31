@@ -1,0 +1,463 @@
+import json
+import time
+import os
+import ssl
+from datetime import datetime
+from websocket import create_connection
+from base_broker_handler import BaseBrokerHandler
+
+class CTraderHandler(BaseBrokerHandler):
+    # Cache account and positions in memory
+    _cached_account = {
+        "balance": 100000.0,
+        "equity": 100000.0,
+        "margin": 0.0,
+        "margin_free": 100000.0,
+        "currency": "USD",
+        "account_type": "cTrader Live OpenAPI",
+        "broker": "FTMO (cTrader)"
+    }
+    _cached_positions = []
+    _connection_states = {}
+
+    @staticmethod
+    def _send_and_receive(payload_type: int, payload: dict, account_id: str = None, token: str = None) -> dict:
+        ENABLE_CTRADER = os.environ.get("CTRADER_ENABLED", "false").lower() == "true"
+        if not ENABLE_CTRADER:
+            raise RuntimeError("cTrader connection is currently inactive.")
+
+        from account_handler import AccountHandler
+        if account_id and token:
+            account_id_str = str(account_id)
+            account_id_val = int(account_id)
+        else:
+            active_acc = AccountHandler.get_active_account()
+            if active_acc and active_acc.get("broker_type") == "ctrader":
+                account_id_str = active_acc.get("account_id")
+                account_id_val = int(account_id_str) if account_id_str else None
+                token = active_acc.get("password")
+            else:
+                account_id_str = os.environ.get("CTRADER_OPENAPI_ACCOUNT_ID")
+                account_id_val = int(account_id_str) if account_id_str else None
+                token = os.environ.get("CTRADER_ACCESS_TOKEN")
+
+        if not account_id_val or not token:
+            raise RuntimeError("No active cTrader account configured in Account Management. Please connect an account first.")
+
+        client_id = os.environ.get("CTRADER_CLIENT_ID")
+        client_secret = os.environ.get("CTRADER_CLIENT_SECRET")
+
+        is_demo = "demo" in str(account_id_str).lower() or account_id_str in ["48025530", "48029720"] or os.environ.get("CTRADER_IS_DEMO", "false").lower() == "true"
+        host = "demo.ctraderapi.com" if is_demo else "live.ctraderapi.com"
+        url = f"wss://{host}:5036"
+
+        is_first_attempt = account_id_str not in CTraderHandler._connection_states
+        ws = create_connection(url, sslopt={"cert_reqs": ssl.CERT_NONE}, timeout=10)
+        try:
+            # 1. Send Application Auth (payloadType = 2100)
+            app_auth = {
+                "clientMsgId": f"AppAuth-{int(time.time())}",
+                "payloadType": 2100,
+                "payload": {
+                    "clientId": client_id,
+                    "clientSecret": client_secret
+                }
+            }
+            ws.send(json.dumps(app_auth))
+            res1 = json.loads(ws.recv())
+            if res1.get("payloadType") == 50 or res1.get("payloadType") == 2142: # Error
+                if is_first_attempt or CTraderHandler._connection_states.get(account_id_str) != "failed_app_auth":
+                    print(f"[cTrader Connection Failure] Account: {account_id_str} | Host: {host} | Reason: App auth failed | Details: {res1}", flush=True)
+                    CTraderHandler._connection_states[account_id_str] = "failed_app_auth"
+                raise ConnectionError(f"Application Authentication Failed: {res1.get('payload')}")
+
+            # 2. Send Account Auth (payloadType = 2102) if token & account are available
+            if account_id_val and token:
+                acc_auth = {
+                    "clientMsgId": f"AccAuth-{int(time.time())}",
+                    "payloadType": 2102,
+                    "payload": {
+                        "ctidTraderAccountId": account_id_val,
+                        "accessToken": token
+                    }
+                }
+                ws.send(json.dumps(acc_auth))
+                res2 = json.loads(ws.recv())
+                if res2.get("payloadType") == 50 or res2.get("payloadType") == 2142: # Error
+                    if is_first_attempt or CTraderHandler._connection_states.get(account_id_str) != "failed_acc_auth":
+                        print(f"[cTrader Connection Failure] Account: {account_id_str} | Host: {host} | Reason: Account auth failed | Details: {res2}", flush=True)
+                        CTraderHandler._connection_states[account_id_str] = "failed_acc_auth"
+                    raise ConnectionError(f"Account Authentication Failed: {res2.get('payload')}")
+
+            # Connection success
+            if is_first_attempt or CTraderHandler._connection_states.get(account_id_str) != "connected":
+                print(f"[cTrader Connection Success] Account: {account_id_str} | Host: {host} | Status: Connected and authenticated successfully", flush=True)
+                CTraderHandler._connection_states[account_id_str] = "connected"
+
+            # 3. Dispatch requested OpenAPI message
+            # If payload needs account ID, inject it
+            if payload_type not in (2100, 2102) and "ctidTraderAccountId" not in payload and account_id_val:
+                payload["ctidTraderAccountId"] = account_id_val
+                
+            req = {
+                "clientMsgId": f"Req-{int(time.time())}",
+                "payloadType": payload_type,
+                "payload": payload
+            }
+            ws.send(json.dumps(req))
+            response = json.loads(ws.recv())
+            return response
+        finally:
+            try:
+                ws.close()
+            except Exception:
+                pass
+
+    @staticmethod
+    def fetch_candles(symbol: str, timeframe: str, limit: int = 1000, date_from: int = None, date_to: int = None, **kwargs) -> list:
+        try:
+            # Map timeframe string to cTrader TrendbarPeriod enum value
+            tf_map = {
+                "1m": 1,   # M1
+                "2m": 2,   # M2
+                "3m": 3,   # M3
+                "4m": 4,   # M4
+                "5m": 5,   # M5
+                "10m": 6,  # M10
+                "15m": 7,  # M15
+                "30m": 8,  # M30
+                "1h": 9,   # H1
+                "4h": 10,  # H4
+                "12h": 11, # H12
+                "1d": 12,  # D1
+                "1w": 13,  # W1
+                "1mn": 14  # MN1
+            }
+            period = tf_map.get(timeframe.lower(), 7) # Default M15
+
+            # Resolve symbol via SymbolMappingHandler if available
+            try:
+                from symbol_mapping_handler import SymbolMappingHandler
+                mapped_sym = SymbolMappingHandler.map_to_broker(symbol, "ctrader")
+                if mapped_sym and mapped_sym != symbol:
+                    symbol = mapped_sym
+            except Exception:
+                pass
+
+            # Resolve Symbol ID
+            symbol_id = 1
+            if "btc" in symbol.lower():
+                symbol_id = 2237
+            elif "gbp" in symbol.lower():
+                symbol_id = 2
+            elif "jpy" in symbol.lower():
+                symbol_id = 3
+
+            # Default date range if not provided
+            now_ms = int(time.time() * 1000)
+            # Calculate fromTimestamp based on limit if date_from is missing
+            # M15 = 15 mins = 900 seconds. Scale dynamically.
+            duration_secs = 900
+            if timeframe == "1m": duration_secs = 60
+            elif timeframe == "5m": duration_secs = 300
+            elif timeframe == "30m": duration_secs = 1800
+            elif timeframe == "1h": duration_secs = 3600
+            elif timeframe == "4h": duration_secs = 14400
+            elif timeframe == "1d": duration_secs = 86400
+
+            from_ms = int(date_from * 1000) if date_from else now_ms - (limit * duration_secs * 1000)
+            to_ms = int(date_to * 1000) if date_to else now_ms + (86400 * 1000)
+
+            # Call ProtoOAGetTrendbarsReq (2137)
+            payload = {
+                "symbolId": symbol_id,
+                "period": period,
+                "fromTimestamp": from_ms,
+                "toTimestamp": to_ms
+            }
+            res = CTraderHandler._send_and_receive(2137, payload)
+            if res.get("payloadType") == 2138: # ProtoOAGetTrendbarsRes
+                trendbars = res.get("payload", {}).get("trendbar", [])
+                candles_list = []
+                # To get actual price, convert delta formats: Open = Low + deltaOpen
+                for tb in trendbars:
+                    low_raw = tb.get("low", 0)
+                    # cTrader prices are scaled (usually by 100,000 for standard forex majors, or 100 for indices/crypto)
+                    # Scale based on symbol logic
+                    scale = 100000.0
+                    if symbol_id == 2237: # BTCUSD
+                        scale = 100.0
+                    
+                    low = float(low_raw) / scale
+                    open_price = float(low_raw + tb.get("deltaOpen", 0)) / scale
+                    high_price = float(low_raw + tb.get("deltaHigh", 0)) / scale
+                    close_price = float(low_raw + tb.get("deltaClose", 0)) / scale
+                    
+                    # cTrader volume is formatted as units
+                    vol = float(tb.get("volume", 0)) / 100.0
+                    
+                    # UTC timestamp is derived from the delta offset
+                    # The first bar uses fromTimestamp, subsequent bars offset relative to it
+                    tb_time = int(tb.get("utcTimestampInMinutes", 0)) * 60
+                    if tb_time == 0:
+                        tb_time = int(from_ms // 1000)
+
+                    candles_list.append({
+                        "time": tb_time,
+                        "open": open_price,
+                        "high": high_price,
+                        "low": low,
+                        "close": close_price,
+                        "volume": vol
+                    })
+                if candles_list:
+                    from candle_sanitizer import sanitize_and_fill_candles
+                    return sanitize_and_fill_candles(candles_list, timeframe=timeframe)
+                else:
+                    raise RuntimeError("cTrader API returned empty trendbar data.")
+            else:
+                raise RuntimeError(f"cTrader API returned error response: {res}")
+        except Exception as e:
+            raise RuntimeError(f"Failed to fetch candles from cTrader: {e}")
+
+    @staticmethod
+    def get_symbols(**kwargs) -> dict:
+        try:
+            account_id = kwargs.get("account_id")
+            token = kwargs.get("token") or kwargs.get("password")
+            if account_id:
+                res = CTraderHandler._send_and_receive(2114, {}, account_id=account_id, token=token)
+                if res and res.get("payloadType") == 2115:
+                    symbols_raw = res.get("payload", {}).get("symbol", [])
+                    sym_names = [s.get("symbolName") for s in symbols_raw if s.get("symbolName")]
+                    if sym_names:
+                        return {"status": "success", "data": sorted(sym_names)}
+        except Exception as e:
+            print(f"[cTrader get_symbols] Error fetching cTrader symbols: {e}", flush=True)
+
+        return {"status": "success", "data": []}
+
+    @classmethod
+    def get_timeframes(cls) -> dict:
+        return {"status": "success", "data": ["1m", "5m", "15m", "30m", "1h", "4h", "1d"]}
+
+    @staticmethod
+    def get_account_info(**kwargs) -> dict:
+        try:
+            token = kwargs.get("token") or kwargs.get("password")
+            account_id = kwargs.get("account_id")
+            if not token or not account_id:
+                from account_handler import AccountHandler
+                active_acc = AccountHandler.get_active_account()
+                if active_acc and active_acc.get("broker_type") == "ctrader":
+                    token = active_acc.get("password")
+                    account_id = active_acc.get("account_id")
+                else:
+                    token = os.environ.get("CTRADER_ACCESS_TOKEN")
+                    account_id = os.environ.get("CTRADER_OPENAPI_ACCOUNT_ID")
+
+            if not token:
+                return {"status": "success", "data": CTraderHandler._cached_account}
+                
+            res = CTraderHandler._send_and_receive(2149, {"accessToken": token}, account_id=account_id, token=token)
+            # Typically returns ProtoOAGetAccountListByAccessTokenRes containing ctidTraderAccount
+            if res and "payload" in res:
+                accounts = res["payload"].get("ctidTraderAccount", [])
+                for acc in accounts:
+                    if str(acc.get("ctidTraderAccountId")) == str(account_id):
+                        # Fetch trader info payloadType = 2121 (ProtoOATraderReq)
+                        trader_res = CTraderHandler._send_and_receive(2121, {}, account_id=account_id, token=token)
+                        trader = trader_res.get("payload", {}).get("trader", {})
+                        balance = float(trader.get("balance", 10000000)) / 100.0 # cTrader balance in cents
+                        
+                        brokerName = acc.get("brokerName", "cTrader")
+                        CTraderHandler._cached_account.update({
+                            "balance": balance,
+                            "equity": balance,
+                            "margin_free": balance,
+                            "broker": brokerName,
+                            "account_type": f"cTrader {brokerName} OpenAPI"
+                        })
+                        break
+        except Exception as e:
+            CTraderHandler._cached_account["broker"] = f"cTrader - Offline ({str(e)})"
+            
+        return {"status": "success", "data": CTraderHandler._cached_account}
+
+    @staticmethod
+    def get_account(**kwargs) -> dict:
+        return CTraderHandler.get_account_info()
+
+    @staticmethod
+    def get_history(**kwargs) -> dict:
+        try:
+            # Fetch deals using payloadType = 2133 (ProtoOADealListReq)
+            now_ms = int(time.time() * 1000)
+            from_ms = now_ms - (30 * 24 * 60 * 60 * 1000) # Fetch last 30 days
+            payload = {
+                "fromTimestamp": from_ms,
+                "toTimestamp": now_ms
+            }
+            res = CTraderHandler._send_and_receive(2133, payload)
+            deals = []
+            if res.get("payloadType") == 2134: # ProtoOADealListRes
+                raw_deals = res.get("payload", {}).get("deal", [])
+                for d in raw_deals:
+                    profit = float(d.get("moneyDigits", 0)) # Net profit
+                    deals.append({
+                        "ticket": int(d["dealId"]),
+                        "symbol": "EURUSD", # Default mapping
+                        "trade_side": "BUY" if d.get("tradeSide") == "BUY" else "SELL",
+                        "volume": float(d.get("volume", 0)) / 10000000.0,
+                        "profit": float(d.get("netProfit", 0)) / 100.0,
+                        "commission": float(d.get("commission", 0)) / 100.0,
+                        "swap": float(d.get("swap", 0)) / 100.0,
+                        "comment": d.get("comment", ""),
+                        "timestamp": int(d.get("executionTimestamp", time.time() * 1000)) // 1000
+                    })
+            return {"status": "success", "data": deals}
+        except Exception as e:
+            return {"status": "success", "data": []}
+
+    @staticmethod
+    def get_positions(**kwargs) -> list:
+        try:
+            account_id = kwargs.get("account_id")
+            token = kwargs.get("token") or kwargs.get("password")
+            # Reconcile open positions using payloadType = 2125 (ProtoOAReconcileReq)
+            res = CTraderHandler._send_and_receive(2125, {"returnProtectionOrders": True}, account_id=account_id, token=token)
+            if res and "payload" in res:
+                acc_id_str = str(account_id or "")
+                positions_list = []
+                for p in res["payload"].get("position", []):
+                    positions_list.append({
+                        "position_id": int(p["positionId"]),
+                        "symbol": p.get("symbolName", "EURUSD"),
+                        "trade_side": "BUY" if p.get("tradeSide") == "BUY" else "SELL",
+                        "volume": float(p.get("volume", 0)) / 100000.0, # Convert units to lots
+                        "entry_price": float(p.get("entryPrice", 0)),
+                        "unrealized_profit": float(p.get("unrealizedProfit", 0)) / 100.0,
+                        "stop_loss": float(p.get("stopLoss", 0)),
+                        "take_profit": float(p.get("takeProfit", 0)),
+                        "entry_timestamp": int(p.get("utcLastUpdateTimestamp", time.time() * 1000)) // 1000,
+                        "account_id": acc_id_str,
+                        "target_acc_id": acc_id_str,
+                        "broker": "ctrader"
+                    })
+                CTraderHandler._cached_positions = positions_list
+        except Exception:
+            pass
+            
+        return CTraderHandler._cached_positions
+
+    @staticmethod
+    def create_order(symbol: str, side: str, volume: float, price: float = None, stop_loss: float = None, take_profit: float = None, magic: int = None, **kwargs) -> dict:
+        try:
+            account_id = kwargs.get("account_id")
+            token = kwargs.get("token") or kwargs.get("password")
+            # We map symbol to cTrader integer IDs. For EURUSD standard ID is 1 (EURUSD)
+            # A cleaner solution matches IDs dynamically; here we default common mapping.
+            symbol_id = 1
+            if "btc" in symbol.lower():
+                symbol_id = 2237 # Example BTCUSD ID
+            elif "gbp" in symbol.lower():
+                symbol_id = 2
+                
+            # Place Order using payloadType = 2106 (ProtoOANewOrderReq)
+            payload = {
+                "symbolId": symbol_id,
+                "orderType": "MARKET" if price is None else "LIMIT",
+                "tradeSide": side.upper(),
+                "volume": int(volume * 10000000) # Convert lots to units scaled by 100
+            }
+            if price is not None:
+                payload["limitPrice"] = price
+            if stop_loss is not None:
+                payload["stopLoss"] = stop_loss
+            if take_profit is not None:
+                payload["takeProfit"] = take_profit
+                
+            res = CTraderHandler._send_and_receive(2106, payload, account_id=account_id, token=token)
+            p_type = res.get("payloadType")
+            if p_type == 2130: # ProtoOAExecutionEvent
+                order_id = res.get("payload", {}).get("order", {}).get("orderId")
+                return {"status": "success", "message": f"Order successfully accepted by cTrader OpenAPI. ID: {order_id}"}
+            elif p_type == 2142: # ProtoOAErrorRes
+                err = res.get("payload", {})
+                return {"status": "error", "message": f"cTrader Error {err.get('errorCode')}: {err.get('description')}"}
+            elif p_type == 50:
+                return {"status": "error", "message": f"Order rejected: {res.get('payload')}"}
+                
+            return {"status": "success", "message": f"Order dispatched. Response payloadType: {p_type}, payload: {res.get('payload')}"}
+        except Exception as e:
+            return {"status": "error", "message": f"cTrader OpenAPI connection error: {str(e)}"}
+
+    @staticmethod
+    def close_position(position_id: int, symbol: str = None, side: str = None, volume: float = 0.0, **kwargs) -> dict:
+        try:
+            # Close Position using payloadType = 2111 (ProtoOAClosePositionReq)
+            payload = {
+                "positionId": position_id,
+                "volume": int(volume * 10000000) # Convert lots to units scaled by 100
+            }
+            res = CTraderHandler._send_and_receive(2111, payload)
+            p_type = res.get("payloadType")
+            if p_type == 2130:
+                return {"status": "success", "message": f"Position {position_id} successfully closed via OpenAPI."}
+            elif p_type == 2142:
+                err = res.get("payload", {})
+                return {"status": "error", "message": f"cTrader Close Error {err.get('errorCode')}: {err.get('description')}"}
+            return {"status": "error", "message": f"Close position failed. Response payloadType: {p_type}, payload: {res.get('payload')}"}
+        except Exception as e:
+            return {"status": "error", "message": f"Failed to close position via OpenAPI: {str(e)}"}
+
+    @staticmethod
+    def modify_position(position_id: int, stop_loss: float = None, take_profit: float = None, symbol: str = "EURUSD", **kwargs) -> dict:
+        try:
+            account_id = kwargs.get("account_id")
+            token = kwargs.get("token") or kwargs.get("password")
+            payload = {
+                "positionId": int(position_id)
+            }
+            if stop_loss is not None and stop_loss > 0:
+                payload["stopLoss"] = float(stop_loss)
+            if take_profit is not None and take_profit > 0:
+                payload["takeProfit"] = float(take_profit)
+
+            # ProtoOAMendPositionSLTPReq payloadType = 2172
+            res = CTraderHandler._send_and_receive(2172, payload, account_id=account_id, token=token)
+            from notification_handler import NotificationHandler
+            p_type = res.get("payloadType")
+            if p_type in (2130, 2173):
+                NotificationHandler.play_sound("alert")
+                return {"status": "success", "message": f"Position {position_id} modified via cTrader OpenAPI."}
+            elif p_type == 2142:
+                err = res.get("payload", {})
+                NotificationHandler.play_sound("error")
+                return {"status": "error", "message": f"cTrader Modify Error {err.get('errorCode')}: {err.get('description')}"}
+            NotificationHandler.play_sound("alert")
+            return {"status": "success", "message": f"Modify position request sent for {position_id}."}
+        except Exception as e:
+            return {"status": "error", "message": f"Failed to modify position via OpenAPI: {str(e)}"}
+
+if __name__ == '__main__':
+    # Load dotenv from the script's directory explicitly
+    import os
+    from dotenv import load_dotenv
+    env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
+    load_dotenv(env_path)
+    print(f"Loaded .env path: {env_path}")
+    print(f"CTRADER_OPENAPI_ACCOUNT_ID: {os.environ.get('CTRADER_OPENAPI_ACCOUNT_ID')}")
+    print("Testing cTrader OpenAPI connection...")
+    acc_info = CTraderHandler.get_account_info()
+    print(f"Account Info: {acc_info}")
+    
+    # Place a test EURUSD buy trade (0.01 lot or 1000 units depending on broker mapping)
+    print("Placing test market order...")
+    res = CTraderHandler.create_order(symbol="EURUSD", side="buy", volume=0.01)
+    print(f"Order Result: {res}")
+    
+    # Test Candle Fetching
+    print("Fetching last 5 candles via cTrader Open API...")
+    candles = CTraderHandler.fetch_candles(symbol="EURUSD", timeframe="15m", limit=5)
+    print(f"Fetched {len(candles)} candles. Most recent: {candles[-1] if candles else 'None'}")

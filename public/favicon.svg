@@ -1,0 +1,125 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b0f19" />
+      <stop offset="50%" stop-color="#111827" />
+      <stop offset="100%" stop-color="#070a10" />
+    </linearGradient>
+
+    <!-- Candlestick / Bar Gradients -->
+    <linearGradient id="bullGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#00b4d8" />
+      <stop offset="100%" stop-color="#00f5d4" />
+    </linearGradient>
+
+    <linearGradient id="purpleBarGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#6366f1" />
+      <stop offset="100%" stop-color="#a855f7" />
+    </linearGradient>
+
+    <linearGradient id="accentBarGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#3b82f6" />
+      <stop offset="100%" stop-color="#60a5fa" />
+    </linearGradient>
+
+    <linearGradient id="lineGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="50%" stop-color="#818cf8" opacity="0.8" />
+      <stop offset="100%" stop-color="#00f5d4" />
+    </linearGradient>
+
+    <!-- Glow & Shadow Filters -->
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+
+    <filter id="strongGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="14" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="6" flood-color="#000000" flood-opacity="0.5"/>
+    </filter>
+
+    <!-- Area Fill Gradient below trend line -->
+    <linearGradient id="areaGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#00f5d4" stop-opacity="0.25" />
+      <stop offset="100%" stop-color="#00f5d4" stop-opacity="0.0" />
+    </linearGradient>
+  </defs>
+
+  <!-- Base Rounded Container with subtle border -->
+  <rect width="512" height="512" rx="112" fill="url(#bgGrad)" />
+  <rect width="504" height="504" x="4" y="4" rx="108" fill="none" stroke="#ffffff" stroke-opacity="0.08" stroke-width="2" />
+
+  <!-- Background Grid Lines -->
+  <g stroke="#ffffff" stroke-opacity="0.04" stroke-width="1.5" stroke-dasharray="4,6">
+    <line x1="80" y1="120" x2="432" y2="120" />
+    <line x1="80" y1="200" x2="432" y2="200" />
+    <line x1="80" y1="280" x2="432" y2="280" />
+    <line x1="80" y1="360" x2="432" y2="360" />
+  </g>
+
+  <!-- Area under trend curve -->
+  <path d="M 96 360 L 96 340 L 160 310 L 224 350 L 288 230 L 352 260 L 416 140 L 416 410 L 96 410 Z" fill="url(#areaGrad)" />
+
+  <!-- Chart Volume & Candlestick Bars -->
+  <!-- Bar 1 (Green/Cyan Bullish) -->
+  <g filter="url(#shadow)">
+    <!-- Wick -->
+    <line x1="120" y1="290" x2="120" y2="390" stroke="#00f5d4" stroke-opacity="0.7" stroke-width="3" stroke-linecap="round"/>
+    <!-- Body -->
+    <rect x="104" y="320" width="32" height="60" rx="6" fill="url(#bullGrad)" />
+  </g>
+
+  <!-- Bar 2 (Purple Accent) -->
+  <g filter="url(#shadow)">
+    <!-- Wick -->
+    <line x1="184" y1="260" x2="184" y2="380" stroke="#a855f7" stroke-opacity="0.7" stroke-width="3" stroke-linecap="round"/>
+    <!-- Body -->
+    <rect x="168" y="290" width="32" height="70" rx="6" fill="url(#purpleBarGrad)" />
+  </g>
+
+  <!-- Bar 3 (Blue Bar - Higher Peak) -->
+  <g filter="url(#shadow)">
+    <!-- Wick -->
+    <line x1="248" y1="190" x2="248" y2="360" stroke="#60a5fa" stroke-opacity="0.7" stroke-width="3" stroke-linecap="round"/>
+    <!-- Body -->
+    <rect x="232" y="220" width="32" height="110" rx="6" fill="url(#accentBarGrad)" />
+  </g>
+
+  <!-- Bar 4 (Purple Bar - Pullback/Consolidation) -->
+  <g filter="url(#shadow)">
+    <!-- Wick -->
+    <line x1="312" y1="170" x2="312" y2="320" stroke="#a855f7" stroke-opacity="0.7" stroke-width="3" stroke-linecap="round"/>
+    <!-- Body -->
+    <rect x="296" y="200" width="32" height="90" rx="6" fill="url(#purpleBarGrad)" />
+  </g>
+
+  <!-- Bar 5 (Main Breakout Bull Bar) -->
+  <g filter="url(#shadow)">
+    <!-- Wick -->
+    <line x1="376" y1="100" x2="376" y2="280" stroke="#00f5d4" stroke-opacity="0.9" stroke-width="4" stroke-linecap="round"/>
+    <!-- Body -->
+    <rect x="360" y="130" width="32" height="130" rx="6" fill="url(#bullGrad)" filter="url(#glow)" />
+  </g>
+
+  <!-- Dynamic Trend Line overlaying bars -->
+  <path d="M 96 350 C 140 330, 150 290, 184 300 C 218 310, 236 210, 272 230 C 308 250, 328 170, 376 130 L 416 96" 
+        fill="none" 
+        stroke="url(#lineGrad)" 
+        stroke-width="7" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"
+        filter="url(#glow)" />
+
+  <!-- Breakout Indicator Arrow & Glow Node at peak -->
+  <circle cx="416" cy="96" r="10" fill="#00f5d4" filter="url(#strongGlow)" />
+  <circle cx="416" cy="96" r="5" fill="#ffffff" />
+  
+  <!-- Upward Trend Arrow -->
+  <path d="M 400 96 L 426 96 L 426 122" fill="none" stroke="#00f5d4" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)" />
+</svg>

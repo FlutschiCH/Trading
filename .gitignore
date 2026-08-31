@@ -1,0 +1,43 @@
+# Logs
+logs
+*.log
+backend/logs.json
+autoupdate_crash_log.json
+logs.json
+*.json.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+__pycache__/
+*.pyc
+.venv/
+venv/
+backend/.venv/
+*.db
+
+# MetaTrader Instance Directories (Only track base templates)
+mt5/*
+!mt5/mt5_base
+!mt5/mt5_plugin_base
+!mt5/mt5_base/**
+!mt5/mt5_plugin_base/**
+

@@ -1,0 +1,60 @@
+from flask import Blueprint
+from routes.strategy_routes import strategy_routes
+from routes.ctrader_routes import ctrader_routes
+from routes.sql_routes import sql_routes
+from routes.live_strategy_routes import live_strategy_routes
+from routes.metatrader_routes import metatrader_routes
+from routes.account_routes import account_routes
+from routes.favourites_routes import favourites_routes
+from routes.indicator_routes import indicator_routes
+from routes.symbol_mapping_routes import symbol_mapping_routes
+from routes.wyckoff_routes import wyckoff_routes
+from routes.notification_routes import notification_routes
+from routes.backtest_settings_routes import backtest_settings_routes
+from routes.system_routes import system_routes
+from routes.trading_routes import trading_routes
+from routes.broker_routes import broker_routes
+from routes.terminal_routes import terminal_routes
+from routes.candle_collector_routes import candle_collector_routes
+from routes.backtest_routes import backtest_routes
+from routes.alert_routes import alert_bp
+from routes.sltp_sync_routes import sltp_sync_routes
+from routes.copytrader_routes import copytrader_routes
+from routes.computer_routes import computer_routes
+from routes.trade_analyzer_routes import trade_analyzer_routes
+from routes.binance_routes import binance_routes
+from routes.news_routes import news_bp
+
+# Create consolidated api blueprint
+api_blueprint = Blueprint('api', __name__)
+
+# Register sub-blueprints
+api_blueprint.register_blueprint(news_bp, url_prefix='/news')
+api_blueprint.register_blueprint(binance_routes, url_prefix='/binance')
+api_blueprint.register_blueprint(trade_analyzer_routes)
+api_blueprint.register_blueprint(copytrader_routes)
+api_blueprint.register_blueprint(computer_routes)
+api_blueprint.register_blueprint(strategy_routes)
+api_blueprint.register_blueprint(ctrader_routes)
+api_blueprint.register_blueprint(sql_routes)
+api_blueprint.register_blueprint(live_strategy_routes)
+api_blueprint.register_blueprint(metatrader_routes)
+api_blueprint.register_blueprint(account_routes)
+api_blueprint.register_blueprint(favourites_routes)
+api_blueprint.register_blueprint(indicator_routes)
+api_blueprint.register_blueprint(symbol_mapping_routes)
+api_blueprint.register_blueprint(wyckoff_routes)
+api_blueprint.register_blueprint(notification_routes)
+api_blueprint.register_blueprint(backtest_settings_routes)
+api_blueprint.register_blueprint(system_routes)
+api_blueprint.register_blueprint(trading_routes)
+api_blueprint.register_blueprint(broker_routes)
+api_blueprint.register_blueprint(terminal_routes)
+api_blueprint.register_blueprint(candle_collector_routes)
+api_blueprint.register_blueprint(backtest_routes)
+api_blueprint.register_blueprint(sltp_sync_routes)
+api_blueprint.register_blueprint(alert_bp, url_prefix='/alerts')
+
+
+
+
