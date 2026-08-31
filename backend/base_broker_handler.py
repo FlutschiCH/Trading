@@ -40,3 +40,8 @@ class BaseBrokerHandler(ABC):
     @abstractmethod
     def get_symbols(**kwargs) -> dict:
         pass
+
+    @staticmethod
+    @abstractmethod
+    def get_history(**kwargs) -> list:
+        pass

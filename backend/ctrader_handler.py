@@ -440,6 +440,10 @@ class CTraderHandler(BaseBrokerHandler):
         except Exception as e:
             return {"status": "error", "message": f"Failed to modify position via OpenAPI: {str(e)}"}
 
+    @staticmethod
+    def get_history(**kwargs) -> list:
+        return []
+
 if __name__ == '__main__':
     # Load dotenv from the script's directory explicitly
     import os

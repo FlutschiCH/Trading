@@ -298,6 +298,33 @@ class BinanceFuturesHandler(BaseBrokerHandler):
         symbols = [s['symbol'] for s in res.get('symbols', []) if s.get('status') == 'TRADING']
         return {'symbols': symbols}
 
+    @classmethod
+    def get_history(cls, symbol: str = "BTCUSDT", api_key: str = None, secret_key: str = None, limit: int = 100, **kwargs) -> list:
+        params = {
+            'symbol': symbol,
+            'limit': limit
+        }
+        res = cls._request('GET', '/fapi/v1/userTrades', params=params, api_key=api_key, secret_key=secret_key, signed=True)
+        if isinstance(res, dict) and 'error' in res:
+            return res
+        if not isinstance(res, list):
+            return []
+
+        trades = []
+        for t in res:
+            trades.append({
+                'ticket': t.get('id'),
+                'order': t.get('orderId'),
+                'symbol': t.get('symbol'),
+                'trade_side': 'BUY' if t.get('side') == 'BUY' else 'SELL',
+                'volume': float(t.get('qty', 0)),
+                'price': float(t.get('price', 0)),
+                'profit': float(t.get('realizedPnl', 0)),
+                'commission': float(t.get('commission', 0)),
+                'timestamp': int(t.get('time', 0) / 1000)
+            })
+        return trades
+
 if __name__ == '__main__':
     from account_handler import AccountHandler
     import json
