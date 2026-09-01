@@ -22,12 +22,18 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>,
 )
 
-// Register PWA service worker
+import { registerWebPushSubscription } from './services/pushService'
+
+// Register PWA service worker and auto-register web push subscription
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
-      .then((reg) => console.log('Service Worker registered successfully:', reg.scope))
+      .then((reg) => {
+        console.log('Service Worker registered successfully:', reg.scope);
+        registerWebPushSubscription();
+      })
       .catch((err) => console.error('Service Worker registration failed:', err));
   });
 }
+
 

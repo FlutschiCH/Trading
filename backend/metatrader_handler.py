@@ -524,16 +524,17 @@ class MetaTraderHandler(BaseBrokerHandler):
         
         from notification_handler import NotificationHandler
         if result is None:
-            NotificationHandler.play_sound("error")
+            NotificationHandler.send_notification("MT5 Order Failed: order_send returned None", sound_type="error")
             return {"status": "error", "message": "MT5 order_send returned None"}
             
         done_ret = getattr(mt5_inst, 'TRADE_RETCODE_DONE', 10009)
         if result.retcode != done_ret:
-            NotificationHandler.play_sound("error")
+            NotificationHandler.send_notification(f"MT5 Order Failed: {result.comment} (retcode: {result.retcode})", sound_type="error")
             return {"status": "error", "message": f"MT5 order failed: {result.comment} (retcode: {result.retcode})"}
             
-        NotificationHandler.play_sound("trade_open")
         order_ticket = str(getattr(result, 'order', None) or getattr(result, 'deal', None) or f"slv_{int(time.time())}")
+        msg = f"📈 New Trade Executed ({symbol} {side.upper()}) | Volume: {volume} | Ticket: {order_ticket}"
+        NotificationHandler.send_notification(msg, sound_type="trade_open")
         return {"status": "success", "message": f"Order successfully executed on MT5. Ticket: {order_ticket}", "ticket": order_ticket, "position_id": order_ticket}
 
     @staticmethod
@@ -572,15 +573,15 @@ class MetaTraderHandler(BaseBrokerHandler):
             res = mt5_inst.Close(broker_symbol, ticket=int(position_id))
             from notification_handler import NotificationHandler
             if res is True or res == "Partially":
-                NotificationHandler.play_sound("trade_close")
+                NotificationHandler.send_notification(f"🔒 Position Closed #{position_id} ({broker_symbol})", sound_type="trade_close")
                 return {"status": "success", "message": f"Position {position_id} closed via mt5.Close: {res}"}
             else:
-                NotificationHandler.play_sound("error")
+                NotificationHandler.send_notification(f"Failed to close position #{position_id}", sound_type="error")
                 return {"status": "error", "message": f"Failed to close position {position_id} via mt5.Close, returned: {res}"}
         except Exception as e:
             print(f"[MetaTrader close_position] Error closing position {position_id}: {e}", flush=True)
             from notification_handler import NotificationHandler
-            NotificationHandler.play_sound("error")
+            NotificationHandler.send_notification(f"Error closing position #{position_id}: {e}", sound_type="error")
             return {"status": "error", "message": f"Failed to close position {position_id} via mt5.Close: {e}"}
 
     @staticmethod

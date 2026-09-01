@@ -179,7 +179,10 @@ def execute_signal(signal_data: dict) -> dict:
         ))
         conn.commit()
         
-        NotificationHandler.play_sound("trade_open")
+        NotificationHandler.send_notification(
+            f"📈 New Trade Executed ({symbol} {action.upper()}) | Qty: {qty} | Notional: {notional}",
+            sound_type="trade_open"
+        )
         return {
             "status": status,
             "notional": notional,
@@ -188,7 +191,7 @@ def execute_signal(signal_data: dict) -> dict:
         }
     except Exception as e:
         conn.rollback()
-        NotificationHandler.play_sound("error")
+        NotificationHandler.send_notification(f"Execution failed: {str(e)}", sound_type="error")
         return {
             "status": "ERROR",
             "message": f"Execution failed: {str(e)}"
