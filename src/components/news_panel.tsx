@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { getApiBaseUrl } from './ip_switcher';
+import { isFetchAllowed } from '../services/fetchControlStore';
 
 export interface NewsItem {
   id: string;
@@ -29,6 +30,7 @@ export const NewsPanel: React.FC<NewsPanelProps> = ({ isCompact = false }) => {
   const [searchTerm, setSearchTerm] = useState<string>('');
 
   const fetchNews = useCallback(async () => {
+    if (!isFetchAllowed('news')) return;
     setLoading(true);
     setError(null);
     try {

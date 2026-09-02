@@ -26,6 +26,7 @@ import type { Candle, AccountInfo, Position } from '../types/trading';
 import { useCandleStore } from '../services/candleStore';
 import { usePositionsStore } from '../services/positionsStore';
 import { isPollingPaused } from '../services/pollingStore';
+import { isFetchAllowed } from '../services/fetchControlStore';
 
 
 
@@ -1579,7 +1580,7 @@ export default function Dashboard() {
 
   // Unified API endpoints
   const fetchAccountData = async (overrideBroker?: string, overrideAccId?: string) => {
-    if (isPollingPaused()) return;
+    if (isPollingPaused() || !isFetchAllowed('account_info')) return;
     const accId = overrideAccId || getSelectedAccountId();
     if (!isValidAcc(accId)) return;
     const activeAccBroker = activeAccount?.broker_type || activeAccount?.broker;
@@ -1604,6 +1605,7 @@ export default function Dashboard() {
   };
 
   const fetchHistoryTrades = async (overrideBroker?: string, overrideAccId?: string) => {
+    if (!isFetchAllowed('history')) return;
     const accId = overrideAccId || getSelectedAccountId();
     if (!isValidAcc(accId)) return;
     const activeAccBroker = activeAccount?.broker_type || activeAccount?.broker;
@@ -1630,6 +1632,7 @@ export default function Dashboard() {
   };
 
   const fetchAccounts = async () => {
+    if (!isFetchAllowed('accounts_list')) return;
     try {
       const res = await fetch(`${API_BASE_URL}/api/accounts`);
       const data = await res.json();

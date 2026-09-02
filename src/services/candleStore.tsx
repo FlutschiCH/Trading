@@ -3,6 +3,7 @@ import type { Candle } from '../types/trading';
 import * as apiService from './apiService';
 import { API_BASE_URL } from '../api';
 import { isPollingPaused } from './pollingStore';
+import { isFetchAllowed } from './fetchControlStore';
 
 interface CandleContextType {
   candles: Candle[];
@@ -122,7 +123,7 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const fetchCandles = async (forceFullRefresh: boolean = false, isBackground: boolean = false) => {
-    if (!symbol) return;
+    if (!symbol || !isFetchAllowed('candles')) return;
     if (isFetchingRef.current) return;
 
     isFetchingRef.current = true;

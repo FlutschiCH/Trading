@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { API_BASE_URL } from '../api';
 import type { Position } from '../types/trading';
 import { isPollingPaused } from './pollingStore';
+import { isFetchAllowed } from './fetchControlStore';
 
 interface PositionsContextType {
   positions: Position[];
@@ -38,7 +39,7 @@ export const PositionsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, []);
 
   const refreshPositions = useCallback(async (overrideBroker?: string, overrideAccId?: string) => {
-    if (isPollingPaused() || isFetchingRef.current) return;
+    if (isPollingPaused() || !isFetchAllowed('positions') || isFetchingRef.current) return;
 
     const { accId: activeAccId, broker: activeBroker } = getActiveAccountInfo();
     const accId = overrideAccId || activeAccId;

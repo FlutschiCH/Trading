@@ -9,6 +9,7 @@ import { isPollingPaused, setPollingPausedState } from '../services/pollingStore
 import { useAccountsStore } from '../services/accountsStore';
 import { usePositionsStore } from '../services/positionsStore';
 import DebugComponentBadge from './debug_component_badge';
+import { FetchControlMenu } from './fetch_control_menu';
 
 const triggerPWAEventNotification = (title: string, body: string, soundType: string = 'alert') => {
   fetch(`${API_BASE_URL}/api/notification/trigger`, {
@@ -565,6 +566,7 @@ export default function Header({
               >
                 {pollingPaused ? '⏸️ Polling Paused' : '🟢 Live Polling'}
               </button>
+              <FetchControlMenu />
               <button
                 onClick={handleRestartServer}
                 style={{
