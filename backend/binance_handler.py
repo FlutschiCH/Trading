@@ -39,10 +39,6 @@ class BinanceFuturesHandler(BaseBrokerHandler):
         base_host = "https://api.binance.com" if endpoint.startswith("/sapi") else cls.BASE_URL
         url = f"{base_host}{endpoint}"
 
-        print(f"[Binance DEBUG] Request: {method.upper()} {url}", flush=True)
-        print(f"[Binance DEBUG] Params: {params}", flush=True)
-        print(f"[Binance DEBUG] API Key (first 6 chars): {api_key[:6]}..." if api_key else "[Binance DEBUG] API Key: None", flush=True)
-
         try:
             if method.upper() == 'GET':
                 response = requests.get(url, headers=headers, params=params, timeout=10)
@@ -54,9 +50,6 @@ class BinanceFuturesHandler(BaseBrokerHandler):
                 response = requests.delete(url, headers=headers, params=params, timeout=10)
             else:
                 return {'error': f'Unsupported HTTP method: {method}'}
-
-            print(f"[Binance DEBUG] Response Status: {response.status_code}", flush=True)
-            print(f"[Binance DEBUG] Response Body: {response.text[:500]}", flush=True)
 
             try:
                 res_json = response.json()
