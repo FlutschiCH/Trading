@@ -51,8 +51,6 @@ class BinanceFuturesHandler(BaseBrokerHandler):
             else:
                 return {'error': f'Unsupported HTTP method: {method}'}
 
-            print(f"[Binance DEBUG] {method.upper()} {url} | Status: {response.status_code} | Text: {response.text[:500]}", flush=True)
-
             try:
                 res_json = response.json()
                 if isinstance(res_json, dict) and 'code' in res_json and res_json['code'] != 200:
@@ -67,7 +65,15 @@ class BinanceFuturesHandler(BaseBrokerHandler):
 
     @classmethod
     def get_account_info(cls, api_key: str = None, secret_key: str = None, **kwargs) -> dict:
-        return cls._request('GET', '/fapi/v2/account', api_key=api_key, secret_key=secret_key, signed=True)
+        info = cls._request('GET', '/fapi/v2/account', api_key=api_key, secret_key=secret_key, signed=True)
+        if isinstance(info, dict) and not info.get('error'):
+            info['balance'] = float(info.get('totalWalletBalance', 0))
+            info['equity'] = float(info.get('totalMarginBalance', 0))
+            info['unrealizedPnl'] = float(info.get('totalUnrealizedProfit', 0))
+            info['availableBalance'] = float(info.get('availableBalance', 0))
+            info['margin'] = float(info.get('totalPositionInitialMargin', 0))
+            info['currency'] = 'USDT'
+        return info
 
     @classmethod
     def get_account(cls, api_key: str = None, secret_key: str = None, **kwargs) -> dict:
