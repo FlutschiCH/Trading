@@ -104,13 +104,18 @@ def start_timer():
 
 @app.after_request
 def log_request_timing(response):
-    if hasattr(g, 'start_time'):
-        elapsed = time.time() - g.start_time
-        if elapsed > 0.1:
-            logPrint(f"⏱️ [API SLOW] {request.method} {request.path} took {elapsed:.4f}s", category="Flask API", level="WARNING")
-        else:
-            logPrint(f"⚡ [API] {request.method} {request.path} took {elapsed:.4f}s", category="Flask API", level="DEBUG")
-        response.headers['X-Response-Time'] = f"{elapsed:.4f}s"
+    try:
+        if hasattr(g, 'start_time'):
+            elapsed = time.time() - g.start_time
+            method = request.method if request else 'UNKNOWN'
+            path = request.path if request else ''
+            if elapsed > 0.1:
+                logPrint(f"⏱️ [API SLOW] {method} {path} took {elapsed:.4f}s", category="Flask API", level="WARNING")
+            else:
+                logPrint(f"⚡ [API] {method} {path} took {elapsed:.4f}s", category="Flask API", level="DEBUG")
+            response.headers['X-Response-Time'] = f"{elapsed:.4f}s"
+    except Exception:
+        pass
     return response
 
 # Register consolidated routes
