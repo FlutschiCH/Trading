@@ -96,7 +96,7 @@ app = Flask(__name__)
 CORS(app)
 
 import time
-from flask import g
+from flask import g, request
 
 @app.before_request
 def start_timer():
