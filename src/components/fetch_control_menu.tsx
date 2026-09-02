@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Filter, CheckSquare, Square, ChevronDown } from 'lucide-react';
-import { getFetchConfig, setFetchAllowed, setAllFetchAllowed, type FetchConfig, type FetchCategory } from '../services/fetchControlStore';
+import { Filter, CheckSquare, Square, ChevronDown, RefreshCw } from 'lucide-react';
+import { getFetchConfig, setFetchAllowed, setAllFetchAllowed, triggerManualRefresh, type FetchConfig, type FetchCategory } from '../services/fetchControlStore';
 
 const CATEGORY_LABELS: { key: FetchCategory; label: string }[] = [
   { key: 'account_info', label: 'Account Info' },
@@ -15,6 +15,7 @@ const CATEGORY_LABELS: { key: FetchCategory; label: string }[] = [
 export const FetchControlMenu: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [config, setConfig] = useState<FetchConfig>(getFetchConfig);
+  const [refreshingKey, setRefreshingKey] = useState<FetchCategory | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -40,6 +41,14 @@ export const FetchControlMenu: React.FC = () => {
 
   const toggleCategory = (key: FetchCategory) => {
     setFetchAllowed(key, !config[key]);
+  };
+
+  const handleManualRefresh = (key: FetchCategory, e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setRefreshingKey(key);
+    triggerManualRefresh(key);
+    setTimeout(() => setRefreshingKey(null), 600);
   };
 
   return (
@@ -74,7 +83,7 @@ export const FetchControlMenu: React.FC = () => {
             top: 'calc(100% + 6px)',
             right: 0,
             zIndex: 99999,
-            width: '220px',
+            width: '240px',
             backgroundColor: '#111827',
             border: '1px solid #374151',
             borderRadius: '8px',
@@ -107,17 +116,15 @@ export const FetchControlMenu: React.FC = () => {
 
           {CATEGORY_LABELS.map(({ key, label }) => {
             const checked = config[key] ?? true;
+            const isSpinning = refreshingKey === key;
             return (
-              <label
+              <div
                 key={key}
-                onClick={(e) => {
-                  e.preventDefault();
-                  toggleCategory(key);
-                }}
+                onClick={() => toggleCategory(key)}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '8px',
+                  justifyContent: 'space-between',
                   padding: '5px 8px',
                   borderRadius: '4px',
                   cursor: 'pointer',
@@ -127,9 +134,31 @@ export const FetchControlMenu: React.FC = () => {
                   userSelect: 'none',
                 }}
               >
-                {checked ? <CheckSquare size={14} color="#3b82f6" /> : <Square size={14} color="#4b5563" />}
-                <span>{label}</span>
-              </label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {checked ? <CheckSquare size={14} color="#3b82f6" /> : <Square size={14} color="#4b5563" />}
+                  <span>{label}</span>
+                </div>
+                <button
+                  onClick={(e) => handleManualRefresh(key, e)}
+                  title={`Trigger immediate refresh for ${label}`}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#9ca3af',
+                    cursor: 'pointer',
+                    padding: '2px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: '4px',
+                    outline: 'none',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = '#3b82f6')}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = '#9ca3af')}
+                >
+                  <RefreshCw size={12} className={isSpinning ? 'spin-anim' : ''} style={{ animation: isSpinning ? 'spin 0.6s linear infinite' : 'none' }} />
+                </button>
+              </div>
             );
           })}
         </div>

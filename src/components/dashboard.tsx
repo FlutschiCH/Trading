@@ -1545,9 +1545,35 @@ export default function Dashboard() {
       fetchCandles(candleSource, false, true);
     };
 
+    const handleManualFetchTrigger = (e: Event) => {
+      const category = (e as CustomEvent).detail?.category;
+      if (!category) return;
+      console.log(`[Dashboard] Manual refresh triggered for: ${category}`);
+      if (category === 'account_info') {
+        fetchAccountData(undefined, undefined, true);
+      } else if (category === 'positions') {
+        storeRefreshPositions(undefined, undefined, true);
+      } else if (category === 'history') {
+        fetchHistoryTrades(undefined, undefined, true);
+      } else if (category === 'candles') {
+        storeFetchCandles(true, false, true);
+      } else if (category === 'accounts_list') {
+        fetchAccounts(true);
+        fetchActiveAccount();
+      } else if (category === 'live_strategies') {
+        apiService.fetchLiveStrategies().then((data) => {
+          if (data && data.status === 'success' && Array.isArray(data.strategies)) {
+            setLiveStrategies(data.strategies);
+          }
+        });
+      }
+    };
+
     window.addEventListener('api_target_changed', handleTargetChange);
+    window.addEventListener('manual_fetch_trigger', handleManualFetchTrigger);
     return () => {
       window.removeEventListener('api_target_changed', handleTargetChange);
+      window.removeEventListener('manual_fetch_trigger', handleManualFetchTrigger);
     };
   }, [candleSource]);
 
@@ -1579,8 +1605,8 @@ export default function Dashboard() {
   };
 
   // Unified API endpoints
-  const fetchAccountData = async (overrideBroker?: string, overrideAccId?: string) => {
-    if (isPollingPaused() || !isFetchAllowed('account_info')) return;
+  const fetchAccountData = async (overrideBroker?: string, overrideAccId?: string, force: boolean = false) => {
+    if ((isPollingPaused() || !isFetchAllowed('account_info')) && !force) return;
     const accId = overrideAccId || getSelectedAccountId();
     if (!isValidAcc(accId)) return;
     const activeAccBroker = activeAccount?.broker_type || activeAccount?.broker;
@@ -1604,8 +1630,8 @@ export default function Dashboard() {
     return storeRefreshPositions(overrideBroker, overrideAccId);
   };
 
-  const fetchHistoryTrades = async (overrideBroker?: string, overrideAccId?: string) => {
-    if (!isFetchAllowed('history')) return;
+  const fetchHistoryTrades = async (overrideBroker?: string, overrideAccId?: string, force: boolean = false) => {
+    if (!isFetchAllowed('history') && !force) return;
     const accId = overrideAccId || getSelectedAccountId();
     if (!isValidAcc(accId)) return;
     const activeAccBroker = activeAccount?.broker_type || activeAccount?.broker;
@@ -1631,8 +1657,8 @@ export default function Dashboard() {
     }
   };
 
-  const fetchAccounts = async () => {
-    if (!isFetchAllowed('accounts_list')) return;
+  const fetchAccounts = async (force: boolean = false) => {
+    if (!isFetchAllowed('accounts_list') && !force) return;
     try {
       const res = await fetch(`${API_BASE_URL}/api/accounts`);
       const data = await res.json();

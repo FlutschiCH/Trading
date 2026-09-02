@@ -68,3 +68,12 @@ export const setAllFetchAllowed = (allowed: boolean) => {
     }
   } catch {}
 };
+
+export const triggerManualRefresh = (category: FetchCategory) => {
+  try {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('manual_fetch_trigger', { detail: { category } }));
+    }
+  } catch {}
+};
+

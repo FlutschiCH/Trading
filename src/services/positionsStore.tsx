@@ -7,7 +7,7 @@ import { isFetchAllowed } from './fetchControlStore';
 interface PositionsContextType {
   positions: Position[];
   loadingPositions: boolean;
-  refreshPositions: (overrideBroker?: string, overrideAccId?: string) => Promise<void>;
+  refreshPositions: (overrideBroker?: string, overrideAccId?: string, force?: boolean) => Promise<void>;
 }
 
 const PositionsContext = createContext<PositionsContextType | undefined>(undefined);
@@ -38,8 +38,9 @@ export const PositionsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return { accId, broker };
   }, []);
 
-  const refreshPositions = useCallback(async (overrideBroker?: string, overrideAccId?: string) => {
-    if (isPollingPaused() || !isFetchAllowed('positions') || isFetchingRef.current) return;
+  const refreshPositions = useCallback(async (overrideBroker?: string, overrideAccId?: string, force: boolean = false) => {
+    if ((isPollingPaused() || !isFetchAllowed('positions')) && !force) return;
+    if (isFetchingRef.current) return;
 
     const { accId: activeAccId, broker: activeBroker } = getActiveAccountInfo();
     const accId = overrideAccId || activeAccId;

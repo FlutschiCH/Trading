@@ -29,8 +29,8 @@ export const NewsPanel: React.FC<NewsPanelProps> = ({ isCompact = false }) => {
   const [selectedImpact, setSelectedImpact] = useState<string>('ALL');
   const [searchTerm, setSearchTerm] = useState<string>('');
 
-  const fetchNews = useCallback(async () => {
-    if (!isFetchAllowed('news')) return;
+  const fetchNews = useCallback(async (force: boolean = false) => {
+    if (!isFetchAllowed('news') && !force) return;
     setLoading(true);
     setError(null);
     try {
@@ -55,6 +55,16 @@ export const NewsPanel: React.FC<NewsPanelProps> = ({ isCompact = false }) => {
       setLoading(false);
     }
   }, [selectedCurrency, selectedImpact, searchTerm, isCompact]);
+
+  useEffect(() => {
+    const handleManual = (e: Event) => {
+      if ((e as CustomEvent).detail?.category === 'news') {
+        fetchNews(true);
+      }
+    };
+    window.addEventListener('manual_fetch_trigger', handleManual);
+    return () => window.removeEventListener('manual_fetch_trigger', handleManual);
+  }, [fetchNews]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
