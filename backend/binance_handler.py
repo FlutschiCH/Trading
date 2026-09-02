@@ -51,6 +51,8 @@ class BinanceFuturesHandler(BaseBrokerHandler):
             else:
                 return {'error': f'Unsupported HTTP method: {method}'}
 
+            print(f"[Binance DEBUG] {method.upper()} {url} | Status: {response.status_code} | Text: {response.text[:500]}", flush=True)
+
             try:
                 res_json = response.json()
                 if isinstance(res_json, dict) and 'code' in res_json and res_json['code'] != 200:
