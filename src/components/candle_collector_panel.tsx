@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { API_BASE_URL } from '../api';
 import { RefreshCw, Plus, Trash2, Database, Clock, Server, CheckCircle2, XCircle } from 'lucide-react';
 import DebugComponentBadge from './debug_component_badge';
+import { isFetchAllowed } from '../services/fetchControlStore';
 
 interface TrackedSymbol {
   symbol: string;
@@ -93,7 +94,8 @@ export const CandleCollectorPanel: React.FC<CandleCollectorPanelProps> = ({ avai
     fetchBrokerSymbols();
   }, []);
 
-  const fetchStats = async () => {
+  const fetchStats = async (force: boolean = false) => {
+    if (!isFetchAllowed('candle_collector') && !force) return;
     try {
       setLoading(true);
       const res = await fetch(`${API_BASE_URL}/api/candle-collector/symbols`);
@@ -116,6 +118,16 @@ export const CandleCollectorPanel: React.FC<CandleCollectorPanelProps> = ({ avai
 
   useEffect(() => {
     fetchStats();
+  }, []);
+
+  useEffect(() => {
+    const handleManual = (e: Event) => {
+      if ((e as CustomEvent).detail?.category === 'candle_collector') {
+        fetchStats(true);
+      }
+    };
+    window.addEventListener('manual_fetch_trigger', handleManual);
+    return () => window.removeEventListener('manual_fetch_trigger', handleManual);
   }, []);
 
   useEffect(() => {

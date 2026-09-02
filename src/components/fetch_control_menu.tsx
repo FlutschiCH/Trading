@@ -10,6 +10,7 @@ const CATEGORY_LABELS: { key: FetchCategory; label: string }[] = [
   { key: 'accounts_list', label: 'Accounts List' },
   { key: 'live_strategies', label: 'Live Strategies' },
   { key: 'news', label: 'News' },
+  { key: 'candle_collector', label: 'Candle Collector' },
 ];
 
 export const FetchControlMenu: React.FC = () => {

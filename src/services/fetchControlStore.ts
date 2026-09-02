@@ -1,5 +1,5 @@
 // Service for managing allowed fetch categories for debugging purposes
-export type FetchCategory = 'account_info' | 'positions' | 'history' | 'candles' | 'accounts_list' | 'live_strategies' | 'news';
+export type FetchCategory = 'account_info' | 'positions' | 'history' | 'candles' | 'accounts_list' | 'live_strategies' | 'news' | 'candle_collector';
 
 export interface FetchConfig {
   account_info: boolean;
@@ -9,6 +9,7 @@ export interface FetchConfig {
   accounts_list: boolean;
   live_strategies: boolean;
   news: boolean;
+  candle_collector: boolean;
 }
 
 const DEFAULT_FETCH_CONFIG: FetchConfig = {
@@ -19,6 +20,7 @@ const DEFAULT_FETCH_CONFIG: FetchConfig = {
   accounts_list: true,
   live_strategies: true,
   news: true,
+  candle_collector: true,
 };
 
 const STORAGE_KEY = 'wyckoff_fetch_config';
@@ -61,6 +63,7 @@ export const setAllFetchAllowed = (allowed: boolean) => {
       accounts_list: allowed,
       live_strategies: allowed,
       news: allowed,
+      candle_collector: allowed,
     };
     if (typeof window !== 'undefined') {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
