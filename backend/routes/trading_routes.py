@@ -7,13 +7,20 @@ def _get_handler(payload):
     broker_name = payload.get('broker', 'ctrader')
     return BrokerHandler.get_handler(broker_name)
 
+import time
+
 @trading_routes.route('/trade/account', methods=['POST'])
 def account():
+    t0 = time.perf_counter()
     payload = request.get_json(force=True) or {}
-    # print(f"[TradingRoutes] /trade/account payload: {payload}", flush=True)
     broker_name = payload.pop('broker', None)
     account_id = payload.pop('account_id', None)
+    t1 = time.perf_counter()
+
     data = BrokerHandler.get_account_info(broker_name=broker_name, account_id=account_id, **payload)
+    t2 = time.perf_counter()
+
+    print(f"⏱️ [/trade/account] Total: {(t2-t0)*1000:.2f}ms (JSON parse: {(t1-t0)*1000:.2f}ms | Broker fetch: {(t2-t1)*1000:.2f}ms)", flush=True)
     return jsonify(data)
 
 @trading_routes.route('/trade/positions', methods=['POST'])
