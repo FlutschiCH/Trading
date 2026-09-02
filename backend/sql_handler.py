@@ -8,9 +8,11 @@ from dotenv import load_dotenv
 
 try:
     import mysql.connector
+    from mysql.connector import pooling
     MYSQL_AVAILABLE = True
 except ImportError:
     mysql = None
+    pooling = None
     MYSQL_AVAILABLE = False
     print("Error: mysql-connector-python is required.", flush=True)
 
@@ -25,48 +27,45 @@ DB_NAME = os.getenv("DB_NAME", "trading_db")
 
 class SQLHandler:
     _lock = threading.RLock()
-    _exec_lock = threading.RLock()
-    _conn = None
+    _pool = None
     _db_queue = queue.Queue()
     _worker_thread = None
 
     @classmethod
-    def get_mysql_connection(cls):
-        """
-        Returns an active, single persistent MySQL connection (reconnects if disconnected).
-        """
+    def get_connection_pool(cls):
         if not MYSQL_AVAILABLE:
             raise RuntimeError("mysql-connector-python is not installed.")
 
         with cls._lock:
-            # Check if current connection is still alive
-            if cls._conn is not None:
+            if cls._pool is None:
+                start_time = time.time()
+                cls._pool = pooling.MySQLConnectionPool(
+                    pool_name="trading_db_pool",
+                    pool_size=20,
+                    pool_reset_session=True,
+                    host=DB_HOST,
+                    port=DB_PORT,
+                    user=DB_USER,
+                    password=DB_PASSWORD,
+                    database=DB_NAME,
+                    connect_timeout=5,
+                    autocommit=True
+                )
+                duration = time.time() - start_time
                 try:
-                    if cls._conn.is_connected():
-                        cls._conn.ping(reconnect=True, attempts=1, delay=0)
-                        return cls._conn
+                    from logger_handler import logPrint
+                    logPrint(f"Successfully initialized MySQL connection pool (size=20) to {DB_HOST}:{DB_PORT}/{DB_NAME} in {duration:.4f} seconds.", category="SQLHandler", level="INFO")
                 except Exception:
-                    cls._conn = None
+                    pass
+            return cls._pool
 
-            # Establish single persistent connection
-            start_time = time.time()
-            cls._conn = mysql.connector.connect(
-                host=DB_HOST,
-                port=DB_PORT,
-                user=DB_USER,
-                password=DB_PASSWORD,
-                database=DB_NAME,
-                connect_timeout=5,
-                autocommit=True
-            )
-            duration = time.time() - start_time
-            try:
-                from logger_handler import logPrint
-                logPrint(f"Successfully established persistent MySQL connection to {DB_HOST}:{DB_PORT}/{DB_NAME} in {duration:.4f} seconds.", category="SQLHandler", level="INFO")
-            except Exception:
-                pass
-
-            return cls._conn
+    @classmethod
+    def get_mysql_connection(cls):
+        """
+        Returns an active MySQL connection checked out from the connection pool.
+        """
+        pool = cls.get_connection_pool()
+        return pool.get_connection()
 
     @classmethod
     def init_log_settings_db(cls):
@@ -434,48 +433,52 @@ class SQLHandler:
     @classmethod
     def execute_query(cls, query: str, params: tuple = None) -> list:
         """
-        Executes a query with thread lock safety using single persistent connection.
+        Executes a query with thread-safe connection pooling for maximum concurrency.
         """
         if params is None:
             params = ()
 
-        with cls._exec_lock:
-            max_retries = 3
-            last_err = None
-            for attempt in range(max_retries):
-                cursor = None
-                try:
-                    q_start = time.time()
-                    conn = cls.get_mysql_connection()
-                    cursor = conn.cursor(dictionary=True)
-                    cursor.execute(query, params)
-                    if query.strip().upper().startswith("SELECT"):
-                        result = cursor.fetchall()
-                    else:
-                        result = [{"rowcount": cursor.rowcount, "lastrowid": cursor.lastrowid}]
-                    q_dur = time.time() - q_start
-                    if q_dur > 0.05 and "system_log_settings" not in query:
-                        from logger_handler import logPrint
-                        clean_q = " ".join(query.split())[:120]
-                        logPrint(f"Executed SQL query in {q_dur:.4f}s: {clean_q}", category="SQLHandler", level="DEBUG")
-                    return result
-                except Exception as err:
-                    last_err = err
-                    err_msg = str(err)
-                    is_conn_err = any(x in err_msg for x in ["2055", "Lost connection", "10054", "Connection refused", "is closed", "not connected", "MySQL Connection not available"])
-                    if is_conn_err:
-                        cls._conn = None  # Reset persistent connection on disconnect
-                        if attempt < max_retries - 1:
-                            time.sleep(0.2)
-                            continue
-                    else:
-                        raise err
-                finally:
-                    if cursor:
-                        try:
-                            cursor.close()
-                        except Exception:
-                            pass
+        max_retries = 3
+        last_err = None
+        for attempt in range(max_retries):
+            conn = None
+            cursor = None
+            try:
+                q_start = time.time()
+                conn = cls.get_mysql_connection()
+                cursor = conn.cursor(dictionary=True)
+                cursor.execute(query, params)
+                if query.strip().upper().startswith("SELECT"):
+                    result = cursor.fetchall()
+                else:
+                    result = [{"rowcount": cursor.rowcount, "lastrowid": cursor.lastrowid}]
+                q_dur = time.time() - q_start
+                if q_dur > 0.05 and "system_log_settings" not in query:
+                    from logger_handler import logPrint
+                    clean_q = " ".join(query.split())[:120]
+                    logPrint(f"Executed SQL query in {q_dur:.4f}s: {clean_q}", category="SQLHandler", level="DEBUG")
+                return result
+            except Exception as err:
+                last_err = err
+                err_msg = str(err)
+                is_conn_err = any(x in err_msg for x in ["2055", "Lost connection", "10054", "Connection refused", "is closed", "not connected", "MySQL Connection not available", "Pool exhausted"])
+                if is_conn_err:
+                    if attempt < max_retries - 1:
+                        time.sleep(0.2)
+                        continue
+                else:
+                    raise err
+            finally:
+                if cursor:
+                    try:
+                        cursor.close()
+                    except Exception:
+                        pass
+                if conn:
+                    try:
+                        conn.close() # Return connection back to the pool
+                    except Exception:
+                        pass
 
         if last_err:
             raise last_err

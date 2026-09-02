@@ -57,7 +57,14 @@ def check_interrupted_backtests():
     except Exception as e:
         print(f"[Reboot Recovery] Error resuming unfinished jobs: {e}", flush=True)
 
-threading.Thread(target=SQLHandler.get_mysql_connection, daemon=True).start()
+def _warmup_db_pool():
+    try:
+        conn = SQLHandler.get_mysql_connection()
+        conn.close()
+    except Exception as e:
+        print(f"[SQLHandler Warmup Error] {e}", flush=True)
+
+threading.Thread(target=_warmup_db_pool, daemon=True).start()
 threading.Thread(target=check_interrupted_backtests, daemon=True).start()
 
 
