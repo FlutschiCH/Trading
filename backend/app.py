@@ -95,6 +95,24 @@ app = Flask(__name__)
 
 CORS(app)
 
+import time
+from flask import g
+
+@app.before_request
+def start_timer():
+    g.start_time = time.time()
+
+@app.after_request
+def log_request_timing(response):
+    if hasattr(g, 'start_time'):
+        elapsed = time.time() - g.start_time
+        if elapsed > 0.1:
+            logPrint(f"⏱️ [API SLOW] {request.method} {request.path} took {elapsed:.4f}s", category="Flask API", level="WARNING")
+        else:
+            logPrint(f"⚡ [API] {request.method} {request.path} took {elapsed:.4f}s", category="Flask API", level="DEBUG")
+        response.headers['X-Response-Time'] = f"{elapsed:.4f}s"
+    return response
+
 # Register consolidated routes
 app.register_blueprint(api_blueprint, url_prefix='/api')
 
