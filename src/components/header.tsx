@@ -1066,14 +1066,14 @@ export default function Header({
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
                 <span style={{
                   fontWeight: 'bold',
-                  color: activeAccount.broker_type === 'ctrader' ? '#f59e0b' : '#3b82f6',
+                  color: activeAccount.broker_type === 'ctrader' ? '#f59e0b' : (activeAccount.broker_type === 'binance' ? '#eab308' : '#3b82f6'),
                   textTransform: 'uppercase',
                   fontSize: '10px',
-                  backgroundColor: activeAccount.broker_type === 'ctrader' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(59, 130, 246, 0.15)',
+                  backgroundColor: activeAccount.broker_type === 'ctrader' ? 'rgba(245, 158, 11, 0.15)' : (activeAccount.broker_type === 'binance' ? 'rgba(234, 179, 8, 0.15)' : 'rgba(59, 130, 246, 0.15)'),
                   padding: '2px 6px',
                   borderRadius: '4px'
                 }}>
-                  {activeAccount.broker_type === 'ctrader' ? 'cTrader' : 'MT5'}
+                  {activeAccount.broker_type === 'ctrader' ? 'cTrader' : (activeAccount.broker_type === 'binance' ? 'Binance' : 'MT5')}
                 </span>
                 <span style={{ color: 'var(--app-text)', fontWeight: 'bold' }}>{activeAccount.name}</span>
                 <span style={{ color: 'var(--app-text-muted)', fontSize: '11px' }}>({activeAccount.account_id ? `...${String(activeAccount.account_id).slice(-6)}` : ''})</span>

@@ -1735,12 +1735,12 @@ export default function Dashboard() {
             setCandleSource(newActive.broker_type);
           }
         }
-        const broker = newActive ? newActive.broker_type : 'metatrader';
+        const broker = newActive ? (newActive.broker_type || newActive.broker || 'metatrader') : 'metatrader';
         window.dispatchEvent(new CustomEvent('api_target_changed'));
         fetchCandles(broker);
-        fetchAccountData(broker, switchedAccId);
-        fetchPositionData(broker, switchedAccId);
-        fetchHistoryTrades(broker, switchedAccId);
+        fetchAccountData(broker, switchedAccId, true);
+        storeRefreshPositions(broker, switchedAccId, true);
+        fetchHistoryTrades(broker, switchedAccId, true);
       } else {
         alert("Failed to switch account: " + data.message);
       }
