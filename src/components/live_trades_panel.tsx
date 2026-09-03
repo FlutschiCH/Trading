@@ -70,8 +70,23 @@ export default function LiveTradesPanel({
             {openPositions.map(p => (
               <div key={p.position_id} style={{ backgroundColor: 'var(--app-bg, #0b0f19)', border: '1px solid var(--app-card-border, #1f2937)', borderRadius: '8px', padding: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                  <span style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--app-text, #f8fafc)' }}>{p.symbol} ({p.volume})</span>
-                  <span style={{ fontSize: '10px', color: p.trade_side === 'BUY' ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>{p.trade_side} @ {Number(p.entry_price || 0).toFixed(5)}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--app-text, #f8fafc)' }}>{p.symbol} ({p.volume})</span>
+                    {p.leverage ? (
+                      <span style={{ fontSize: '9px', padding: '1px 4px', borderRadius: '3px', backgroundColor: 'rgba(234, 179, 8, 0.15)', color: '#eab308', fontWeight: 'bold' }}>
+                        {p.leverage}x{p.marginType ? ` ${p.marginType.toUpperCase()}` : ''}
+                      </span>
+                    ) : null}
+                  </div>
+                  <span style={{ fontSize: '10px', color: p.trade_side === 'BUY' ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>
+                    {p.trade_side} @ {Number(p.entry_price || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 5 })}
+                  </span>
+                  {p.markPrice ? (
+                    <span style={{ fontSize: '9px', color: 'var(--app-text-muted, #94a3b8)' }}>
+                      Mark: {Number(p.markPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 5 })}
+                      {p.liquidationPrice && Number(p.liquidationPrice) > 0 ? ` | Liq: ${Number(p.liquidationPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 5 })}` : ''}
+                    </span>
+                  ) : null}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <span style={{ fontSize: '12px', fontWeight: 'bold', color: (p.unrealized_profit ?? 0) >= 0 ? '#10b981' : '#ef4444' }}>${Number(p.unrealized_profit || 0).toFixed(2)}</span>
@@ -130,8 +145,23 @@ export default function LiveTradesPanel({
           {openPositions.map(p => (
             <div key={p.position_id} style={{ backgroundColor: 'var(--app-bg, #0b0f19)', border: '1px solid var(--app-card-border, #1f2937)', borderRadius: '6px', padding: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--app-text, #f8fafc)' }}>{p.symbol} ({p.volume})</span>
-                <span style={{ fontSize: '9px', color: p.trade_side === 'BUY' ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>{p.trade_side} @ {Number(p.entry_price || 0).toFixed(5)}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--app-text, #f8fafc)' }}>{p.symbol} ({p.volume})</span>
+                  {p.leverage ? (
+                    <span style={{ fontSize: '9px', padding: '1px 4px', borderRadius: '3px', backgroundColor: 'rgba(234, 179, 8, 0.15)', color: '#eab308', fontWeight: 'bold' }}>
+                      {p.leverage}x{p.marginType ? ` ${p.marginType.toUpperCase()}` : ''}
+                    </span>
+                  ) : null}
+                </div>
+                <span style={{ fontSize: '9px', color: p.trade_side === 'BUY' ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>
+                  {p.trade_side} @ {Number(p.entry_price || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 5 })}
+                </span>
+                {p.markPrice ? (
+                  <span style={{ fontSize: '9px', color: 'var(--app-text-muted, #94a3b8)' }}>
+                    Mark: {Number(p.markPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 5 })}
+                    {p.liquidationPrice && Number(p.liquidationPrice) > 0 ? ` | Liq: ${Number(p.liquidationPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 5 })}` : ''}
+                  </span>
+                ) : null}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ fontSize: '11px', fontWeight: 'bold', color: (p.unrealized_profit ?? 0) >= 0 ? '#10b981' : '#ef4444' }}>${Number(p.unrealized_profit || 0).toFixed(2)}</span>

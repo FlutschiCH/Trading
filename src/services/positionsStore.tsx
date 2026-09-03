@@ -63,7 +63,35 @@ export const PositionsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const data = await response.json();
         console.log('[PositionsStore] /api/broker/positions response:', data);
         if (data.status === 'success' && Array.isArray(data.data)) {
-          setPositions(data.data);
+          const normalized: Position[] = data.data.map((p: any, idx: number) => {
+            const rawSide = p.side || p.trade_side || p.type || '';
+            let trade_side = 'BUY';
+            if (String(rawSide).toUpperCase() === 'SELL' || String(rawSide) === '1' || Number(p.positionAmt || p.amount || 0) < 0) {
+              trade_side = 'SELL';
+            }
+
+            const rawVolume = p.volume ?? p.positionAmt ?? p.amount ?? p.size ?? 0;
+            const volume = Math.abs(Number(rawVolume));
+
+            const entry_price = Number(p.entryPrice ?? p.entry_price ?? p.open_price ?? p.price_open ?? 0);
+            const unrealized_profit = Number(p.unRealizedProfit ?? p.unrealized_profit ?? p.unrealizedProfit ?? p.profit ?? 0);
+            const position_id = Number(p.position_id ?? p.ticket ?? p.id ?? idx + 1);
+
+            return {
+              position_id,
+              symbol: p.symbol || '',
+              trade_side,
+              volume,
+              entry_price,
+              unrealized_profit,
+              leverage: p.leverage !== undefined ? Number(p.leverage) : undefined,
+              markPrice: p.markPrice !== undefined ? Number(p.markPrice) : undefined,
+              liquidationPrice: p.liquidationPrice !== undefined ? Number(p.liquidationPrice) : undefined,
+              marginType: p.marginType || undefined,
+              raw: p.raw || p
+            };
+          });
+          setPositions(normalized);
         }
       } else {
         const errText = await response.text();

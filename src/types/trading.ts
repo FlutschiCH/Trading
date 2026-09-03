@@ -40,6 +40,11 @@ export interface Position {
   volume: number;
   entry_price: number;
   unrealized_profit: number;
+  leverage?: number;
+  markPrice?: number;
+  liquidationPrice?: number;
+  marginType?: string;
+  raw?: any;
 }
 
 export interface Trade {

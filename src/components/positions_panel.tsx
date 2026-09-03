@@ -74,7 +74,16 @@ export const PositionsPanel: React.FC<PositionsPanelProps> = ({
               return (
                 <tr key={pos.position_id} style={{ borderBottom: '1px solid var(--app-card-border)' }}>
                   <td style={{ padding: '10px 16px', color: 'var(--app-text-muted)' }}>#{pos.position_id}</td>
-                  <td style={{ padding: '10px 16px', fontWeight: 'bold', color: 'var(--app-text)' }}>{pos.symbol}</td>
+                  <td style={{ padding: '10px 16px', fontWeight: 'bold', color: 'var(--app-text)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>{pos.symbol}</span>
+                      {pos.leverage ? (
+                        <span style={{ fontSize: '9px', padding: '1px 4px', borderRadius: '3px', backgroundColor: 'rgba(234, 179, 8, 0.15)', color: '#eab308', fontWeight: 'bold' }}>
+                          {pos.leverage}x
+                        </span>
+                      ) : null}
+                    </div>
+                  </td>
                   <td style={{ padding: '10px 16px' }}>
                     <span style={{
                       display: 'inline-flex',
@@ -92,13 +101,15 @@ export const PositionsPanel: React.FC<PositionsPanelProps> = ({
                     </span>
                   </td>
                   <td style={{ padding: '10px 16px', color: 'var(--app-text)' }}>{pos.volume}</td>
-                  <td style={{ padding: '10px 16px', color: 'var(--app-text)' }}>{pos.entry_price}</td>
+                  <td style={{ padding: '10px 16px', color: 'var(--app-text)' }}>
+                    {Number(pos.entry_price || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 5 })}
+                  </td>
                   <td style={{
                     padding: '10px 16px',
                     fontWeight: 'bold',
                     color: profit >= 0 ? '#10b981' : '#ef4444',
                   }}>
-                    {profit >= 0 ? `+${profit.toFixed(2)}` : profit.toFixed(2)}
+                    {profit >= 0 ? `+$${profit.toFixed(2)}` : `-$${Math.abs(profit).toFixed(2)}`}
                   </td>
                   {onClosePosition && (
                     <td style={{ padding: '10px 16px', textAlign: 'right' }}>
