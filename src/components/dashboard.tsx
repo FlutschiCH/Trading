@@ -233,6 +233,24 @@ export default function Dashboard() {
     'AUDUSD', 'USDCAD', 'XAUUSD', 'US30', 'GER40'
   ]);
 
+  // Synchronize candleSource with active account's broker_type automatically
+  useEffect(() => {
+    const brokerType = (activeAccount?.broker_type || activeAccount?.broker || '').toLowerCase();
+    if (brokerType) {
+      let matchedSource: 'ctrader' | 'metatrader' | 'binance' = 'metatrader';
+      if (brokerType.includes('binance')) {
+        matchedSource = 'binance';
+      } else if (brokerType.includes('ctrader') || brokerType.includes('c-trader')) {
+        matchedSource = 'ctrader';
+      } else if (brokerType.includes('metatrader') || brokerType.includes('mt5')) {
+        matchedSource = 'metatrader';
+      }
+      if (candleSource !== matchedSource) {
+        setCandleSource(matchedSource);
+      }
+    }
+  }, [activeAccount]);
+
   // Dynamically fetch available symbols from connected broker on startup / broker switch
   useEffect(() => {
     let sourcePath = (candleSource as string) || 'ctrader';

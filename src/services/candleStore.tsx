@@ -10,12 +10,12 @@ interface CandleContextType {
   loading: boolean;
   symbol: string;
   timeframe: string;
-  candleSource: 'ctrader' | 'metatrader';
+  candleSource: 'ctrader' | 'metatrader' | 'binance';
   candleLimit: number;
   activeStrategyId: string | null;
   setSymbol: (sym: string) => void;
   setTimeframe: (tf: string) => void;
-  setCandleSource: (source: 'ctrader' | 'metatrader') => void;
+  setCandleSource: (source: 'ctrader' | 'metatrader' | 'binance') => void;
   setCandleLimit: (limit: number) => void;
   setActiveStrategyId: (strategyId: string | null) => void;
   fetchCandles: (forceFullRefresh?: boolean, isBackground?: boolean) => Promise<void>;
@@ -26,8 +26,8 @@ const CandleContext = createContext<CandleContextType | undefined>(undefined);
 export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [symbol, setSymbolState] = useState<string>(() => localStorage.getItem('wyckoff_symbol') || 'EURUSD');
   const [timeframe, setTimeframeState] = useState<string>(() => localStorage.getItem('wyckoff_timeframe') || '15m');
-  const [candleSource, setCandleSourceState] = useState<'ctrader' | 'metatrader'>(
-    () => (localStorage.getItem('wyckoff_candle_source') as 'ctrader' | 'metatrader') || 'metatrader'
+  const [candleSource, setCandleSourceState] = useState<'ctrader' | 'metatrader' | 'binance'>(
+    () => (localStorage.getItem('wyckoff_candle_source') as 'ctrader' | 'metatrader' | 'binance') || 'metatrader'
   );
   const [candleLimit, setCandleLimitState] = useState<number>(
     () => parseInt(localStorage.getItem('wyckoff_candle_limit') || '5000', 10)
@@ -96,7 +96,7 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  const setCandleSource = (source: 'ctrader' | 'metatrader') => {
+  const setCandleSource = (source: 'ctrader' | 'metatrader' | 'binance') => {
     localStorage.setItem('wyckoff_candle_source', source);
     setCandleSourceState(source);
   };
