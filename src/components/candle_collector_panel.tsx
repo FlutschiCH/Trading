@@ -57,29 +57,24 @@ export const CandleCollectorPanel: React.FC<CandleCollectorPanelProps> = ({ avai
   const fetchBrokerSymbols = async () => {
     setLoadingBrokerSymbols(true);
     try {
-      const savedId = localStorage.getItem('broker_account') || localStorage.getItem('wyckoff_active_account_id');
-      let accId = (savedId && !['none', 'null', 'undefined'].includes(String(savedId).trim().toLowerCase())) ? savedId : null;
-      if (!accId) {
-        try {
-          const saved = localStorage.getItem('wyckoff_active_account');
-          if (saved) {
-            const parsed = JSON.parse(saved);
-            accId = parsed?.account_id || parsed?.id;
-          }
-        } catch { }
-      }
-      const queryParam = accId ? `?account_id=${encodeURIComponent(accId)}` : '';
-      const res = await fetch(`${API_BASE_URL}/api/metatrader/symbols${queryParam}`);
-      const contentType = res.headers.get('content-type') || '';
-      if (res.ok && contentType.includes('application/json')) {
-        const data = await res.json();
-        if (data.status === 'success' && Array.isArray(data.data) && data.data.length > 0) {
-          setBrokerSymbols(data.data);
-          return;
+      let brokerType = 'metatrader';
+      try {
+        const saved = localStorage.getItem('wyckoff_active_account');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed?.broker_type) brokerType = String(parsed.broker_type).toLowerCase();
         }
+      } catch { }
+
+      const sourcePath = brokerType.includes('binance') ? 'binance' : (brokerType.includes('ctrader') ? 'ctrader' : 'metatrader');
+      const data = await apiService.fetchMetadataSymbols(sourcePath);
+      if (data && data.status === 'success' && Array.isArray(data.data) && data.data.length > 0) {
+        const syms = data.data.map((s: any) => (typeof s === 'string' ? s : s.symbol || s.name));
+        setBrokerSymbols(syms);
+        return;
       }
     } catch (e) {
-      console.error('Failed to load MT5 broker symbols:', e);
+      console.error('Failed to load broker symbols:', e);
     } finally {
       setLoadingBrokerSymbols(false);
     }
