@@ -619,6 +619,9 @@ export default function Dashboard() {
       beOffsetStart: localStorage.getItem('wyckoff_backtester_be_offset_start'),
       beOffsetEnd: localStorage.getItem('wyckoff_backtester_be_offset_end'),
       beOffsetStep: localStorage.getItem('wyckoff_backtester_be_offset_step'),
+      dailyFirstSignalsMode: localStorage.getItem('wyckoff_daily_first_signals_mode') || 'disabled',
+      dailyFirstSignalsCount: localStorage.getItem('wyckoff_daily_first_signals_count') || '1',
+      dailyFirstSignalsRiskMult: localStorage.getItem('wyckoff_daily_first_signals_risk_mult') || '0.5',
     };
   };
 
@@ -763,6 +766,13 @@ export default function Dashboard() {
     if (settings.beOffsetStep !== undefined) {
       localStorage.setItem('wyckoff_backtester_be_offset_step', String(settings.beOffsetStep));
     }
+    const dailyMode = settings.dailyFirstSignalsMode ?? settings.daily_first_signals_mode ?? 'disabled';
+    localStorage.setItem('wyckoff_daily_first_signals_mode', String(dailyMode));
+    const dailyCount = settings.dailyFirstSignalsCount ?? settings.daily_first_signals_count ?? '1';
+    localStorage.setItem('wyckoff_daily_first_signals_count', String(dailyCount));
+    const dailyRiskMult = settings.dailyFirstSignalsRiskMult ?? settings.daily_first_signals_risk_mult ?? '0.5';
+    localStorage.setItem('wyckoff_daily_first_signals_risk_mult', String(dailyRiskMult));
+
     window.dispatchEvent(new CustomEvent('wyckoff_settings_loaded', { detail: settings }));
   };
 

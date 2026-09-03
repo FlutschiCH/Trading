@@ -719,6 +719,14 @@ export default function WyckoffBacktester({
       if (detail.beOffsetStart !== undefined && detail.beOffsetStart !== null) setBEOffsetStart(String(detail.beOffsetStart));
       if (detail.beOffsetEnd !== undefined && detail.beOffsetEnd !== null) setBEOffsetEnd(String(detail.beOffsetEnd));
       if (detail.beOffsetStep !== undefined && detail.beOffsetStep !== null) setBEOffsetStep(String(detail.beOffsetStep));
+
+      // Daily First Signals (Fallback to 'disabled' / 0 skips if missing)
+      const loadedMode = detail.dailyFirstSignalsMode ?? detail.daily_first_signals_mode ?? 'disabled';
+      setDailyFirstSignalsMode(loadedMode);
+      const loadedCount = detail.dailyFirstSignalsCount ?? detail.daily_first_signals_count ?? '1';
+      setDailyFirstSignalsCount(String(loadedCount));
+      const loadedRiskMult = detail.dailyFirstSignalsRiskMult ?? detail.daily_first_signals_risk_mult ?? '0.5';
+      setDailyFirstSignalsRiskMult(String(loadedRiskMult));
     };
 
     window.addEventListener('wyckoff_settings_loaded', handleSettingsLoaded);
@@ -934,6 +942,17 @@ export default function WyckoffBacktester({
           setEntryStabilityRule(s.entryStabilityRule);
           replacements.entryStabilityRule = s.entryStabilityRule;
         }
+
+        // Daily First Signals (Legacy fallback: 'disabled')
+        const loadedDailyMode = s.dailyFirstSignalsMode ?? s.daily_first_signals_mode ?? 'disabled';
+        setDailyFirstSignalsMode(loadedDailyMode);
+        replacements.dailyFirstSignalsMode = loadedDailyMode;
+        const loadedDailyCount = String(s.dailyFirstSignalsCount ?? s.daily_first_signals_count ?? '1');
+        setDailyFirstSignalsCount(loadedDailyCount);
+        replacements.dailyFirstSignalsCount = loadedDailyCount;
+        const loadedDailyRiskMult = String(s.dailyFirstSignalsRiskMult ?? s.daily_first_signals_risk_mult ?? '0.5');
+        setDailyFirstSignalsRiskMult(loadedDailyRiskMult);
+        replacements.dailyFirstSignalsRiskMult = loadedDailyRiskMult;
 
         // 3. Indicators & Stages & Sessions
         if (s.enabledIndicators !== undefined) {
@@ -1176,6 +1195,9 @@ export default function WyckoffBacktester({
         beOffsetStart,
         beOffsetEnd,
         beOffsetStep,
+        dailyFirstSignalsMode,
+        dailyFirstSignalsCount: parseInt(dailyFirstSignalsCount) || 0,
+        dailyFirstSignalsRiskMult: parseFloat(dailyFirstSignalsRiskMult) || 0.5,
       };
 
       const response = await fetch(`${API_BASE_URL}/api/backtest-settings/profiles/save`, {
