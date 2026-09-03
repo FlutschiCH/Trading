@@ -8,6 +8,19 @@ from base_broker_handler import BaseBrokerHandler
 
 class BinanceFuturesHandler(BaseBrokerHandler):
     BASE_URL = os.environ.get("BINANCE_FUTURES_URL", "https://fapi.binance.com")
+    _session = None
+
+    @classmethod
+    def get_session(cls):
+        if cls._session is None:
+            s = requests.Session()
+            from requests.adapters import HTTPAdapter
+            from urllib3.util.retry import Retry
+            adapter = HTTPAdapter(pool_connections=25, pool_maxsize=25, max_retries=Retry(total=2, backoff_factor=0.2))
+            s.mount('https://', adapter)
+            s.mount('http://', adapter)
+            cls._session = s
+        return cls._session
 
     @staticmethod
     def _generate_signature(params: dict, secret_key: str) -> str:
@@ -40,15 +53,16 @@ class BinanceFuturesHandler(BaseBrokerHandler):
         base_host = "https://api.binance.com" if endpoint.startswith("/sapi") else cls.BASE_URL
         url = f"{base_host}{endpoint}"
 
+        session = cls.get_session()
         try:
             if method.upper() == 'GET':
-                response = requests.get(url, headers=headers, params=params, timeout=10)
+                response = session.get(url, headers=headers, params=params, timeout=10)
             elif method.upper() == 'POST':
-                response = requests.post(url, headers=headers, params=params, timeout=10)
+                response = session.post(url, headers=headers, params=params, timeout=10)
             elif method.upper() == 'PUT':
-                response = requests.put(url, headers=headers, params=params, timeout=10)
+                response = session.put(url, headers=headers, params=params, timeout=10)
             elif method.upper() == 'DELETE':
-                response = requests.delete(url, headers=headers, params=params, timeout=10)
+                response = session.delete(url, headers=headers, params=params, timeout=10)
             else:
                 return {'error': f'Unsupported HTTP method: {method}'}
 
@@ -266,33 +280,86 @@ class BinanceFuturesHandler(BaseBrokerHandler):
             '1h': '1h', '4h': '4h', '1d': '1d'
         }
         interval = tf_map.get(timeframe, '15m')
-        params = {
-            'symbol': symbol,
-            'interval': interval,
-            'limit': limit
-        }
-        if date_from:
-            params['startTime'] = date_from * 1000
-        if date_to:
-            params['endTime'] = date_to * 1000
+        target_limit = max(1, int(limit))
 
-        res = cls._request('GET', '/fapi/v1/klines', params=params)
-        if isinstance(res, dict) and 'error' in res:
-            return res
-        if not isinstance(res, list):
-            return []
+        if target_limit <= 1500 and not (date_from and date_to):
+            params = {
+                'symbol': symbol,
+                'interval': interval,
+                'limit': target_limit
+            }
+            if date_from:
+                params['startTime'] = date_from * 1000
+            if date_to:
+                params['endTime'] = date_to * 1000
 
-        candles = []
-        for k in res:
-            candles.append({
+            res = cls._request('GET', '/fapi/v1/klines', params=params)
+            if isinstance(res, dict) and 'error' in res:
+                return res
+            if not isinstance(res, list):
+                return []
+
+            return [{
                 'time': int(k[0] / 1000),
                 'open': float(k[1]),
                 'high': float(k[2]),
                 'low': float(k[3]),
                 'close': float(k[4]),
                 'volume': float(k[5])
-            })
-        return candles
+            } for k in res]
+
+        # Multi-batch pagination for limit > 1500
+        all_klines = []
+        current_end_time = (date_to * 1000) if date_to else None
+        remaining = target_limit
+
+        while remaining > 0:
+            batch_limit = min(remaining, 1500)
+            params = {
+                'symbol': symbol,
+                'interval': interval,
+                'limit': batch_limit
+            }
+            if date_from:
+                params['startTime'] = date_from * 1000
+            if current_end_time:
+                params['endTime'] = current_end_time
+
+            res = cls._request('GET', '/fapi/v1/klines', params=params)
+            if isinstance(res, dict) and 'error' in res:
+                if all_klines:
+                    break
+                return res
+            if not isinstance(res, list) or len(res) == 0:
+                break
+
+            all_klines = res + all_klines
+            remaining -= len(res)
+
+            earliest_time = res[0][0]
+            if current_end_time is not None and earliest_time >= current_end_time:
+                break
+            current_end_time = earliest_time - 1
+
+            if len(res) < batch_limit:
+                break
+
+        seen_times = set()
+        candles = []
+        for k in all_klines:
+            t = int(k[0] / 1000)
+            if t not in seen_times:
+                seen_times.add(t)
+                candles.append({
+                    'time': t,
+                    'open': float(k[1]),
+                    'high': float(k[2]),
+                    'low': float(k[3]),
+                    'close': float(k[4]),
+                    'volume': float(k[5])
+                })
+        candles.sort(key=lambda c: c['time'])
+        return candles[-target_limit:]
 
     @classmethod
     def get_symbols(cls, **kwargs) -> dict:
