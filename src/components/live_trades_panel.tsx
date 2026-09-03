@@ -49,14 +49,14 @@ export default function LiveTradesPanel({
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
           <div style={{ backgroundColor: 'var(--app-bg, #0b0f19)', border: '1px solid var(--app-card-border, #1f2937)', borderRadius: '8px', padding: '12px' }}>
             <span style={{ fontSize: '10px', color: 'var(--app-text-muted, #94a3b8)', display: 'block' }}>DAILY P&L</span>
-            <span style={{ fontSize: '16px', fontWeight: 'bold', color: dailyPnl >= 0 ? '#10b981' : '#ef4444' }}>
-              {dailyPnl >= 0 ? '+' : ''}${dailyPnl.toFixed(2)}
+            <span style={{ fontSize: '16px', fontWeight: 'bold', color: (dailyPnl ?? 0) >= 0 ? '#10b981' : '#ef4444' }}>
+              {(dailyPnl ?? 0) >= 0 ? '+' : ''}${Number(dailyPnl || 0).toFixed(2)}
             </span>
           </div>
           <div style={{ backgroundColor: 'var(--app-bg, #0b0f19)', border: '1px solid var(--app-card-border, #1f2937)', borderRadius: '8px', padding: '12px' }}>
             <span style={{ fontSize: '10px', color: 'var(--app-text-muted, #94a3b8)', display: 'block' }}>WEEKLY P&L</span>
-            <span style={{ fontSize: '16px', fontWeight: 'bold', color: weeklyPnl >= 0 ? '#10b981' : '#ef4444' }}>
-              {weeklyPnl >= 0 ? '+' : ''}${weeklyPnl.toFixed(2)}
+            <span style={{ fontSize: '16px', fontWeight: 'bold', color: (weeklyPnl ?? 0) >= 0 ? '#10b981' : '#ef4444' }}>
+              {(weeklyPnl ?? 0) >= 0 ? '+' : ''}${Number(weeklyPnl || 0).toFixed(2)}
             </span>
           </div>
         </div>
@@ -71,10 +71,10 @@ export default function LiveTradesPanel({
               <div key={p.position_id} style={{ backgroundColor: 'var(--app-bg, #0b0f19)', border: '1px solid var(--app-card-border, #1f2937)', borderRadius: '8px', padding: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                   <span style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--app-text, #f8fafc)' }}>{p.symbol} ({p.volume})</span>
-                  <span style={{ fontSize: '10px', color: p.trade_side === 'BUY' ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>{p.trade_side} @ {p.entry_price.toFixed(5)}</span>
+                  <span style={{ fontSize: '10px', color: p.trade_side === 'BUY' ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>{p.trade_side} @ {Number(p.entry_price || 0).toFixed(5)}</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{ fontSize: '12px', fontWeight: 'bold', color: p.unrealized_profit >= 0 ? '#10b981' : '#ef4444' }}>${p.unrealized_profit.toFixed(2)}</span>
+                  <span style={{ fontSize: '12px', fontWeight: 'bold', color: (p.unrealized_profit ?? 0) >= 0 ? '#10b981' : '#ef4444' }}>${Number(p.unrealized_profit || 0).toFixed(2)}</span>
                   <button 
                     onClick={() => handleClosePosition(p)}
                     style={{
@@ -109,14 +109,14 @@ export default function LiveTradesPanel({
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
         <div style={{ backgroundColor: 'var(--app-bg, #0b0f19)', border: '1px solid var(--app-card-border, #1f2937)', borderRadius: '8px', padding: '10px' }}>
           <span style={{ fontSize: '10px', color: 'var(--app-text-muted, #94a3b8)', display: 'block' }}>DAILY P&L</span>
-          <span style={{ fontSize: '14px', fontWeight: 'bold', color: dailyPnl >= 0 ? '#10b981' : '#ef4444' }}>
-            {dailyPnl >= 0 ? '+' : ''}${dailyPnl.toFixed(2)}
+          <span style={{ fontSize: '14px', fontWeight: 'bold', color: (dailyPnl ?? 0) >= 0 ? '#10b981' : '#ef4444' }}>
+            {(dailyPnl ?? 0) >= 0 ? '+' : ''}${Number(dailyPnl || 0).toFixed(2)}
           </span>
         </div>
         <div style={{ backgroundColor: 'var(--app-bg, #0b0f19)', border: '1px solid var(--app-card-border, #1f2937)', borderRadius: '8px', padding: '10px' }}>
           <span style={{ fontSize: '10px', color: 'var(--app-text-muted, #94a3b8)', display: 'block' }}>WEEKLY P&L</span>
-          <span style={{ fontSize: '14px', fontWeight: 'bold', color: weeklyPnl >= 0 ? '#10b981' : '#ef4444' }}>
-            {weeklyPnl >= 0 ? '+' : ''}${weeklyPnl.toFixed(2)}
+          <span style={{ fontSize: '14px', fontWeight: 'bold', color: (weeklyPnl ?? 0) >= 0 ? '#10b981' : '#ef4444' }}>
+            {(weeklyPnl ?? 0) >= 0 ? '+' : ''}${Number(weeklyPnl || 0).toFixed(2)}
           </span>
         </div>
       </div>
@@ -131,10 +131,10 @@ export default function LiveTradesPanel({
             <div key={p.position_id} style={{ backgroundColor: 'var(--app-bg, #0b0f19)', border: '1px solid var(--app-card-border, #1f2937)', borderRadius: '6px', padding: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                 <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--app-text, #f8fafc)' }}>{p.symbol} ({p.volume})</span>
-                <span style={{ fontSize: '9px', color: p.trade_side === 'BUY' ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>{p.trade_side} @ {p.entry_price.toFixed(5)}</span>
+                <span style={{ fontSize: '9px', color: p.trade_side === 'BUY' ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>{p.trade_side} @ {Number(p.entry_price || 0).toFixed(5)}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '11px', fontWeight: 'bold', color: p.unrealized_profit >= 0 ? '#10b981' : '#ef4444' }}>${p.unrealized_profit.toFixed(2)}</span>
+                <span style={{ fontSize: '11px', fontWeight: 'bold', color: (p.unrealized_profit ?? 0) >= 0 ? '#10b981' : '#ef4444' }}>${Number(p.unrealized_profit || 0).toFixed(2)}</span>
                 <button 
                   onClick={() => handleClosePosition(p)}
                   style={{
