@@ -305,6 +305,8 @@ class LiveWorker:
             except Exception as ex:
                 print(f"[LiveWorker] Console handler note: {ex}", flush=True)
 
+        first_run = True
+
         # Main evaluation loop
         while self.running:
             try:
@@ -316,6 +318,46 @@ class LiveWorker:
                 if strategy.get("status") != "active":
                     print(f"{Fore.YELLOW}[LiveWorker]{Style.RESET_ALL} Strategy {self.strategy_id} is no longer active (status='{strategy.get('status')}'). Exiting worker...", flush=True)
                     break
+
+                if first_run:
+                    first_run = False
+                    strat_name = strategy.get("name") or "Unnamed Strategy"
+                    strat_sym = strategy.get("symbol", "UNKNOWN")
+                    strat_tf = strategy.get("timeframe", "UNKNOWN")
+                    strat_broker = strategy.get("broker", "metatrader")
+                    strat_lookback = strategy.get("lookbackWindow", 20)
+                    strat_sl_val = strategy.get("slVal", 1.0)
+                    strat_sl_type = strategy.get("slType", "price")
+                    strat_rr = strategy.get("rr", 2.0)
+                    strat_size = strategy.get("size", 1.0)
+                    strat_risk_sizing = strategy.get("useRiskSizing", True)
+                    strat_risk_pct = strategy.get("riskPct", 1.0)
+                    strat_use_be = strategy.get("useBreakEven", False)
+                    strat_be_trigger = strategy.get("beTriggerR", 1.0)
+                    strat_be_mode = strategy.get("beOffsetMode", "half_r")
+                    strat_rule = strategy.get("entryStabilityRule", "default")
+                    strat_allow_opp = strategy.get("allowOppositeClose", True)
+                    strat_tz = strategy.get("timezone", "Local")
+                    strat_use_gc = strategy.get("useGlobalClose", False)
+                    strat_gc_time = strategy.get("globalCloseTime", "")
+                    strat_sessions = strategy.get("sessions") or []
+                    strat_targets = strategy.get("targets") or []
+
+                    targets_str = ", ".join([f"{t.get('broker', 'metatrader')}:{t.get('account_id', 'default')}" for t in strat_targets]) if strat_targets else f"{strat_broker}:{strategy.get('account_id', 'default')}"
+                    sessions_str = ", ".join([f"{s.get('id', 'sess')}({s.get('start')}-{s.get('end')})" for s in strat_sessions]) if strat_sessions else "24/7 (No restrictions)"
+
+                    print(f"\n{Fore.CYAN}{Style.BRIGHT}{'='*60}", flush=True)
+                    print(f"{Fore.CYAN}{Style.BRIGHT}  🚀 LIVE STRATEGY WORKER INITIALIZED", flush=True)
+                    print(f"{Fore.CYAN}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}", flush=True)
+                    print(f"  {Fore.WHITE}• Strategy ID      :{Style.RESET_ALL} {Style.BRIGHT}{self.strategy_id}{Style.RESET_ALL} ({strat_name})", flush=True)
+                    print(f"  {Fore.WHITE}• Market & Timeframe:{Style.RESET_ALL} {Fore.YELLOW}{strat_sym}{Style.RESET_ALL} @ {Fore.YELLOW}{strat_tf}{Style.RESET_ALL} (Lookback: {strat_lookback})", flush=True)
+                    print(f"  {Fore.WHITE}• Primary Broker    :{Style.RESET_ALL} {strat_broker}", flush=True)
+                    print(f"  {Fore.WHITE}• Target Accounts   :{Style.RESET_ALL} {Fore.GREEN}{targets_str}{Style.RESET_ALL}", flush=True)
+                    print(f"  {Fore.WHITE}• Risk & Sizing     :{Style.RESET_ALL} RiskSizing={strat_risk_sizing} (Risk: {strat_risk_pct}%, Base Size: {strat_size})", flush=True)
+                    print(f"  {Fore.WHITE}• SL & RR Config    :{Style.RESET_ALL} SL={strat_sl_val} ({strat_sl_type}) | RR={strat_rr} | BE={strat_use_be} (Trigger: {strat_be_trigger}R, Mode: {strat_be_mode})", flush=True)
+                    print(f"  {Fore.WHITE}• Execution Rules   :{Style.RESET_ALL} Stability='{strat_rule}' | AllowOppositeClose={strat_allow_opp}", flush=True)
+                    print(f"  {Fore.WHITE}• Sessions & Close  :{Style.RESET_ALL} TZ={strat_tz} | Sessions=[{sessions_str}] | GlobalClose={strat_use_gc} ({strat_gc_time or 'None'})", flush=True)
+                    print(f"{Fore.CYAN}{Style.BRIGHT}{'='*60}\n{Style.RESET_ALL}", flush=True)
 
                 symbol = strategy["symbol"]
                 timeframe = strategy["timeframe"]
