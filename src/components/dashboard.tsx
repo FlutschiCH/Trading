@@ -1566,8 +1566,9 @@ export default function Dashboard() {
 
     const handleManualFetchTrigger = (e: Event) => {
       const category = (e as CustomEvent).detail?.category;
-      if (!category) return;
-      console.log(`[Dashboard] Manual refresh triggered for: ${category}`);
+      const now = new Date();
+      const ts = `${now.toISOString()} (${now.getTime()}ms)`;
+      console.log(`[Dashboard] [${ts}] Manual refresh triggered for: ${category}`);
       if (category === 'account_info') {
         fetchAccountData(undefined, undefined, true);
       } else if (category === 'positions') {

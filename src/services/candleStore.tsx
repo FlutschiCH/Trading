@@ -186,6 +186,9 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           account_id: activeAccId
         };
 
+        const fetchTs = new Date();
+        console.log(`[CandleStore] [${fetchTs.toISOString()} (${fetchTs.getTime()}ms)] Firing /api/broker/candles request for ${candleSource} ${symbol} ${timeframe}`);
+
         const marketResult = await apiService.fetchTradeCandles(payload);
         if (marketResult && marketResult.status === 'success' && Array.isArray(marketResult.candles)) {
           rawCandles = marketResult.candles.sort((a: Candle, b: Candle) => a.time - b.time);

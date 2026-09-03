@@ -98,9 +98,16 @@ CORS(app)
 import time
 from flask import g, request
 
+from datetime import datetime
+
 @app.before_request
 def start_timer():
     g.start_time = time.time()
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+    method = request.method if request else 'UNKNOWN'
+    path = request.path if request else ''
+    if method != 'OPTIONS':
+        print(f"📥 [Flask Inbound] [{now_str}] {method} {path}", flush=True)
 
 @app.after_request
 def log_request_timing(response):

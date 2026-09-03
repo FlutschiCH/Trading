@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from broker_handler import BrokerHandler
 import time
+from datetime import datetime
 
 broker_routes = Blueprint('broker_routes', __name__)
 
@@ -31,6 +32,7 @@ def positions():
 
 @broker_routes.route('/broker/candles', methods=['POST'])
 def candles():
+    now_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
     try:
         payload = request.get_json(force=True) or {}
     except Exception:
@@ -38,6 +40,7 @@ def candles():
 
     broker_name = payload.get('broker', 'ctrader')
     symbol = payload.get('symbol', 'EURUSD')
+    print(f"📥 [/broker/candles Arrived] [{now_ts}] broker={broker_name} symbol={symbol}", flush=True)
     timeframe = payload.get('interval') or payload.get('timeframe', '15m')
     limit = int(payload.get('limit', 1000))
     date_from = payload.get('date_from')
