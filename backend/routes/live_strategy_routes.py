@@ -4,6 +4,7 @@ import socket
 import threading
 from flask import Blueprint, request, jsonify
 from live_strategy_handler import LiveStrategyHandler
+from live_runner_handler import LiveRunner
 
 live_strategy_routes = Blueprint('live_strategy_routes', __name__)
 
@@ -18,7 +19,7 @@ def get_strategies():
 @live_strategy_routes.route('/live/strategy', methods=['POST'])
 def save_strategy():
     """
-    Deploy or update an active live strategy.
+    Deploy or update an active live strategy and manage worker lifecycle.
     """
     payload = request.get_json(silent=True) or {}
     strategy_config = {
@@ -55,6 +56,13 @@ def save_strategy():
     
     success = LiveStrategyHandler.save_strategy(strategy_config)
     if success:
+        # Trigger supervisor check
+        s_id = strategy_config.get("id")
+        if strategy_config.get("status") == "active":
+            LiveRunner.spawn_worker(s_id)
+        else:
+            LiveRunner.stop_worker(s_id)
+
         return jsonify({
             "status": "success",
             "message": "Strategy saved successfully",
@@ -69,13 +77,27 @@ def save_strategy():
 @live_strategy_routes.route('/live/strategy/<strategy_id>', methods=['DELETE'])
 def delete_strategy(strategy_id):
     """
-    Delete a live strategy.
+    Delete a live strategy and terminate its standalone worker process.
     """
+    LiveRunner.stop_worker(strategy_id)
     success = LiveStrategyHandler.delete_strategy(strategy_id)
     if success:
         return jsonify({"status": "success", "message": f"Strategy {strategy_id} deleted successfully"})
     else:
         return jsonify({"status": "error", "message": "Failed to delete strategy"}), 500
+
+@live_strategy_routes.route('/live-strategy/worker-heartbeat', methods=['POST'])
+def worker_heartbeat():
+    """
+    Worker callback endpoint to record heartbeat and process state.
+    """
+    payload = request.get_json(silent=True) or {}
+    s_id = payload.get("strategy_id")
+    pid = payload.get("pid")
+    status_msg = payload.get("status_msg")
+    if s_id:
+        LiveRunner.record_heartbeat(s_id, pid=pid, status_msg=status_msg)
+    return jsonify({"status": "success"})
 
 # Fallback/compatibility GET endpoint
 @live_strategy_routes.route('/live/strategy', methods=['GET'])
@@ -87,46 +109,32 @@ def live_strategy_compat():
 @live_strategy_routes.route('/live-strategies/<strategy_id>/candles', methods=['GET'])
 def get_strategy_cache(strategy_id):
     """
-    Retrieve cached annotated candles for a specific live strategy.
-    Non-blocking: offloads warm-up evaluation to background thread if cache is not yet ready.
+    Retrieve cached annotated candles for a specific live strategy from live_state in DB.
     """
-    from live_runner_handler import LiveRunner
-    
     strategy = LiveStrategyHandler.get_strategy(strategy_id)
     if not strategy:
         return jsonify({"status": "not_found", "message": "Strategy not found", "strategy_id": strategy_id, "candles": [], "trades": []}), 200
 
-    try:
-        current_comp = socket.gethostname()
-    except:
-        current_comp = "Unknown"
+    cache = []
+    trades = []
 
-    target_comp = strategy.get("target_computer", "All")
-    is_targeted_here = (target_comp == 'All' or target_comp.lower() == current_comp.lower())
-
-    cache = LiveRunner._candles_cache.get(strategy_id, [])
-    trades = LiveRunner._trades_cache.get(strategy_id, [])
-
-    if not cache:
-        if is_targeted_here:
-            print(f"[Cache Endpoint] Cache miss for strategy {strategy_id}. Spawning background warm-up evaluation...", flush=True)
-            threading.Thread(target=LiveRunner._evaluate_strategy, args=(strategy,), daemon=True).start()
-            return jsonify({"status": "pending", "message": "Strategy warm-up calculation in progress", "strategy_id": strategy_id, "candles": [], "trades": []}), 200
-        else:
-            # Read from DB live_state when strategy runs on another machine (e.g. laptop)
-            if strategy.get("live_state"):
-                live_state = strategy["live_state"]
-                if isinstance(live_state, str):
-                    try:
-                        live_state = json.loads(live_state)
-                    except Exception:
-                        pass
-                if isinstance(live_state, dict):
-                    cache = live_state.get("candles", [])
-                    trades = live_state.get("trades", [])
+    # Read from DB live_state maintained by the standalone worker
+    if strategy.get("live_state"):
+        live_state = strategy["live_state"]
+        if isinstance(live_state, str):
+            try:
+                live_state = json.loads(live_state)
+            except Exception:
+                pass
+        if isinstance(live_state, dict):
+            cache = live_state.get("candles", [])
+            trades = live_state.get("trades", [])
 
     if not cache:
-        return jsonify({"status": "pending", "message": "Strategy candles warming up", "strategy_id": strategy_id, "candles": [], "trades": []}), 200
+        # If strategy is active, ensure worker is spawned
+        if strategy.get("status") == "active":
+            LiveRunner.spawn_worker(strategy_id)
+        return jsonify({"status": "pending", "message": "Strategy worker warming up and fetching candles", "strategy_id": strategy_id, "candles": [], "trades": []}), 200
 
     limit = request.args.get('limit', type=int)
     if limit and cache:
