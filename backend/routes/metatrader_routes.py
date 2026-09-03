@@ -101,14 +101,22 @@ def close_metatrader_position():
 
 @metatrader_routes.route('/metatrader/symbols', methods=['GET', 'POST'])
 def get_metatrader_symbols():
-    payload = request.get_json(silent=True) or {}
-    acc_id = payload.get('account_id') or payload.get('login') or request.args.get('account_id') or request.args.get('login')
-    data = BrokerHandler.get_symbols(broker_name='metatrader', account_id=acc_id)
-    return jsonify({"status": "success", "data": data})
+    try:
+        payload = request.get_json(silent=True) or {}
+        acc_id = payload.get('account_id') or payload.get('login') or request.args.get('account_id') or request.args.get('login')
+        data = BrokerHandler.get_symbols(broker_name='metatrader', account_id=acc_id)
+        return jsonify({"status": "success", "data": data or []})
+    except Exception as e:
+        print(f"[MetaTrader Route Error] /metatrader/symbols: {e}", flush=True)
+        return jsonify({"status": "success", "data": []})
 
 @metatrader_routes.route('/metatrader/timeframes', methods=['GET', 'POST'])
 def get_metatrader_timeframes():
-    payload = request.get_json(silent=True) or {}
-    acc_id = payload.get('account_id') or payload.get('login') or request.args.get('account_id') or request.args.get('login')
-    data = BrokerHandler.get_timeframes(broker_name='metatrader', account_id=acc_id)
-    return jsonify({"status": "success", "data": data})
+    try:
+        payload = request.get_json(silent=True) or {}
+        acc_id = payload.get('account_id') or payload.get('login') or request.args.get('account_id') or request.args.get('login')
+        data = BrokerHandler.get_timeframes(broker_name='metatrader', account_id=acc_id)
+        return jsonify({"status": "success", "data": data or []})
+    except Exception as e:
+        print(f"[MetaTrader Route Error] /metatrader/timeframes: {e}", flush=True)
+        return jsonify({"status": "success", "data": []})

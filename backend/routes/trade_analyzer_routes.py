@@ -18,4 +18,5 @@ def analyze_trades():
         )
         return jsonify(result)
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+        print(f"[Trade Analyzer Route Error] /trade-analyzer/analyze: {e}", flush=True)
+        return jsonify({"status": "error", "message": str(e), "data": {}}), 200
