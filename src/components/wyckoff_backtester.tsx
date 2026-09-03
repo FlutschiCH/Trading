@@ -1109,7 +1109,6 @@ export default function WyckoffBacktester({
           );
         }
         setShowSavedBacktestsModal(false);
-        alert(`Loaded saved run ${id} successfully!`);
       } else {
         alert("Failed to load backtest data: " + (json.message || "Unknown error"));
       }
