@@ -134,26 +134,10 @@ class BrokerHandler:
 
     @classmethod
     def get_account_info(cls, broker_name: str = None, account_id: str = None, **kwargs):
-        import time
-        t0 = time.perf_counter()
         handler = cls.get_handler(broker_name, account_id)
-        t_handler = time.perf_counter()
         broker_inst = cls.get_instance(broker_name, account_id)
-        t_inst = time.perf_counter()
         kwargs = cls._prepare_kwargs(broker_name, account_id, kwargs)
-        t_kw = time.perf_counter()
-        acc_info = handler.get_account_info(account_id=account_id, broker_inst=broker_inst, **kwargs)
-        t_fetch = time.perf_counter()
-
-        print(
-            f"⏱️ [BrokerHandler.get_account_info] Handler: {handler.__name__} | "
-            f"Resolve: {(t_handler-t0)*1000:.2f}ms | "
-            f"PrepKwargs: {(t_kw-t_inst)*1000:.2f}ms | "
-            f"BrokerAPI: {(t_fetch-t_kw)*1000:.2f}ms | "
-            f"Total: {(t_fetch-t0)*1000:.2f}ms",
-            flush=True
-        )
-        return acc_info
+        return handler.get_account_info(account_id=account_id, broker_inst=broker_inst, **kwargs)
 
     @classmethod
     def get_account(cls, broker_name: str = None, account_id: str = None, **kwargs):
