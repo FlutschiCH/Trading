@@ -91,15 +91,23 @@ class LiveWorker:
         entry_stability_rule = strategy.get("entryStabilityRule", "default")
         timezone_str = strategy.get("timezone", "Local")
         sessions = strategy.get("sessions", [])
+        daily_mode = strategy.get("dailyFirstSignalsMode", "disabled")
+        daily_count = int(strategy.get("dailyFirstSignalsCount", 1))
+        daily_risk_mult = float(strategy.get("dailyFirstSignalsRiskMult", 0.5))
 
         state_dict = {}
+        daily_signals_count = {}
         for c in annotated_candles[:-1]:  # Stop at index -2 (the last completed candle)
             should_buy, should_sell, state_dict = StrategyHandler.evaluate_candle_signal(
                 c=c,
                 state=state_dict,
                 entry_stability_rule=entry_stability_rule,
                 timezone=timezone_str,
-                sessions=sessions
+                sessions=sessions,
+                daily_first_signals_mode=daily_mode,
+                daily_first_signals_count=daily_count,
+                daily_first_signals_risk_mult=daily_risk_mult,
+                daily_signals_count=daily_signals_count
             )
 
         accum_consec_bars = state_dict.get('accum_consec_bars', 0)
@@ -155,6 +163,11 @@ class LiveWorker:
 
         strat_acc_id = strategy.get("account_id")
         base_symbol = SymbolMappingHandler.map_to_main(symbol, strat_acc_id)
+
+        # Check for daily first signal risk multiplier or skip
+        risk_mult = float(last_candle.get('risk_multiplier', 1.0))
+        effective_risk_pct = float(strategy["riskPct"]) * risk_mult
+        effective_size = float(strategy["size"]) * risk_mult
 
         for target in targets:
             try:
@@ -222,9 +235,9 @@ class LiveWorker:
                     sl_type=strategy["slType"],
                     sl_val=strategy["slVal"],
                     rr=strategy["rr"],
-                    size=strategy["size"],
+                    size=effective_size,
                     use_risk_sizing=strategy["useRiskSizing"],
-                    risk_pct=strategy["riskPct"],
+                    risk_pct=effective_risk_pct,
                     balance=balance,
                     lot_size=lot_size,
                     pip_size=pip_size,
@@ -342,9 +355,13 @@ class LiveWorker:
                     strat_gc_time = strategy.get("globalCloseTime", "")
                     strat_sessions = strategy.get("sessions") or []
                     strat_targets = strategy.get("targets") or []
+                    strat_daily_mode = strategy.get("dailyFirstSignalsMode", "disabled") or "disabled"
+                    strat_daily_count = int(strategy.get("dailyFirstSignalsCount", 1))
+                    strat_daily_mult = float(strategy.get("dailyFirstSignalsRiskMult", 0.5))
 
                     targets_str = ", ".join([f"{t.get('broker', 'metatrader')}:{t.get('account_id', 'default')}" for t in strat_targets]) if strat_targets else f"{strat_broker}:{strategy.get('account_id', 'default')}"
                     sessions_str = ", ".join([f"{s.get('id', 'sess')}({s.get('start')}-{s.get('end')})" for s in strat_sessions]) if strat_sessions else "24/7 (No restrictions)"
+                    daily_signals_str = f"{strat_daily_mode.upper()} (Count: {strat_daily_count}, Risk: {int(strat_daily_mult * 100)}%)" if strat_daily_mode != 'disabled' else "Disabled (Take all signals)"
 
                     print(f"\n{Fore.CYAN}{Style.BRIGHT}{'='*60}", flush=True)
                     print(f"{Fore.CYAN}{Style.BRIGHT}  🚀 LIVE STRATEGY WORKER INITIALIZED", flush=True)
@@ -356,6 +373,7 @@ class LiveWorker:
                     print(f"  {Fore.WHITE}• Risk & Sizing     :{Style.RESET_ALL} RiskSizing={strat_risk_sizing} (Risk: {strat_risk_pct}%, Base Size: {strat_size})", flush=True)
                     print(f"  {Fore.WHITE}• SL & RR Config    :{Style.RESET_ALL} SL={strat_sl_val} ({strat_sl_type}) | RR={strat_rr} | BE={strat_use_be} (Trigger: {strat_be_trigger}R, Mode: {strat_be_mode})", flush=True)
                     print(f"  {Fore.WHITE}• Execution Rules   :{Style.RESET_ALL} Stability='{strat_rule}' | AllowOppositeClose={strat_allow_opp}", flush=True)
+                    print(f"  {Fore.WHITE}• Daily First Sig.  :{Style.RESET_ALL} {Fore.MAGENTA}{daily_signals_str}{Style.RESET_ALL}", flush=True)
                     print(f"  {Fore.WHITE}• Sessions & Close  :{Style.RESET_ALL} TZ={strat_tz} | Sessions=[{sessions_str}] | GlobalClose={strat_use_gc} ({strat_gc_time or 'None'})", flush=True)
                     print(f"{Fore.CYAN}{Style.BRIGHT}{'='*60}\n{Style.RESET_ALL}", flush=True)
 
@@ -416,7 +434,10 @@ class LiveWorker:
                             use_global_close=strategy.get("useGlobalClose", False),
                             global_close_time=strategy.get("globalCloseTime", ""),
                             entry_stability_rule=strategy.get("entryStabilityRule", "default"),
-                            broker=broker_name
+                            broker=broker_name,
+                            daily_first_signals_mode=strategy.get("dailyFirstSignalsMode", "disabled"),
+                            daily_first_signals_count=int(strategy.get("dailyFirstSignalsCount", 1)),
+                            daily_first_signals_risk_mult=float(strategy.get("dailyFirstSignalsRiskMult", 0.5))
                         )
                         self.candles_cache = backtest_res.get("candles", [])
                         self.trades_cache = backtest_res.get("trades", [])

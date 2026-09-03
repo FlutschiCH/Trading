@@ -46,7 +46,10 @@ class LiveStrategyHandler:
             dateRangeOption VARCHAR(50) DEFAULT 'last_candles',
             customFrom VARCHAR(100) DEFAULT '',
             customTo VARCHAR(100) DEFAULT '',
-            candleLimit INT DEFAULT 1000
+            candleLimit INT DEFAULT 1000,
+            dailyFirstSignalsMode VARCHAR(20) DEFAULT 'disabled',
+            dailyFirstSignalsCount INT DEFAULT 1,
+            dailyFirstSignalsRiskMult DOUBLE DEFAULT 0.5
         )
         """
         create_targets_table = """
@@ -62,6 +65,18 @@ class LiveStrategyHandler:
             SQLHandler.execute_query(create_targets_table)
             try:
                 SQLHandler.execute_query("ALTER TABLE live_strategies ADD COLUMN allowOppositeClose TINYINT(1) DEFAULT 1")
+            except Exception:
+                pass
+            try:
+                SQLHandler.execute_query("ALTER TABLE live_strategies ADD COLUMN dailyFirstSignalsMode VARCHAR(20) DEFAULT 'disabled'")
+            except Exception:
+                pass
+            try:
+                SQLHandler.execute_query("ALTER TABLE live_strategies ADD COLUMN dailyFirstSignalsCount INT DEFAULT 1")
+            except Exception:
+                pass
+            try:
+                SQLHandler.execute_query("ALTER TABLE live_strategies ADD COLUMN dailyFirstSignalsRiskMult DOUBLE DEFAULT 0.5")
             except Exception:
                 pass
             LiveStrategyHandler._db_initialized = True
@@ -84,10 +99,12 @@ class LiveStrategyHandler:
             id, name, symbol, status, timeframe, slVal, slType, rr, size, 
             useRiskSizing, riskPct, useBreakEven, beTriggerR, allowOppositeClose, lookbackWindow, deployedAt,
             timezone, sessions, useGlobalClose, globalCloseTime, entryStabilityRule, broker, account_id, target_computer,
-            dateRangeOption, customFrom, customTo, candleLimit
+            dateRangeOption, customFrom, customTo, candleLimit,
+            dailyFirstSignalsMode, dailyFirstSignalsCount, dailyFirstSignalsRiskMult
         ) VALUES (
             %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+            %s, %s, %s
         ) ON DUPLICATE KEY UPDATE 
             name=VALUES(name),
             symbol=VALUES(symbol),
@@ -115,7 +132,10 @@ class LiveStrategyHandler:
             dateRangeOption=VALUES(dateRangeOption),
             customFrom=VALUES(customFrom),
             customTo=VALUES(customTo),
-            candleLimit=VALUES(candleLimit)
+            candleLimit=VALUES(candleLimit),
+            dailyFirstSignalsMode=VALUES(dailyFirstSignalsMode),
+            dailyFirstSignalsCount=VALUES(dailyFirstSignalsCount),
+            dailyFirstSignalsRiskMult=VALUES(dailyFirstSignalsRiskMult)
         """
         # Resolve currently active account if not provided
         acc_id = strategy.get("account_id")
@@ -153,7 +173,10 @@ class LiveStrategyHandler:
             strategy.get("dateRangeOption", "last_candles"),
             strategy.get("customFrom", ""),
             strategy.get("customTo", ""),
-            strategy.get("candleLimit", 1000)
+            strategy.get("candleLimit", 1000),
+            strategy.get("dailyFirstSignalsMode", "disabled"),
+            int(strategy.get("dailyFirstSignalsCount", 1)),
+            float(strategy.get("dailyFirstSignalsRiskMult", 0.5))
         )
         try:
             SQLHandler.execute_query(query, params)
@@ -309,6 +332,9 @@ class LiveStrategyHandler:
             "customFrom": row.get("customFrom") or "",
             "customTo": row.get("customTo") or "",
             "candleLimit": int(row.get("candleLimit", 1000) if row.get("candleLimit") is not None else 1000),
+            "dailyFirstSignalsMode": row.get("dailyFirstSignalsMode", "disabled") or "disabled",
+            "dailyFirstSignalsCount": int(row.get("dailyFirstSignalsCount", 1) if row.get("dailyFirstSignalsCount") is not None else 1),
+            "dailyFirstSignalsRiskMult": float(row.get("dailyFirstSignalsRiskMult", 0.5) if row.get("dailyFirstSignalsRiskMult") is not None else 0.5),
             "live_state": live_state_dict
         }
 

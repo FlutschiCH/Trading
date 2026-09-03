@@ -1402,6 +1402,9 @@ export default function Dashboard() {
         customFrom,
         customTo,
         candleLimit: candleLimit || 1000,
+        dailyFirstSignalsMode: localStorage.getItem('wyckoff_daily_first_signals_mode') || 'disabled',
+        dailyFirstSignalsCount: parseInt(localStorage.getItem('wyckoff_daily_first_signals_count') || '1') || 1,
+        dailyFirstSignalsRiskMult: parseFloat(localStorage.getItem('wyckoff_daily_first_signals_risk_mult') || '0.5') || 0.5,
       });
       if (result.status === 'success') {
         setLiveStrategy(result.strategy);
