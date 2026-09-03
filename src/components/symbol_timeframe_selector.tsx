@@ -47,7 +47,14 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
   symbol = 'EURUSD',
   onSymbolChange,
   timeframe = '15m',
-  onTimeframeChange
+  onTimeframeChange,
+  availableSymbols,
+  availableTimeframes,
+  isLight = false,
+  selectedSymbols,
+  onSelectedSymbolsChange,
+  selectedTimeframes,
+  onSelectedTimeframesChange
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
