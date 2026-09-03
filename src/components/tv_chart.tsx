@@ -472,16 +472,6 @@ export default function TVChart({
   // Symbol Mappings integration in TVChart
   const [symbolMappings, setSymbolMappings] = useState<any[]>([]);
 
-  useEffect(() => {
-    apiService.fetchSymbolMappings()
-      .then(data => {
-        if (data && data.status === 'success' && Array.isArray(data.data)) {
-          setSymbolMappings(data.data);
-        }
-      })
-      .catch(err => console.error("Error fetching symbol mappings for chart:", err));
-  }, []);
-
   const mappedSymbolDict = React.useMemo(() => {
     const mainToBroker: Record<string, string> = {};
     const brokerToMain: Record<string, string> = {};

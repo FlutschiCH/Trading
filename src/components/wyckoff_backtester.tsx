@@ -469,16 +469,6 @@ export default function WyckoffBacktester({
   // Symbol Mappings integration (from backend symbol_mapping_handler.py)
   const [symbolMappings, setSymbolMappings] = React.useState<any[]>([]);
 
-  React.useEffect(() => {
-    apiService.fetchSymbolMappings()
-      .then(data => {
-        if (data && data.status === 'success' && Array.isArray(data.data)) {
-          setSymbolMappings(data.data);
-        }
-      })
-      .catch(err => console.error("Error fetching symbol mappings for backtester:", err));
-  }, []);
-
   // Indicator Confirmation Layer Rules State
   const [indicatorRules, setIndicatorRules] = React.useState<any[]>(() => {
     try {

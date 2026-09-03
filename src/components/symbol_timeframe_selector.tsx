@@ -130,8 +130,10 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
   };
 
   useEffect(() => {
-    fetchConnectedBrokersAndMappings();
-  }, [accountId]);
+    if (isOpen) {
+      fetchConnectedBrokersAndMappings();
+    }
+  }, [isOpen]);
 
   const mappedMasterSymbols = useMemo(() => {
     const masterSet = new Set<string>();
