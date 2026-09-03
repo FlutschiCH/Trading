@@ -3,6 +3,7 @@ import { API_BASE_URL } from '../api';
 import type { Position } from '../types/trading';
 import { isPollingPaused } from './pollingStore';
 import { isFetchAllowed } from './fetchControlStore';
+import { createManagedAbortSignal, getCurrentGeneration } from './requestManager';
 
 interface PositionsContextType {
   positions: Position[];
@@ -47,8 +48,10 @@ export const PositionsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (!accId) return;
 
     const broker = overrideBroker || activeBroker;
+    const reqGen = getCurrentGeneration();
+    const { signal, cleanup } = createManagedAbortSignal();
 
-    console.log(`[PositionsStore] Fetching positions -> Account: ${accId} | Broker: ${broker}`);
+    console.log(`[PositionsStore] Fetching positions -> Account: ${accId} | Broker: ${broker} (Gen: ${reqGen})`);
 
     isFetchingRef.current = true;
     setLoadingPositions(true);
@@ -57,10 +60,14 @@ export const PositionsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const response = await fetch(`${API_BASE_URL}/api/broker/positions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ broker, account_id: accId })
+        body: JSON.stringify({ broker, account_id: accId }),
+        signal
       });
+      if (signal.aborted || getCurrentGeneration() !== reqGen) return;
+
       if (response.ok) {
         const data = await response.json();
+        if (signal.aborted || getCurrentGeneration() !== reqGen) return;
         console.log('[PositionsStore] /api/broker/positions response:', data);
         if (data.status === 'success' && Array.isArray(data.data)) {
           const normalized: Position[] = data.data.map((p: any, idx: number) => {
@@ -97,9 +104,12 @@ export const PositionsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const errText = await response.text();
         console.log('[PositionsStore] /api/broker/positions non-OK response:', response.status, errText);
       }
-    } catch (e) {
-      console.error('[PositionsStore] Failed to fetch positions:', e);
+    } catch (e: any) {
+      if (e.name !== 'AbortError') {
+        console.error('[PositionsStore] Failed to fetch positions:', e);
+      }
     } finally {
+      cleanup();
       isFetchingRef.current = false;
       setLoadingPositions(false);
     }

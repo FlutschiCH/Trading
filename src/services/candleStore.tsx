@@ -4,6 +4,7 @@ import * as apiService from './apiService';
 import { API_BASE_URL } from '../api';
 import { isPollingPaused } from './pollingStore';
 import { isFetchAllowed } from './fetchControlStore';
+import { getCurrentGeneration } from './requestManager';
 
 interface CandleContextType {
   candles: Candle[];
@@ -187,9 +188,14 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         };
 
         const fetchTs = new Date();
-        console.log(`[CandleStore] [${fetchTs.toISOString()} (${fetchTs.getTime()}ms)] Firing /api/broker/candles request for ${candleSource} ${symbol} ${timeframe}`);
+        const reqGen = getCurrentGeneration();
+        console.log(`[CandleStore] [${fetchTs.toISOString()} (${fetchTs.getTime()}ms)] Firing /api/broker/candles request for ${candleSource} ${symbol} ${timeframe} (Gen: ${reqGen})`);
 
         const marketResult = await apiService.fetchTradeCandles(payload);
+        if (getCurrentGeneration() !== reqGen) {
+          console.log(`[CandleStore] Stale candle response dropped (reqGen ${reqGen} !== current ${getCurrentGeneration()})`);
+          return;
+        }
         if (marketResult && marketResult.status === 'success' && Array.isArray(marketResult.candles)) {
           rawCandles = marketResult.candles.sort((a: Candle, b: Candle) => a.time - b.time);
         } else if (marketResult && Array.isArray(marketResult.data)) {

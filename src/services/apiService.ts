@@ -1,17 +1,40 @@
 import { API_BASE_URL } from '../api';
+import { createManagedAbortSignal } from './requestManager';
 
 let lastRequestTime = 0;
 const MIN_REQUEST_GAP_MS = 250; // Minimum 250ms gap between outgoing requests to protect backend from overload
 
 const throttledFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+  const { signal: managedSignal, cleanup } = createManagedAbortSignal();
+  const callerSignal = init?.signal;
+  
+  if (callerSignal?.aborted || managedSignal.aborted) {
+    cleanup();
+    throw new DOMException('Aborted', 'AbortError');
+  }
+
   const now = Date.now();
   const timeSinceLast = now - lastRequestTime;
   if (timeSinceLast < MIN_REQUEST_GAP_MS) {
     const delay = MIN_REQUEST_GAP_MS - timeSinceLast;
-    await new Promise(resolve => setTimeout(resolve, delay));
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(resolve, delay);
+      const onAbort = () => {
+        clearTimeout(timer);
+        reject(new DOMException('Aborted', 'AbortError'));
+      };
+      if (callerSignal) callerSignal.addEventListener('abort', onAbort, { once: true });
+      managedSignal.addEventListener('abort', onAbort, { once: true });
+    });
   }
   lastRequestTime = Date.now();
-  return fetch(input, init);
+
+  try {
+    const combinedSignal = callerSignal || managedSignal;
+    return await fetch(input, { ...init, signal: combinedSignal });
+  } finally {
+    cleanup();
+  }
 };
 
 const safeJsonParse = async (response: Response) => {

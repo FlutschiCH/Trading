@@ -27,6 +27,7 @@ import { useCandleStore } from '../services/candleStore';
 import { usePositionsStore } from '../services/positionsStore';
 import { isPollingPaused } from '../services/pollingStore';
 import { isFetchAllowed } from '../services/fetchControlStore';
+import { cancelInFlightRequests, getCurrentGeneration, createManagedAbortSignal } from '../services/requestManager';
 
 
 
@@ -1641,20 +1642,30 @@ export default function Dashboard() {
     if (!isValidAcc(accId)) return;
     const activeAccBroker = activeAccount?.broker_type || activeAccount?.broker;
     const broker = overrideBroker || activeAccBroker;
-    console.log(`[Dashboard] Fetching account info -> Account: ${accId} | Broker: ${broker}`);
+    const reqGen = getCurrentGeneration();
+    const { signal, cleanup } = createManagedAbortSignal();
+    console.log(`[Dashboard] Fetching account info -> Account: ${accId} | Broker: ${broker} (Gen: ${reqGen})`);
     try {
       const response = await fetch(`${API_BASE_URL}/api/broker/account`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ broker: broker, account_id: accId })
+        body: JSON.stringify({ broker: broker, account_id: accId }),
+        signal
       });
+      if (signal.aborted || getCurrentGeneration() !== reqGen) return;
       const result = await response.json();
+      if (signal.aborted || getCurrentGeneration() !== reqGen) return;
       if (result.status === 'success' && result.data) {
         setAccountInfo(result.data);
       } else if (result.balance !== undefined || result.equity !== undefined || result.totalWalletBalance !== undefined) {
         setAccountInfo(result);
       }
-    } catch (error) {
+    } catch (error: any) {
+      if (error.name !== 'AbortError') {
+        console.error('[Dashboard] Error fetching account data:', error);
+      }
+    } finally {
+      cleanup();
     }
   };
 
@@ -1668,23 +1679,31 @@ export default function Dashboard() {
     if (!isValidAcc(accId)) return;
     const activeAccBroker = activeAccount?.broker_type || activeAccount?.broker;
     const broker = overrideBroker || activeAccBroker;
+    const reqGen = getCurrentGeneration();
+    const { signal, cleanup } = createManagedAbortSignal();
     setLoadingHistory(true);
     setHistoryError('');
     try {
       const res = await fetch(`${API_BASE_URL}/api/trade/history`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ broker: broker, account_id: accId })
+        body: JSON.stringify({ broker: broker, account_id: accId }),
+        signal
       });
+      if (signal.aborted || getCurrentGeneration() !== reqGen) return;
       const data = await res.json();
+      if (signal.aborted || getCurrentGeneration() !== reqGen) return;
       if (data.status === 'success') {
         setHistoryTrades(data.data || []);
       } else {
         setHistoryError(data.message || 'Failed to fetch trade history.');
       }
-    } catch (e) {
-      setHistoryError('Failed to fetch trade history.');
+    } catch (e: any) {
+      if (e.name !== 'AbortError') {
+        setHistoryError('Failed to fetch trade history.');
+      }
     } finally {
+      cleanup();
       setLoadingHistory(false);
     }
   };
@@ -1727,6 +1746,8 @@ export default function Dashboard() {
   };
 
   const handleSwitchAccount = async (accountId: string) => {
+    // Instantly cancel any in-flight requests from the previous account/broker
+    cancelInFlightRequests();
     setAccountInfo(null);
     try {
       const res = await fetch(`${API_BASE_URL}/api/accounts/active`, {
@@ -1748,7 +1769,7 @@ export default function Dashboard() {
         }
         const broker = newActive ? (newActive.broker_type || newActive.broker || 'metatrader') : 'metatrader';
         window.dispatchEvent(new CustomEvent('api_target_changed'));
-        fetchCandles(broker);
+        fetchCandles(broker, false, true);
         fetchAccountData(broker, switchedAccId, true);
         storeRefreshPositions(broker, switchedAccId, true);
         fetchHistoryTrades(broker, switchedAccId, true);
