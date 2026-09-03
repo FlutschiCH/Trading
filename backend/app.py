@@ -116,6 +116,11 @@ def log_request_timing(response):
             elapsed = time.time() - g.start_time
             method = request.method if request else 'UNKNOWN'
             path = request.path if request else ''
+            if method == 'OPTIONS':
+                if elapsed > 0.2:
+                    logPrint(f"⏱️ [API SLOW] {method} {path} took {elapsed:.4f}s", category="Flask API", level="WARNING")
+                return response
+
             if elapsed > 0.1:
                 logPrint(f"⏱️ [API SLOW] {method} {path} took {elapsed:.4f}s", category="Flask API", level="WARNING")
             else:
@@ -151,6 +156,13 @@ class CustomWSGILogger:
         if msg:
             m = msg.strip()
             if m:
+                if '"OPTIONS ' in m:
+                    try:
+                        dur = float(m.split()[-1])
+                        if dur < 0.2:
+                            return
+                    except Exception:
+                        return
                 logPrint(m, category="Flask API", level="INFO")
 
 if __name__ == '__main__':
