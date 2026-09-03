@@ -3,28 +3,6 @@ from broker_handler import BrokerHandler
 
 metatrader_routes = Blueprint('metatrader', __name__)
 
-@metatrader_routes.route('/metatrader/candles', methods=['POST'])
-def get_metatrader_candles():
-    payload = request.get_json(silent=True) or {}
-    symbol = payload.get('symbol', 'EURUSD')
-    timeframe = payload.get('timeframe') or payload.get('interval', '15m')
-    limit = max(int(payload.get('limit', 1000)), 50000)
-    date_from = payload.get('date_from')
-    date_to = payload.get('date_to')
-    acc_id = payload.get('account_id') or payload.get('login')
-
-    candles = BrokerHandler.fetch_candles(
-        broker_name='metatrader',
-        account_id=acc_id,
-        symbol=symbol,
-        timeframe=timeframe,
-        limit=limit,
-        date_from=date_from,
-        date_to=date_to
-    )
-    if not candles:
-        return jsonify({"status": "error", "message": "Failed to fetch candles from MT5."}), 400
-    return jsonify({"status": "success", "data": candles})
 
 @metatrader_routes.route('/metatrader/account', methods=['POST'])
 def get_metatrader_account():
