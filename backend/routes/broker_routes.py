@@ -26,6 +26,7 @@ def positions():
     broker_name = payload.pop('broker', None)
     account_id = payload.pop('account_id', None)
     data = BrokerHandler.get_positions(broker_name=broker_name, account_id=account_id, **payload)
+    print(f"\n[POSITIONS ROUTE] Broker: {broker_name} | Account: {account_id} | Response: {data}\n", flush=True)
     return jsonify({"status": "success", "data": data})
 
 @broker_routes.route('/broker/candles', methods=['POST'])

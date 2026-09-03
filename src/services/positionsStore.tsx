@@ -61,9 +61,13 @@ export const PositionsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       });
       if (response.ok) {
         const data = await response.json();
+        console.log('[PositionsStore] /api/broker/positions response:', data);
         if (data.status === 'success' && Array.isArray(data.data)) {
           setPositions(data.data);
         }
+      } else {
+        const errText = await response.text();
+        console.log('[PositionsStore] /api/broker/positions non-OK response:', response.status, errText);
       }
     } catch (e) {
       console.error('[PositionsStore] Failed to fetch positions:', e);
