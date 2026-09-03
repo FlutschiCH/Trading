@@ -487,6 +487,42 @@ export default function WyckoffBacktester({
     }
   }, [indicatorRules]);
 
+  // Daily First Signals Management (Skip / Reduced Risk per day in candle-time)
+  const [dailyFirstSignalsMode, setDailyFirstSignalsMode] = React.useState<'disabled' | 'skip' | 'reduced_risk'>(() => {
+    try {
+      const saved = localStorage.getItem('wyckoff_daily_first_signals_mode');
+      return (saved as any) || 'disabled';
+    } catch {
+      return 'disabled';
+    }
+  });
+
+  const [dailyFirstSignalsCount, setDailyFirstSignalsCount] = React.useState<string>(() => {
+    try {
+      return localStorage.getItem('wyckoff_daily_first_signals_count') || '1';
+    } catch {
+      return '1';
+    }
+  });
+
+  const [dailyFirstSignalsRiskMult, setDailyFirstSignalsRiskMult] = React.useState<string>(() => {
+    try {
+      return localStorage.getItem('wyckoff_daily_first_signals_risk_mult') || '0.5';
+    } catch {
+      return '0.5';
+    }
+  });
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('wyckoff_daily_first_signals_mode', dailyFirstSignalsMode);
+      localStorage.setItem('wyckoff_daily_first_signals_count', dailyFirstSignalsCount);
+      localStorage.setItem('wyckoff_daily_first_signals_risk_mult', dailyFirstSignalsRiskMult);
+    } catch (e) {
+      console.error(e);
+    }
+  }, [dailyFirstSignalsMode, dailyFirstSignalsCount, dailyFirstSignalsRiskMult]);
+
   // New Rule Form State
   const [newRuleInd, setNewRuleInd] = React.useState('rsi');
   const [newRulePeriod, setNewRulePeriod] = React.useState('14');
@@ -1579,7 +1615,10 @@ export default function WyckoffBacktester({
                 beStep: parseFloat(beStep) || 1.0,
                 symbols: effectiveSymbols,
                 timeframes: effectiveTimeframes,
-                indicatorRules: indicatorRules.filter((r: any) => r.enabled !== false)
+                indicatorRules: indicatorRules.filter((r: any) => r.enabled !== false),
+                dailyFirstSignalsMode,
+                dailyFirstSignalsCount: parseInt(dailyFirstSignalsCount) || 0,
+                dailyFirstSignalsRiskMult: parseFloat(dailyFirstSignalsRiskMult) || 0.5
               };
               if (totalRunCombinations > 1 || isOptimizeMode) {
                 onRunOptimization(rangeParams);
@@ -2334,6 +2373,77 @@ export default function WyckoffBacktester({
               <option value="duration">Minimum Stage Duration (Accumulation/Distribution &gt;= 3 bars)</option>
               <option value="both">Both Confirmation & Minimum Stage Duration</option>
             </select>
+          </div>
+
+          {/* Daily First Signals Management (Skip / Reduced Risk) */}
+          <div style={{
+            backgroundColor: 'rgba(15, 23, 42, 0.6)',
+            border: '1px solid #334155',
+            borderRadius: '6px',
+            padding: '10px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ color: '#f8fafc', fontSize: '11px', fontWeight: 600 }}>⚡ Daily First Signals Management</span>
+              {dailyFirstSignalsMode !== 'disabled' && (
+                <span style={{
+                  fontSize: '9px',
+                  backgroundColor: dailyFirstSignalsMode === 'skip' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(245, 158, 11, 0.2)',
+                  color: dailyFirstSignalsMode === 'skip' ? '#ef4444' : '#f59e0b',
+                  padding: '2px 6px',
+                  borderRadius: '4px',
+                  fontWeight: 600,
+                  textTransform: 'uppercase'
+                }}>
+                  {dailyFirstSignalsMode === 'skip' ? `Skip First ${dailyFirstSignalsCount}` : `First ${dailyFirstSignalsCount} @ ${(parseFloat(dailyFirstSignalsRiskMult) * 100).toFixed(0)}% Risk`}
+                </span>
+              )}
+            </div>
+
+            <div style={styles.formGroup}>
+              <label style={{ color: '#9ca3af', fontSize: '10px' }}>Daily Initial Signals Mode (Candle Midnight Reset)</label>
+              <select
+                value={dailyFirstSignalsMode}
+                onChange={(e) => setDailyFirstSignalsMode(e.target.value as any)}
+                style={styles.input}
+              >
+                <option value="disabled">Disabled (Trade All Signals Normally)</option>
+                <option value="skip">Skip First X Signals of the Day</option>
+                <option value="reduced_risk">Reduced Risk for First X Signals of the Day</option>
+              </select>
+            </div>
+
+            {dailyFirstSignalsMode !== 'disabled' && (
+              <div style={{ display: 'grid', gridTemplateColumns: dailyFirstSignalsMode === 'reduced_risk' ? '1fr 1fr' : '1fr', gap: '8px' }}>
+                <div style={styles.formGroup}>
+                  <label style={{ color: '#9ca3af', fontSize: '10px' }}>First Signals Count (X)</label>
+                  <input
+                    type="number"
+                    value={dailyFirstSignalsCount}
+                    onChange={(e) => setDailyFirstSignalsCount(Math.max(1, parseInt(e.target.value) || 1).toString())}
+                    style={styles.input}
+                    min="1"
+                    step="1"
+                  />
+                </div>
+                {dailyFirstSignalsMode === 'reduced_risk' && (
+                  <div style={styles.formGroup}>
+                    <label style={{ color: '#9ca3af', fontSize: '10px' }}>Risk Multiplier (e.g. 0.5 = 50%)</label>
+                    <input
+                      type="number"
+                      value={dailyFirstSignalsRiskMult}
+                      onChange={(e) => setDailyFirstSignalsRiskMult(e.target.value)}
+                      style={styles.input}
+                      min="0.05"
+                      max="1.0"
+                      step="0.05"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </CollapsibleCard>
 

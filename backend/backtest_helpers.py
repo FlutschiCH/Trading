@@ -129,7 +129,10 @@ def run_trade_simulation(
     global_close_time: str = '',
     progress_callback = None,
     entry_stability_rule: str = 'default',
-    session_config: dict = None
+    session_config: dict = None,
+    daily_first_signals_mode: str = 'disabled',
+    daily_first_signals_count: int = 0,
+    daily_first_signals_risk_mult: float = 0.5
 ) -> dict:
     """
     Simulates the Wyckoff strategy trade executions on the annotated candle list.
@@ -141,6 +144,7 @@ def run_trade_simulation(
     completed_trades = []
     current_balance = initial_balance
     daily_trades_count = {}
+    daily_signals_count = {}
     
     # State for entry stability rules
     pending_buy = False
@@ -226,7 +230,11 @@ def run_trade_simulation(
             date_from=date_from,
             date_to=date_to,
             daily_retry_limit=daily_retry_limit,
-            daily_trades_count=daily_trades_count
+            daily_trades_count=daily_trades_count,
+            daily_first_signals_mode=daily_first_signals_mode,
+            daily_first_signals_count=daily_first_signals_count,
+            daily_first_signals_risk_mult=daily_first_signals_risk_mult,
+            daily_signals_count=daily_signals_count
         )
         accum_consec_bars = state_dict['accum_consec_bars']
         dist_consec_bars = state_dict['dist_consec_bars']
@@ -372,6 +380,8 @@ def run_trade_simulation(
                     'exitReason': exit_reason,
                     'duration': int(i - active_trade['entry_index'] + 1),
                     'qty': float(active_trade['qty']),
+                    'isReducedRisk': bool(active_trade.get('is_reduced_risk', False)),
+                    'riskMultiplier': float(active_trade.get('risk_multiplier', 1.0)),
                     'triggerReason': active_trade.get('trigger_reason')
                 })
                 current_balance += pnl
@@ -384,6 +394,11 @@ def run_trade_simulation(
                 c['backtest_signal'] = trade_type
                 entry_price = close_val
                 
+                is_reduced = (c.get('signal_action') == 'reduced')
+                effective_risk_mult = float(c.get('risk_multiplier', 1.0)) if is_reduced else 1.0
+                effective_risk_pct = risk_pct * effective_risk_mult
+                effective_size = size * effective_risk_mult if not use_risk_sizing else size
+
                 trade_params = TradingHandler.calculate_trade_parameters(
                     symbol=symbol,
                     entry_price=entry_price,
@@ -391,9 +406,9 @@ def run_trade_simulation(
                     sl_type=sl_type,
                     sl_val=sl_val,
                     rr=rr,
-                    size=size,
+                    size=effective_size,
                     use_risk_sizing=use_risk_sizing,
-                    risk_pct=risk_pct,
+                    risk_pct=effective_risk_pct,
                     balance=current_balance,
                     lot_size=lot_size,
                     pip_size=pip_size,
@@ -419,6 +434,9 @@ def run_trade_simulation(
                     'entry_index': i,
                     'entry_timestamp': int(c.get('time', 0)),
                     'is_break_even': False,
+                    'is_reduced_risk': is_reduced,
+                    'risk_multiplier': effective_risk_mult,
+                    'signal_index_in_day': c.get('signal_index_in_day', 1),
                     'sl_distance': sl_distance,
                     'session_config': session_config,
                     'session_close_on_end': bool(session_config.get('closeOnEnd', False)) if session_config else False,

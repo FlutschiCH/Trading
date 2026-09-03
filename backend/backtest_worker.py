@@ -271,7 +271,10 @@ def run_worker(job_id: str, is_resume: bool = False):
                 entry_stability_rule=params.get('entryStabilityRule', 'default'),
                 broker=candle_source,
                 timeframe=timeframe,
-                indicator_rules=params.get('indicatorRules', params.get('indicator_rules', []))
+                indicator_rules=params.get('indicatorRules', params.get('indicator_rules', [])),
+                daily_first_signals_mode=params.get('dailyFirstSignalsMode', 'disabled'),
+                daily_first_signals_count=int(params.get('dailyFirstSignalsCount', 0)),
+                daily_first_signals_risk_mult=float(params.get('dailyFirstSignalsRiskMult', 0.5))
             )
 
             total_elapsed = round(time.time() - execution_start_time, 2)
@@ -355,7 +358,10 @@ def run_worker(job_id: str, is_resume: bool = False):
                 be_offset_range_mode=bool(params.get('beOffsetRangeMode', False)),
                 be_offset_start=float(params.get('beOffsetStart')) if params.get('beOffsetStart') is not None else None,
                 be_offset_end=float(params.get('beOffsetEnd')) if params.get('beOffsetEnd') is not None else None,
-                be_offset_step=float(params.get('beOffsetStep')) if params.get('beOffsetStep') is not None else None
+                be_offset_step=float(params.get('beOffsetStep')) if params.get('beOffsetStep') is not None else None,
+                daily_first_signals_mode=params.get('dailyFirstSignalsMode', 'disabled'),
+                daily_first_signals_count=int(params.get('dailyFirstSignalsCount', 0)),
+                daily_first_signals_risk_mult=float(params.get('dailyFirstSignalsRiskMult', 0.5))
             )
 
             total_elapsed = round(time.time() - execution_start_time, 2)

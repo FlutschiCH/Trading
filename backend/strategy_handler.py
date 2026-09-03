@@ -15,7 +15,11 @@ class StrategyHandler:
         date_from: float = None,
         date_to: float = None,
         daily_retry_limit: int = 0,
-        daily_trades_count: dict = None
+        daily_trades_count: dict = None,
+        daily_first_signals_mode: str = 'disabled',
+        daily_first_signals_count: int = 0,
+        daily_first_signals_risk_mult: float = 0.5,
+        daily_signals_count: dict = None
     ) -> tuple:
         """
         Pure signal detection logic shared between Backtesting and Live Trading.
@@ -23,6 +27,8 @@ class StrategyHandler:
         """
         if daily_trades_count is None:
             daily_trades_count = {}
+        if daily_signals_count is None:
+            daily_signals_count = {}
 
         wyckoff_sig = c.get('wyckoff_signal')
         stage = c.get('wyckoff_stage', 'TRANSITION')
@@ -140,10 +146,9 @@ class StrategyHandler:
             should_buy = False
             should_sell = False
 
-        # Daily retry limit
+        # Daily retry limit (using candle date)
         try:
-            from datetime import datetime
-            date_str = datetime.utcfromtimestamp(candle_time).strftime('%Y-%m-%d')
+            date_str = dt_curr.strftime('%Y-%m-%d')
         except Exception:
             date_str = 'unknown'
 
@@ -156,6 +161,26 @@ class StrategyHandler:
             should_buy = False
         if c.get('indicator_sell_valid') is False:
             should_sell = False
+
+        # Daily Initial Signals (First X of Day: Skip or Reduced Risk based on candle-time midnight)
+        if should_buy or should_sell:
+            daily_signals_count[date_str] = daily_signals_count.get(date_str, 0) + 1
+            curr_signal_idx = daily_signals_count[date_str]
+            raw_sig_type = 'BUY' if should_buy else 'SELL'
+            c['signal_index_in_day'] = curr_signal_idx
+
+            if daily_first_signals_mode in ('skip', 'reduced_risk') and curr_signal_idx <= daily_first_signals_count:
+                if daily_first_signals_mode == 'skip':
+                    c['signal_action'] = 'skipped'
+                    c['skipped_signal_type'] = raw_sig_type
+                    should_buy = False
+                    should_sell = False
+                elif daily_first_signals_mode == 'reduced_risk':
+                    c['signal_action'] = 'reduced'
+                    c['risk_multiplier'] = float(daily_first_signals_risk_mult)
+            else:
+                c['signal_action'] = 'normal'
+                c['risk_multiplier'] = 1.0
 
         state.update({
             'accum_consec_bars': accum_consec_bars,
@@ -224,7 +249,10 @@ class StrategyHandler:
         broker: str = 'metatrader',
         session_config: dict = None,
         timeframe: str = '5m',
-        indicator_rules: list = None
+        indicator_rules: list = None,
+        daily_first_signals_mode: str = 'disabled',
+        daily_first_signals_count: int = 0,
+        daily_first_signals_risk_mult: float = 0.5
     ) -> dict:
         """
         Runs the full Wyckoff structure analysis backtest in Python.
@@ -273,7 +301,10 @@ class StrategyHandler:
             global_close_time=global_close_time,
             progress_callback=progress_callback,
             entry_stability_rule=entry_stability_rule,
-            session_config=session_config
+            session_config=session_config,
+            daily_first_signals_mode=daily_first_signals_mode,
+            daily_first_signals_count=daily_first_signals_count,
+            daily_first_signals_risk_mult=daily_first_signals_risk_mult
         )
         
         from candle_sanitizer import sanitize_and_fill_candles
@@ -423,7 +454,10 @@ class StrategyHandler:
         be_offset_range_mode: bool = False,
         be_offset_start: float = None,
         be_offset_end: float = None,
-        be_offset_step: float = None
+        be_offset_step: float = None,
+        daily_first_signals_mode: str = 'disabled',
+        daily_first_signals_count: int = 0,
+        daily_first_signals_risk_mult: float = 0.5
     ) -> dict:
         """
         Runs Wyckoff parameter grid search optimization, fetching candles dynamically and executing simulations.
@@ -636,7 +670,10 @@ class StrategyHandler:
                 use_global_close=use_global_close,
                 global_close_time=global_close_time,
                 progress_callback=None,
-                entry_stability_rule=entry_stability_rule
+                entry_stability_rule=entry_stability_rule,
+                daily_first_signals_mode=daily_first_signals_mode,
+                daily_first_signals_count=daily_first_signals_count,
+                daily_first_signals_risk_mult=daily_first_signals_risk_mult
             )
 
             run_duration = time.time() - run_start_time

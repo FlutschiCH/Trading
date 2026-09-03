@@ -1699,6 +1699,19 @@ export default function TVChart({
           const candleTime = Number(c.time);
           const trade = tradeEntryMap.get(candleTime);
 
+          // Render Skipped Signals
+          if (c.signal_action === 'skipped' && !trade) {
+            const isBullish = (c.skipped_signal_type || 'BUY') === 'BUY';
+            return {
+              time: c.time,
+              position: (isBullish ? 'belowBar' : 'aboveBar') as any,
+              color: '#94a3b8',
+              shape: (isBullish ? 'arrowUp' : 'arrowDown') as any,
+              text: `SKIPPED ${isBullish ? 'BUY' : 'SELL'}`,
+              size: 1,
+            };
+          }
+
           if (c.backtest_signal || trade) {
             const isBullish = trade ? (trade.type || trade.side || 'BUY').toUpperCase() === 'BUY' : c.backtest_signal === 'BUY';
             const isProfit = trade ? trade.pnl >= 0 : true;
@@ -1711,6 +1724,13 @@ export default function TVChart({
             const baseColor = isBullish ? '#10b981' : '#ef4444';
 
             let markerText = isBullish ? 'BUY' : 'SELL';
+            const isReduced = Boolean(trade?.isReducedRisk || c.signal_action === 'reduced');
+            if (isReduced) {
+              const mult = trade?.riskMultiplier || c.risk_multiplier;
+              const multStr = mult ? ` ${(mult * 100).toFixed(0)}%` : '';
+              markerText += ` [REDUCED${multStr}]`;
+            }
+
             if (trade && trade.pnl !== undefined) {
               const pnlStr = trade.pnl >= 0 ? `+${Number(trade.pnl).toFixed(2)}` : `${Number(trade.pnl).toFixed(2)}`;
               markerText += ` (${isProfit ? 'WIN' : 'LOSS'} ${pnlStr})`;
