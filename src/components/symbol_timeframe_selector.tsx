@@ -48,12 +48,12 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
   onSymbolChange,
   timeframe = '15m',
   onTimeframeChange,
-  availableSymbols,
-  availableTimeframes,
+  availableSymbols = [],
+  availableTimeframes = ['1m', '3m', '5m', '15m', '30m', '1h', '2h', '4h', '1d', '1w'],
   isLight = false,
-  selectedSymbols,
+  selectedSymbols = [],
   onSelectedSymbolsChange,
-  selectedTimeframes,
+  selectedTimeframes = [],
   onSelectedTimeframesChange
 }) => {
   const [isOpen, setIsOpen] = useState(false);
