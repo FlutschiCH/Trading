@@ -197,6 +197,8 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         } else if (Array.isArray(marketResult)) {
           rawCandles = marketResult.sort((a: Candle, b: Candle) => a.time - b.time);
         }
+        const returnTs = new Date();
+        console.log(`[CandleStore] [${returnTs.toISOString()} (${returnTs.getTime()}ms)] Received candles response: count=${rawCandles.length} status=${marketResult?.status || 'ok'}`);
       }
 
       if (rawCandles.length > 0) {

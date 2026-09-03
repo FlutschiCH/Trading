@@ -51,6 +51,7 @@ def candles():
     if date_to is not None:
         date_to = int(date_to)
 
+    t0 = time.perf_counter()
     try:
         account_id = payload.get('account_id')
         p = payload.copy() if isinstance(payload, dict) else {}
@@ -66,6 +67,10 @@ def candles():
             date_to=date_to,
             **p
         )
+        t_ret = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+        cnt = len(candles_data) if isinstance(candles_data, list) else 0
+        dur_ms = (time.perf_counter() - t0) * 1000
+        print(f"📤 [/broker/candles Return] [{t_ret}] broker={broker_name} symbol={symbol} count={cnt} (took {dur_ms:.2f}ms)", flush=True)
     except (ValueError, RuntimeError) as e:
         return jsonify({"status": "error", "message": str(e)}), 400
 
