@@ -226,6 +226,8 @@ interface WyckoffBacktesterProps {
   hiddenStages?: string[];
   setHiddenStages?: React.Dispatch<React.SetStateAction<string[]>>;
   onLoadSpecificResults?: (broker: string, symbol: string, timeframe: string, sl: string, rr: string, be: string) => Promise<void>;
+  setBacktestResults?: (val: any) => void;
+  onLoadSavedPayload?: (payload: any) => void;
 }
 
 interface CollapsibleCardProps {
@@ -379,6 +381,8 @@ export default function WyckoffBacktester({
   onSymbolChange,
   onTimeframeChange,
   onLoadSpecificResults,
+  setBacktestResults,
+  onLoadSavedPayload,
 }: WyckoffBacktesterProps) {
   const [copied, setCopied] = React.useState(false);
   const [isMobile, setIsMobile] = React.useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
@@ -1078,7 +1082,23 @@ export default function WyckoffBacktester({
         // Notify parent / subscribers of loaded settings
         window.dispatchEvent(new CustomEvent('wyckoff_settings_loaded', { detail: { ...s, symbol: loadedSymbol, timeframe: loadedTimeframe } }));
 
-        if (onLoadSpecificResults) {
+        if (onLoadSavedPayload) {
+          onLoadSavedPayload(fullPayload);
+        } else if (setBacktestResults && fullPayload.trades) {
+          setBacktestResults({
+            trades: fullPayload.trades || [],
+            winRate: fullPayload.win_rate ?? fullPayload.winRate ?? 0,
+            netPnl: fullPayload.net_pnl ?? fullPayload.netPnl ?? 0,
+            profitFactor: fullPayload.profit_factor ?? fullPayload.profitFactor ?? 0,
+            totalTrades: fullPayload.trades_cnt ?? fullPayload.totalTrades ?? (fullPayload.trades?.length || 0),
+            maxDrawdown: fullPayload.max_drawdown ?? fullPayload.maxDrawdown ?? 0,
+            maxDailyLoss: fullPayload.max_daily_loss ?? fullPayload.maxDailyLoss ?? 0,
+            dailyLossBreached: Boolean(fullPayload.daily_loss_breached ?? fullPayload.dailyLossBreached),
+            candles: fullPayload.candles,
+            monthlyBreakdown: fullPayload.monthly_breakdown ?? fullPayload.monthlyBreakdown,
+            weeklyBreakdown: fullPayload.weekly_breakdown ?? fullPayload.weeklyBreakdown,
+          });
+        } else if (onLoadSpecificResults) {
           onLoadSpecificResults(
             s.broker || fullPayload.broker || 'metatrader',
             loadedSymbol || symbol,

@@ -1317,6 +1317,33 @@ export default function Dashboard() {
     }
   };
 
+  const handleLoadSavedPayload = (payload: any) => {
+    if (!payload) return;
+    setIsLiveFeed(false);
+    if (payload.symbol) setSymbol(payload.symbol);
+    if (payload.timeframe) setTimeframe(payload.timeframe);
+    const resultsObj = {
+      trades: payload.trades || [],
+      winRate: payload.win_rate ?? payload.winRate ?? 0,
+      netPnl: payload.net_pnl ?? payload.netPnl ?? 0,
+      profitFactor: payload.profit_factor ?? payload.profitFactor ?? 0,
+      totalTrades: payload.trades_cnt ?? payload.totalTrades ?? (payload.trades?.length || 0),
+      maxDrawdown: payload.max_drawdown ?? payload.maxDrawdown ?? 0,
+      maxDailyLoss: payload.max_daily_loss ?? payload.maxDailyLoss ?? 0,
+      dailyLossBreached: Boolean(payload.daily_loss_breached ?? payload.dailyLossBreached),
+      candles: payload.candles || [],
+      monthlyBreakdown: payload.monthly_breakdown ?? payload.monthlyBreakdown,
+      weeklyBreakdown: payload.weekly_breakdown ?? payload.weeklyBreakdown,
+    };
+    setBacktestResults(resultsObj);
+    setFvgs(payload.fvgs || []);
+    if (payload.trades && payload.trades.length > 0) {
+      setSelectedTrade(payload.trades[0]);
+    } else {
+      setSelectedTrade(null);
+    }
+  };
+
   const loadSpecificResults = async (broker: string, symbol: string, timeframe: string, sl: string, rr: string, be: string) => {
     try {
       const url = `${API_BASE_URL}/api/backtest/results?broker=${broker.toLowerCase()}&symbol=${symbol.toUpperCase()}&timeframe=${timeframe}&sl=${sl}&rr=${rr}&be=${be}`;
@@ -2665,6 +2692,8 @@ export default function Dashboard() {
                         onRunOptimization={runOptimization}
                         onSaveSettings={saveBacktestSettings}
                         onLoadSpecificResults={loadSpecificResults}
+                        setBacktestResults={setBacktestResults}
+                        onLoadSavedPayload={handleLoadSavedPayload}
                         onSymbolChange={setSymbol}
                         onTimeframeChange={setTimeframe}
                       />
@@ -3144,6 +3173,8 @@ export default function Dashboard() {
                             onRunOptimization={runOptimization}
                             onSaveSettings={saveBacktestSettings}
                             onLoadSpecificResults={loadSpecificResults}
+                            setBacktestResults={setBacktestResults}
+                            onLoadSavedPayload={handleLoadSavedPayload}
                             onSymbolChange={setSymbol}
                             onTimeframeChange={setTimeframe}
                           />
