@@ -33,6 +33,7 @@ class BinanceFuturesHandler(BaseBrokerHandler):
             headers['X-MBX-APIKEY'] = api_key
 
         if signed:
+            params['recvWindow'] = 60000
             params['timestamp'] = int(time.time() * 1000)
             params['signature'] = cls._generate_signature(params, secret_key)
 
@@ -55,6 +56,8 @@ class BinanceFuturesHandler(BaseBrokerHandler):
                 res_json = response.json()
                 if isinstance(res_json, dict) and 'code' in res_json and res_json['code'] != 200:
                     print(f"[Binance ERROR] Code: {res_json.get('code')}, Msg: {res_json.get('msg')}", flush=True)
+                    if 'error' not in res_json:
+                        res_json['error'] = res_json.get('msg', f"Binance error code {res_json.get('code')}")
                 return res_json
             except Exception as parse_err:
                 print(f"[Binance ERROR] Failed to parse JSON: {parse_err}", flush=True)
