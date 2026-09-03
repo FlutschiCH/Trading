@@ -1619,8 +1619,10 @@ export default function Dashboard() {
         body: JSON.stringify({ broker: broker, account_id: accId })
       });
       const result = await response.json();
-      if (result.status === 'success') {
+      if (result.status === 'success' && result.data) {
         setAccountInfo(result.data);
+      } else if (result.balance !== undefined || result.equity !== undefined || result.totalWalletBalance !== undefined) {
+        setAccountInfo(result);
       }
     } catch (error) {
     }

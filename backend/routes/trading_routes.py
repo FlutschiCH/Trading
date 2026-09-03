@@ -21,7 +21,9 @@ def account():
     t2 = time.perf_counter()
 
     print(f"⏱️ [/trade/account] Total: {(t2-t0)*1000:.2f}ms (JSON parse: {(t1-t0)*1000:.2f}ms | Broker fetch: {(t2-t1)*1000:.2f}ms)", flush=True)
-    return jsonify(data)
+    if isinstance(data, dict) and 'error' in data:
+        return jsonify({"status": "error", "message": data['error']}), 400
+    return jsonify({"status": "success", "data": data})
 
 @trading_routes.route('/trade/positions', methods=['POST'])
 def positions():
