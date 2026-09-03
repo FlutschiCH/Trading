@@ -95,3 +95,78 @@ class SymbolMappingHandler:
             print(f"Error mapping symbol to main: {e}", flush=True)
         return broker_symbol
 
+    _broker_symbols_cache = {}
+    _cache_timestamp = 0
+    _is_refreshing = False
+    _CACHE_TTL_SECONDS = 300  # Cache for 5 minutes
+
+    @classmethod
+    def get_connected_brokers_cached(cls, force: bool = False) -> list:
+        import time
+        import threading
+        now = time.time()
+
+        # If cache is valid and not force-requested, return immediately
+        if not force and cls._broker_symbols_cache and (now - cls._cache_timestamp < cls._CACHE_TTL_SECONDS):
+            return list(cls._broker_symbols_cache.values())
+
+        def _refresh_symbols():
+            if cls._is_refreshing:
+                return
+            cls._is_refreshing = True
+            try:
+                from account_handler import AccountHandler
+                from broker_handler import BrokerHandler
+
+                accounts = AccountHandler.get_accounts() or []
+                updated_cache = {}
+
+                for acc in accounts:
+                    acc_id = str(acc.get("account_id"))
+                    b_type = acc.get("broker_type", "metatrader")
+                    b_name = acc.get("name", f"Account #{acc_id}")
+
+                    symbols = []
+                    try:
+                        handler = BrokerHandler.get_handler(b_type)
+                        if b_type == 'metatrader':
+                            kwargs = {
+                                "login": int(acc_id) if acc_id.isdigit() else acc_id,
+                                "password": acc.get("password"),
+                                "server": acc.get("server")
+                            }
+                            raw_syms = handler.get_symbols(**kwargs) or []
+                            symbols = raw_syms if isinstance(raw_syms, list) else []
+                        elif b_type == 'ctrader':
+                            sym_res = handler.get_symbols(account_id=acc_id, password=acc.get("password"), token=acc.get("password"))
+                            if isinstance(sym_res, dict) and sym_res.get("status") == "success":
+                                symbols = sym_res.get("data", [])
+                    except Exception as e:
+                        print(f"Error refreshing symbols for account {acc_id}: {e}", flush=True)
+
+                    updated_cache[acc_id] = {
+                        "account_id": acc_id,
+                        "broker_type": b_type,
+                        "name": b_name,
+                        "symbols": symbols
+                    }
+
+                cls._broker_symbols_cache = updated_cache
+                cls._cache_timestamp = time.time()
+            finally:
+                cls._is_refreshing = False
+
+        if not cls._broker_symbols_cache or force:
+            # First load or forced refresh: do synchronously or return existing while triggering background thread
+            if cls._broker_symbols_cache:
+                threading.Thread(target=_refresh_symbols, daemon=True).start()
+                return list(cls._broker_symbols_cache.values())
+            else:
+                _refresh_symbols()
+                return list(cls._broker_symbols_cache.values())
+        else:
+            # Return current in-memory cache and asynchronously refresh in background
+            threading.Thread(target=_refresh_symbols, daemon=True).start()
+            return list(cls._broker_symbols_cache.values())
+
+
