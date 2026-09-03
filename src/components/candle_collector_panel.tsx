@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { API_BASE_URL } from '../api';
+import * as apiService from '../services/apiService';
 import { RefreshCw, Plus, Trash2, Database, Clock, Server, CheckCircle2, XCircle } from 'lucide-react';
 import DebugComponentBadge from './debug_component_badge';
 import { isFetchAllowed } from '../services/fetchControlStore';
