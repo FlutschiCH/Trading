@@ -1632,7 +1632,7 @@ export default function Dashboard() {
     const broker = overrideBroker || activeAccBroker;
     console.log(`[Dashboard] Fetching account info -> Account: ${accId} | Broker: ${broker}`);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/trade/account`, {
+      const response = await fetch(`${API_BASE_URL}/api/broker/account`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ broker: broker, account_id: accId })

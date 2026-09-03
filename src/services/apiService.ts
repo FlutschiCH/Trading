@@ -84,7 +84,7 @@ export const fetchLiveStrategyCache = async (strategyId: string, limit?: number)
 };
 
 export const fetchTradeCandles = async (payload: any) => {
-  const url = `${API_BASE_URL}/api/trade/candles`;
+  const url = `${API_BASE_URL}/api/broker/candles`;
   try {
     const response = await throttledFetch(url, {
       method: 'POST',

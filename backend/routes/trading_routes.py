@@ -7,32 +7,6 @@ def _get_handler(payload):
     broker_name = payload.get('broker', 'ctrader')
     return BrokerHandler.get_handler(broker_name)
 
-import time
-
-@trading_routes.route('/trade/account', methods=['POST'])
-def account():
-    t0 = time.perf_counter()
-    payload = request.get_json(force=True) or {}
-    broker_name = payload.pop('broker', None)
-    account_id = payload.pop('account_id', None)
-    t1 = time.perf_counter()
-
-    data = BrokerHandler.get_account_info(broker_name=broker_name, account_id=account_id, **payload)
-    t2 = time.perf_counter()
-
-    print(f"⏱️ [/trade/account] Total: {(t2-t0)*1000:.2f}ms (JSON parse: {(t1-t0)*1000:.2f}ms | Broker fetch: {(t2-t1)*1000:.2f}ms)", flush=True)
-    if isinstance(data, dict) and 'error' in data:
-        return jsonify({"status": "error", "message": data['error']}), 400
-    return jsonify({"status": "success", "data": data})
-
-@trading_routes.route('/trade/positions', methods=['POST'])
-def positions():
-    payload = request.get_json(force=True) or {}
-    # print(f"[TradingRoutes] /trade/positions payload: {payload}", flush=True)
-    broker_name = payload.pop('broker', None)
-    account_id = payload.pop('account_id', None)
-    data = BrokerHandler.get_positions(broker_name=broker_name, account_id=account_id, **payload)
-    return jsonify({"status": "success", "data": data})
 
 @trading_routes.route('/trade/order', methods=['POST'])
 def order():
@@ -123,40 +97,6 @@ def modify_position():
 
     return jsonify(result)
 
-@trading_routes.route('/trade/candles', methods=['POST'])
-def candles():
-    try:
-        payload = request.get_json(force=True) or {}
-    except Exception:
-        return jsonify({"status": "error", "message": "Invalid JSON"}), 400
-
-    broker_name = payload.get('broker', 'ctrader')
-    symbol = payload.get('symbol', 'EURUSD')
-    timeframe = payload.get('interval', '15m')
-    limit = int(payload.get('limit', 1000))
-    date_from = payload.get('date_from')
-    date_to = payload.get('date_to')
-
-    if date_from is not None:
-        date_from = int(date_from)
-    if date_to is not None:
-        date_to = int(date_to)
-
-    from broker_handler import BrokerHandler
-    try:
-        account_id = payload.get('account_id')
-        p = payload.copy() if isinstance(payload, dict) else {}
-        for k in ('symbol', 'interval', 'timeframe', 'limit', 'date_from', 'date_to', 'broker', 'account_id'):
-            p.pop(k, None)
-        candles_data = BrokerHandler.fetch_candles(broker_name=broker_name, account_id=account_id, symbol=symbol, timeframe=timeframe, limit=limit, date_from=date_from, date_to=date_to, **p)
-    except (ValueError, RuntimeError) as e:
-        return jsonify({"status": "error", "message": str(e)}), 400
-
-    return jsonify({
-        "status": "success",
-        "candles": candles_data,
-        "trades": []
-    })
 
 @trading_routes.route('/trade/history', methods=['POST'])
 def history():

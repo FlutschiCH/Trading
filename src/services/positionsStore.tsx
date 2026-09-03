@@ -54,7 +54,7 @@ export const PositionsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setLoadingPositions(true);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/trade/positions`, {
+      const response = await fetch(`${API_BASE_URL}/api/broker/positions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ broker, account_id: accId })
