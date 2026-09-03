@@ -129,3 +129,46 @@ export const updateFavouriteNotes = async (payload: any) => {
   });
   return safeJsonParse(response);
 };
+
+let symbolMappingsCache: any = null;
+let symbolMappingsPromise: Promise<any> | null = null;
+let connectedBrokersCache: any = null;
+let connectedBrokersPromise: Promise<any> | null = null;
+
+export const fetchSymbolMappings = async (force: boolean = false) => {
+  if (symbolMappingsCache && !force) return symbolMappingsCache;
+  if (symbolMappingsPromise && !force) return symbolMappingsPromise;
+  
+  symbolMappingsPromise = (async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/symbol-mappings`);
+      const data = await safeJsonParse(res);
+      if (data && data.status === 'success') {
+        symbolMappingsCache = data;
+      }
+      return data;
+    } finally {
+      symbolMappingsPromise = null;
+    }
+  })();
+  return symbolMappingsPromise;
+};
+
+export const fetchConnectedBrokers = async (force: boolean = false) => {
+  if (connectedBrokersCache && !force) return connectedBrokersCache;
+  if (connectedBrokersPromise && !force) return connectedBrokersPromise;
+  
+  connectedBrokersPromise = (async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/symbol-mappings/connected-brokers`);
+      const data = await safeJsonParse(res);
+      if (data && data.status === 'success') {
+        connectedBrokersCache = data;
+      }
+      return data;
+    } finally {
+      connectedBrokersPromise = null;
+    }
+  })();
+  return connectedBrokersPromise;
+};

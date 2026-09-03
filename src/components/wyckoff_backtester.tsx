@@ -470,8 +470,7 @@ export default function WyckoffBacktester({
   const [symbolMappings, setSymbolMappings] = React.useState<any[]>([]);
 
   React.useEffect(() => {
-    fetch(`${API_BASE_URL}/api/symbol-mappings`)
-      .then(res => res.json())
+    apiService.fetchSymbolMappings()
       .then(data => {
         if (data && data.status === 'success' && Array.isArray(data.data)) {
           setSymbolMappings(data.data);

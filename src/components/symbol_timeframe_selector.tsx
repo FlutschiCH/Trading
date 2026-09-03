@@ -48,73 +48,61 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
   onSymbolChange,
   timeframe = '15m',
   onTimeframeChange,
-  selectedSymbols = [],
-  onSelectedSymbolsChange,
-  selectedTimeframes = [],
-  onSelectedTimeframesChange,
-  availableSymbols = ['BTCUSD', 'ETHUSD', 'EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'XAUUSD', 'US30', 'GER40'],
-  availableTimeframes = ['1m', '5m', '15m', '30m', '1h', '4h', '1d'],
-  isLight = false,
+  onRefresh
 }) => {
-  // Favorites synced with localStorage
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<'ALL' | 'CRYPTO' | 'FOREX' | 'INDEX' | 'COMMODITIES'>('ALL');
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
   const [favoriteSymbols, setFavoriteSymbols] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem('wyckoff_fav_symbols');
-      return saved ? JSON.parse(saved) : ['BTCUSD', 'EURUSD', 'XAUUSD'];
+      return saved ? JSON.parse(saved) : ['EURUSD', 'BTCUSD', 'XAUUSD'];
     } catch {
-      return ['BTCUSD', 'EURUSD', 'XAUUSD'];
+      return ['EURUSD', 'BTCUSD', 'XAUUSD'];
     }
   });
 
   const [favoriteTimeframes, setFavoriteTimeframes] = useState<string[]>(() => {
     try {
-      const saved = localStorage.getItem('wyckoff_fav_timeframes');
-      return saved ? JSON.parse(saved) : ['5m', '15m', '1h', '4h'];
+      const saved = localStorage.getItem('wyckoff_fav_tfs');
+      return saved ? JSON.parse(saved) : ['1m', '5m', '15m', '1h'];
     } catch {
-      return ['5m', '15m', '1h', '4h'];
+      return ['1m', '5m', '15m', '1h'];
     }
   });
 
-  useEffect(() => {
-    localStorage.setItem('wyckoff_fav_symbols', JSON.stringify(favoriteSymbols));
-  }, [favoriteSymbols]);
-
-  useEffect(() => {
-    localStorage.setItem('wyckoff_fav_timeframes', JSON.stringify(favoriteTimeframes));
-  }, [favoriteTimeframes]);
-
-  const toggleFavoriteSymbol = (sym: string, e?: React.MouseEvent) => {
+  const toggleFavSymbol = (sym: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     setFavoriteSymbols(prev =>
       prev.includes(sym) ? prev.filter(s => s !== sym) : [...prev, sym]
     );
   };
 
-  const toggleFavoriteTimeframe = (tf: string, e?: React.MouseEvent) => {
+  const toggleFavTf = (tf: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     setFavoriteTimeframes(prev =>
       prev.includes(tf) ? prev.filter(t => t !== tf) : [...prev, tf]
     );
   };
 
-  // Fetch symbol mappings and connected brokers from backend
+  // Fetch symbol mappings and connected brokers from backend (cached)
   const [symbolMappings, setSymbolMappings] = useState<any[]>([]);
   const [fetchedBrokerSymbols, setFetchedBrokerSymbols] = useState<string[]>([]);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
-  const fetchConnectedBrokersAndMappings = async () => {
+  const fetchConnectedBrokersAndMappings = async (force: boolean = false) => {
     setIsRefreshing(true);
     try {
-      // 1. Fetch symbol mappings
-      const mappingsRes = await fetch(`${API_BASE_URL}/api/symbol-mappings`);
-      const mappingsData = await mappingsRes.json();
+      // 1. Fetch symbol mappings (cached)
+      const mappingsData = await apiService.fetchSymbolMappings(force);
       if (mappingsData && mappingsData.status === 'success' && Array.isArray(mappingsData.data)) {
         setSymbolMappings(mappingsData.data);
       }
 
-      // 2. Fetch connected brokers
-      const brokersRes = await fetch(`${API_BASE_URL}/api/symbol-mappings/connected-brokers`);
-      const brokersData = await brokersRes.json();
+      // 2. Fetch connected brokers (cached)
+      const brokersData = await apiService.fetchConnectedBrokers(force);
       if (brokersData && brokersData.status === 'success' && Array.isArray(brokersData.data)) {
         const brokers: any[] = brokersData.data;
         const targetAccId = accountId || localStorage.getItem('broker_account') || localStorage.getItem('wyckoff_active_account_id') || localStorage.getItem('active_account_id') || localStorage.getItem('wyckoff_active_account');
