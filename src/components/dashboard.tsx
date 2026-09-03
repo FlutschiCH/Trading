@@ -233,6 +233,15 @@ export default function Dashboard() {
     'AUDUSD', 'USDCAD', 'XAUUSD', 'US30', 'GER40'
   ]);
 
+  const [activeAccount, setActiveAccount] = useState<any>(() => {
+    try {
+      const saved = localStorage.getItem('wyckoff_active_account');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
   // Synchronize candleSource with active account's broker_type automatically
   useEffect(() => {
     const brokerType = (activeAccount?.broker_type || activeAccount?.broker || '').toLowerCase();
@@ -288,14 +297,6 @@ export default function Dashboard() {
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
-    }
-  });
-  const [activeAccount, setActiveAccount] = useState<any>(() => {
-    try {
-      const saved = localStorage.getItem('wyckoff_active_account');
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
     }
   });
   const [showAccountModal, setShowAccountModal] = useState(false);
