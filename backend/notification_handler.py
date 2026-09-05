@@ -140,20 +140,16 @@ class NotificationHandler:
 
     @classmethod
     def send_notification(cls, message: str, sound_type: str = None):
-        """Sends notification locally (sound), to Discord, and via PWA Web Push."""
+        """Sends notification locally (sound) and to Discord."""
         print(f"[NOTIFICATION] {message}", flush=True)
         if sound_type:
             cls.play_sound(sound_type)
         
         # Check settings configuration
         discord_enabled = cls.get_setting("discord_enabled", "true") == "true"
-        push_enabled = cls.get_setting("push_enabled", "true") == "true"
 
         if discord_enabled:
             cls.send_discord_message(message)
-            
-        if push_enabled:
-            cls.send_web_push("Trading Alert", message)
 
     @classmethod
     def send_discord_message(cls, message: str):
@@ -211,6 +207,10 @@ class NotificationHandler:
     def send_web_push(cls, title: str, body: str, url: str = None):
         """Sends PWA Web Push notification to all subscribed devices."""
         cls.init_db()
+        push_enabled = cls.get_setting("push_enabled", "true") == "true"
+        if not push_enabled:
+            return
+
         if not PYWEBPUSH_AVAILABLE:
             print("[NOTIFICATION] web-push library not available. Skipping push.", flush=True)
             return

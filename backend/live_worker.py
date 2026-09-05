@@ -498,6 +498,24 @@ class LiveWorker:
                                 f"🔄 **Allow Opposite Close:** `{allow_opp}`"
                             )
 
+                            try:
+                                from notification_handler import NotificationHandler
+                                strat_name = strategy.get("name") or strategy.get("strategy_name") or f"Strategy {self.strategy_id}"
+                                stage_label = state_info.get("stage", "N/A") if isinstance(state_info, dict) else "N/A"
+                                push_title = f"🚨 {direction} Signal: {symbol} ({timeframe})"
+                                push_body = (
+                                    f"Strategy: {strat_name} (ID: {self.strategy_id})\n"
+                                    f"Signal: {direction} @ {close_price:.5f}\n"
+                                    f"Stage: {stage_label} | Opp Close: {allow_opp}"
+                                )
+                                NotificationHandler.send_web_push(
+                                    title=push_title,
+                                    body=push_body,
+                                    url="/dashboard"
+                                )
+                            except Exception as push_err:
+                                print(f"[LiveWorker Error] Failed to send web push: {push_err}", flush=True)
+
                             self.execute_trades(strategy, should_buy, should_sell, last_completed_candle)
 
                             new_trade = {
