@@ -147,8 +147,8 @@ interface TVChartProps {
   onSymbolChange: (symbol: string) => void;
   timeframe: string;
   onTimeframeChange: (timeframe: string) => void;
-  candleSource: 'ctrader' | 'metatrader';
-  onCandleSourceChange: (source: 'ctrader' | 'metatrader') => void;
+  candleSource: 'ctrader' | 'metatrader' | 'binance';
+  onCandleSourceChange: (source: 'ctrader' | 'metatrader' | 'binance') => void;
   availableSymbols: string[];
   availableTimeframes: string[];
   candles?: Candle[];

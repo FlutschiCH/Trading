@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { API_BASE_URL } from '../api';
+import * as apiService from '../services/apiService';
 
 export interface SymbolTimeframeSelectorProps {
   multiSelect?: boolean;
@@ -513,7 +514,7 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
                             )}
                           </div>
                           <span
-                            onClick={(e) => toggleFavoriteSymbol(sym, e)}
+                            onClick={(e) => toggleFavSymbol(sym, e)}
                             style={{
                               color: isFav ? '#f59e0b' : '#64748b',
                               fontSize: '14px',
@@ -664,7 +665,7 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
                         <span style={{ fontWeight: isSelected ? 'bold' : 'normal' }}>{tf}</span>
                       </div>
                       <span
-                        onClick={(e) => toggleFavoriteTimeframe(tf, e)}
+                        onClick={(e) => toggleFavTf(tf, e)}
                         style={{
                           color: isFav ? '#f59e0b' : '#64748b',
                           fontSize: '14px',

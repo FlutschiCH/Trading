@@ -1617,7 +1617,7 @@ export default function Dashboard() {
       } else if (category === 'history') {
         fetchHistoryTrades(undefined, undefined, true);
       } else if (category === 'candles') {
-        storeFetchCandles(true, false, true);
+        storeFetchCandles(true, false);
       } else if (category === 'accounts_list') {
         fetchAccounts(true);
         fetchActiveAccount();

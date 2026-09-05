@@ -9,6 +9,10 @@ interface Position {
   volume: number;
   entry_price: number;
   unrealized_profit: number;
+  leverage?: number | string;
+  marginType?: string;
+  markPrice?: number | string;
+  liquidationPrice?: number | string;
 }
 
 interface HistoryTrade {

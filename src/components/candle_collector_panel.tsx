@@ -306,7 +306,7 @@ export const CandleCollectorPanel: React.FC<CandleCollectorPanelProps> = ({ avai
           </span>
           <DebugComponentBadge name="CandleCollectorPanel" />
           <button
-            onClick={fetchStats}
+            onClick={() => fetchStats()}
             title="Refresh collector status"
             style={{
               background: 'none',
