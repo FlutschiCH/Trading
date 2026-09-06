@@ -43,23 +43,8 @@ def save_log_setting():
 
 @system_routes.route('/system/logs', methods=['GET'])
 def get_logs():
-    import os, json
-    log_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs.json")
-    logs = []
-    if os.path.exists(log_path):
-        try:
-            with open(log_path, "r", encoding="utf-8") as f:
-                raw_logs = json.load(f)
-                for entry in raw_logs:
-                    if isinstance(entry, dict):
-                        timestamp = entry.get("timestamp", "")
-                        level = entry.get("level", "INFO")
-                        cat = entry.get("category", "System")
-                        msg = entry.get("message", "")
-                        logs.append(f"[{timestamp}] [{level}] [{cat}] {msg}")
-                    elif isinstance(entry, str):
-                        logs.append(entry)
-        except Exception as e:
-            logs = [f"[ERROR] Failed to read logs.json: {e}"]
+    from terminal_handler import TerminalHandler
+    raw_history = TerminalHandler.get_history()
+    logs = [line for line in raw_history.split('\n') if line.strip()]
     return jsonify({"status": "success", "logs": logs})
 

@@ -25,8 +25,6 @@ class LoggerHandler:
 
     _settings_cache = {}
     _last_cache_time = 0
-    _file_lock = threading.Lock()
-    _log_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs.json")
 
     @classmethod
     def log(cls, msg: str, category: str = None, level: str = "INFO"):
@@ -34,7 +32,7 @@ class LoggerHandler:
         Unified structured logging helper.
         Automatically infers caller module name if category is not provided.
         Checks ENABLED_CATEGORIES and DISABLED_CATEGORIES lists at class level.
-        Appends log entry to logs.json.
+        Prints to stdout for in-memory terminal streaming.
         """
         if category is None:
             # Infer calling module/class automatically
@@ -56,34 +54,8 @@ class LoggerHandler:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         formatted = f"[{timestamp}] [{level.upper()}] [{category}] {msg}"
         
-        # Standard print to stdout so TerminalHandler streams it to SSE LogPanel
+        # Standard print to stdout so TerminalHandler streams it to SSE LogPanel in memory
         print(formatted, flush=True)
-
-        # Append log entry to logs.json
-        entry = {
-            "timestamp": timestamp,
-            "level": level.upper(),
-            "category": category,
-            "message": str(msg)
-        }
-        
-        try:
-            with cls._file_lock:
-                logs = []
-                if os.path.exists(cls._log_file_path):
-                    try:
-                        with open(cls._log_file_path, "r", encoding="utf-8") as f:
-                            logs = json.load(f)
-                    except Exception:
-                        logs = []
-                logs.append(entry)
-                # Keep last 2000 log entries to avoid unbounded file growth
-                if len(logs) > 2000:
-                    logs = logs[-2000:]
-                with open(cls._log_file_path, "w", encoding="utf-8") as f:
-                    json.dump(logs, f, indent=2, ensure_ascii=False)
-        except Exception as e:
-            pass
 
     @classmethod
     def set_category_enabled(cls, category: str, enabled: bool):
