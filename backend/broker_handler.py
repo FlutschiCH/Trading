@@ -91,13 +91,16 @@ class BrokerHandler:
     @classmethod
     def _resolve_symbol(cls, symbol: str, broker_name: str = None, account_id: str = None) -> str:
         if not symbol:
-            return symbol
+            return None
         from symbol_mapping_handler import SymbolMappingHandler
-        resolved_broker = cls._resolve_broker_name(broker_name, account_id)
-        mapped = SymbolMappingHandler.map_to_broker(symbol, account_id)
-        if not SymbolMappingHandler.has_mapping(symbol, account_id):
-            print(f"[BrokerHandler] ⚠️ [UNMAPPED CALL] Broker: '{resolved_broker}' (Acc: '{account_id}') | Symbol: '{symbol}' -> Fallback: '{mapped}'", flush=True)
-        return mapped
+        if account_id and str(account_id).strip().lower() not in ('none', 'null', 'undefined', ''):
+            mapped = SymbolMappingHandler.map_to_broker(symbol, account_id)
+            if not mapped:
+                resolved_broker = cls._resolve_broker_name(broker_name, account_id)
+                print(f"[BrokerHandler] ⚠️ Symbol '{symbol}' has NO mapping for account '{account_id}' ({resolved_broker}). Call will not execute.", flush=True)
+                return None
+            return mapped
+        return symbol
 
     @classmethod
     def get_positions(cls, broker_name: str = None, account_id: str = None, symbol: str = None, **kwargs):
@@ -107,6 +110,8 @@ class BrokerHandler:
         broker_inst = cls.get_instance(broker_name, account_id)
         kwargs = cls._prepare_kwargs(broker_name, account_id, kwargs)
         mapped_symbol = cls._resolve_symbol(symbol, broker_name, account_id) if symbol else None
+        if symbol and not mapped_symbol:
+            return []
         positions = handler.get_positions(account_id=account_id, broker_inst=broker_inst, symbol=mapped_symbol, **kwargs)
         return positions
 
@@ -118,6 +123,8 @@ class BrokerHandler:
         broker_inst = cls.get_instance(broker_name, account_id)
         kwargs = cls._prepare_kwargs(broker_name, account_id, kwargs)
         mapped_symbol = cls._resolve_symbol(symbol, broker_name, account_id) if symbol else symbol
+        if symbol and not mapped_symbol:
+            return {'error': f"Symbol '{symbol}' has no mapping configured for account '{account_id}'"}
         return handler.create_order(account_id=account_id, broker_inst=broker_inst, symbol=mapped_symbol, **kwargs)
 
     @classmethod
@@ -127,7 +134,9 @@ class BrokerHandler:
             raise ValueError("pls select account first")
         broker_inst = cls.get_instance(broker_name, account_id)
         kwargs = cls._prepare_kwargs(broker_name, account_id, kwargs)
-        mapped_symbol = cls._resolve_symbol(symbol, broker_name, account_id) if symbol else symbol
+        mapped_symbol = cls._resolve_symbol(symbol, broker_name, account_id) if symbol else None
+        if symbol and not mapped_symbol:
+            return {'error': f"Symbol '{symbol}' has no mapping configured for account '{account_id}'"}
         return handler.close_position(account_id=account_id, broker_inst=broker_inst, symbol=mapped_symbol, **kwargs)
 
     @classmethod
@@ -138,6 +147,8 @@ class BrokerHandler:
         broker_inst = cls.get_instance(broker_name, account_id)
         kwargs = cls._prepare_kwargs(broker_name, account_id, kwargs)
         mapped_symbol = cls._resolve_symbol(symbol, broker_name, account_id) if symbol else symbol
+        if symbol and not mapped_symbol:
+            return {'error': f"Symbol '{symbol}' has no mapping configured for account '{account_id}'"}
         return handler.modify_position(account_id=account_id, broker_inst=broker_inst, symbol=mapped_symbol, **kwargs)
 
     @classmethod
@@ -148,6 +159,8 @@ class BrokerHandler:
         broker_inst = cls.get_instance(broker_name, account_id)
         kwargs = cls._prepare_kwargs(broker_name, account_id, kwargs)
         mapped_symbol = cls._resolve_symbol(symbol, broker_name, account_id) if symbol else symbol
+        if symbol and not mapped_symbol:
+            return []
         return handler.fetch_candles(symbol=mapped_symbol, timeframe=timeframe, limit=limit, date_from=date_from, date_to=date_to, account_id=account_id, broker_inst=broker_inst, **kwargs)
 
     @classmethod

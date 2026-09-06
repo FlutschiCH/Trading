@@ -166,14 +166,13 @@ class BinanceFuturesHandler(BaseBrokerHandler):
             sl_params = {
                 'symbol': b_sym,
                 'side': sl_side,
-                'algoType': 'STOP_MARKET',
                 'type': 'STOP_MARKET',
                 'stopPrice': stop_loss,
                 'quantity': volume,
                 'reduceOnly': 'true',
                 'workingType': 'CONTRACT_PRICE'
             }
-            results['stop_loss_order'] = cls._request('POST', '/fapi/v1/algo/order', params=sl_params, api_key=api_key, secret_key=secret_key, signed=True)
+            results['stop_loss_order'] = cls._request('POST', '/fapi/v1/order', params=sl_params, api_key=api_key, secret_key=secret_key, signed=True)
 
         # Place Take Profit order if specified
         if take_profit is not None:
@@ -181,14 +180,13 @@ class BinanceFuturesHandler(BaseBrokerHandler):
             tp_params = {
                 'symbol': b_sym,
                 'side': tp_side,
-                'algoType': 'TAKE_PROFIT_MARKET',
                 'type': 'TAKE_PROFIT_MARKET',
                 'stopPrice': take_profit,
                 'quantity': volume,
                 'reduceOnly': 'true',
                 'workingType': 'CONTRACT_PRICE'
             }
-            results['take_profit_order'] = cls._request('POST', '/fapi/v1/algo/order', params=tp_params, api_key=api_key, secret_key=secret_key, signed=True)
+            results['take_profit_order'] = cls._request('POST', '/fapi/v1/order', params=tp_params, api_key=api_key, secret_key=secret_key, signed=True)
 
         return results
 
@@ -249,28 +247,26 @@ class BinanceFuturesHandler(BaseBrokerHandler):
             sl_params = {
                 'symbol': b_sym,
                 'side': sl_side,
-                'algoType': 'STOP_MARKET',
                 'type': 'STOP_MARKET',
                 'stopPrice': stop_loss,
                 'quantity': vol,
                 'reduceOnly': 'true',
                 'workingType': 'CONTRACT_PRICE'
             }
-            results['stop_loss_order'] = cls._request('POST', '/fapi/v1/algo/order', params=sl_params, api_key=api_key, secret_key=secret_key, signed=True)
+            results['stop_loss_order'] = cls._request('POST', '/fapi/v1/order', params=sl_params, api_key=api_key, secret_key=secret_key, signed=True)
 
         if take_profit is not None:
             tp_side = 'SELL' if side == 'BUY' else 'BUY'
             tp_params = {
                 'symbol': b_sym,
                 'side': tp_side,
-                'algoType': 'TAKE_PROFIT_MARKET',
                 'type': 'TAKE_PROFIT_MARKET',
                 'stopPrice': take_profit,
                 'quantity': vol,
                 'reduceOnly': 'true',
                 'workingType': 'CONTRACT_PRICE'
             }
-            results['take_profit_order'] = cls._request('POST', '/fapi/v1/algo/order', params=tp_params, api_key=api_key, secret_key=secret_key, signed=True)
+            results['take_profit_order'] = cls._request('POST', '/fapi/v1/order', params=tp_params, api_key=api_key, secret_key=secret_key, signed=True)
 
         return results
 

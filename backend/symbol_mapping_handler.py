@@ -87,8 +87,10 @@ class SymbolMappingHandler:
     @staticmethod
     def map_to_broker(main_symbol: str, account_id: str) -> str:
         SymbolMappingHandler.init_db()
-        if not main_symbol or not account_id or str(account_id).strip().lower() in ('none', 'null', 'undefined', ''):
-            return main_symbol or ""
+        if not main_symbol:
+            return None
+        if not account_id or str(account_id).strip().lower() in ('none', 'null', 'undefined', ''):
+            return main_symbol
 
         query = "SELECT broker_symbol FROM symbol_mappings WHERE main_symbol = %s AND account_id = %s"
         try:
@@ -98,16 +100,16 @@ class SymbolMappingHandler:
         except Exception as e:
             print(f"Error mapping symbol to broker: {e}", flush=True)
 
-        # Log unmapped symbol warning (throttled to once every 30s per symbol/account pair)
+        # Log unmapped symbol notice (throttled to once every 30s per symbol/account pair)
         import time
         now = time.time()
         key = (str(main_symbol).upper().strip(), str(account_id).strip())
         last_logged = SymbolMappingHandler._unmapped_log_tracker.get(key, 0)
         if now - last_logged > 30:
             SymbolMappingHandler._unmapped_log_tracker[key] = now
-            print(f"[SymbolMapping] ⚠️ [UNMAPPED SYMBOL] Account '{account_id}' has NO symbol mapping for '{main_symbol}'. Calling with raw fallback '{main_symbol}'.", flush=True)
+            print(f"[SymbolMapping] ⚠️ [UNMAPPED SYMBOL] Account '{account_id}' has NO symbol mapping for '{main_symbol}'. Call will be skipped.", flush=True)
 
-        return main_symbol
+        return None
 
     @staticmethod
     def map_to_main(broker_symbol: str, account_id: str) -> str:
