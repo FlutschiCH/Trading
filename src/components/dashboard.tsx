@@ -247,12 +247,10 @@ export default function Dashboard() {
   useEffect(() => {
     const brokerType = (activeAccount?.broker_type || activeAccount?.broker || '').toLowerCase();
     if (brokerType) {
-      let matchedSource: 'ctrader' | 'metatrader' | 'binance' = 'metatrader';
-      if (brokerType.includes('binance')) {
-        matchedSource = 'binance';
-      } else if (brokerType.includes('ctrader') || brokerType.includes('c-trader')) {
+      let matchedSource: 'ctrader' | 'metatrader' = 'metatrader';
+      if (brokerType.includes('ctrader') || brokerType.includes('c-trader')) {
         matchedSource = 'ctrader';
-      } else if (brokerType.includes('metatrader') || brokerType.includes('mt5')) {
+      } else {
         matchedSource = 'metatrader';
       }
       if (candleSource !== matchedSource) {
