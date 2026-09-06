@@ -475,14 +475,22 @@ class MetaTraderHandler(BaseBrokerHandler):
         is_buy = side.lower() == 'buy'
         action_type = getattr(mt5_inst, 'ORDER_TYPE_BUY', 0) if is_buy else getattr(mt5_inst, 'ORDER_TYPE_SELL', 1)
         
-        if price is None:
-            tick = mt5_inst.symbol_info_tick(matched_symbol)
-            if tick is None:
-                return {"status": "error", "message": f"Failed to get current price tick for {matched_symbol}"}
-            price = tick.ask if is_buy else tick.bid
-        
+        # Fetch fresh tick for current market bid/ask
+        tick = mt5_inst.symbol_info_tick(matched_symbol)
+        if tick is None:
+            return {"status": "error", "message": f"Failed to get current price tick for {matched_symbol}"}
+
+        market_price = tick.ask if is_buy else tick.bid
+        # For market deal (TRADE_ACTION_DEAL), execution price must be the current live Ask/Bid
+        exec_price = market_price if (price is None or price <= 0) else float(price)
+
         symbol_info = mt5_inst.symbol_info(matched_symbol)
         filling_mode = getattr(mt5_inst, 'ORDER_FILLING_IOC', 1)
+        digits = getattr(symbol_info, "digits", 2) if symbol_info else 2
+        point = getattr(symbol_info, "point", 0.01) if symbol_info else 0.01
+        stops_level = getattr(symbol_info, "stops_level", 0) if symbol_info else 0
+        min_stop_dist = max(stops_level * point, 2 * point)
+
         if symbol_info is not None and hasattr(symbol_info, "filling_mode"):
           modes = symbol_info.filling_mode
           if modes & 2:
@@ -507,18 +515,33 @@ class MetaTraderHandler(BaseBrokerHandler):
             "symbol": matched_symbol,
             "volume": float(vol),
             "type": action_type,
-            "price": float(price),
-            "deviation": 20,
+            "price": float(exec_price),
+            "deviation": 50,
             "magic": int(magic) if magic is not None else 123456,
             "comment": user_comment,
             "type_time": getattr(mt5_inst, 'ORDER_TIME_GTC', 0),
             "type_filling": filling_mode,
         }
-        
-        if stop_loss is not None:
-            request_dict["sl"] = float(stop_loss)
-        if take_profit is not None:
-            request_dict["tp"] = float(take_profit)
+
+        # Format and validate Stop Loss against MT5 broker stop level rules
+        if stop_loss is not None and float(stop_loss) > 0:
+            raw_sl = round(float(stop_loss), digits)
+            if is_buy:
+                max_allowed_sl = round(tick.bid - min_stop_dist, digits)
+                request_dict["sl"] = min(raw_sl, max_allowed_sl)
+            else:
+                min_allowed_sl = round(tick.ask + min_stop_dist, digits)
+                request_dict["sl"] = max(raw_sl, min_allowed_sl)
+
+        # Format and validate Take Profit against MT5 broker stop level rules
+        if take_profit is not None and float(take_profit) > 0:
+            raw_tp = round(float(take_profit), digits)
+            if is_buy:
+                min_allowed_tp = round(tick.ask + min_stop_dist, digits)
+                request_dict["tp"] = max(raw_tp, min_allowed_tp)
+            else:
+                max_allowed_tp = round(tick.bid - min_stop_dist, digits)
+                request_dict["tp"] = min(raw_tp, max_allowed_tp)
             
         result = mt5_inst.order_send(request_dict)
         

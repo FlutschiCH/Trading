@@ -252,7 +252,7 @@ class LiveWorker:
                     symbol=symbol,
                     side=direction,
                     volume=params["qty"],
-                    price=params["entry_price"],
+                    price=None,
                     stop_loss=params["sl_price"],
                     take_profit=params["tp_price"],
                     magic=magic

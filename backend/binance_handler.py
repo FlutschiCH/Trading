@@ -282,9 +282,16 @@ class BinanceFuturesHandler(BaseBrokerHandler):
         interval = tf_map.get(timeframe, '15m')
         target_limit = max(1, int(limit))
 
+        # Sanitize symbol for Binance Futures
+        b_sym = str(symbol or "").upper().replace('/', '').replace('-', '')
+        if b_sym.endswith('USD') and not b_sym.endswith('USDT'):
+            b_sym = b_sym[:-3] + 'USDT'
+        if '.' in b_sym or any(f in b_sym for f in ['EUR', 'GBP', 'AUD', 'NZD', 'CAD', 'CHF', 'JPY', 'XAU']) and not b_sym.endswith('USDT'):
+            return []
+
         if target_limit <= 1500 and not (date_from and date_to):
             params = {
-                'symbol': symbol,
+                'symbol': b_sym,
                 'interval': interval,
                 'limit': target_limit
             }
