@@ -244,12 +244,13 @@ class LiveWorker:
                     precision=5
                 )
 
-                print(f"{Fore.GREEN}[LiveWorker Trade]{Style.RESET_ALL} Triggering {direction} order on {target_acc_id} ({symbol}). Params: {params}", flush=True)
+                target_broker_symbol = SymbolMappingHandler.map_to_broker(base_symbol, target_acc_id)
+                print(f"{Fore.GREEN}[LiveWorker Trade]{Style.RESET_ALL} Triggering {direction} order on {target_acc_id} ({target_broker_symbol}). Params: {params}", flush=True)
 
                 order_res = BrokerHandler.create_order(
                     target_broker,
                     target_acc_id,
-                    symbol=symbol,
+                    symbol=target_broker_symbol,
                     side=direction,
                     volume=params["qty"],
                     price=None,
@@ -534,14 +535,15 @@ class LiveWorker:
                     if isinstance(targets, list) and len(targets) > 0:
                         strat_acc_id = targets[0].get("account_id")
 
-                curr_config = (symbol, timeframe, lookback, broker_name, opt, custom_from, custom_to, limit)
+                strat_broker_symbol = SymbolMappingHandler.map_to_broker(symbol, strat_acc_id)
+                curr_config = (symbol, strat_broker_symbol, timeframe, lookback, broker_name, opt, custom_from, custom_to, limit)
                 if self.cache_config_fingerprint != curr_config or not self.candles_cache:
                     # Initial / Warm-up Fetch
                     self.cache_config_fingerprint = curr_config
                     date_from, date_to = calculate_date_bounds(opt, custom_from, custom_to)
-                    print(f"{Fore.CYAN}[LiveWorker Warmup]{Style.RESET_ALL} Fetching historical candles for {symbol} ({timeframe}) from {broker_name}...", flush=True)
+                    print(f"{Fore.CYAN}[LiveWorker Warmup]{Style.RESET_ALL} Fetching historical candles for {strat_broker_symbol} ({timeframe}) from {broker_name}...", flush=True)
                     candles = handler.fetch_candles(
-                        symbol=symbol,
+                        symbol=strat_broker_symbol,
                         timeframe=timeframe,
                         limit=limit,
                         date_from=date_from,
@@ -588,7 +590,7 @@ class LiveWorker:
                 else:
                     # Incremental candle fetch
                     new_candles = handler.fetch_candles(
-                        symbol=symbol,
+                        symbol=strat_broker_symbol,
                         timeframe=timeframe,
                         limit=10,
                         login=strat_acc_id,
