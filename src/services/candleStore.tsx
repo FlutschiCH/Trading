@@ -184,6 +184,13 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           activeAccId = undefined;
         }
 
+        if (!candleSource && !activeAccId) {
+          console.warn('[CandleStore] pls select account first');
+          setLoading(false);
+          isFetchingRef.current = false;
+          return;
+        }
+
         const payload = {
           broker: candleSource,
           symbol: symbol,
@@ -200,6 +207,9 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (getCurrentGeneration() !== reqGen) {
           console.log(`[CandleStore] Stale candle response dropped (reqGen ${reqGen} !== current ${getCurrentGeneration()})`);
           return;
+        }
+        if (marketResult && marketResult.status === 'error') {
+          console.warn(`[CandleStore] ${marketResult.message || 'pls select account first'}`);
         }
         if (marketResult && marketResult.status === 'success' && Array.isArray(marketResult.candles)) {
           rawCandles = marketResult.candles.sort((a: Candle, b: Candle) => a.time - b.time);

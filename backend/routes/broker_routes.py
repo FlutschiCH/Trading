@@ -10,6 +10,8 @@ def account():
     payload = request.get_json(force=True) or {}
     broker_name = payload.pop('broker', None)
     account_id = payload.pop('account_id', None)
+    if not broker_name and not account_id:
+        return jsonify({"status": "error", "message": "pls select account first"}), 400
 
     data = BrokerHandler.get_account_info(broker_name=broker_name, account_id=account_id, **payload)
     if isinstance(data, dict) and 'error' in data:
@@ -21,6 +23,8 @@ def positions():
     payload = request.get_json(force=True) or {}
     broker_name = payload.pop('broker', None)
     account_id = payload.pop('account_id', None)
+    if not broker_name and not account_id:
+        return jsonify({"status": "error", "message": "pls select account first"}), 400
     data = BrokerHandler.get_positions(broker_name=broker_name, account_id=account_id, **payload)
     return jsonify({"status": "success", "data": data})
 
@@ -31,7 +35,11 @@ def candles():
     except Exception:
         return jsonify({"status": "error", "message": "Invalid JSON"}), 400
 
-    broker_name = payload.get('broker', 'ctrader')
+    broker_name = payload.get('broker')
+    account_id = payload.get('account_id')
+    if not broker_name and not account_id:
+        return jsonify({"status": "error", "message": "pls select account first"}), 400
+
     symbol = payload.get('symbol', 'EURUSD')
     timeframe = payload.get('interval') or payload.get('timeframe', '15m')
     limit = int(payload.get('limit', 1000))

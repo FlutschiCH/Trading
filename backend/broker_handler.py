@@ -6,32 +6,26 @@ import json
 class BrokerHandler:
     @staticmethod
     def _resolve_broker_name(broker_name: str = None, account_id: str = None) -> str:
-        if broker_name and str(broker_name).strip():
+        if broker_name and str(broker_name).strip() and str(broker_name).strip().lower() not in ('none', 'null', 'undefined', ''):
             return str(broker_name).strip()
         
-        if account_id:
+        if account_id and str(account_id).strip().lower() not in ('none', 'null', 'undefined', ''):
             try:
                 from account_handler import AccountHandler
                 accounts = AccountHandler.get_accounts()
                 for acc in accounts:
-                    if str(acc.get('account_id')) == str(account_id):
+                    if str(acc.get('account_id')) == str(account_id) or str(acc.get('id')) == str(account_id):
                         return acc.get('broker_type', '')
             except Exception as e:
                 print(f"[BrokerHandler] Error looking up account {account_id}: {e}", flush=True)
-
-        try:
-            from account_handler import AccountHandler
-            active = AccountHandler.get_active_account()
-            if active and active.get('broker_type'):
-                return active.get('broker_type')
-        except Exception:
-            pass
 
         return ""
 
     @staticmethod
     def get_handler(broker_name: str = None, account_id: str = None):
         resolved_name = BrokerHandler._resolve_broker_name(broker_name, account_id)
+        if not resolved_name:
+            return None
         name_lower = resolved_name.lower()
         if "binance" in name_lower:
             return BinanceFuturesHandler
@@ -39,7 +33,7 @@ class BrokerHandler:
             return CTraderHandler
         if "metatrader" in name_lower or "mt5" in name_lower:
             return MetaTraderHandler
-        return MetaTraderHandler
+        return None
 
     @staticmethod
     def get_instance(broker_name: str = None, account_id: str = None):
@@ -67,8 +61,6 @@ class BrokerHandler:
                 matched = next((a for a in accounts if str(a.get('account_id')) == str(account_id) or str(a.get('id')) == str(account_id)), None)
             if not matched and resolved_name:
                 matched = AccountHandler.get_active_account(broker_type=resolved_name)
-            if not matched and not resolved_name:
-                matched = AccountHandler.get_active_account()
 
             if matched:
                 b_type = matched.get('broker_type', '').lower()
@@ -99,6 +91,8 @@ class BrokerHandler:
     @classmethod
     def get_positions(cls, broker_name: str = None, account_id: str = None, **kwargs):
         handler = cls.get_handler(broker_name, account_id)
+        if not handler:
+            raise ValueError("pls select account first")
         broker_inst = cls.get_instance(broker_name, account_id)
         kwargs = cls._prepare_kwargs(broker_name, account_id, kwargs)
         positions = handler.get_positions(account_id=account_id, broker_inst=broker_inst, **kwargs)
@@ -107,6 +101,8 @@ class BrokerHandler:
     @classmethod
     def create_order(cls, broker_name: str = None, account_id: str = None, **kwargs):
         handler = cls.get_handler(broker_name, account_id)
+        if not handler:
+            raise ValueError("pls select account first")
         broker_inst = cls.get_instance(broker_name, account_id)
         kwargs = cls._prepare_kwargs(broker_name, account_id, kwargs)
         return handler.create_order(account_id=account_id, broker_inst=broker_inst, **kwargs)
@@ -114,6 +110,8 @@ class BrokerHandler:
     @classmethod
     def close_position(cls, broker_name: str = None, account_id: str = None, **kwargs):
         handler = cls.get_handler(broker_name, account_id)
+        if not handler:
+            raise ValueError("pls select account first")
         broker_inst = cls.get_instance(broker_name, account_id)
         kwargs = cls._prepare_kwargs(broker_name, account_id, kwargs)
         return handler.close_position(account_id=account_id, broker_inst=broker_inst, **kwargs)
@@ -121,6 +119,8 @@ class BrokerHandler:
     @classmethod
     def modify_position(cls, broker_name: str = None, account_id: str = None, **kwargs):
         handler = cls.get_handler(broker_name, account_id)
+        if not handler:
+            raise ValueError("pls select account first")
         broker_inst = cls.get_instance(broker_name, account_id)
         kwargs = cls._prepare_kwargs(broker_name, account_id, kwargs)
         return handler.modify_position(account_id=account_id, broker_inst=broker_inst, **kwargs)
@@ -128,6 +128,8 @@ class BrokerHandler:
     @classmethod
     def fetch_candles(cls, broker_name: str = None, account_id: str = None, symbol: str = None, timeframe: str = None, limit: int = 1000, date_from: int = None, date_to: int = None, **kwargs):
         handler = cls.get_handler(broker_name, account_id)
+        if not handler:
+            raise ValueError("pls select account first")
         broker_inst = cls.get_instance(broker_name, account_id)
         kwargs = cls._prepare_kwargs(broker_name, account_id, kwargs)
         return handler.fetch_candles(symbol=symbol, timeframe=timeframe, limit=limit, date_from=date_from, date_to=date_to, account_id=account_id, broker_inst=broker_inst, **kwargs)
@@ -135,6 +137,8 @@ class BrokerHandler:
     @classmethod
     def get_account_info(cls, broker_name: str = None, account_id: str = None, **kwargs):
         handler = cls.get_handler(broker_name, account_id)
+        if not handler:
+            raise ValueError("pls select account first")
         broker_inst = cls.get_instance(broker_name, account_id)
         kwargs = cls._prepare_kwargs(broker_name, account_id, kwargs)
         return handler.get_account_info(account_id=account_id, broker_inst=broker_inst, **kwargs)
@@ -142,6 +146,8 @@ class BrokerHandler:
     @classmethod
     def get_account(cls, broker_name: str = None, account_id: str = None, **kwargs):
         handler = cls.get_handler(broker_name, account_id)
+        if not handler:
+            raise ValueError("pls select account first")
         broker_inst = cls.get_instance(broker_name, account_id)
         kwargs = cls._prepare_kwargs(broker_name, account_id, kwargs)
         if hasattr(handler, 'get_account'):
@@ -151,6 +157,8 @@ class BrokerHandler:
     @classmethod
     def get_symbols(cls, broker_name: str = None, account_id: str = None, **kwargs):
         handler = cls.get_handler(broker_name, account_id)
+        if not handler:
+            raise ValueError("pls select account first")
         broker_inst = cls.get_instance(broker_name, account_id)
         kwargs = cls._prepare_kwargs(broker_name, account_id, kwargs)
         return handler.get_symbols(account_id=account_id, broker_inst=broker_inst, **kwargs)
@@ -158,6 +166,8 @@ class BrokerHandler:
     @classmethod
     def get_timeframes(cls, broker_name: str = None, account_id: str = None, **kwargs):
         handler = cls.get_handler(broker_name, account_id)
+        if not handler:
+            raise ValueError("pls select account first")
         broker_inst = cls.get_instance(broker_name, account_id)
         kwargs = cls._prepare_kwargs(broker_name, account_id, kwargs)
         if hasattr(handler, 'get_timeframes'):
@@ -167,6 +177,8 @@ class BrokerHandler:
     @classmethod
     def get_history(cls, broker_name: str = None, account_id: str = None, **kwargs):
         handler = cls.get_handler(broker_name, account_id)
+        if not handler:
+            raise ValueError("pls select account first")
         broker_inst = cls.get_instance(broker_name, account_id)
         kwargs = cls._prepare_kwargs(broker_name, account_id, kwargs)
         return handler.get_history(account_id=account_id, broker_inst=broker_inst, **kwargs)
