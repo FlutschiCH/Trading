@@ -245,6 +245,10 @@ class LiveWorker:
                 )
 
                 target_broker_symbol = SymbolMappingHandler.map_to_broker(base_symbol, target_acc_id)
+                has_target_map = SymbolMappingHandler.has_mapping(base_symbol, target_acc_id)
+                if not has_target_map:
+                    print(f"{Fore.YELLOW}[LiveWorker Signal Warning]{Style.RESET_ALL} ⚠️ Broker '{target_broker}' (Account: '{target_acc_id}') has NO mapping for signal symbol '{base_symbol}'. Using raw fallback '{target_broker_symbol}'.", flush=True)
+
                 print(f"{Fore.GREEN}[LiveWorker Trade]{Style.RESET_ALL} Triggering {direction} order on {target_acc_id} ({target_broker_symbol}). Params: {params}", flush=True)
 
                 order_res = BrokerHandler.create_order(
