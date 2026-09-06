@@ -478,6 +478,15 @@ class LiveWorker:
                     strat_name = strategy.get("name") or "Unnamed Strategy"
                     strat_sym = strategy.get("symbol", "UNKNOWN")
                     strat_tf = strategy.get("timeframe", "UNKNOWN")
+
+                    # Set Windows console window title
+                    if sys.platform == "win32":
+                        try:
+                            import ctypes
+                            ctypes.windll.kernel32.SetConsoleTitleW(f"Live Strategy: {strat_name} | {strat_sym} [{strat_tf}]")
+                        except Exception:
+                            pass
+
                     strat_broker = strategy.get("broker", "metatrader")
                     strat_lookback = strategy.get("lookbackWindow", 20)
                     strat_sl_val = strategy.get("slVal", 1.0)
