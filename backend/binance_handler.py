@@ -69,12 +69,12 @@ class BinanceFuturesHandler(BaseBrokerHandler):
             try:
                 res_json = response.json()
                 if isinstance(res_json, dict) and 'code' in res_json and res_json['code'] != 200:
-                    print(f"[Binance ERROR] Code: {res_json.get('code')}, Msg: {res_json.get('msg')}", flush=True)
+                    print(f"[Binance ERROR] Endpoint: {endpoint} | Params: {params} | Code: {res_json.get('code')}, Msg: {res_json.get('msg')}", flush=True)
                     if 'error' not in res_json:
                         res_json['error'] = res_json.get('msg', f"Binance error code {res_json.get('code')}")
                 return res_json
             except Exception as parse_err:
-                print(f"[Binance ERROR] Failed to parse JSON: {parse_err}", flush=True)
+                print(f"[Binance ERROR] Failed to parse JSON on {endpoint}: {parse_err}", flush=True)
                 return {'error': f"HTTP {response.status_code}: {response.text}"}
         except Exception as e:
             print(f"[Binance ERROR] Network/HTTP Exception: {e}", flush=True)
@@ -135,8 +135,13 @@ class BinanceFuturesHandler(BaseBrokerHandler):
 
     @classmethod
     def create_order(cls, symbol: str, side: str, volume: float, price: float = None, order_type: str = 'MARKET', stop_loss: float = None, take_profit: float = None, api_key: str = None, secret_key: str = None, **kwargs) -> dict:
+        b_sym = cls.validate_and_format_symbol(symbol)
+        if not b_sym:
+            print(f"[BinanceHandler] Warning: Symbol '{symbol}' has no mapping on Binance. Skipping create_order.", flush=True)
+            return {'error': f"Symbol '{symbol}' has no mapping on Binance"}
+
         params = {
-            'symbol': symbol,
+            'symbol': b_sym,
             'side': side.upper(),
             'type': order_type.upper(),
             'quantity': volume
@@ -159,7 +164,7 @@ class BinanceFuturesHandler(BaseBrokerHandler):
         if stop_loss is not None:
             sl_side = 'SELL' if side.upper() == 'BUY' else 'BUY'
             sl_params = {
-                'symbol': symbol,
+                'symbol': b_sym,
                 'side': sl_side,
                 'algoType': 'STOP_MARKET',
                 'type': 'STOP_MARKET',
@@ -174,7 +179,7 @@ class BinanceFuturesHandler(BaseBrokerHandler):
         if take_profit is not None:
             tp_side = 'SELL' if side.upper() == 'BUY' else 'BUY'
             tp_params = {
-                'symbol': symbol,
+                'symbol': b_sym,
                 'side': tp_side,
                 'algoType': 'TAKE_PROFIT_MARKET',
                 'type': 'TAKE_PROFIT_MARKET',
@@ -192,12 +197,17 @@ class BinanceFuturesHandler(BaseBrokerHandler):
         if not symbol:
             return {'error': 'Symbol is required to close position'}
 
+        b_sym = cls.validate_and_format_symbol(symbol)
+        if not b_sym:
+            print(f"[BinanceHandler] Warning: Symbol '{symbol}' has no mapping on Binance. Skipping close_position.", flush=True)
+            return {'error': f"Symbol '{symbol}' has no mapping on Binance"}
+
         if not side:
-            positions = cls.get_positions(api_key=api_key, secret_key=secret_key, symbol=symbol)
+            positions = cls.get_positions(api_key=api_key, secret_key=secret_key, symbol=b_sym)
             if isinstance(positions, dict) and 'error' in positions:
                 return positions
             if not positions:
-                return {'error': f'No open position found for {symbol}'}
+                return {'error': f'No open position found for {b_sym}'}
             amt = positions[0]['positionAmt']
             side = 'SELL' if amt > 0 else 'BUY'
             volume = abs(amt)
@@ -205,7 +215,7 @@ class BinanceFuturesHandler(BaseBrokerHandler):
             side = 'SELL' if side.upper() == 'BUY' else 'BUY'
 
         params = {
-            'symbol': symbol,
+            'symbol': b_sym,
             'side': side,
             'type': 'MARKET',
             'quantity': volume,
@@ -219,8 +229,13 @@ class BinanceFuturesHandler(BaseBrokerHandler):
         if not symbol:
             return {'error': 'Symbol is required to modify position'}
 
-        cls.cancel_all_orders(symbol=symbol, api_key=api_key, secret_key=secret_key)
-        positions = cls.get_positions(api_key=api_key, secret_key=secret_key, symbol=symbol)
+        b_sym = cls.validate_and_format_symbol(symbol)
+        if not b_sym:
+            print(f"[BinanceHandler] Warning: Symbol '{symbol}' has no mapping on Binance. Skipping modify_position.", flush=True)
+            return {'error': f"Symbol '{symbol}' has no mapping on Binance"}
+
+        cls.cancel_all_orders(symbol=b_sym, api_key=api_key, secret_key=secret_key)
+        positions = cls.get_positions(api_key=api_key, secret_key=secret_key, symbol=b_sym)
         if not positions or isinstance(positions, dict):
             return {'error': 'No open position found to modify'}
 
@@ -232,7 +247,7 @@ class BinanceFuturesHandler(BaseBrokerHandler):
         if stop_loss is not None:
             sl_side = 'SELL' if side == 'BUY' else 'BUY'
             sl_params = {
-                'symbol': symbol,
+                'symbol': b_sym,
                 'side': sl_side,
                 'algoType': 'STOP_MARKET',
                 'type': 'STOP_MARKET',
@@ -246,7 +261,7 @@ class BinanceFuturesHandler(BaseBrokerHandler):
         if take_profit is not None:
             tp_side = 'SELL' if side == 'BUY' else 'BUY'
             tp_params = {
-                'symbol': symbol,
+                'symbol': b_sym,
                 'side': tp_side,
                 'algoType': 'TAKE_PROFIT_MARKET',
                 'type': 'TAKE_PROFIT_MARKET',

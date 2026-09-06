@@ -89,41 +89,56 @@ class BrokerHandler:
         return kwargs
 
     @classmethod
-    def get_positions(cls, broker_name: str = None, account_id: str = None, **kwargs):
+    def _resolve_symbol(cls, symbol: str, broker_name: str = None, account_id: str = None) -> str:
+        if not symbol:
+            return symbol
+        from symbol_mapping_handler import SymbolMappingHandler
+        resolved_broker = cls._resolve_broker_name(broker_name, account_id)
+        mapped = SymbolMappingHandler.map_to_broker(symbol, account_id)
+        if not SymbolMappingHandler.has_mapping(symbol, account_id):
+            print(f"[BrokerHandler] ⚠️ [UNMAPPED CALL] Broker: '{resolved_broker}' (Acc: '{account_id}') | Symbol: '{symbol}' -> Fallback: '{mapped}'", flush=True)
+        return mapped
+
+    @classmethod
+    def get_positions(cls, broker_name: str = None, account_id: str = None, symbol: str = None, **kwargs):
         handler = cls.get_handler(broker_name, account_id)
         if not handler:
             raise ValueError("pls select account first")
         broker_inst = cls.get_instance(broker_name, account_id)
         kwargs = cls._prepare_kwargs(broker_name, account_id, kwargs)
-        positions = handler.get_positions(account_id=account_id, broker_inst=broker_inst, **kwargs)
+        mapped_symbol = cls._resolve_symbol(symbol, broker_name, account_id) if symbol else None
+        positions = handler.get_positions(account_id=account_id, broker_inst=broker_inst, symbol=mapped_symbol, **kwargs)
         return positions
 
     @classmethod
-    def create_order(cls, broker_name: str = None, account_id: str = None, **kwargs):
+    def create_order(cls, broker_name: str = None, account_id: str = None, symbol: str = None, **kwargs):
         handler = cls.get_handler(broker_name, account_id)
         if not handler:
             raise ValueError("pls select account first")
         broker_inst = cls.get_instance(broker_name, account_id)
         kwargs = cls._prepare_kwargs(broker_name, account_id, kwargs)
-        return handler.create_order(account_id=account_id, broker_inst=broker_inst, **kwargs)
+        mapped_symbol = cls._resolve_symbol(symbol, broker_name, account_id) if symbol else symbol
+        return handler.create_order(account_id=account_id, broker_inst=broker_inst, symbol=mapped_symbol, **kwargs)
 
     @classmethod
-    def close_position(cls, broker_name: str = None, account_id: str = None, **kwargs):
+    def close_position(cls, broker_name: str = None, account_id: str = None, symbol: str = None, **kwargs):
         handler = cls.get_handler(broker_name, account_id)
         if not handler:
             raise ValueError("pls select account first")
         broker_inst = cls.get_instance(broker_name, account_id)
         kwargs = cls._prepare_kwargs(broker_name, account_id, kwargs)
-        return handler.close_position(account_id=account_id, broker_inst=broker_inst, **kwargs)
+        mapped_symbol = cls._resolve_symbol(symbol, broker_name, account_id) if symbol else symbol
+        return handler.close_position(account_id=account_id, broker_inst=broker_inst, symbol=mapped_symbol, **kwargs)
 
     @classmethod
-    def modify_position(cls, broker_name: str = None, account_id: str = None, **kwargs):
+    def modify_position(cls, broker_name: str = None, account_id: str = None, symbol: str = None, **kwargs):
         handler = cls.get_handler(broker_name, account_id)
         if not handler:
             raise ValueError("pls select account first")
         broker_inst = cls.get_instance(broker_name, account_id)
         kwargs = cls._prepare_kwargs(broker_name, account_id, kwargs)
-        return handler.modify_position(account_id=account_id, broker_inst=broker_inst, **kwargs)
+        mapped_symbol = cls._resolve_symbol(symbol, broker_name, account_id) if symbol else symbol
+        return handler.modify_position(account_id=account_id, broker_inst=broker_inst, symbol=mapped_symbol, **kwargs)
 
     @classmethod
     def fetch_candles(cls, broker_name: str = None, account_id: str = None, symbol: str = None, timeframe: str = None, limit: int = 1000, date_from: int = None, date_to: int = None, **kwargs):
@@ -132,7 +147,8 @@ class BrokerHandler:
             raise ValueError("pls select account first")
         broker_inst = cls.get_instance(broker_name, account_id)
         kwargs = cls._prepare_kwargs(broker_name, account_id, kwargs)
-        return handler.fetch_candles(symbol=symbol, timeframe=timeframe, limit=limit, date_from=date_from, date_to=date_to, account_id=account_id, broker_inst=broker_inst, **kwargs)
+        mapped_symbol = cls._resolve_symbol(symbol, broker_name, account_id) if symbol else symbol
+        return handler.fetch_candles(symbol=mapped_symbol, timeframe=timeframe, limit=limit, date_from=date_from, date_to=date_to, account_id=account_id, broker_inst=broker_inst, **kwargs)
 
     @classmethod
     def get_account_info(cls, broker_name: str = None, account_id: str = None, **kwargs):
@@ -175,13 +191,14 @@ class BrokerHandler:
         return ["1m", "5m", "15m", "30m", "1h", "4h", "1d"]
 
     @classmethod
-    def get_history(cls, broker_name: str = None, account_id: str = None, **kwargs):
+    def get_history(cls, broker_name: str = None, account_id: str = None, symbol: str = None, **kwargs):
         handler = cls.get_handler(broker_name, account_id)
         if not handler:
             raise ValueError("pls select account first")
         broker_inst = cls.get_instance(broker_name, account_id)
         kwargs = cls._prepare_kwargs(broker_name, account_id, kwargs)
-        return handler.get_history(account_id=account_id, broker_inst=broker_inst, **kwargs)
+        mapped_symbol = cls._resolve_symbol(symbol, broker_name, account_id) if symbol else symbol
+        return handler.get_history(symbol=mapped_symbol, account_id=account_id, broker_inst=broker_inst, **kwargs)
 
 if __name__ == '__main__':
     import json
