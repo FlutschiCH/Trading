@@ -545,6 +545,18 @@ class LiveWorker:
                         strat_acc_id = targets[0].get("account_id")
 
                 strat_broker_symbol = SymbolMappingHandler.map_to_broker(symbol, strat_acc_id)
+
+                # If broker is Binance and symbol is unmapped/unrecognized, warn and skip calling API
+                if broker_name == 'binance' and not SymbolMappingHandler.has_mapping(symbol, strat_acc_id) and not getattr(handler, 'validate_and_format_symbol', lambda s: None)(strat_broker_symbol):
+                    print(f"{Fore.YELLOW}[LiveWorker Warning]{Style.RESET_ALL} Symbol '{symbol}' has no mapping configured for Binance account '{strat_acc_id or 'default'}'. Please configure symbol mapping in settings.", flush=True)
+                    self.send_update_or_heartbeat(state_info={
+                        "stage": "UNKNOWN",
+                        "status_message": f"Symbol '{symbol}' has no mapping configured for Binance. Please configure symbol mapping in settings.",
+                        "last_checked": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    })
+                    time.sleep(5)
+                    continue
+
                 curr_config = (symbol, strat_broker_symbol, timeframe, lookback, broker_name, opt, custom_from, custom_to, limit)
                 if self.cache_config_fingerprint != curr_config or not self.candles_cache:
                     # Initial / Warm-up Fetch

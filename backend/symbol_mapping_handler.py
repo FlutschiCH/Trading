@@ -72,6 +72,17 @@ class SymbolMappingHandler:
             return False
 
     @staticmethod
+    def has_mapping(main_symbol: str, account_id: str) -> bool:
+        SymbolMappingHandler.init_db()
+        query = "SELECT 1 FROM symbol_mappings WHERE main_symbol = %s AND account_id = %s"
+        try:
+            res = SQLHandler.execute_query(query, (main_symbol.upper().strip(), str(account_id).strip()))
+            return bool(res)
+        except Exception as e:
+            print(f"Error checking symbol mapping: {e}", flush=True)
+            return False
+
+    @staticmethod
     def map_to_broker(main_symbol: str, account_id: str) -> str:
         SymbolMappingHandler.init_db()
         query = "SELECT broker_symbol FROM symbol_mappings WHERE main_symbol = %s AND account_id = %s"

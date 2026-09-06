@@ -259,18 +259,72 @@ class BinanceFuturesHandler(BaseBrokerHandler):
 
         return results
 
+    _valid_symbols_cache = set()
+    _valid_symbols_cache_time = 0
+
+    @classmethod
+    def get_valid_symbols(cls) -> set:
+        now = time.time()
+        if cls._valid_symbols_cache and (now - cls._valid_symbols_cache_time < 3600):
+            return cls._valid_symbols_cache
+        try:
+            res = cls._request('GET', '/fapi/v1/exchangeInfo')
+            if isinstance(res, dict) and not res.get('error'):
+                symbols = {s['symbol'].upper() for s in res.get('symbols', []) if s.get('status') == 'TRADING'}
+                if symbols:
+                    cls._valid_symbols_cache = symbols
+                    cls._valid_symbols_cache_time = now
+                    return symbols
+        except Exception:
+            pass
+        return cls._valid_symbols_cache
+
+    @classmethod
+    def validate_and_format_symbol(cls, symbol: str) -> str:
+        """
+        Validates if symbol is mapped or valid on Binance Futures. Returns formatted Binance symbol or None.
+        """
+        if not symbol or not str(symbol).strip():
+            return None
+        s = str(symbol).upper().replace('/', '').replace('-', '').replace('_', '').strip()
+        
+        valid_set = cls.get_valid_symbols()
+        if valid_set:
+            if s in valid_set:
+                return s
+            if s.endswith('USD') and not s.endswith('USDT') and (s[:-3] + 'USDT') in valid_set:
+                return s[:-3] + 'USDT'
+            if (s + 'USDT') in valid_set:
+                return s + 'USDT'
+            return None
+        
+        # Fallback check if exchangeInfo could not be fetched
+        if '.' in s or any(f in s for f in ['EUR', 'GBP', 'AUD', 'NZD', 'CAD', 'CHF', 'JPY', 'XAU']) and not s.endswith('USDT'):
+            return None
+        return s
+
     @classmethod
     def cancel_all_orders(cls, symbol: str, api_key: str = None, secret_key: str = None) -> dict:
-        return cls._request('DELETE', '/fapi/v1/allOpenOrders', params={'symbol': symbol}, api_key=api_key, secret_key=secret_key, signed=True)
+        b_sym = cls.validate_and_format_symbol(symbol)
+        if not b_sym:
+            print(f"[BinanceHandler] Warning: Symbol '{symbol}' has no mapping on Binance. Skipping cancel_all_orders.", flush=True)
+            return {'error': f"Symbol '{symbol}' has no mapping on Binance"}
+        return cls._request('DELETE', '/fapi/v1/allOpenOrders', params={'symbol': b_sym}, api_key=api_key, secret_key=secret_key, signed=True)
 
     @classmethod
     def change_leverage(cls, symbol: str, leverage: int, api_key: str = None, secret_key: str = None) -> dict:
-        params = {'symbol': symbol, 'leverage': leverage}
+        b_sym = cls.validate_and_format_symbol(symbol)
+        if not b_sym:
+            return {'error': f"Symbol '{symbol}' has no mapping on Binance"}
+        params = {'symbol': b_sym, 'leverage': leverage}
         return cls._request('POST', '/fapi/v1/leverage', params=params, api_key=api_key, secret_key=secret_key, signed=True)
 
     @classmethod
     def change_margin_type(cls, symbol: str, margin_type: str, api_key: str = None, secret_key: str = None) -> dict:
-        params = {'symbol': symbol, 'marginType': margin_type.upper()}
+        b_sym = cls.validate_and_format_symbol(symbol)
+        if not b_sym:
+            return {'error': f"Symbol '{symbol}' has no mapping on Binance"}
+        params = {'symbol': b_sym, 'marginType': margin_type.upper()}
         return cls._request('POST', '/fapi/v1/marginType', params=params, api_key=api_key, secret_key=secret_key, signed=True)
 
     @classmethod
@@ -282,11 +336,9 @@ class BinanceFuturesHandler(BaseBrokerHandler):
         interval = tf_map.get(timeframe, '15m')
         target_limit = max(1, int(limit))
 
-        # Sanitize symbol for Binance Futures
-        b_sym = str(symbol or "").upper().replace('/', '').replace('-', '')
-        if b_sym.endswith('USD') and not b_sym.endswith('USDT'):
-            b_sym = b_sym[:-3] + 'USDT'
-        if '.' in b_sym or any(f in b_sym for f in ['EUR', 'GBP', 'AUD', 'NZD', 'CAD', 'CHF', 'JPY', 'XAU']) and not b_sym.endswith('USDT'):
+        b_sym = cls.validate_and_format_symbol(symbol)
+        if not b_sym:
+            print(f"[BinanceHandler] Warning: Symbol '{symbol}' has no mapping on Binance. Skipping fetch_candles.", flush=True)
             return []
 
         if target_limit <= 1500 and not (date_from and date_to):
@@ -323,7 +375,7 @@ class BinanceFuturesHandler(BaseBrokerHandler):
         while remaining > 0:
             batch_limit = min(remaining, 1500)
             params = {
-                'symbol': symbol,
+                'symbol': b_sym,
                 'interval': interval,
                 'limit': batch_limit
             }
@@ -378,8 +430,13 @@ class BinanceFuturesHandler(BaseBrokerHandler):
 
     @classmethod
     def get_history(cls, symbol: str = "BTCUSDT", api_key: str = None, secret_key: str = None, limit: int = 100, **kwargs) -> list:
+        b_sym = cls.validate_and_format_symbol(symbol)
+        if not b_sym:
+            print(f"[BinanceHandler] Warning: Symbol '{symbol}' has no mapping on Binance. Skipping get_history.", flush=True)
+            return []
+
         params = {
-            'symbol': symbol,
+            'symbol': b_sym,
             'limit': limit
         }
         res = cls._request('GET', '/fapi/v1/userTrades', params=params, api_key=api_key, secret_key=secret_key, signed=True)

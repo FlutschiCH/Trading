@@ -103,6 +103,11 @@ class PositionManager:
                         "account_id": target_acc_id,
                         "password": acc_row.get("password")
                     }
+                elif target_broker == "binance":
+                    target_kwargs = {
+                        "api_key": target_acc_id,
+                        "secret_key": acc_row.get("password")
+                    }
 
             handler = BrokerHandler.get_handler(target_broker)
             if not handler:
@@ -177,7 +182,8 @@ class PositionManager:
                 recent_high = current_price
                 recent_low = current_price
                 try:
-                    candles = handler.fetch_candles(symbol=symbol, timeframe=strategy.get("timeframe", "M1"), limit=5)
+                    target_broker_sym = SymbolMappingHandler.map_to_broker(symbol, target_acc_id)
+                    candles = handler.fetch_candles(symbol=target_broker_sym, timeframe=strategy.get("timeframe", "M1"), limit=5)
                     if candles:
                         recent_high = max(float(c.get("high", current_price)) for c in candles)
                         recent_low = min(float(c.get("low", current_price)) for c in candles)
