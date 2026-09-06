@@ -282,6 +282,146 @@ class LiveWorker:
             except Exception as ex:
                 print(f"{Fore.RED}[LiveWorker Error]{Style.RESET_ALL} Error executing trade: {ex}", flush=True)
 
+    def check_break_even(self, strategy: dict):
+        """
+        Continuously checks active positions for this strategy across target broker accounts
+        and triggers Break-Even SL adjustments when favorable R-multiple price targets are reached.
+        """
+        if not strategy.get("useBreakEven", False):
+            return
+
+        symbol = strategy["symbol"]
+        strategy_id = strategy["id"]
+        be_trigger_r = float(strategy.get("beTriggerR", 1.0))
+        be_offset_mode = strategy.get("beOffsetMode", "half_r")
+        sl_type = strategy.get("slType", "price")
+        sl_val = float(strategy.get("slVal", 1.0))
+
+        targets = strategy.get("targets", [])
+        if not targets:
+            broker_name = strategy.get("broker", "metatrader")
+            targets = [{"broker": broker_name, "account_id": strategy.get("account_id")}]
+
+        strat_acc_id = strategy.get("account_id")
+        base_symbol = SymbolMappingHandler.map_to_main(symbol, strat_acc_id)
+
+        for target in targets:
+            try:
+                target_acc_id = target.get("account_id")
+                target_broker = target.get("broker") or "metatrader"
+                if not target_acc_id or str(target_acc_id).strip().lower() in ("none", "null", ""):
+                    continue
+
+                positions = BrokerHandler.get_positions(target_broker, target_acc_id) or []
+                for p in positions:
+                    pos_symbol = SymbolMappingHandler.map_to_main(p.get("symbol"), target_acc_id)
+                    broker_symbol = SymbolMappingHandler.map_to_broker(pos_symbol, target_acc_id)
+                    if pos_symbol != base_symbol:
+                        continue
+
+                    pos_id = p.get("position_id") or p.get("ticket") or p.get("id")
+                    if not pos_id:
+                        continue
+
+                    entry_price = float(p.get("entry_price") or p.get("price_open") or p.get("open_price", 0.0))
+                    current_price = float(p.get("price_current") or p.get("current_price", entry_price))
+                    current_sl = float(p.get("stop_loss") or p.get("sl", 0.0))
+                    current_tp = float(p.get("take_profit") or p.get("tp", 0.0))
+                    trade_side = str(p.get("trade_side") or p.get("type", "")).upper()
+
+                    if entry_price <= 0:
+                        continue
+
+                    pip_size = get_pip_size(symbol, entry_price)
+                    if sl_type == "pips":
+                        sl_distance = sl_val * pip_size
+                    elif sl_type == "price":
+                        sl_distance = abs(entry_price - sl_val)
+                    else:
+                        sl_distance = entry_price * (sl_val / 100.0)
+
+                    if sl_distance <= 0:
+                        continue
+
+                    be_trigger_dist = sl_distance * be_trigger_r
+
+                    # Calculate offset
+                    if be_offset_mode == 'zero_be':
+                        be_offset = 0.0
+                    elif be_offset_mode == 'half_r':
+                        be_offset = 0.5 * be_trigger_r * sl_distance
+                    else:
+                        try:
+                            be_offset = float(be_offset_mode) * sl_distance
+                        except (ValueError, TypeError):
+                            be_offset = 0.5 * be_trigger_r * sl_distance
+
+                    # Evaluate peak high/low
+                    recent_high = current_price
+                    recent_low = current_price
+                    if self.candles_cache and len(self.candles_cache) >= 2:
+                        recent_high = max([float(c.get("high", current_price)) for c in self.candles_cache[-5:]] + [current_price])
+                        recent_low = min([float(c.get("low", current_price)) for c in self.candles_cache[-5:]] + [current_price])
+
+                    if trade_side in ("BUY", "POSITION_TYPE_BUY", "0"):
+                        if max(current_price, recent_high) >= (entry_price + be_trigger_dist):
+                            new_sl = round(entry_price + be_offset, 5)
+                            # Only update if current SL is below the desired BE SL
+                            if current_sl < (new_sl - (pip_size * 0.1)):
+                                print(f"{Fore.GREEN}[LiveWorker BE]{Style.RESET_ALL} Modifying BUY position {pos_id} to BE ({new_sl:.5f}) on {target_acc_id} ({symbol}). Entry: {entry_price:.5f}, High: {recent_high:.5f}", flush=True)
+                                mod_res = BrokerHandler.modify_position(
+                                    target_broker,
+                                    target_acc_id,
+                                    position_id=pos_id,
+                                    stop_loss=new_sl,
+                                    take_profit=current_tp,
+                                    symbol=broker_symbol
+                                )
+                                if mod_res and (mod_res.get("status") != "error" or mod_res.get("status") == "success"):
+                                    msg = (
+                                        f"🛡️ **Break-Even Triggered!**\n"
+                                        f"🎛️ **Strategy ID:** `{strategy_id}`\n"
+                                        f"🏦 **Account:** `{target_acc_id}` ({target_broker})\n"
+                                        f"📊 **Symbol:** `{symbol}` | ➡️ **BUY Ticket:** `{pos_id}`\n"
+                                        f"💵 **Entry:** `{entry_price:.5f}` | 📈 **High:** `{recent_high:.5f}`\n"
+                                        f"🔒 **New SL:** `{new_sl:.5f}` (BE Set)"
+                                    )
+                                    from discord_handler import send_discord_message
+                                    from notification_handler import NotificationHandler
+                                    NotificationHandler.send_notification(msg, sound_type="break_even")
+                                    send_discord_message(msg)
+
+                    elif trade_side in ("SELL", "POSITION_TYPE_SELL", "1"):
+                        if min(current_price, recent_low) <= (entry_price - be_trigger_dist):
+                            new_sl = round(entry_price - be_offset, 5)
+                            # Only update if current SL is unset (0.0) or above the desired BE SL
+                            if current_sl == 0.0 or current_sl > (new_sl + (pip_size * 0.1)):
+                                print(f"{Fore.GREEN}[LiveWorker BE]{Style.RESET_ALL} Modifying SELL position {pos_id} to BE ({new_sl:.5f}) on {target_acc_id} ({symbol}). Entry: {entry_price:.5f}, Low: {recent_low:.5f}", flush=True)
+                                mod_res = BrokerHandler.modify_position(
+                                    target_broker,
+                                    target_acc_id,
+                                    position_id=pos_id,
+                                    stop_loss=new_sl,
+                                    take_profit=current_tp,
+                                    symbol=broker_symbol
+                                )
+                                if mod_res and (mod_res.get("status") != "error" or mod_res.get("status") == "success"):
+                                    msg = (
+                                        f"🛡️ **Break-Even Triggered!**\n"
+                                        f"🎛️ **Strategy ID:** `{strategy_id}`\n"
+                                        f"🏦 **Account:** `{target_acc_id}` ({target_broker})\n"
+                                        f"📊 **Symbol:** `{symbol}` | ➡️ **SELL Ticket:** `{pos_id}`\n"
+                                        f"💵 **Entry:** `{entry_price:.5f}` | 📉 **Low:** `{recent_low:.5f}`\n"
+                                        f"🔒 **New SL:** `{new_sl:.5f}` (BE Set)"
+                                    )
+                                    from discord_handler import send_discord_message
+                                    from notification_handler import NotificationHandler
+                                    NotificationHandler.send_notification(msg, sound_type="break_even")
+                                    send_discord_message(msg)
+
+            except Exception as be_err:
+                print(f"{Fore.RED}[LiveWorker BE Error]{Style.RESET_ALL} Error checking Break-Even on target {target}: {be_err}", flush=True)
+
     def run(self):
         print(f"{Fore.CYAN}[LiveWorker]{Style.RESET_ALL} Starting live strategy worker for Strategy ID: {Style.BRIGHT}{self.strategy_id}{Style.RESET_ALL} (PID: {os.getpid()})", flush=True)
 
@@ -528,12 +668,15 @@ class LiveWorker:
                             }
                             self.trades_cache.append(new_trade)
 
+                # Continuous Break-Even evaluation on every cycle
+                self.check_break_even(strategy)
+
             except Exception as err:
                 print(f"{Fore.RED}[LiveWorker Exception]{Style.RESET_ALL} Loop error in {self.strategy_id}: {err}", flush=True)
                 import traceback
                 traceback.print_exc()
 
-            time.sleep(15)
+            time.sleep(5)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Standalone Live Strategy Worker Process")
