@@ -98,6 +98,38 @@ class LiveRunner:
         cls._thread.start()
         logPrint("Started Live Runner Supervisor thread.", category="LiveRunner", level="INFO")
 
+        # Startup banner displaying loaded and active live strategies
+        try:
+            from colorama import Fore, Style
+            comp_name = socket.gethostname().strip().lower()
+            strategies = LiveStrategyHandler.get_all_strategies()
+            active_strategies = []
+            for s in strategies:
+                if s.get("status") == "active":
+                    target = s.get("target_computer", "All")
+                    if target == "All" or target.strip().lower() == comp_name:
+                        active_strategies.append(s)
+
+            print(f"\n{Fore.CYAN}[Live Strategies Engine]{Style.RESET_ALL} 🚀 Starting Live Strategies Supervisor:", flush=True)
+            print(f"   • Total Strategies in DB : {Style.BRIGHT}{len(strategies)}{Style.RESET_ALL} (Active for this host: {len(active_strategies)})", flush=True)
+            print(f"   • Host Machine           : {Style.BRIGHT}{comp_name}{Style.RESET_ALL}", flush=True)
+            if active_strategies:
+                print(f"   • Active Strategies Loaded:", flush=True)
+                for s in active_strategies:
+                    s_name = s.get("name") or "Unnamed Strategy"
+                    s_id = s.get("id")
+                    s_sym = s.get("symbol")
+                    s_tf = s.get("timeframe")
+                    s_brk = s.get("broker", "metatrader")
+                    s_acc = s.get("account_id") or "default"
+                    s_host = s.get("target_computer", "All")
+                    print(f"     {Fore.GREEN}▶{Style.RESET_ALL} {Fore.YELLOW}{s_name}{Style.RESET_ALL} [{Fore.CYAN}{s_sym}{Style.RESET_ALL} @ {s_tf}] | Broker: {s_brk} (Acc: {s_acc}) | Host: {s_host} | ID: `{s_id}`", flush=True)
+            else:
+                print(f"   • {Fore.YELLOW}No active strategies assigned to this machine.{Style.RESET_ALL}", flush=True)
+            print("", flush=True)
+        except Exception as ex:
+            print(f"[LiveRunner Startup Note] {ex}", flush=True)
+
     @classmethod
     def stop(cls):
         cls._stop_event.set()
