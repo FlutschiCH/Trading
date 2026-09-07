@@ -223,13 +223,18 @@ class LiveWorker:
                     print(f"{Fore.RED}[LiveWorker Error]{Style.RESET_ALL} Could not retrieve valid account balance for {target_acc_id}. Skipping execution.", flush=True)
                     continue
 
+                target_broker_symbol = SymbolMappingHandler.map_to_broker(base_symbol, target_acc_id)
+                if not target_broker_symbol:
+                    print(f"{Fore.YELLOW}[LiveWorker Signal Warning]{Style.RESET_ALL} ⚠️ Broker '{target_broker}' (Account: '{target_acc_id}') has NO mapping for signal symbol '{base_symbol}'. Skipping execution.", flush=True)
+                    continue
+
                 balance = float(balance)
                 entry_price = float(last_candle["close"])
-                pip_size = get_pip_size(symbol, entry_price)
-                lot_size = get_lot_size(symbol)
+                pip_size = get_pip_size(target_broker_symbol, entry_price)
+                lot_size = get_lot_size(target_broker_symbol)
 
                 params = TradingHandler.calculate_trade_parameters(
-                    symbol=symbol,
+                    symbol=target_broker_symbol,
                     entry_price=entry_price,
                     direction=direction,
                     sl_type=strategy["slType"],
@@ -243,11 +248,6 @@ class LiveWorker:
                     pip_size=pip_size,
                     precision=5
                 )
-
-                target_broker_symbol = SymbolMappingHandler.map_to_broker(base_symbol, target_acc_id)
-                has_target_map = SymbolMappingHandler.has_mapping(base_symbol, target_acc_id)
-                if not has_target_map:
-                    print(f"{Fore.YELLOW}[LiveWorker Signal Warning]{Style.RESET_ALL} ⚠️ Broker '{target_broker}' (Account: '{target_acc_id}') has NO mapping for signal symbol '{base_symbol}'. Using raw fallback '{target_broker_symbol}'.", flush=True)
 
                 print(f"{Fore.GREEN}[LiveWorker Trade]{Style.RESET_ALL} Triggering {direction} order on {target_acc_id} ({target_broker_symbol}). Params: {params}", flush=True)
 
@@ -337,7 +337,7 @@ class LiveWorker:
                     if entry_price <= 0:
                         continue
 
-                    pip_size = get_pip_size(symbol, entry_price)
+                    pip_size = get_pip_size(broker_symbol or symbol, entry_price)
                     if sl_type == "pips":
                         sl_distance = sl_val * pip_size
                     elif sl_type == "price":

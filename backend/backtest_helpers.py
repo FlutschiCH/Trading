@@ -66,20 +66,22 @@ def get_pip_size(sym: str, price: float) -> float:
     """
     Helper to determine pip size dynamically based on asset conventions.
     """
+    if not sym:
+        return 0.0001
     sym_upper = sym.upper()
     if 'JPY' in sym_upper:
         return 0.01
     if 'XAU' in sym_upper or 'GOLD' in sym_upper or 'XAG' in sym_upper:
         return 0.1
-    is_crypto_pair = any(c in sym_upper for c in ['BTC', 'ETH', 'SOL', 'LTC', 'XRP', 'ADA', 'DOT', 'DOGE', 'LINK', 'UNI', 'PEPE', 'SHIB'])
+    is_crypto_pair = any(c in sym_upper for c in ['BTC', 'ETH', 'SOL', 'LTC', 'XRP', 'ADA', 'DOT', 'DOGE', 'LINK', 'UNI', 'PEPE', 'SHIB', 'USDT', 'USDC', 'BUSD'])
     if is_crypto_pair:
         if price > 1000:
             return 1.0
         elif price > 10:
             return 0.1
         return 0.001
-    forex_currencies = ['EUR', 'GBP', 'AUD', 'NZD', 'USD', 'CAD', 'CHF', 'SEK', 'NOK', 'SGD', 'HKD', 'ZAR', 'MXN']
-    if any(curr in sym_upper for curr in forex_currencies):
+    forex_currencies = ['EUR', 'GBP', 'AUD', 'NZD', 'CAD', 'CHF', 'SEK', 'NOK', 'SGD', 'HKD', 'ZAR', 'MXN']
+    if any(curr in sym_upper for curr in forex_currencies) or sym_upper.endswith('USD'):
         return 0.0001
     if price > 1000:
         return 1.0
@@ -93,14 +95,16 @@ def get_lot_size(sym: str) -> float:
     """
     Helper to determine lot size / contract size multiplier.
     """
+    if not sym:
+        return 1.0
     sym_upper = sym.upper()
     if 'XAU' in sym_upper or 'GOLD' in sym_upper or 'XAG' in sym_upper:
         return 100.0
-    is_crypto_pair = any(c in sym_upper for c in ['BTC', 'ETH', 'SOL', 'LTC', 'XRP', 'ADA', 'DOT', 'DOGE', 'LINK', 'UNI', 'PEPE', 'SHIB'])
+    is_crypto_pair = any(c in sym_upper for c in ['BTC', 'ETH', 'SOL', 'LTC', 'XRP', 'ADA', 'DOT', 'DOGE', 'LINK', 'UNI', 'PEPE', 'SHIB', 'USDT', 'USDC', 'BUSD'])
     if is_crypto_pair:
         return 1.0
-    forex_currencies = ['EUR', 'GBP', 'AUD', 'NZD', 'USD', 'CAD', 'CHF', 'SEK', 'NOK', 'SGD', 'HKD', 'ZAR', 'MXN']
-    if any(curr in sym_upper for curr in forex_currencies):
+    forex_currencies = ['EUR', 'GBP', 'AUD', 'NZD', 'CAD', 'CHF', 'SEK', 'NOK', 'SGD', 'HKD', 'ZAR', 'MXN']
+    if any(curr in sym_upper for curr in forex_currencies) or sym_upper.endswith('USD'):
         return 100000.0
     return 1.0
 
