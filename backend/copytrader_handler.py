@@ -10,124 +10,153 @@ class CopytraderHandler:
     _db_initialized = False
     _sync_thread = None
     _is_running = False
-    _lock = threading.Lock()
+    _lock = threading.RLock()
+    _configs_cache = None  # {config_id: config_dict}
+    _mappings_cache = None  # { (config_id, master_ticket, slave_account): { ... } }
 
-    @staticmethod
-    def init_db():
-        if CopytraderHandler._db_initialized:
-            return
-        
-        create_config_mysql = """
-        CREATE TABLE IF NOT EXISTS copytrader_configs (
-            id VARCHAR(100) PRIMARY KEY,
-            name VARCHAR(100) NOT NULL,
-            status VARCHAR(50) DEFAULT 'active',
-            target_computer VARCHAR(100) DEFAULT 'All',
-            master_account VARCHAR(100) NOT NULL,
-            master_broker VARCHAR(50) NOT NULL,
-            slaves_json LONGTEXT NOT NULL,
-            updated_at VARCHAR(50) NOT NULL
-        )
-        """
-        create_mapping_mysql = """
-        CREATE TABLE IF NOT EXISTS copytrader_mappings (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            config_id VARCHAR(100) NOT NULL,
-            master_ticket VARCHAR(100) NOT NULL,
-            slave_account VARCHAR(100) NOT NULL,
-            slave_ticket VARCHAR(100) NOT NULL,
-            symbol VARCHAR(50) NOT NULL,
-            action VARCHAR(20) NOT NULL,
-            lots FLOAT NOT NULL,
-            status VARCHAR(20) DEFAULT 'open',
-            created_at VARCHAR(50) NOT NULL,
-            UNIQUE KEY unique_master_slave_ticket (config_id, master_ticket, slave_account)
-        )
-        """
+    @classmethod
+    def _ensure_cache_loaded(cls, force: bool = False):
+        with cls._lock:
+            if cls._configs_cache is None or cls._mappings_cache is None or force:
+                cls.init_db()
+                # Load configs
+                try:
+                    query_cfg = "SELECT id, name, status, target_computer, master_account, master_broker, slaves_json, updated_at FROM copytrader_configs"
+                    rows_cfg = SQLHandler.execute_query(query_cfg) or []
+                    new_configs = {}
+                    for r in rows_cfg:
+                        if isinstance(r, dict):
+                            slaves_raw = r.get("slaves_json", "[]")
+                            try:
+                                slaves = json.loads(slaves_raw) if isinstance(slaves_raw, str) else slaves_raw
+                            except Exception:
+                                slaves = []
+                            new_configs[r.get("id")] = {
+                                "id": r.get("id"),
+                                "name": r.get("name"),
+                                "status": r.get("status"),
+                                "target_computer": r.get("target_computer"),
+                                "master_account": r.get("master_account"),
+                                "master_broker": r.get("master_broker"),
+                                "slaves": slaves,
+                                "updated_at": r.get("updated_at")
+                            }
+                    cls._configs_cache = new_configs
+                except Exception as e:
+                    print(f"[Copytrader] Error loading configs cache: {e}", flush=True)
+                    if cls._configs_cache is None:
+                        cls._configs_cache = {}
 
-        create_config_sqlite = """
-        CREATE TABLE IF NOT EXISTS copytrader_configs (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            status TEXT DEFAULT 'active',
-            target_computer TEXT DEFAULT 'All',
-            master_account TEXT NOT NULL,
-            master_broker TEXT NOT NULL,
-            slaves_json TEXT NOT NULL,
-            updated_at TEXT NOT NULL
-        )
-        """
-        create_mapping_sqlite = """
-        CREATE TABLE IF NOT EXISTS copytrader_mappings (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            config_id TEXT NOT NULL,
-            master_ticket TEXT NOT NULL,
-            slave_account TEXT NOT NULL,
-            slave_ticket TEXT NOT NULL,
-            symbol TEXT NOT NULL,
-            action TEXT NOT NULL,
-            lots REAL NOT NULL,
-            status TEXT DEFAULT 'open',
-            created_at TEXT NOT NULL,
-            UNIQUE(config_id, master_ticket, slave_account)
-        )
-        """
-        
-        try:
-            SQLHandler.execute_query(create_config_mysql)
-            SQLHandler.execute_query(create_mapping_mysql)
-        except Exception:
+                # Load open mappings
+                try:
+                    query_map = "SELECT config_id, master_ticket, slave_account, slave_ticket, symbol, action, lots, status, created_at FROM copytrader_mappings WHERE status = 'open'"
+                    rows_map = SQLHandler.execute_query(query_map) or []
+                    new_mappings = {}
+                    for r in rows_map:
+                        if isinstance(r, dict):
+                            c_id = str(r.get("config_id"))
+                            m_ticket = str(r.get("master_ticket"))
+                            s_acc = str(r.get("slave_account"))
+                            new_mappings[(c_id, m_ticket, s_acc)] = {
+                                "config_id": c_id,
+                                "master_ticket": m_ticket,
+                                "slave_account": s_acc,
+                                "slave_ticket": str(r.get("slave_ticket")),
+                                "symbol": r.get("symbol", ""),
+                                "action": r.get("action", ""),
+                                "lots": float(r.get("lots", 0.01)),
+                                "status": "open",
+                                "created_at": r.get("created_at")
+                            }
+                    cls._mappings_cache = new_mappings
+                except Exception as e:
+                    print(f"[Copytrader] Error loading mappings cache: {e}", flush=True)
+                    if cls._mappings_cache is None:
+                        cls._mappings_cache = {}
+
+    @classmethod
+    def init_db(cls):
+        with cls._lock:
+            if cls._db_initialized:
+                return
+            
+            create_config_mysql = """
+            CREATE TABLE IF NOT EXISTS copytrader_configs (
+                id VARCHAR(100) PRIMARY KEY,
+                name VARCHAR(100) NOT NULL,
+                status VARCHAR(50) DEFAULT 'active',
+                target_computer VARCHAR(100) DEFAULT 'All',
+                master_account VARCHAR(100) NOT NULL,
+                master_broker VARCHAR(50) NOT NULL,
+                slaves_json LONGTEXT NOT NULL,
+                updated_at VARCHAR(50) NOT NULL
+            )
+            """
+            create_mapping_mysql = """
+            CREATE TABLE IF NOT EXISTS copytrader_mappings (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                config_id VARCHAR(100) NOT NULL,
+                master_ticket VARCHAR(100) NOT NULL,
+                slave_account VARCHAR(100) NOT NULL,
+                slave_ticket VARCHAR(100) NOT NULL,
+                symbol VARCHAR(50) NOT NULL,
+                action VARCHAR(20) NOT NULL,
+                lots FLOAT NOT NULL,
+                status VARCHAR(20) DEFAULT 'open',
+                created_at VARCHAR(50) NOT NULL,
+                UNIQUE KEY unique_master_slave_ticket (config_id, master_ticket, slave_account)
+            )
+            """
+
+            create_config_sqlite = """
+            CREATE TABLE IF NOT EXISTS copytrader_configs (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                status TEXT DEFAULT 'active',
+                target_computer TEXT DEFAULT 'All',
+                master_account TEXT NOT NULL,
+                master_broker TEXT NOT NULL,
+                slaves_json TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+            create_mapping_sqlite = """
+            CREATE TABLE IF NOT EXISTS copytrader_mappings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                config_id TEXT NOT NULL,
+                master_ticket TEXT NOT NULL,
+                slave_account TEXT NOT NULL,
+                slave_ticket TEXT NOT NULL,
+                symbol TEXT NOT NULL,
+                action TEXT NOT NULL,
+                lots REAL NOT NULL,
+                status TEXT DEFAULT 'open',
+                created_at TEXT NOT NULL,
+                UNIQUE(config_id, master_ticket, slave_account)
+            )
+            """
+            
             try:
-                SQLHandler.execute_query(create_config_sqlite)
-                SQLHandler.execute_query(create_mapping_sqlite)
-            except Exception as e:
-                logPrint(f"[Copytrader DB Init Error]: {e}")
-
-        CopytraderHandler._db_initialized = True
-
-    @staticmethod
-    def get_all_configs():
-        CopytraderHandler.init_db()
-        query = "SELECT id, name, status, target_computer, master_account, master_broker, slaves_json, updated_at FROM copytrader_configs"
-        rows = SQLHandler.execute_query(query) or []
-        configs = []
-        for r in rows:
-            if isinstance(r, dict):
-                slaves_raw = r.get("slaves_json", "[]")
+                SQLHandler.execute_query(create_config_mysql)
+                SQLHandler.execute_query(create_mapping_mysql)
+            except Exception:
                 try:
-                    slaves = json.loads(slaves_raw) if isinstance(slaves_raw, str) else slaves_raw
-                except:
-                    slaves = []
-                configs.append({
-                    "id": r.get("id"),
-                    "name": r.get("name"),
-                    "status": r.get("status"),
-                    "target_computer": r.get("target_computer"),
-                    "master_account": r.get("master_account"),
-                    "master_broker": r.get("master_broker"),
-                    "slaves": slaves,
-                    "updated_at": r.get("updated_at")
-                })
-            elif isinstance(r, (list, tuple)) and len(r) >= 8:
-                try:
-                    slaves = json.loads(r[6]) if isinstance(r[6], str) else r[6]
-                except:
-                    slaves = []
-                configs.append({
-                    "id": str(r[0]),
-                    "name": str(r[1]),
-                    "status": str(r[2]),
-                    "target_computer": str(r[3]),
-                    "master_account": str(r[4]),
-                    "master_broker": str(r[5]),
-                    "slaves": slaves,
-                    "updated_at": str(r[7])
-                })
-        return configs
+                    SQLHandler.execute_query(create_config_sqlite)
+                    SQLHandler.execute_query(create_mapping_sqlite)
+                except Exception as e:
+                    logPrint(f"[Copytrader DB Init Error]: {e}")
 
-    @staticmethod
-    def save_config(config: dict) -> bool:
-        CopytraderHandler.init_db()
+            cls._db_initialized = True
+
+    @classmethod
+    def get_all_configs(cls):
+        cls._ensure_cache_loaded()
+        with cls._lock:
+            return [dict(c) for c in cls._configs_cache.values()]
+
+    @classmethod
+    def save_config(cls, config: dict) -> bool:
+        cls.init_db()
         cfg_id = config.get("id") or f"copytrader_{int(time.time()*1000)}"
         name = config.get("name", "Copytrader Setup")
         status = config.get("status", "active")
@@ -137,6 +166,20 @@ class CopytraderHandler:
         slaves = config.get("slaves", [])
         slaves_json = json.dumps(slaves)
         updated_at = time.strftime("%Y-%m-%d %H:%M:%S")
+
+        # Update in-memory cache instantly
+        cls._ensure_cache_loaded()
+        with cls._lock:
+            cls._configs_cache[cfg_id] = {
+                "id": cfg_id,
+                "name": name,
+                "status": status,
+                "target_computer": target_computer,
+                "master_account": master_account,
+                "master_broker": master_broker,
+                "slaves": slaves,
+                "updated_at": updated_at
+            }
 
         query = """
         INSERT INTO copytrader_configs (id, name, status, target_computer, master_account, master_broker, slaves_json, updated_at)
@@ -160,9 +203,17 @@ class CopytraderHandler:
             SQLHandler.execute_query(query_sqlite, params)
         return True
 
-    @staticmethod
-    def delete_config(config_id: str) -> bool:
-        CopytraderHandler.init_db()
+    @classmethod
+    def delete_config(cls, config_id: str) -> bool:
+        cls.init_db()
+        cls._ensure_cache_loaded()
+        with cls._lock:
+            cls._configs_cache.pop(config_id, None)
+            # Remove associated mappings from memory
+            to_remove = [k for k in cls._mappings_cache.keys() if k[0] == config_id]
+            for k in to_remove:
+                cls._mappings_cache.pop(k, None)
+
         query = "DELETE FROM copytrader_configs WHERE id = %s"
         res = SQLHandler.execute_query(query, (config_id,))
         if res is None:
@@ -255,48 +306,65 @@ class CopytraderHandler:
         pos_id = int(ticket) if (isinstance(ticket, str) and ticket.isdigit()) else ticket
         return BrokerHandler.close_position(broker_name=broker, account_id=account_id, position_id=pos_id, symbol=symbol, side="", volume=lots)
 
-    @staticmethod
-    def _get_open_mappings(config_id: str):
-        query = "SELECT master_ticket, slave_account, slave_ticket, status FROM copytrader_mappings WHERE config_id = %s AND status = 'open'"
-        rows = SQLHandler.execute_query(query, (config_id,)) or []
-        mappings = {}
-        for r in rows:
-            if isinstance(r, dict):
-                m_ticket = str(r.get("master_ticket"))
-                s_acc = str(r.get("slave_account"))
-                s_ticket = str(r.get("slave_ticket"))
-            elif isinstance(r, (list, tuple)) and len(r) >= 3:
-                m_ticket = str(r[0])
-                s_acc = str(r[1])
-                s_ticket = str(r[2])
-            else:
-                continue
-            mappings[(m_ticket, s_acc)] = s_ticket
-        return mappings
+    @classmethod
+    def _get_open_mappings(cls, config_id: str):
+        cls._ensure_cache_loaded()
+        with cls._lock:
+            return { (k[1], k[2]): v["slave_ticket"] for k, v in cls._mappings_cache.items() if k[0] == config_id and v.get("status") == "open" }
 
-    @staticmethod
-    def _record_mapping(config_id: str, master_ticket: str, slave_account: str, slave_ticket: str, symbol: str, action: str, lots: float):
+    @classmethod
+    def _record_mapping(cls, config_id: str, master_ticket: str, slave_account: str, slave_ticket: str, symbol: str, action: str, lots: float):
         created_at = time.strftime("%Y-%m-%d %H:%M:%S")
+        key = (str(config_id), str(master_ticket), str(slave_account))
+        
+        # Update in-memory cache immediately
+        cls._ensure_cache_loaded()
+        with cls._lock:
+            cls._mappings_cache[key] = {
+                "config_id": str(config_id),
+                "master_ticket": str(master_ticket),
+                "slave_account": str(slave_account),
+                "slave_ticket": str(slave_ticket),
+                "symbol": symbol,
+                "action": action,
+                "lots": float(lots),
+                "status": "open",
+                "created_at": created_at
+            }
+
+        # Write through to DB
         query = """
         INSERT INTO copytrader_mappings (config_id, master_ticket, slave_account, slave_ticket, symbol, action, lots, status, created_at)
         VALUES (%s, %s, %s, %s, %s, %s, %s, 'open', %s)
         ON DUPLICATE KEY UPDATE slave_ticket = VALUES(slave_ticket), status = 'open'
         """
         params = (config_id, str(master_ticket), str(slave_account), str(slave_ticket), symbol, action, float(lots), created_at)
-        res = SQLHandler.execute_query(query, params)
-        if res is None:
-            query_sq = """
-            INSERT OR REPLACE INTO copytrader_mappings (config_id, master_ticket, slave_account, slave_ticket, symbol, action, lots, status, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 'open', ?)
-            """
-            SQLHandler.execute_query(query_sq, params)
+        try:
+            res = SQLHandler.execute_query(query, params)
+            if res is None:
+                query_sq = """
+                INSERT OR REPLACE INTO copytrader_mappings (config_id, master_ticket, slave_account, slave_ticket, symbol, action, lots, status, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'open', ?)
+                """
+                SQLHandler.execute_query(query_sq, params)
+        except Exception as e:
+            print(f"[Copytrader] Error recording mapping to DB: {e}", flush=True)
 
-    @staticmethod
-    def _mark_mapping_closed(config_id: str, master_ticket: str, slave_account: str):
+    @classmethod
+    def _mark_mapping_closed(cls, config_id: str, master_ticket: str, slave_account: str):
+        key = (str(config_id), str(master_ticket), str(slave_account))
+        cls._ensure_cache_loaded()
+        with cls._lock:
+            if key in cls._mappings_cache:
+                cls._mappings_cache.pop(key, None)
+
         query = "UPDATE copytrader_mappings SET status = 'closed' WHERE config_id = %s AND master_ticket = %s AND slave_account = %s"
-        res = SQLHandler.execute_query(query, (config_id, str(master_ticket), str(slave_account)))
-        if res is None:
-            SQLHandler.execute_query("UPDATE copytrader_mappings SET status = 'closed' WHERE config_id = ? AND master_ticket = ? AND slave_account = ?", (config_id, str(master_ticket), str(slave_account)))
+        try:
+            res = SQLHandler.execute_query(query, (config_id, str(master_ticket), str(slave_account)))
+            if res is None:
+                SQLHandler.execute_query("UPDATE copytrader_mappings SET status = 'closed' WHERE config_id = ? AND master_ticket = ? AND slave_account = ?", (config_id, str(master_ticket), str(slave_account)))
+        except Exception as e:
+            print(f"[Copytrader] Error marking mapping closed in DB: {e}", flush=True)
 
     @staticmethod
     def _sync_loop():
