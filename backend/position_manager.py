@@ -5,6 +5,8 @@ import socket
 from live_strategy_handler import LiveStrategyHandler
 from sql_handler import SQLHandler
 from broker_handler import BrokerHandler
+from account_handler import AccountHandler
+from symbol_mapping_handler import SymbolMappingHandler
 from backtest_helpers import get_pip_size
 from discord_handler import send_discord_message
 from notification_handler import NotificationHandler
@@ -87,11 +89,10 @@ class PositionManager:
             if not target_acc_id or str(target_acc_id).strip().lower() in ("none", "null", ""):
                 continue
 
-            # Fetch account credentials
-            rows = SQLHandler.execute_query("SELECT * FROM accounts WHERE account_id = %s", (target_acc_id,))
+            # Fetch account credentials directly from in-memory cache
+            acc_row = AccountHandler.get_account_by_id(str(target_acc_id))
             target_kwargs = {}
-            if rows:
-                acc_row = rows[0]
+            if acc_row:
                 if target_broker == "metatrader":
                     target_kwargs = {
                         "login": int(target_acc_id) if str(target_acc_id).isdigit() else target_acc_id,

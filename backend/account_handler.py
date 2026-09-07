@@ -1,8 +1,11 @@
 import time
+import threading
 from sql_handler import SQLHandler
 
 class AccountHandler:
     _db_initialized = False
+    _accounts_cache = None  # {account_id: account_dict}
+    _lock = threading.RLock()
 
     @staticmethod
     def init_db():
@@ -102,24 +105,43 @@ class AccountHandler:
         terminal_exe = os.path.join(target_terminal, "terminal64.exe")
         return terminal_exe if os.path.exists(terminal_exe) else target_terminal, target_plugin
 
-    @staticmethod
-    def get_accounts():
-        AccountHandler.init_db()
-        return SQLHandler.execute_query("SELECT * FROM accounts ORDER BY name ASC")
+    @classmethod
+    def _ensure_cache_loaded(cls, force: bool = False):
+        with cls._lock:
+            if cls._accounts_cache is None or force:
+                cls.init_db()
+                try:
+                    rows = SQLHandler.execute_query("SELECT * FROM accounts ORDER BY name ASC")
+                    cls._accounts_cache = {str(r['account_id']): dict(r) for r in rows} if isinstance(rows, list) else {}
+                except Exception as e:
+                    print(f"Error loading accounts cache from DB: {e}", flush=True)
+                    if cls._accounts_cache is None:
+                        cls._accounts_cache = {}
 
-    @staticmethod
-    def add_account(name, broker_type, account_id, password=None, server=None, terminal_path=None, plugin_path=None):
-        AccountHandler.init_db()
+    @classmethod
+    def get_accounts(cls) -> list:
+        cls._ensure_cache_loaded()
+        with cls._lock:
+            return sorted(list(cls._accounts_cache.values()), key=lambda x: str(x.get('name', '')).lower())
+
+    @classmethod
+    def get_account_by_id(cls, account_id: str) -> dict:
+        cls._ensure_cache_loaded()
+        with cls._lock:
+            return cls._accounts_cache.get(str(account_id))
+
+    @classmethod
+    def add_account(cls, name, broker_type, account_id, password=None, server=None, terminal_path=None, plugin_path=None):
+        cls.init_db()
         now = str(int(time.time()))
         
         if broker_type == 'metatrader':
-            prov_term, prov_plug = AccountHandler._provision_account_folders(account_id)
+            prov_term, prov_plug = cls._provision_account_folders(account_id)
             if not terminal_path:
                 terminal_path = prov_term
             if not plugin_path:
                 plugin_path = prov_plug
         
-        # Upsert pattern using ON DUPLICATE KEY UPDATE (translated to sqlite automatically)
         query = """
         INSERT INTO accounts (name, broker_type, account_id, password, server, terminal_path, plugin_path, updated_at)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
@@ -134,47 +156,63 @@ class AccountHandler:
         """
         SQLHandler.execute_query(query, (name, broker_type, account_id, password, server, terminal_path, plugin_path, now))
         
-        # If this is the first account, make it active
-        accounts = AccountHandler.get_accounts()
-        if len(accounts) == 1 or not any(acc.get('is_active') for acc in accounts):
-            AccountHandler.set_active_account(account_id)
+        cls._ensure_cache_loaded()
+        with cls._lock:
+            cls._accounts_cache[str(account_id)] = {
+                "name": name,
+                "broker_type": broker_type,
+                "account_id": account_id,
+                "password": password,
+                "server": server,
+                "terminal_path": terminal_path,
+                "plugin_path": plugin_path,
+                "is_active": 0,
+                "updated_at": now
+            }
+            if len(cls._accounts_cache) == 1 or not any(acc.get('is_active') for acc in cls._accounts_cache.values()):
+                cls.set_active_account(account_id)
 
-    @staticmethod
-    def delete_account(account_id):
-        AccountHandler.init_db()
-        # Check if the account to delete is active
-        active_acc = AccountHandler.get_active_account()
+    @classmethod
+    def delete_account(cls, account_id):
+        cls.init_db()
+        active_acc = cls.get_active_account()
         SQLHandler.execute_query("DELETE FROM accounts WHERE account_id = %s", (account_id,))
         
-        # If the deleted account was active, make another one active
-        if active_acc and str(active_acc.get('account_id')) == str(account_id):
-            remaining = AccountHandler.get_accounts()
-            if remaining:
-                AccountHandler.set_active_account(remaining[0]['account_id'])
+        cls._ensure_cache_loaded()
+        with cls._lock:
+            cls._accounts_cache.pop(str(account_id), None)
+            if active_acc and str(active_acc.get('account_id')) == str(account_id):
+                remaining = list(cls._accounts_cache.values())
+                if remaining:
+                    cls.set_active_account(remaining[0]['account_id'])
 
-    @staticmethod
-    def set_active_account(account_id):
-        AccountHandler.init_db()
-        # Deactivate all
+    @classmethod
+    def set_active_account(cls, account_id):
+        cls.init_db()
         SQLHandler.execute_query("UPDATE accounts SET is_active = 0")
-        # Activate target
         SQLHandler.execute_query("UPDATE accounts SET is_active = 1 WHERE account_id = %s", (account_id,))
+        
+        cls._ensure_cache_loaded()
+        with cls._lock:
+            for acc in cls._accounts_cache.values():
+                acc['is_active'] = 1 if str(acc.get('account_id')) == str(account_id) else 0
 
-    @staticmethod
-    def get_active_account(broker_type=None):
-        AccountHandler.init_db()
-        if broker_type:
-            rows = SQLHandler.execute_query("SELECT * FROM accounts WHERE is_active = 1 AND LOWER(broker_type) = %s LIMIT 1", (broker_type.lower(),))
-            if rows:
-                return rows[0]
-            rows = SQLHandler.execute_query("SELECT * FROM accounts WHERE LOWER(broker_type) = %s ORDER BY name ASC LIMIT 1", (broker_type.lower(),))
-            if rows:
-                return rows[0]
+    @classmethod
+    def get_active_account(cls, broker_type=None):
+        cls._ensure_cache_loaded()
+        with cls._lock:
+            accounts = list(cls._accounts_cache.values())
+            if broker_type:
+                for acc in accounts:
+                    if acc.get('is_active') and str(acc.get('broker_type', '')).lower() == broker_type.lower():
+                        return acc
+                for acc in sorted(accounts, key=lambda x: str(x.get('name', '')).lower()):
+                    if str(acc.get('broker_type', '')).lower() == broker_type.lower():
+                        return acc
 
-        rows = SQLHandler.execute_query("SELECT * FROM accounts WHERE is_active = 1 LIMIT 1")
-        if rows:
-            return rows[0]
-        rows = SQLHandler.execute_query("SELECT * FROM accounts ORDER BY name ASC LIMIT 1")
-        if rows:
-            return rows[0]
-        return None
+            for acc in accounts:
+                if acc.get('is_active'):
+                    return acc
+            if accounts:
+                return sorted(accounts, key=lambda x: str(x.get('name', '')).lower())[0]
+            return None

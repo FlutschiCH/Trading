@@ -1,95 +1,53 @@
 import os
 import json
 import time
+import threading
 from sql_handler import SQLHandler
-
-# No local config path
 
 class LiveStrategyHandler:
     _db_initialized = False
+    _strategies_cache = None  # {strategy_id: strategy_dict}
+    _lock = threading.RLock()
 
-    @staticmethod
-    def init_db():
-        """
-        Initializes the schema for live strategies in the DB.
-        """
-        if LiveStrategyHandler._db_initialized:
-            return
+    @classmethod
+    def _ensure_cache_loaded(cls, force: bool = False):
+        with cls._lock:
+            if cls._strategies_cache is None or force:
+                cls.init_db()
+                try:
+                    results = SQLHandler.execute_query("SELECT * FROM live_strategies ORDER BY deployedAt DESC")
+                    targets_map = {}
+                    try:
+                        targets_rows = SQLHandler.execute_query("SELECT strategy_id, broker, account_id FROM live_strategy_targets")
+                        if isinstance(targets_rows, list):
+                            for r in targets_rows:
+                                s_id = r.get("strategy_id")
+                                if s_id:
+                                    if s_id not in targets_map:
+                                        targets_map[s_id] = []
+                                    targets_map[s_id].append({"broker": r.get("broker"), "account_id": r.get("account_id")})
+                    except Exception:
+                        pass
 
-        create_mysql = """
-        CREATE TABLE IF NOT EXISTS live_strategies (
-            id VARCHAR(50) PRIMARY KEY,
-            name VARCHAR(100) DEFAULT '',
-            symbol VARCHAR(50) NOT NULL,
-            status VARCHAR(20) NOT NULL,
-            timeframe VARCHAR(10) NOT NULL,
-            slVal DOUBLE NOT NULL,
-            slType VARCHAR(10) NOT NULL,
-            rr DOUBLE NOT NULL,
-            size DOUBLE NOT NULL,
-            useRiskSizing TINYINT(1) NOT NULL,
-            riskPct DOUBLE NOT NULL,
-            useBreakEven TINYINT(1) NOT NULL,
-            beTriggerR DOUBLE NOT NULL,
-            allowOppositeClose TINYINT(1) DEFAULT 1,
-            lookbackWindow INT NOT NULL,
-            deployedAt VARCHAR(50) NOT NULL,
-            timezone VARCHAR(10) DEFAULT 'Local',
-            sessions TEXT,
-            useGlobalClose TINYINT(1) DEFAULT 0,
-            globalCloseTime VARCHAR(5) DEFAULT '',
-            entryStabilityRule VARCHAR(20) DEFAULT 'default',
-            broker VARCHAR(50) DEFAULT 'metatrader',
-            account_id VARCHAR(100),
-            live_state TEXT,
-            target_computer VARCHAR(100) DEFAULT 'All',
-            dateRangeOption VARCHAR(50) DEFAULT 'last_candles',
-            customFrom VARCHAR(100) DEFAULT '',
-            customTo VARCHAR(100) DEFAULT '',
-            candleLimit INT DEFAULT 1000,
-            dailyFirstSignalsMode VARCHAR(20) DEFAULT 'disabled',
-            dailyFirstSignalsCount INT DEFAULT 1,
-            dailyFirstSignalsRiskMult DOUBLE DEFAULT 0.5
-        )
-        """
-        create_targets_table = """
-        CREATE TABLE IF NOT EXISTS live_strategy_targets (
-            id VARCHAR(50) PRIMARY KEY,
-            strategy_id VARCHAR(50) NOT NULL,
-            account_id VARCHAR(100) NOT NULL,
-            broker VARCHAR(50) NOT NULL
-        )
-        """
-        try:
-            SQLHandler.execute_query(create_mysql)
-            SQLHandler.execute_query(create_targets_table)
-            try:
-                SQLHandler.execute_query("ALTER TABLE live_strategies ADD COLUMN allowOppositeClose TINYINT(1) DEFAULT 1")
-            except Exception:
-                pass
-            try:
-                SQLHandler.execute_query("ALTER TABLE live_strategies ADD COLUMN dailyFirstSignalsMode VARCHAR(20) DEFAULT 'disabled'")
-            except Exception:
-                pass
-            try:
-                SQLHandler.execute_query("ALTER TABLE live_strategies ADD COLUMN dailyFirstSignalsCount INT DEFAULT 1")
-            except Exception:
-                pass
-            try:
-                SQLHandler.execute_query("ALTER TABLE live_strategies ADD COLUMN dailyFirstSignalsRiskMult DOUBLE DEFAULT 0.5")
-            except Exception:
-                pass
-            LiveStrategyHandler._db_initialized = True
-        except Exception as e:
-            print(f"Error initializing live_strategies DB table: {e}", flush=True)
+                    new_cache = {}
+                    if isinstance(results, list):
+                        for row in results:
+                            strat = cls._row_to_dict(row)
+                            strat["targets"] = targets_map.get(strat["id"], [])
+                            new_cache[strat["id"]] = strat
+                    cls._strategies_cache = new_cache
+                except Exception as e:
+                    print(f"Error loading live strategies cache from DB: {e}", flush=True)
+                    if cls._strategies_cache is None:
+                        cls._strategies_cache = {}
 
-
-    @staticmethod
-    def save_strategy(strategy: dict) -> bool:
+    @classmethod
+    def save_strategy(cls, strategy: dict) -> bool:
         """
-        Saves the strategy configuration to the SQL database using an upsert pattern.
+        Saves the strategy configuration to the SQL database using an upsert pattern
+        and updates the in-memory cache immediately.
         """
-        LiveStrategyHandler.init_db()
+        cls.init_db()
         if "id" not in strategy or not strategy["id"]:
             import uuid
             strategy["id"] = str(uuid.uuid4())
@@ -155,13 +113,13 @@ class LiveStrategyHandler:
             strategy["slType"],
             strategy["rr"],
             strategy["size"],
-            1 if strategy["useRiskSizing"] else 0,
-            strategy["riskPct"],
-            1 if strategy["useBreakEven"] else 0,
-            strategy["beTriggerR"],
+            1 if strategy.get("useRiskSizing") else 0,
+            strategy.get("riskPct", 1.0),
+            1 if strategy.get("useBreakEven") else 0,
+            strategy.get("beTriggerR", 1.0),
             1 if strategy.get("allowOppositeClose", True) else 0,
-            strategy["lookbackWindow"],
-            strategy["deployedAt"],
+            strategy.get("lookbackWindow", 100),
+            strategy.get("deployedAt", str(int(time.time()))),
             strategy.get("timezone", "Local"),
             json.dumps(strategy.get("sessions", [])),
             1 if strategy.get("useGlobalClose", False) else 0,
@@ -182,11 +140,9 @@ class LiveStrategyHandler:
             SQLHandler.execute_query(query, params)
             
             # Save strategy targets
-            # Clear old targets
             SQLHandler.execute_query("DELETE FROM live_strategy_targets WHERE strategy_id = %s", (strategy["id"],))
             
             targets = strategy.get("targets", [])
-            # If no targets provided, fallback to the main broker/account_id as the single target
             if not targets and strategy.get("broker") and acc_id:
                 targets = [{"broker": strategy.get("broker"), "account_id": acc_id}]
                 
@@ -197,89 +153,62 @@ class LiveStrategyHandler:
                     "INSERT INTO live_strategy_targets (id, strategy_id, broker, account_id) VALUES (%s, %s, %s, %s)",
                     (target_id, strategy["id"], t.get("broker"), t.get("account_id"))
                 )
+            
+            # Update cache immediately
+            cls._ensure_cache_loaded()
+            with cls._lock:
+                strat_copy = dict(strategy)
+                strat_copy["account_id"] = acc_id
+                strat_copy["targets"] = targets
+                cls._strategies_cache[strategy["id"]] = strat_copy
             return True
         except Exception as e:
             print(f"Failed to save live strategy: {e}", flush=True)
             return False
 
-    @staticmethod
-    def get_strategy(strategy_id: str = None) -> dict:
+    @classmethod
+    def get_strategy(cls, strategy_id: str = None) -> dict:
         """
-        Gets the strategy by ID from the database, or the latest if none provided.
+        Gets strategy from in-memory cache without hitting DB.
         """
-        LiveStrategyHandler.init_db()
-        if strategy_id:
-            query = "SELECT * FROM live_strategies WHERE id = %s"
-            params = (strategy_id,)
-        else:
+        cls._ensure_cache_loaded()
+        with cls._lock:
+            if strategy_id:
+                return dict(cls._strategies_cache[strategy_id]) if strategy_id in cls._strategies_cache else None
+
             import socket
             try:
-                comp_name = socket.gethostname()
-            except:
-                comp_name = "Unknown"
-            query = "SELECT * FROM live_strategies WHERE (target_computer = 'All' OR target_computer = %s) ORDER BY deployedAt DESC LIMIT 1"
-            params = (comp_name,)
-
-        try:
-            results = SQLHandler.execute_query(query, params)
-            if results:
-                row = results[0]
-                strat = LiveStrategyHandler._row_to_dict(row)
-                # Fetch targets
-                targets_rows = SQLHandler.execute_query(
-                    "SELECT broker, account_id FROM live_strategy_targets WHERE strategy_id = %s",
-                    (strat["id"],)
-                )
-                strat["targets"] = [{"broker": r["broker"], "account_id": r["account_id"]} for r in targets_rows]
-                return strat
-        except Exception as e:
-            print(f"Error fetching strategy from DB: {e}", flush=True)
-        
-        return None
-
-    @staticmethod
-    def get_all_strategies() -> list:
-        """
-        Retrieves all live strategies from the database in a single query.
-        """
-        LiveStrategyHandler.init_db()
-        query = "SELECT * FROM live_strategies ORDER BY deployedAt DESC"
-        try:
-            results = SQLHandler.execute_query(query)
-            if not results:
-                return []
-
-            targets_map = {}
-            try:
-                targets_rows = SQLHandler.execute_query("SELECT strategy_id, broker, account_id FROM live_strategy_targets")
-                for r in targets_rows:
-                    s_id = r.get("strategy_id")
-                    if s_id:
-                        if s_id not in targets_map:
-                            targets_map[s_id] = []
-                        targets_map[s_id].append({"broker": r.get("broker"), "account_id": r.get("account_id")})
+                comp_name = socket.gethostname().strip().lower()
             except Exception:
-                pass
+                comp_name = "unknown"
 
-            strats = []
-            for row in results:
-                strat = LiveStrategyHandler._row_to_dict(row)
-                strat["targets"] = targets_map.get(strat["id"], [])
-                strats.append(strat)
-            return strats
-        except Exception as e:
-            print(f"Error fetching all strategies from DB: {e}", flush=True)
-            return []
+            for s in cls._strategies_cache.values():
+                tgt = str(s.get("target_computer", "All")).strip().lower()
+                if tgt in ("all", comp_name):
+                    return dict(s)
+            return None
 
-    @staticmethod
-    def delete_strategy(strategy_id: str) -> bool:
+    @classmethod
+    def get_all_strategies(cls) -> list:
         """
-        Deletes a live strategy by ID.
+        Retrieves all live strategies directly from in-memory cache.
         """
-        LiveStrategyHandler.init_db()
+        cls._ensure_cache_loaded()
+        with cls._lock:
+            return [dict(s) for s in cls._strategies_cache.values()]
+
+    @classmethod
+    def delete_strategy(cls, strategy_id: str) -> bool:
+        """
+        Deletes a live strategy by ID and evicts from in-memory cache.
+        """
+        cls.init_db()
         try:
             SQLHandler.execute_query("DELETE FROM live_strategy_targets WHERE strategy_id = %s", (strategy_id,))
             SQLHandler.execute_query("DELETE FROM live_strategies WHERE id = %s", (strategy_id,))
+            cls._ensure_cache_loaded()
+            with cls._lock:
+                cls._strategies_cache.pop(strategy_id, None)
             return True
         except Exception as e:
             print(f"Error deleting strategy {strategy_id}: {e}", flush=True)

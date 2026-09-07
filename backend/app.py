@@ -80,6 +80,14 @@ from position_manager import PositionManager
 from candle_collector_handler import CandleCollectorHandler
 from alert_handler import AlertHandler
 from copytrader_handler import CopytraderHandler
+from account_handler import AccountHandler
+from symbol_mapping_handler import SymbolMappingHandler
+
+# Pre-warm in-memory caches
+AccountHandler._ensure_cache_loaded()
+SymbolMappingHandler._ensure_cache_loaded()
+LiveStrategyHandler._ensure_cache_loaded()
+print(f"  {Fore.GREEN}✓{Style.RESET_ALL} In-memory Strategy/Account caches initialized")
 
 PositionManager.start()
 print(f"  {Fore.GREEN}✓{Style.RESET_ALL} PositionManager started")

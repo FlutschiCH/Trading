@@ -1,6 +1,40 @@
+import threading
 from sql_handler import SQLHandler
 
 class SymbolMappingHandler:
+    _mappings_cache = None  # { (main_symbol.upper(), str(account_id)): broker_symbol }
+    _reverse_cache = None   # { (broker_symbol.upper(), str(account_id)): main_symbol }
+    _all_rows_cache = None  # list of all mapping dicts
+    _lock = threading.RLock()
+
+    @classmethod
+    def _ensure_cache_loaded(cls, force: bool = False):
+        with cls._lock:
+            if cls._mappings_cache is None or force:
+                cls.init_db()
+                try:
+                    rows = SQLHandler.execute_query("SELECT id, main_symbol, account_id, broker_symbol FROM symbol_mappings")
+                    map_c = {}
+                    rev_c = {}
+                    if isinstance(rows, list):
+                        for r in rows:
+                            m_sym = str(r.get('main_symbol', '')).upper().strip()
+                            acc_id = str(r.get('account_id', '')).strip()
+                            b_sym = str(r.get('broker_symbol', '')).strip()
+                            map_c[(m_sym, acc_id)] = b_sym
+                            rev_c[(b_sym.upper(), acc_id)] = m_sym
+                        cls._all_rows_cache = [dict(r) for r in rows]
+                    else:
+                        cls._all_rows_cache = []
+                    cls._mappings_cache = map_c
+                    cls._reverse_cache = rev_c
+                except Exception as e:
+                    print(f"Error loading symbol mappings cache from DB: {e}", flush=True)
+                    if cls._mappings_cache is None:
+                        cls._mappings_cache = {}
+                        cls._reverse_cache = {}
+                        cls._all_rows_cache = []
+
     @staticmethod
     def init_db():
         """
@@ -37,90 +71,86 @@ class SymbolMappingHandler:
             except Exception as e2:
                 print(f"Error initializing symbol_mappings SQLite table: {e2}", flush=True)
 
-    @staticmethod
-    def get_all_mappings() -> list:
-        SymbolMappingHandler.init_db()
-        try:
-            return SQLHandler.execute_query("SELECT id, main_symbol, account_id, broker_symbol FROM symbol_mappings")
-        except Exception as e:
-            print(f"Error fetching symbol mappings: {e}", flush=True)
-            return []
+    @classmethod
+    def get_all_mappings(cls) -> list:
+        cls._ensure_cache_loaded()
+        with cls._lock:
+            return list(cls._all_rows_cache) if cls._all_rows_cache is not None else []
 
-    @staticmethod
-    def add_mapping(main_symbol: str, account_id: str, broker_symbol: str) -> bool:
-        SymbolMappingHandler.init_db()
+    @classmethod
+    def add_mapping(cls, main_symbol: str, account_id: str, broker_symbol: str) -> bool:
+        cls.init_db()
+        m_sym = main_symbol.upper().strip()
+        acc_id = str(account_id).strip()
+        b_sym = broker_symbol.strip()
         query = """
         INSERT INTO symbol_mappings (main_symbol, account_id, broker_symbol)
         VALUES (%s, %s, %s)
         ON DUPLICATE KEY UPDATE broker_symbol = VALUES(broker_symbol)
         """
         try:
-            SQLHandler.execute_query(query, (main_symbol.upper().strip(), str(account_id).strip(), broker_symbol.strip()))
+            SQLHandler.execute_query(query, (m_sym, acc_id, b_sym))
+            cls._ensure_cache_loaded(force=True)
             return True
         except Exception as e:
             print(f"Error saving symbol mapping: {e}", flush=True)
             return False
 
-    @staticmethod
-    def delete_mapping(mapping_id: int) -> bool:
-        SymbolMappingHandler.init_db()
+    @classmethod
+    def delete_mapping(cls, mapping_id: int) -> bool:
+        cls.init_db()
         try:
             SQLHandler.execute_query("DELETE FROM symbol_mappings WHERE id = %s", (mapping_id,))
+            cls._ensure_cache_loaded(force=True)
             return True
         except Exception as e:
             print(f"Error deleting symbol mapping: {e}", flush=True)
             return False
 
-    @staticmethod
-    def has_mapping(main_symbol: str, account_id: str) -> bool:
-        SymbolMappingHandler.init_db()
-        query = "SELECT 1 FROM symbol_mappings WHERE main_symbol = %s AND account_id = %s"
-        try:
-            res = SQLHandler.execute_query(query, (main_symbol.upper().strip(), str(account_id).strip()))
-            return bool(res)
-        except Exception as e:
-            print(f"Error checking symbol mapping: {e}", flush=True)
+    @classmethod
+    def has_mapping(cls, main_symbol: str, account_id: str) -> bool:
+        if not main_symbol or not account_id:
             return False
+        cls._ensure_cache_loaded()
+        with cls._lock:
+            return (main_symbol.upper().strip(), str(account_id).strip()) in cls._mappings_cache
 
     _unmapped_log_tracker = {}
 
-    @staticmethod
-    def map_to_broker(main_symbol: str, account_id: str) -> str:
-        SymbolMappingHandler.init_db()
+    @classmethod
+    def map_to_broker(cls, main_symbol: str, account_id: str) -> str:
         if not main_symbol:
             return None
         if not account_id or str(account_id).strip().lower() in ('none', 'null', 'undefined', ''):
             return main_symbol
 
-        query = "SELECT broker_symbol FROM symbol_mappings WHERE main_symbol = %s AND account_id = %s"
-        try:
-            res = SQLHandler.execute_query(query, (main_symbol.upper().strip(), str(account_id).strip()))
-            if res:
-                return res[0]['broker_symbol']
-        except Exception as e:
-            print(f"Error mapping symbol to broker: {e}", flush=True)
+        cls._ensure_cache_loaded()
+        key = (main_symbol.upper().strip(), str(account_id).strip())
+        with cls._lock:
+            if key in cls._mappings_cache:
+                return cls._mappings_cache[key]
 
         # Log unmapped symbol notice (throttled to once every 30s per symbol/account pair)
-        import time
         now = time.time()
-        key = (str(main_symbol).upper().strip(), str(account_id).strip())
-        last_logged = SymbolMappingHandler._unmapped_log_tracker.get(key, 0)
+        last_logged = cls._unmapped_log_tracker.get(key, 0)
         if now - last_logged > 30:
-            SymbolMappingHandler._unmapped_log_tracker[key] = now
+            cls._unmapped_log_tracker[key] = now
             print(f"[SymbolMapping] ⚠️ [UNMAPPED SYMBOL] Account '{account_id}' has NO symbol mapping for '{main_symbol}'. Call will be skipped.", flush=True)
 
         return None
 
-    @staticmethod
-    def map_to_main(broker_symbol: str, account_id: str) -> str:
-        SymbolMappingHandler.init_db()
-        query = "SELECT main_symbol FROM symbol_mappings WHERE UPPER(broker_symbol) = %s AND account_id = %s"
-        try:
-            res = SQLHandler.execute_query(query, (broker_symbol.upper().strip(), str(account_id).strip()))
-            if res:
-                return res[0]['main_symbol']
-        except Exception as e:
-            print(f"Error mapping symbol to main: {e}", flush=True)
+    @classmethod
+    def map_to_main(cls, broker_symbol: str, account_id: str) -> str:
+        if not broker_symbol:
+            return broker_symbol
+        if not account_id or str(account_id).strip().lower() in ('none', 'null', 'undefined', ''):
+            return broker_symbol
+
+        cls._ensure_cache_loaded()
+        key = (broker_symbol.upper().strip(), str(account_id).strip())
+        with cls._lock:
+            if key in cls._reverse_cache:
+                return cls._reverse_cache[key]
         return broker_symbol
 
     _broker_symbols_cache = {}
