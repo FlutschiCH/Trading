@@ -9,11 +9,31 @@ from sql_handler import SQLHandler
 class NewsHandler:
     _lock = threading.RLock()
     _started = False
+    _news_cache = None  # {news_id: news_dict}
 
     FEED_URLS = [
         {"name": "Yahoo Finance Top News", "url": "https://finance.yahoo.com/news/rssindex", "type": "news"},
         {"name": "Investing.com Forex News", "url": "https://www.investing.com/rss/news_1.rss", "type": "news"}
     ]
+
+    @classmethod
+    def _ensure_cache_loaded(cls, force: bool = False):
+        with cls._lock:
+            if cls._news_cache is None or force:
+                cls.init_db()
+                try:
+                    query = "SELECT id, title, description, link, pub_date, timestamp, currency, impact, source, created_at FROM trading_news ORDER BY timestamp DESC LIMIT 300"
+                    rows = SQLHandler.execute_query(query)
+                    new_cache = {}
+                    if isinstance(rows, list):
+                        for r in rows:
+                            if isinstance(r, dict):
+                                new_cache[r["id"]] = dict(r)
+                    cls._news_cache = new_cache
+                except Exception as e:
+                    print(f"[NewsHandler] Error loading news cache: {e}", flush=True)
+                    if cls._news_cache is None:
+                        cls._news_cache = {}
 
     @classmethod
     def init_db(cls):
@@ -43,7 +63,7 @@ class NewsHandler:
                 return
             cls._started = True
 
-        cls.init_db()
+        cls._ensure_cache_loaded()
 
         def _sync_loop():
             # Initial sync
@@ -154,6 +174,12 @@ class NewsHandler:
             except Exception as e:
                 print(f"[NewsHandler] Error fetching feed {feed['name']}: {e}", flush=True)
 
+        # Update in-memory cache instantly
+        cls._ensure_cache_loaded()
+        with cls._lock:
+            for item in news_items:
+                cls._news_cache[item["id"]] = dict(item)
+
         # Upsert items into DB with ON DUPLICATE KEY UPDATE
         upsert_query = """
         INSERT INTO trading_news (id, title, description, link, pub_date, timestamp, currency, impact, source)
@@ -175,47 +201,40 @@ class NewsHandler:
                     item["id"], item["title"], item["description"], item["link"],
                     item["pub_date"], item["timestamp"], item["currency"], item["impact"], item["source"]
                 ))
-            except Exception as ex:
+            except Exception:
                 pass
 
         return len(news_items)
 
     @classmethod
     def get_news(cls, currency=None, impact=None, search=None, limit=100):
-        cls.init_db()
+        cls._ensure_cache_loaded()
+        with cls._lock:
+            items = list(cls._news_cache.values())
+            filtered = []
 
-        conditions = []
-        params = []
+            for item in items:
+                # Filter by currency
+                if currency and currency.upper() != 'ALL':
+                    item_curr = str(item.get("currency", "")).upper()
+                    if item_curr != "ALL" and item_curr != currency.upper():
+                        continue
 
-        if currency and currency.upper() != 'ALL':
-            conditions.append("(currency = %s OR currency = 'ALL')")
-            params.append(currency.upper())
+                # Filter by impact
+                if impact and impact.upper() != 'ALL':
+                    item_impact = str(item.get("impact", "")).upper()
+                    if item_impact != impact.upper():
+                        continue
 
-        if impact and impact.upper() != 'ALL':
-            conditions.append("impact = %s")
-            params.append(impact.capitalize())
+                # Filter by search string
+                if search:
+                    s = search.lower()
+                    title = str(item.get("title", "")).lower()
+                    desc = str(item.get("description", "")).lower()
+                    if s not in title and s not in desc:
+                        continue
 
-        if search:
-            conditions.append("(title LIKE %s OR description LIKE %s)")
-            params.extend([f"%{search}%", f"%{search}%"])
+                filtered.append(dict(item))
 
-        where_clause = ("WHERE " + " AND ".join(conditions)) if conditions else ""
-        query = f"SELECT id, title, description, link, pub_date, timestamp, currency, impact, source, created_at FROM trading_news {where_clause} ORDER BY timestamp DESC LIMIT %s"
-        params.append(int(limit))
-
-        try:
-            rows = SQLHandler.execute_query(query, tuple(params))
-            if isinstance(rows, list):
-                # Ensure formatted output
-                output = []
-                for row in rows:
-                    if isinstance(row, dict):
-                        output.append(row)
-                return output
-        except Exception as e:
-            print(f"[NewsHandler] Error retrieving news: {e}", flush=True)
-
-        return []
-
-# Auto start sync when imported
-NewsHandler.start_background_sync()
+            filtered.sort(key=lambda x: int(x.get("timestamp") or 0), reverse=True)
+            return filtered[:int(limit)]
