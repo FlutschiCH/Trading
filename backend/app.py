@@ -87,7 +87,8 @@ from symbol_mapping_handler import SymbolMappingHandler
 AccountHandler._ensure_cache_loaded()
 SymbolMappingHandler._ensure_cache_loaded()
 LiveStrategyHandler._ensure_cache_loaded()
-print(f"  {Fore.GREEN}✓{Style.RESET_ALL} In-memory Strategy/Account caches initialized")
+AlertHandler._ensure_cache_loaded()
+print(f"  {Fore.GREEN}✓{Style.RESET_ALL} In-memory Strategy/Account/Alert caches initialized")
 
 PositionManager.start()
 print(f"  {Fore.GREEN}✓{Style.RESET_ALL} PositionManager started")
