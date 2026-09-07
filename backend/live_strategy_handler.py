@@ -10,6 +10,115 @@ class LiveStrategyHandler:
     _lock = threading.RLock()
 
     @classmethod
+    def init_db(cls):
+        with cls._lock:
+            if cls._db_initialized:
+                return
+
+            create_strategies_mysql = """
+            CREATE TABLE IF NOT EXISTS live_strategies (
+                id VARCHAR(64) PRIMARY KEY,
+                name VARCHAR(255) DEFAULT '',
+                symbol VARCHAR(64) NOT NULL,
+                status VARCHAR(32) DEFAULT 'stopped',
+                timeframe VARCHAR(32) DEFAULT '15m',
+                slVal DOUBLE DEFAULT 1.0,
+                slType VARCHAR(32) DEFAULT 'pct',
+                rr DOUBLE DEFAULT 2.0,
+                size DOUBLE DEFAULT 1.0,
+                useRiskSizing TINYINT(1) DEFAULT 0,
+                riskPct DOUBLE DEFAULT 1.0,
+                useBreakEven TINYINT(1) DEFAULT 0,
+                beTriggerR DOUBLE DEFAULT 1.0,
+                allowOppositeClose TINYINT(1) DEFAULT 1,
+                lookbackWindow INT DEFAULT 100,
+                deployedAt VARCHAR(64) DEFAULT '',
+                timezone VARCHAR(64) DEFAULT 'Local',
+                sessions TEXT,
+                useGlobalClose TINYINT(1) DEFAULT 0,
+                globalCloseTime VARCHAR(32) DEFAULT '',
+                entryStabilityRule VARCHAR(64) DEFAULT 'default',
+                broker VARCHAR(64) DEFAULT 'metatrader',
+                account_id VARCHAR(128) DEFAULT '',
+                target_computer VARCHAR(128) DEFAULT 'All',
+                dateRangeOption VARCHAR(64) DEFAULT 'last_candles',
+                customFrom VARCHAR(64) DEFAULT '',
+                customTo VARCHAR(64) DEFAULT '',
+                candleLimit INT DEFAULT 1000,
+                dailyFirstSignalsMode VARCHAR(64) DEFAULT 'disabled',
+                dailyFirstSignalsCount INT DEFAULT 1,
+                dailyFirstSignalsRiskMult DOUBLE DEFAULT 0.5,
+                live_state LONGTEXT
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+            """
+            create_targets_mysql = """
+            CREATE TABLE IF NOT EXISTS live_strategy_targets (
+                id VARCHAR(64) PRIMARY KEY,
+                strategy_id VARCHAR(64) NOT NULL,
+                broker VARCHAR(64) DEFAULT '',
+                account_id VARCHAR(128) DEFAULT '',
+                INDEX idx_strategy_id (strategy_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+            """
+
+            create_strategies_sqlite = """
+            CREATE TABLE IF NOT EXISTS live_strategies (
+                id TEXT PRIMARY KEY,
+                name TEXT DEFAULT '',
+                symbol TEXT NOT NULL,
+                status TEXT DEFAULT 'stopped',
+                timeframe TEXT DEFAULT '15m',
+                slVal REAL DEFAULT 1.0,
+                slType TEXT DEFAULT 'pct',
+                rr REAL DEFAULT 2.0,
+                size REAL DEFAULT 1.0,
+                useRiskSizing INTEGER DEFAULT 0,
+                riskPct REAL DEFAULT 1.0,
+                useBreakEven INTEGER DEFAULT 0,
+                beTriggerR REAL DEFAULT 1.0,
+                allowOppositeClose INTEGER DEFAULT 1,
+                lookbackWindow INTEGER DEFAULT 100,
+                deployedAt TEXT DEFAULT '',
+                timezone TEXT DEFAULT 'Local',
+                sessions TEXT,
+                useGlobalClose INTEGER DEFAULT 0,
+                globalCloseTime TEXT DEFAULT '',
+                entryStabilityRule TEXT DEFAULT 'default',
+                broker TEXT DEFAULT 'metatrader',
+                account_id TEXT DEFAULT '',
+                target_computer TEXT DEFAULT 'All',
+                dateRangeOption TEXT DEFAULT 'last_candles',
+                customFrom TEXT DEFAULT '',
+                customTo TEXT DEFAULT '',
+                candleLimit INTEGER DEFAULT 1000,
+                dailyFirstSignalsMode TEXT DEFAULT 'disabled',
+                dailyFirstSignalsCount INTEGER DEFAULT 1,
+                dailyFirstSignalsRiskMult REAL DEFAULT 0.5,
+                live_state TEXT
+            )
+            """
+            create_targets_sqlite = """
+            CREATE TABLE IF NOT EXISTS live_strategy_targets (
+                id TEXT PRIMARY KEY,
+                strategy_id TEXT NOT NULL,
+                broker TEXT DEFAULT '',
+                account_id TEXT DEFAULT ''
+            )
+            """
+
+            try:
+                SQLHandler.execute_query(create_strategies_mysql)
+                SQLHandler.execute_query(create_targets_mysql)
+            except Exception:
+                try:
+                    SQLHandler.execute_query(create_strategies_sqlite)
+                    SQLHandler.execute_query(create_targets_sqlite)
+                except Exception as e:
+                    print(f"Error initializing live_strategies DB: {e}", flush=True)
+
+            cls._db_initialized = True
+
+    @classmethod
     def _ensure_cache_loaded(cls, force: bool = False):
         with cls._lock:
             if cls._strategies_cache is None or force:
