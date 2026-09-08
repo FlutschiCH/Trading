@@ -2396,8 +2396,7 @@ export default function Dashboard() {
       const entry = pos.entry_price;
 
       if (liveStrategy.slType === 'price') {
-        const pipSize = getPipSize(pos.symbol, entry);
-        slPrice = isBuy ? entry - slVal * pipSize : entry + slVal * pipSize;
+        slPrice = isBuy ? entry - slVal : entry + slVal;
       } else if (liveStrategy.slType === 'dollar') {
         const lotSize = getLotSize(pos.symbol);
         const volume = parseFloat(pos.volume) || 1.0;

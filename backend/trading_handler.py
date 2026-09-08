@@ -26,8 +26,10 @@ class TradingHandler:
         elif sl_type in ('amount', '$', 'dollar'):
             qty = size if size > 0 else 1.0
             sl_distance = sl_val / (qty * lot_size) if lot_size > 0 else sl_val
-        else: # 'price' / pips
+        elif sl_type == 'pips':
             sl_distance = sl_val * pip_size
+        else: # 'price' / direct price distance
+            sl_distance = sl_val
 
         # 2. Calculate sl_price & tp_price
         if direction == 'BUY':

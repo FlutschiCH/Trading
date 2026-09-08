@@ -2017,8 +2017,8 @@ export default function WyckoffBacktester({
                     value={backtestSL}
                     onChange={(e) => setBacktestSL(e.target.value)}
                     style={{ ...styles.input, flexGrow: 1, minWidth: 0 }}
-                    step={backtestSLType === 'pct' ? '0.1' : '1'}
-                    min="0.01"
+                    step={backtestSLType === 'pct' ? '0.1' : '0.1'}
+                    min="0.00001"
                   />
                   <select
                     value={backtestSLType}
@@ -2026,8 +2026,7 @@ export default function WyckoffBacktester({
                       const newType = e.target.value as 'pct' | 'price' | 'dollar';
                       setUseRiskSizing(true);
                       setBacktestSLType(newType);
-                      const isForex = ['EUR', 'GBP', 'JPY', 'USD', 'CAD', 'AUD', 'CHF'].some(curr => symbol.toUpperCase().includes(curr)) && !['BTC', 'ETH', 'SOL', 'LTC', 'XRP'].some(crypto => symbol.toUpperCase().includes(crypto));
-                      setBacktestSL(newType === 'pct' ? '1.0' : (newType === 'dollar' ? '100' : (isForex ? '20' : '200')));
+                      setBacktestSL(newType === 'pct' ? '1.0' : (newType === 'dollar' ? '100' : '1.0'));
                     }}
                     style={{
                       ...styles.input,
@@ -2037,9 +2036,9 @@ export default function WyckoffBacktester({
                       padding: '0 4px',
                     }}
                   >
+                    <option value="price">Price ($)</option>
                     <option value="pct">%</option>
-                    <option value="price">Pips</option>
-                    <option value="dollar">$</option>
+                    <option value="dollar">Risk $</option>
                   </select>
                 </div>
               ) : (
@@ -2050,23 +2049,23 @@ export default function WyckoffBacktester({
                       value={slStart}
                       onChange={(e) => setSLStart(e.target.value)}
                       style={{ ...styles.input, minWidth: 0, flex: 1, padding: '4px' }}
-                      placeholder="Start (10)"
-                      step="1"
+                      placeholder="Start (1)"
+                      step="0.1"
                     />
                     <input
                       type="number"
                       value={slEnd}
                       onChange={(e) => setSLEnd(e.target.value)}
                       style={{ ...styles.input, minWidth: 0, flex: 1, padding: '4px' }}
-                      placeholder="End (20)"
-                      step="1"
+                      placeholder="End (10)"
+                      step="0.1"
                     />
                     <input
                       type="number"
                       value={slStep}
                       onChange={(e) => setSLStep(e.target.value)}
                       style={{ ...styles.input, minWidth: 0, flex: 1, padding: '4px' }}
-                      placeholder="Step (1)"
+                      placeholder="Step (0.5)"
                       step="0.1"
                     />
                     <select
@@ -2080,8 +2079,8 @@ export default function WyckoffBacktester({
                         padding: '0 2px',
                       }}
                     >
+                      <option value="price">Price</option>
                       <option value="pct">%</option>
-                      <option value="price">Pips</option>
                       <option value="dollar">$</option>
                     </select>
                   </div>
@@ -3260,7 +3259,7 @@ export default function WyckoffBacktester({
                         <span style={{ fontWeight: 'bold', color: '#ffffff' }}>{r.symbol || symbol} • {r.timeframe || timeframe}</span>
                         {!isMobile && (
                           <span style={{ color: '#cbd5e1', fontSize: '10px' }}>
-                            SL: {r.sl ?? backtestSL}{r.slType === 'price' ? 'p' : (r.slType === 'dollar' ? '$' : '%')} | RR: 1:{Number(r.rr).toFixed(1)} | BE: {r.be ? `${r.be}R (${r.beOffsetMode === 'zero_be' ? '0.0R' : (r.beOffsetMode === 'half_r' ? 'Half R' : `${r.beOffsetMode}R`)})` : 'Off'}
+                            SL: {r.sl ?? backtestSL}{r.slType === 'price' ? ` (${((r.sl ?? parseFloat(backtestSL)) / 0.0001).toFixed(0)}p)` : (r.slType === 'dollar' ? '$' : '%')} | RR: 1:{Number(r.rr).toFixed(1)} | BE: {r.be ? `${r.be}R (${r.beOffsetMode === 'zero_be' ? '0.0R' : (r.beOffsetMode === 'half_r' ? 'Half R' : `${r.beOffsetMode}R`)})` : 'Off'}
                           </span>
                         )}
                         <span style={{ textAlign: 'right', color: isProfit ? '#10b981' : '#ef4444', fontWeight: 'bold', fontSize: '12px' }}>
@@ -3308,7 +3307,7 @@ export default function WyckoffBacktester({
                       🔍 Config: {selectedLeaderboardCombo.symbol || symbol} ({selectedLeaderboardCombo.timeframe || timeframe})
                     </span>
                     <span style={{ fontSize: '10px', color: '#cbd5e1', backgroundColor: '#1e293b', padding: '2px 6px', borderRadius: '4px' }}>
-                      SL: {selectedLeaderboardCombo.sl ?? backtestSL}{selectedLeaderboardCombo.slType === 'price' ? 'p' : '%'} | RR: 1:{selectedLeaderboardCombo.rr} | BE: {selectedLeaderboardCombo.be ? `${selectedLeaderboardCombo.be}R` : 'Off'}
+                      SL: {selectedLeaderboardCombo.sl ?? backtestSL}{selectedLeaderboardCombo.slType === 'price' ? ` (${((selectedLeaderboardCombo.sl ?? parseFloat(backtestSL)) / 0.0001).toFixed(0)}p)` : '%'} | RR: 1:{selectedLeaderboardCombo.rr} | BE: {selectedLeaderboardCombo.be ? `${selectedLeaderboardCombo.be}R` : 'Off'}
                     </span>
                   </div>
                   <span style={{ fontSize: '11px', color: (selectedLeaderboardCombo.netPnl ?? 0) >= 0 ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>

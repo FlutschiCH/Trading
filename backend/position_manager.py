@@ -170,7 +170,7 @@ class PositionManager:
                 if sl_type == "pips":
                     risk_dist = sl_val * pip_size
                 elif sl_type == "price":
-                    risk_dist = abs(entry_price - sl_val)
+                    risk_dist = sl_val
                 else: # percent / default
                     risk_dist = entry_price * (sl_val / 100.0)
 

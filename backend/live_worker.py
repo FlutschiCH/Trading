@@ -341,7 +341,7 @@ class LiveWorker:
                     if sl_type == "pips":
                         sl_distance = sl_val * pip_size
                     elif sl_type == "price":
-                        sl_distance = abs(entry_price - sl_val)
+                        sl_distance = sl_val
                     else:
                         sl_distance = entry_price * (sl_val / 100.0)
 
