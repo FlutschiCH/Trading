@@ -326,6 +326,12 @@ class CopytraderHandler:
         pos_id = int(ticket) if (isinstance(ticket, str) and ticket.isdigit()) else ticket
         return BrokerHandler.close_position(broker_name=broker, account_id=account_id, position_id=pos_id, symbol=symbol, side="", volume=lots)
 
+    @staticmethod
+    def _modify_position(broker: str, account_id: str, ticket: str, symbol: str = "", sl: float = 0.0, tp: float = 0.0):
+        from broker_handler import BrokerHandler
+        pos_id = int(ticket) if (isinstance(ticket, str) and ticket.isdigit()) else ticket
+        return BrokerHandler.modify_position(broker_name=broker, account_id=account_id, position_id=pos_id, symbol=symbol, stop_loss=sl, take_profit=tp)
+
     @classmethod
     def _get_open_mappings(cls, config_id: str):
         cls._ensure_cache_loaded()
@@ -493,7 +499,7 @@ class CopytraderHandler:
                                 else:
                                     # Trade already copied -> Check and sync SL / TP changes if modified on master
                                     slave_ticket = existing_mappings[key]
-                                    if slave_broker == "metatrader" and (sl > 0 or tp > 0):
+                                    if sl > 0 or tp > 0:
                                         try:
                                             slave_positions = CopytraderHandler._get_account_positions(slave_acc, slave_broker)
                                             slave_pos = next((sp for sp in slave_positions if str(sp.get("position_id") or sp.get("ticket")) == str(slave_ticket)), None)
@@ -501,13 +507,14 @@ class CopytraderHandler:
                                                 curr_sl = float(slave_pos.get("stop_loss") or slave_pos.get("sl") or 0.0)
                                                 curr_tp = float(slave_pos.get("take_profit") or slave_pos.get("tp") or 0.0)
                                                 if abs(curr_sl - sl) > 1e-5 or abs(curr_tp - tp) > 1e-5:
-                                                    logPrint(f"[Copytrader] Updating SL/TP on slave {slave_acc} (Ticket: {slave_ticket}): SL {curr_sl}->{sl}, TP {curr_tp}->{tp}")
-                                                    MetaTraderHandler.adjustSLTP(
-                                                        position_id=int(slave_ticket),
-                                                        stop_loss=sl,
-                                                        take_profit=tp,
+                                                    logPrint(f"[Copytrader] Updating SL/TP on slave {slave_acc} ({slave_broker}, Ticket: {slave_ticket}): SL {curr_sl}->{sl}, TP {curr_tp}->{tp}")
+                                                    CopytraderHandler._modify_position(
+                                                        broker=slave_broker,
+                                                        account_id=slave_acc,
+                                                        ticket=slave_ticket,
                                                         symbol=symbol,
-                                                        account_id=slave_acc
+                                                        sl=sl,
+                                                        tp=tp
                                                     )
                                         except Exception as mod_err:
                                             logPrint(f"[Copytrader SL/TP Sync Error]: {mod_err}")
