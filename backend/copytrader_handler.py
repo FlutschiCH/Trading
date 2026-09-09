@@ -262,12 +262,32 @@ class CopytraderHandler:
 
             config_count = len(active_configs)
             from colorama import Fore, Style
-            summary_msg = (
-                f"\n{Fore.CYAN}[Copytrader Engine]{Style.RESET_ALL} 🚀 Starting Copytrader Engine:\n"
-                f"   • Active Configurations Found: {Style.BRIGHT}{config_count}{Style.RESET_ALL}\n"
-                f"   • Total Active Slaves Connected: {Style.BRIGHT}{total_slaves}{Style.RESET_ALL}\n"
-                f"   • Host Machine: {Style.BRIGHT}{current_host}{Style.RESET_ALL}\n"
-            )
+            lines = [
+                f"\n{Fore.CYAN}[Copytrader Engine]{Style.RESET_ALL} 🚀 Starting Copytrader Engine:",
+                f"   • Active Configurations Found: {Style.BRIGHT}{config_count}{Style.RESET_ALL}",
+                f"   • Total Active Slaves Connected: {Style.BRIGHT}{total_slaves}{Style.RESET_ALL}",
+                f"   • Host Machine: {Style.BRIGHT}{current_host}{Style.RESET_ALL}"
+            ]
+            for idx, cfg in enumerate(active_configs, start=1):
+                cfg_name = cfg.get("name", f"Config #{idx}")
+                m_acc = cfg.get("master_account", "Unknown")
+                m_brk = str(cfg.get("master_broker", "metatrader")).upper()
+                target_comp = cfg.get("target_computer", "All")
+                slaves = [s for s in cfg.get("slaves", []) if s.get("status") != "paused"]
+                
+                lines.append(f"   [{idx}] {Fore.YELLOW}{cfg_name}{Style.RESET_ALL} (Target Host: {target_comp})")
+                lines.append(f"       Master: {Fore.GREEN}{m_acc}{Style.RESET_ALL} [{m_brk}]")
+                if not slaves:
+                    lines.append(f"       Slaves: {Fore.RED}None active{Style.RESET_ALL}")
+                for s in slaves:
+                    s_acc = s.get("account_id", "Unknown")
+                    s_brk = str(s.get("broker", "metatrader")).upper()
+                    mode = s.get("mode", "direct")
+                    mult = s.get("multiplier", 1.0)
+                    sizing_str = f"{mode} (x{mult})" if mode in ("multiplier", "divider") else mode
+                    lines.append(f"       └── ➜ Slave: {Fore.CYAN}{s_acc}{Style.RESET_ALL} [{s_brk}] | Sizing: {sizing_str}")
+
+            summary_msg = "\n".join(lines) + "\n" 
             print(summary_msg, flush=True)
             logPrint(f"[Copytrader Engine] Background monitor started ({config_count} active configs, {total_slaves} active slaves).")
         except Exception as e:
