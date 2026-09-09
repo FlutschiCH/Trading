@@ -474,14 +474,31 @@ class CopytraderHandler:
                                         None
                                     )
 
+                                    is_btc = "BTC" in str(symbol).upper()
+                                    if is_btc:
+                                        print(f"\n🪙 [BTC Copytrader] ────────────────────────────────────────────────────────", flush=True)
+                                        print(f"🪙 [BTC Copytrader] [Step 1/5] Master Trade Detected:", flush=True)
+                                        print(f"🪙 [BTC Copytrader]         • Master Account: {master_acc} ({master_broker.upper()}) | Ticket: #{m_ticket}", flush=True)
+                                        print(f"🪙 [BTC Copytrader]         • Symbol: {symbol} | Side: {action} | Lots: {master_lots} | SL: {sl} | TP: {tp}", flush=True)
+                                        print(f"🪙 [BTC Copytrader] [Step 2/5] Target Slave Configured:", flush=True)
+                                        print(f"🪙 [BTC Copytrader]         • Slave Account: {slave_acc} ({slave_broker.upper()}) | Mode: {mode} (mult: {multiplier})", flush=True)
+                                        print(f"🪙 [BTC Copytrader]         • Calculated Sized Volume: {slave_lots} lots", flush=True)
+
                                     if existing_slave_pos:
                                         slave_ticket = str(existing_slave_pos.get("position_id") or existing_slave_pos.get("ticket"))
+                                        if is_btc:
+                                            print(f"🪙 [BTC Copytrader] [Step 3/5] Trade already present on slave with ticket #{slave_ticket}. Linking mapping.", flush=True)
                                         CopytraderHandler._record_mapping(config_id, m_ticket, slave_acc, slave_ticket, symbol, action, slave_lots)
                                         existing_mappings[key] = slave_ticket
                                     else:
                                         # Trade not yet on slave -> Open trade with comment set to master ticket ID
                                         comment = m_ticket
-                                        logPrint(f"[Copytrader] Opening trade on slave {slave_acc}: {action} {slave_lots} {symbol} (SL: {sl}, TP: {tp}, Comment: {comment})")
+                                        if is_btc:
+                                            print(f"🪙 [BTC Copytrader] [Step 3/5] Executing Order on Slave {slave_acc} via BrokerHandler...", flush=True)
+                                            print(f"🪙 [BTC Copytrader]         • Parameters: action={action}, symbol={symbol}, lots={slave_lots}, sl={sl}, tp={tp}, comment={comment}", flush=True)
+                                        else:
+                                            logPrint(f"[Copytrader] Opening trade on slave {slave_acc} ({slave_broker}): {action} {slave_lots} {symbol} (SL: {sl}, TP: {tp}, Comment: {comment})")
+
                                         res = CopytraderHandler._execute_order(
                                             broker=slave_broker,
                                             account_id=slave_acc,
@@ -492,10 +509,38 @@ class CopytraderHandler:
                                             tp=tp,
                                             comment=comment
                                         )
-                                        if res and res.get("status") == "success":
-                                            slave_ticket = str(res.get("ticket") or res.get("position_id") or f"slv_{int(time.time())}")
+
+                                        if is_btc:
+                                            print(f"🪙 [BTC Copytrader] [Step 4/5] BrokerHandler returned response: {res}", flush=True)
+
+                                        # Parse slave ticket across MetaTrader, Binance, and cTrader
+                                        is_success = False
+                                        slave_ticket = None
+                                        if isinstance(res, dict) and "error" not in res:
+                                            if "main_order" in res and isinstance(res["main_order"], dict):
+                                                slave_ticket = str(res["main_order"].get("orderId") or res["main_order"].get("clientOrderId") or "")
+                                                if slave_ticket:
+                                                    is_success = True
+                                            elif res.get("orderId") or res.get("ticket") or res.get("position_id") or res.get("positionId"):
+                                                slave_ticket = str(res.get("orderId") or res.get("ticket") or res.get("position_id") or res.get("positionId"))
+                                                is_success = True
+                                            elif res.get("status") == "success":
+                                                slave_ticket = str(res.get("ticket") or res.get("position_id") or f"slv_{int(time.time())}")
+                                                is_success = True
+
+                                        if is_success and slave_ticket:
+                                            if is_btc:
+                                                print(f"🪙 [BTC Copytrader] [Step 5/5] ✅ SUCCESS! Trade Copied. Master #{m_ticket} ➜ Slave #{slave_ticket}", flush=True)
+                                                print(f"🪙 [BTC Copytrader] ────────────────────────────────────────────────────────\n", flush=True)
+                                            logPrint(f"[Copytrader] ✅ Trade copied to slave {slave_acc}: Master #{m_ticket} -> Slave #{slave_ticket} ({action} {slave_lots} {symbol})")
                                             CopytraderHandler._record_mapping(config_id, m_ticket, slave_acc, slave_ticket, symbol, action, slave_lots)
                                             existing_mappings[key] = slave_ticket
+                                        else:
+                                            err_detail = res.get("error") if isinstance(res, dict) else str(res)
+                                            if is_btc:
+                                                print(f"🪙 [BTC Copytrader] [Step 5/5] ❌ EXECUTION FAILED on Slave {slave_acc} ({slave_broker}): {err_detail}", flush=True)
+                                                print(f"🪙 [BTC Copytrader] ────────────────────────────────────────────────────────\n", flush=True)
+                                            logPrint(f"[Copytrader Error] ❌ Failed to copy {symbol} trade #{m_ticket} to slave {slave_acc} ({slave_broker}): {err_detail}")
                                 else:
                                     # Trade already copied -> Check and sync SL / TP changes if modified on master
                                     slave_ticket = existing_mappings[key]
