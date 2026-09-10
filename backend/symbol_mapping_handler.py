@@ -131,6 +131,7 @@ class SymbolMappingHandler:
                 return cls._mappings_cache[key]
 
         # Log unmapped symbol notice (throttled to once every 30s per symbol/account pair)
+        import time
         now = time.time()
         last_logged = cls._unmapped_log_tracker.get(key, 0)
         if now - last_logged > 30:
@@ -186,21 +187,16 @@ class SymbolMappingHandler:
 
                     symbols = []
                     try:
-                        handler = BrokerHandler.get_handler(b_type)
-                        if b_type == 'metatrader':
-                            kwargs = {
-                                "login": int(acc_id) if acc_id.isdigit() else acc_id,
-                                "password": acc.get("password"),
-                                "server": acc.get("server")
-                            }
-                            raw_syms = handler.get_symbols(**kwargs) or []
-                            symbols = raw_syms if isinstance(raw_syms, list) else []
-                        elif b_type == 'ctrader':
-                            sym_res = handler.get_symbols(account_id=acc_id, password=acc.get("password"), token=acc.get("password"))
-                            if isinstance(sym_res, dict) and sym_res.get("status") == "success":
-                                symbols = sym_res.get("data", [])
+                        raw_syms = BrokerHandler.get_symbols(broker_name=b_type, account_id=acc_id)
+                        if isinstance(raw_syms, list):
+                            symbols = raw_syms
+                        elif isinstance(raw_syms, dict):
+                            if 'symbols' in raw_syms and isinstance(raw_syms['symbols'], list):
+                                symbols = raw_syms['symbols']
+                            elif 'data' in raw_syms and isinstance(raw_syms['data'], list):
+                                symbols = raw_syms['data']
                     except Exception as e:
-                        print(f"Error refreshing symbols for account {acc_id}: {e}", flush=True)
+                        print(f"Error refreshing symbols from broker for account {acc_id} ({b_type}): {e}", flush=True)
 
                     updated_cache[acc_id] = {
                         "account_id": acc_id,

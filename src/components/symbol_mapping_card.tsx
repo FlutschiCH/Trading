@@ -31,10 +31,13 @@ export const SymbolMappingCard: React.FC<SymbolMappingCardProps> = ({ isReadOnly
   const [connectedBrokers, setConnectedBrokers] = useState<ConnectedBroker[]>([]);
   const [loadingBrokers, setLoadingBrokers] = useState(false);
 
-  const fetchConnectedBrokers = async () => {
+  const fetchConnectedBrokers = async (forceRefresh: boolean = false) => {
     setLoadingBrokers(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/symbol-mappings/connected-brokers`);
+      const url = forceRefresh 
+        ? `${API_BASE_URL}/api/symbol-mappings/connected-brokers?refresh=true`
+        : `${API_BASE_URL}/api/symbol-mappings/connected-brokers`;
+      const res = await fetch(url);
       const data = await res.json();
       if (data.status === 'success' && Array.isArray(data.data)) {
         setConnectedBrokers(data.data);
@@ -195,7 +198,7 @@ export const SymbolMappingCard: React.FC<SymbolMappingCardProps> = ({ isReadOnly
         <button
           type="button"
           onClick={() => {
-            fetchConnectedBrokers();
+            fetchConnectedBrokers(true);
             fetchSymbolMappings();
           }}
           disabled={loadingBrokers}
