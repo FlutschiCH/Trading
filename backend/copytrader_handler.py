@@ -546,7 +546,11 @@ class CopytraderHandler:
                             # A) For each master open position, ensure it exists on slave
                             for m_pos in slave_target_master_positions:
                                 m_sym = m_pos.get("symbol", "")
-                                m_side = "BUY" if ("BUY" in str(m_pos.get("trade_side") or m_pos.get("type") or "").upper() or str(m_pos.get("type")) == "0") else "SELL"
+                                # Master trade side is explicitly "trade_side" (SELL or BUY)
+                                m_side = str(m_pos.get("trade_side") or m_pos.get("side") or "").strip().upper()
+                                if m_side not in ("BUY", "SELL"):
+                                    m_side = "BUY" if str(m_pos.get("type")) == "0" else "SELL"
+
                                 m_lots = float(m_pos.get("volume") or m_pos.get("lots") or m_pos.get("size") or 0.01)
                                 sl = float(m_pos.get("stop_loss") or m_pos.get("sl") or 0.0)
                                 tp = float(m_pos.get("take_profit") or m_pos.get("tp") or 0.0)
@@ -555,8 +559,13 @@ class CopytraderHandler:
                                 match_idx = -1
                                 for idx_s, s_pos in enumerate(unmatched_slaves):
                                     s_sym = str(s_pos.get("symbol", ""))
-                                    amt = float(s_pos.get("positionAmt") or s_pos.get("volume") or s_pos.get("lots") or 0)
-                                    s_side = "BUY" if ("BUY" in str(s_pos.get("side") or s_pos.get("trade_side") or s_pos.get("type") or "").upper() or str(s_pos.get("type")) == "0" or amt > 0) else "SELL"
+                                    s_side = str(s_pos.get("trade_side") or s_pos.get("side") or "").strip().upper()
+                                    if s_side not in ("BUY", "SELL"):
+                                        amt = float(s_pos.get("positionAmt") or 0)
+                                        if amt != 0:
+                                            s_side = "BUY" if amt > 0 else "SELL"
+                                        else:
+                                            s_side = "BUY" if str(s_pos.get("type")) == "0" else "SELL"
                                     
                                     if s_side == m_side and CopytraderHandler._are_symbols_matching(m_sym, s_sym, slave_acc):
                                         match_idx = idx_s
@@ -597,7 +606,12 @@ class CopytraderHandler:
                                     continue
 
                                 amt = float(s_pos.get("positionAmt") or s_pos.get("volume") or s_pos.get("lots") or 0)
-                                s_side = "BUY" if ("BUY" in str(s_pos.get("side") or s_pos.get("trade_side") or s_pos.get("type") or "").upper() or str(s_pos.get("type")) == "0" or amt > 0) else "SELL"
+                                s_side = str(s_pos.get("trade_side") or s_pos.get("side") or "").strip().upper()
+                                if s_side not in ("BUY", "SELL"):
+                                    if amt != 0:
+                                        s_side = "BUY" if amt > 0 else "SELL"
+                                    else:
+                                        s_side = "BUY" if str(s_pos.get("type")) == "0" else "SELL"
                                 s_ticket = str(s_pos.get("position_id") or s_pos.get("ticket") or s_pos.get("id") or "")
                                 s_vol = float(s_pos.get("volume") or abs(amt) or s_pos.get("size") or 0.0)
 
