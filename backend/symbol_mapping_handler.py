@@ -112,8 +112,19 @@ class SymbolMappingHandler:
         if not main_symbol or not account_id:
             return False
         cls._ensure_cache_loaded()
+        sym_upper = main_symbol.upper().strip()
+        acc_str = str(account_id).strip()
         with cls._lock:
-            return (main_symbol.upper().strip(), str(account_id).strip()) in cls._mappings_cache
+            if (sym_upper, acc_str) in cls._mappings_cache:
+                return True
+            if (sym_upper, acc_str) in cls._reverse_cache:
+                return True
+            # Check if sym_upper is a broker symbol in any account that maps to a main symbol configured for this account
+            if cls._reverse_cache:
+                for (b_sym, _), m_sym in cls._reverse_cache.items():
+                    if b_sym == sym_upper and (m_sym, acc_str) in cls._mappings_cache:
+                        return True
+            return False
 
     _unmapped_log_tracker = {}
 
@@ -125,10 +136,26 @@ class SymbolMappingHandler:
             return main_symbol
 
         cls._ensure_cache_loaded()
-        key = (main_symbol.upper().strip(), str(account_id).strip())
+        sym_upper = main_symbol.upper().strip()
+        acc_str = str(account_id).strip()
+        key = (sym_upper, acc_str)
         with cls._lock:
+            # 1. Direct forward mapping: (main_symbol, account_id) -> broker_symbol
             if key in cls._mappings_cache:
                 return cls._mappings_cache[key]
+
+            # 2. Already the target broker symbol for this account: (broker_symbol, account_id) -> main_symbol
+            if key in cls._reverse_cache:
+                return main_symbol
+
+            # 3. Backtrack: main_symbol might be a broker_symbol from another account.
+            # Resolve to root master symbol first, then map to this target account's broker_symbol.
+            if cls._reverse_cache:
+                for (b_sym, _), m_sym in cls._reverse_cache.items():
+                    if b_sym == sym_upper:
+                        target_key = (m_sym, acc_str)
+                        if target_key in cls._mappings_cache:
+                            return cls._mappings_cache[target_key]
 
         # Log unmapped symbol notice (throttled to once every 30s per symbol/account pair)
         import time
@@ -148,10 +175,26 @@ class SymbolMappingHandler:
             return broker_symbol
 
         cls._ensure_cache_loaded()
-        key = (broker_symbol.upper().strip(), str(account_id).strip())
+        sym_upper = broker_symbol.upper().strip()
+        acc_str = str(account_id).strip()
+        key = (sym_upper, acc_str)
         with cls._lock:
             if key in cls._reverse_cache:
                 return cls._reverse_cache[key]
+
+            # If it's already a main_symbol in mappings for this or any account, return as is
+            if key in cls._mappings_cache:
+                return cls._mappings_cache[key]
+            if cls._mappings_cache:
+                for (m_sym, _), _ in cls._mappings_cache.items():
+                    if m_sym == sym_upper:
+                        return broker_symbol
+
+            # Backtrack check: check if it matches broker_symbol from any other account
+            if cls._reverse_cache:
+                for (b_sym, _), m_sym in cls._reverse_cache.items():
+                    if b_sym == sym_upper:
+                        return m_sym
         return broker_symbol
 
     _broker_symbols_cache = {}
