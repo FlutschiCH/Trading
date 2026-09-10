@@ -19,6 +19,7 @@ interface CopytraderConfig {
   name: string;
   status: 'active' | 'paused';
   target_computer: string;
+  symbols?: string;
   master_account: string;
   master_broker: string;
   slaves: SlaveAccount[];
@@ -34,6 +35,7 @@ export const Copytrader: React.FC = () => {
   // Form State
   const [name, setName] = useState('');
   const [targetComputer, setTargetComputer] = useState('All');
+  const [symbols, setSymbols] = useState('All');
   const [masterAccount, setMasterAccount] = useState('');
   const [masterBroker, setMasterBroker] = useState('metatrader');
   const [slaves, setSlaves] = useState<SlaveAccount[]>([]);
@@ -90,6 +92,7 @@ export const Copytrader: React.FC = () => {
       name: name || `Copytrader (${masterAccount})`,
       status: 'active',
       target_computer: targetComputer,
+      symbols: symbols.trim() || 'All',
       master_account: masterAccount,
       master_broker: masterBroker,
       slaves: slaves
@@ -133,6 +136,7 @@ export const Copytrader: React.FC = () => {
     setEditingId(null);
     setName('');
     setTargetComputer('All');
+    setSymbols('All');
     setMasterAccount('');
     setMasterBroker('metatrader');
     setSlaves([]);
@@ -142,6 +146,7 @@ export const Copytrader: React.FC = () => {
     setEditingId(cfg.id);
     setName(cfg.name);
     setTargetComputer(cfg.target_computer || 'All');
+    setSymbols(cfg.symbols || 'All');
     setMasterAccount(cfg.master_account);
     setMasterBroker(cfg.master_broker || 'metatrader');
     setSlaves(cfg.slaves || []);
@@ -274,6 +279,78 @@ export const Copytrader: React.FC = () => {
               placeholder="Select Master Account..."
             />
           </div>
+
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+              <label style={{ fontSize: '10px', color: '#94a3b8' }}>Symbols to Copy</label>
+              <button
+                type="button"
+                onClick={() => setSymbols('All')}
+                style={{ fontSize: '9px', color: '#38bdf8', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+              >
+                Reset (All)
+              </button>
+            </div>
+            <input
+              type="text"
+              placeholder="All (or e.g. BTCUSD, ETHUSD)"
+              value={symbols}
+              onChange={(e) => setSymbols(e.target.value)}
+              style={{
+                width: '100%',
+                backgroundColor: '#020617',
+                border: '1px solid #334155',
+                borderRadius: '6px',
+                padding: '6px 8px',
+                color: '#f8fafc',
+                fontSize: '12px',
+                outline: 'none'
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Quick Symbol Presets */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', padding: '0 2px' }}>
+          <span style={{ fontSize: '10px', color: '#64748b' }}>Quick Symbol Presets:</span>
+          {['All', 'BTCUSD', 'ETHUSD', 'EURUSD', 'GBPUSD', 'XAUUSD', 'US30', 'NAS100'].map((preset) => {
+            const isAllActive = (symbols === 'All' || !symbols.trim()) && preset === 'All';
+            const isPresetActive = preset !== 'All' && symbols.toUpperCase().includes(preset);
+            const active = isAllActive || isPresetActive;
+            return (
+              <button
+                key={preset}
+                type="button"
+                onClick={() => {
+                  if (preset === 'All') {
+                    setSymbols('All');
+                  } else if (symbols === 'All' || !symbols.trim()) {
+                    setSymbols(preset);
+                  } else {
+                    const currentList = symbols.split(/[,\s]+/).map(s => s.trim().toUpperCase()).filter(Boolean);
+                    if (currentList.includes(preset)) {
+                      const filtered = currentList.filter(s => s !== preset);
+                      setSymbols(filtered.length ? filtered.join(', ') : 'All');
+                    } else {
+                      setSymbols([...currentList, preset].join(', '));
+                    }
+                  }
+                }}
+                style={{
+                  fontSize: '10px',
+                  padding: '2px 6px',
+                  borderRadius: '4px',
+                  backgroundColor: active ? '#1e3a8a' : '#020617',
+                  color: active ? '#93c5fd' : '#94a3b8',
+                  border: `1px solid ${active ? '#3b82f6' : '#334155'}`,
+                  cursor: 'pointer',
+                  fontWeight: active ? 'bold' : 'normal'
+                }}
+              >
+                {preset}
+              </button>
+            );
+          })}
         </div>
 
         {/* Slaves Section */}
@@ -495,7 +572,8 @@ export const Copytrader: React.FC = () => {
                     </span>
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 14px', fontSize: '11px', color: '#94a3b8' }}>
-                    <span>Target: <strong style={{ color: '#cbd5e1' }}>{cfg.target_computer}</strong></span>
+                    <span>Target: <strong style={{ color: '#cbd5e1' }}>{cfg.target_computer || 'All'}</strong></span>
+                    <span>Symbols: <strong style={{ color: '#fbbf24' }}>{cfg.symbols || 'All'}</strong></span>
                     <span>Master: <strong style={{ color: '#60a5fa' }}>{cfg.master_account}</strong></span>
                     <span>Slaves: <strong style={{ color: '#34d399' }}>{cfg.slaves?.length || 0}</strong></span>
                   </div>
