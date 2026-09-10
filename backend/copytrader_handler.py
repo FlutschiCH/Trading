@@ -451,6 +451,48 @@ class CopytraderHandler:
             print(f"[Copytrader] Error marking mapping closed in DB: {e}", flush=True)
 
     @staticmethod
+    def _are_symbols_matching(master_symbol: str, slave_symbol: str, slave_account_id: str = None) -> bool:
+        if not master_symbol or not slave_symbol:
+            return False
+        m_upper = master_symbol.strip().upper()
+        s_upper = slave_symbol.strip().upper()
+        if m_upper == s_upper:
+            return True
+
+        try:
+            from symbol_mapping_handler import SymbolMappingHandler
+            mapped = SymbolMappingHandler.map_to_broker(m_upper, slave_account_id)
+            if mapped and mapped.upper().strip() == s_upper:
+                return True
+        except Exception:
+            pass
+
+        import re
+        norm_m = re.sub(r'[^A-Z0-9]', '', m_upper)
+        norm_s = re.sub(r'[^A-Z0-9]', '', s_upper)
+        if norm_m == norm_s:
+            return True
+        if norm_m.startswith(norm_s) or norm_s.startswith(norm_m):
+            return True
+        base_m = norm_m.replace('USDT', '').replace('USD', '')
+        base_s = norm_s.replace('USDT', '').replace('USD', '')
+        if base_m and base_s and base_m == base_s:
+            return True
+
+        return False
+
+    @staticmethod
+    def _calculate_lots(master_lots: float, mode: str, multiplier: float) -> float:
+        if mode == "multiplier":
+            lots = round(master_lots * multiplier, 2)
+        elif mode == "divider":
+            div_val = multiplier if multiplier > 0 else 1.0
+            lots = round(master_lots / div_val, 2)
+        else:
+            lots = master_lots
+        return max(0.01, lots)
+
+    @staticmethod
     def _sync_loop():
         current_host = socket.gethostname().strip().lower()
         while CopytraderHandler._is_running:
@@ -467,196 +509,101 @@ class CopytraderHandler:
                     master_acc = cfg.get("master_account")
                     master_broker = cfg.get("master_broker", "metatrader")
                     slaves = cfg.get("slaves", [])
-                    config_id = cfg.get("id")
+                    cfg_symbols = cfg.get("symbols", "All")
 
                     if not master_acc or not slaves:
                         continue
 
                     with CopytraderHandler._lock:
-                        master_positions = CopytraderHandler._get_account_positions(master_acc, master_broker)
-                        existing_mappings = CopytraderHandler._get_open_mappings(config_id)
+                        # 1. Fetch live master positions and filter by config symbols
+                        raw_master_positions = CopytraderHandler._get_account_positions(master_acc, master_broker) or []
+                        master_positions = []
+                        for m_pos in raw_master_positions:
+                            sym = m_pos.get("symbol", "")
+                            if CopytraderHandler._is_symbol_allowed(sym, cfg_symbols):
+                                master_positions.append(m_pos)
 
-                        # Print detailed per-second debug info
-                        active_slaves_list = [str(s.get("account_id")) for s in slaves if s.get("status") != "paused"]
-                        slave_info_str = []
-                        for s_acc in active_slaves_list:
-                            s_cfg = next((s for s in slaves if str(s.get("account_id")) == s_acc), {})
-                            s_brk = s_cfg.get("broker", "metatrader")
-                            s_poss = CopytraderHandler._get_account_positions(s_acc, s_brk)
-                            slave_info_str.append(f"{s_acc}: {len(s_poss)} trades")
-
-                        # print(
-                        #     f"[Copytrader Loop Debug] Config '{cfg.get('name')}' ({config_id}) | "
-                        #     f"Master '{master_acc}' ({master_broker}): {len(master_positions)} open trades | "
-                        #     f"Slaves [{', '.join(slave_info_str)}] | Open Mappings: {len(existing_mappings)}",
-                        #     flush=True
-                        #  )
-
-                        master_open_tickets = set()
-                        cfg_symbols = cfg.get("symbols", "All")
-
-                        for pos in master_positions:
-                            m_ticket = str(pos.get("position_id") or pos.get("ticket") or pos.get("id") or "")
-                            if not m_ticket:
-                                continue
-                            master_open_tickets.add(m_ticket)
-
-                            symbol = pos.get("symbol", "EURUSD")
-
-                            # Config-level symbol filter check (Defaults to 'All')
-                            if not CopytraderHandler._is_symbol_allowed(symbol, cfg_symbols):
-                                continue
-                            pos_side = str(pos.get("trade_side") or pos.get("type") or "").upper()
-                            action = "BUY" if ("BUY" in pos_side or pos_side == "0") else "SELL"
-                            master_lots = float(pos.get("volume") or pos.get("lots") or pos.get("size") or 0.01)
-                            sl = float(pos.get("stop_loss") or pos.get("sl") or 0.0)
-                            tp = float(pos.get("take_profit") or pos.get("tp") or 0.0)
-
-                            for slave in slaves:
-                                if slave.get("status") == "paused":
-                                    continue
-
-                                # Slave-level symbol filter check (Defaults to 'All')
-                                slave_symbols = slave.get("symbols", "All")
-                                if not CopytraderHandler._is_symbol_allowed(symbol, slave_symbols):
-                                    continue
-
-                                slave_acc = str(slave.get("account_id"))
-                                slave_broker = slave.get("broker", "metatrader")
-                                mode = slave.get("mode", "direct") # direct or multiplier
-                                multiplier = float(slave.get("multiplier", 1.0))
-
-                                if mode == "multiplier":
-                                    slave_lots = round(master_lots * multiplier, 2)
-                                elif mode == "divider":
-                                    div_val = multiplier if multiplier > 0 else 1.0
-                                    slave_lots = round(master_lots / div_val, 2)
-                                else:
-                                    slave_lots = master_lots
-                                slave_lots = max(0.01, slave_lots)
-
-                                key = (m_ticket, slave_acc)
-                                if key not in existing_mappings:
-                                    # Fetch slave positions and check if any open trade already has comment matching master ticket or CP_<m_ticket>
-                                    slave_positions = CopytraderHandler._get_account_positions(slave_acc, slave_broker)
-                                    existing_slave_pos = next(
-                                        (sp for sp in slave_positions if str(sp.get("comment", "")).strip() in (m_ticket, f"CP_{m_ticket}")),
-                                        None
-                                    )
-
-                                    is_btc = "BTC" in str(symbol).upper()
-                                    if is_btc:
-                                        print(f"\n🪙 [BTC Copytrader] ────────────────────────────────────────────────────────", flush=True)
-                                        print(f"🪙 [BTC Copytrader] [Step 1/5] Master Trade Detected:", flush=True)
-                                        print(f"🪙 [BTC Copytrader]         • Master Account: {master_acc} ({master_broker.upper()}) | Ticket: #{m_ticket}", flush=True)
-                                        print(f"🪙 [BTC Copytrader]         • Symbol: {symbol} | Side: {action} | Lots: {master_lots} | SL: {sl} | TP: {tp}", flush=True)
-                                        print(f"🪙 [BTC Copytrader] [Step 2/5] Target Slave Configured:", flush=True)
-                                        print(f"🪙 [BTC Copytrader]         • Slave Account: {slave_acc} ({slave_broker.upper()}) | Mode: {mode} (mult: {multiplier})", flush=True)
-                                        print(f"🪙 [BTC Copytrader]         • Calculated Sized Volume: {slave_lots} lots", flush=True)
-
-                                    if existing_slave_pos:
-                                        slave_ticket = str(existing_slave_pos.get("position_id") or existing_slave_pos.get("ticket"))
-                                        if is_btc:
-                                            print(f"🪙 [BTC Copytrader] [Step 3/5] Trade already present on slave with ticket #{slave_ticket}. Linking mapping.", flush=True)
-                                        CopytraderHandler._record_mapping(config_id, m_ticket, slave_acc, slave_ticket, symbol, action, slave_lots)
-                                        existing_mappings[key] = slave_ticket
-                                    else:
-                                        # Trade not yet on slave -> Open trade with comment set to master ticket ID
-                                        comment = m_ticket
-                                        if is_btc:
-                                            print(f"🪙 [BTC Copytrader] [Step 3/5] Executing Order on Slave {slave_acc} via BrokerHandler...", flush=True)
-                                            print(f"🪙 [BTC Copytrader]         • Parameters: action={action}, symbol={symbol}, lots={slave_lots}, sl={sl}, tp={tp}, comment={comment}", flush=True)
-                                        else:
-                                            logPrint(f"[Copytrader] Opening trade on slave {slave_acc} ({slave_broker}): {action} {slave_lots} {symbol} (SL: {sl}, TP: {tp}, Comment: {comment})")
-
-                                        res = CopytraderHandler._execute_order(
-                                            broker=slave_broker,
-                                            account_id=slave_acc,
-                                            symbol=symbol,
-                                            action=action,
-                                            lots=slave_lots,
-                                            sl=sl,
-                                            tp=tp,
-                                            comment=comment
-                                        )
-
-                                        if is_btc:
-                                            print(f"🪙 [BTC Copytrader] [Step 4/5] BrokerHandler returned response: {res}", flush=True)
-
-                                        # Parse slave ticket across MetaTrader, Binance, and cTrader
-                                        is_success = False
-                                        slave_ticket = None
-                                        if isinstance(res, dict) and "error" not in res:
-                                            if "main_order" in res and isinstance(res["main_order"], dict):
-                                                slave_ticket = str(res["main_order"].get("orderId") or res["main_order"].get("clientOrderId") or "")
-                                                if slave_ticket:
-                                                    is_success = True
-                                            elif res.get("orderId") or res.get("ticket") or res.get("position_id") or res.get("positionId"):
-                                                slave_ticket = str(res.get("orderId") or res.get("ticket") or res.get("position_id") or res.get("positionId"))
-                                                is_success = True
-                                            elif res.get("status") == "success":
-                                                slave_ticket = str(res.get("ticket") or res.get("position_id") or f"slv_{int(time.time())}")
-                                                is_success = True
-
-                                        if is_success and slave_ticket:
-                                            if is_btc:
-                                                print(f"🪙 [BTC Copytrader] [Step 5/5] ✅ SUCCESS! Trade Copied. Master #{m_ticket} ➜ Slave #{slave_ticket}", flush=True)
-                                                print(f"🪙 [BTC Copytrader] ────────────────────────────────────────────────────────\n", flush=True)
-                                            logPrint(f"[Copytrader] ✅ Trade copied to slave {slave_acc}: Master #{m_ticket} -> Slave #{slave_ticket} ({action} {slave_lots} {symbol})")
-                                            CopytraderHandler._record_mapping(config_id, m_ticket, slave_acc, slave_ticket, symbol, action, slave_lots)
-                                            existing_mappings[key] = slave_ticket
-                                        else:
-                                            err_detail = res.get("error") if isinstance(res, dict) else str(res)
-                                            if is_btc:
-                                                print(f"🪙 [BTC Copytrader] [Step 5/5] ❌ EXECUTION FAILED on Slave {slave_acc} ({slave_broker}): {err_detail}", flush=True)
-                                                print(f"🪙 [BTC Copytrader] ────────────────────────────────────────────────────────\n", flush=True)
-                                            logPrint(f"[Copytrader Error] ❌ Failed to copy {symbol} trade #{m_ticket} to slave {slave_acc} ({slave_broker}): {err_detail}")
-                                else:
-                                    # Trade already copied -> Check and sync SL / TP changes if modified on master
-                                    slave_ticket = existing_mappings[key]
-                                    if sl > 0 or tp > 0:
-                                        try:
-                                            slave_positions = CopytraderHandler._get_account_positions(slave_acc, slave_broker)
-                                            slave_pos = next((sp for sp in slave_positions if str(sp.get("position_id") or sp.get("ticket")) == str(slave_ticket)), None)
-                                            if slave_pos:
-                                                curr_sl = float(slave_pos.get("stop_loss") or slave_pos.get("sl") or 0.0)
-                                                curr_tp = float(slave_pos.get("take_profit") or slave_pos.get("tp") or 0.0)
-                                                if abs(curr_sl - sl) > 1e-5 or abs(curr_tp - tp) > 1e-5:
-                                                    logPrint(f"[Copytrader] Updating SL/TP on slave {slave_acc} ({slave_broker}, Ticket: {slave_ticket}): SL {curr_sl}->{sl}, TP {curr_tp}->{tp}")
-                                                    CopytraderHandler._modify_position(
-                                                        broker=slave_broker,
-                                                        account_id=slave_acc,
-                                                        ticket=slave_ticket,
-                                                        symbol=symbol,
-                                                        sl=sl,
-                                                        tp=tp
-                                                    )
-                                        except Exception as mod_err:
-                                            logPrint(f"[Copytrader SL/TP Sync Error]: {mod_err}")
-
-                        # Handle position closures: If master ticket closed, close corresponding slave position
-                        for (m_ticket, s_acc), s_ticket in list(existing_mappings.items()):
-                            if m_ticket not in master_open_tickets:
-                                slave_config = next((s for s in slaves if str(s.get("account_id")) == s_acc), None)
-                                slave_broker = slave_config.get("broker", "metatrader") if slave_config else "metatrader"
-                                logPrint(f"[Copytrader] Master ticket {m_ticket} closed. Closing slave position {s_ticket} on account {s_acc}")
-                                res_close = CopytraderHandler._close_position(slave_broker, s_acc, s_ticket, symbol="", lots=0.0)
-                                CopytraderHandler._mark_mapping_closed(config_id, m_ticket, s_acc)
-
-                        # Clean up orphaned slave positions whose master ticket was closed while engine was offline
+                        # 2. Synchronize directly with each active slave account
                         for slave in slaves:
                             if slave.get("status") == "paused":
                                 continue
-                            s_acc = str(slave.get("account_id"))
-                            s_brk = slave.get("broker", "metatrader")
-                            s_poss = CopytraderHandler._get_account_positions(s_acc, s_brk)
-                            for sp in s_poss:
-                                comment_str = str(sp.get("comment", "")).strip()
-                                sp_ticket = str(sp.get("position_id") or sp.get("ticket"))
-                                # If comment is a master ticket number/CP_<num> not currently open on master, close orphaned slave trade
-                                clean_m_ticket = comment_str.replace("CP_", "").strip()
-                                if clean_m_ticket.isdigit() and clean_m_ticket not in master_open_tickets:
-                                    CopytraderHandler._close_position(s_brk, s_acc, sp_ticket, symbol="", lots=0.0)
+
+                            slave_acc = str(slave.get("account_id"))
+                            slave_broker = slave.get("broker", "metatrader")
+                            slave_symbols = slave.get("symbols", "All")
+                            mode = slave.get("mode", "direct")
+                            multiplier = float(slave.get("multiplier", 1.0))
+
+                            # Fetch current live positions on slave
+                            slave_positions = CopytraderHandler._get_account_positions(slave_acc, slave_broker) or []
+                            unmatched_slaves = list(slave_positions)
+
+                            # Filter master positions for this specific slave's symbol rules
+                            slave_target_master_positions = [
+                                p for p in master_positions if CopytraderHandler._is_symbol_allowed(p.get("symbol", ""), slave_symbols)
+                            ]
+
+                            # A) For each master open position, ensure it exists on slave
+                            for m_pos in slave_target_master_positions:
+                                m_sym = m_pos.get("symbol", "")
+                                m_side = "BUY" if ("BUY" in str(m_pos.get("trade_side") or m_pos.get("type") or "").upper() or str(m_pos.get("type")) == "0") else "SELL"
+                                m_lots = float(m_pos.get("volume") or m_pos.get("lots") or m_pos.get("size") or 0.01)
+                                sl = float(m_pos.get("stop_loss") or m_pos.get("sl") or 0.0)
+                                tp = float(m_pos.get("take_profit") or m_pos.get("tp") or 0.0)
+
+                                # Look for matching open position on slave
+                                match_idx = -1
+                                for idx_s, s_pos in enumerate(unmatched_slaves):
+                                    s_sym = str(s_pos.get("symbol", ""))
+                                    amt = float(s_pos.get("positionAmt") or s_pos.get("volume") or s_pos.get("lots") or 0)
+                                    s_side = "BUY" if ("BUY" in str(s_pos.get("side") or s_pos.get("trade_side") or s_pos.get("type") or "").upper() or str(s_pos.get("type")) == "0" or amt > 0) else "SELL"
+                                    
+                                    if s_side == m_side and CopytraderHandler._are_symbols_matching(m_sym, s_sym, slave_acc):
+                                        match_idx = idx_s
+                                        break
+
+                                if match_idx >= 0:
+                                    # Position already open on slave -> Retain and sync SL / TP if changed
+                                    matched_s_pos = unmatched_slaves.pop(match_idx)
+                                    if sl > 0 or tp > 0:
+                                        s_ticket = str(matched_s_pos.get("position_id") or matched_s_pos.get("ticket") or matched_s_pos.get("id") or "")
+                                        curr_sl = float(matched_s_pos.get("stop_loss") or matched_s_pos.get("sl") or 0.0)
+                                        curr_tp = float(matched_s_pos.get("take_profit") or matched_s_pos.get("tp") or 0.0)
+                                        if abs(curr_sl - sl) > 1e-5 or abs(curr_tp - tp) > 1e-5:
+                                            CopytraderHandler._modify_position(slave_broker, slave_acc, s_ticket, m_sym, sl, tp)
+                                else:
+                                    # Position missing on slave -> OPEN IT!
+                                    slave_lots = CopytraderHandler._calculate_lots(m_lots, mode, multiplier)
+                                    print(f"🚀 [Copytrader Sync] Master has {m_side} {m_lots} {m_sym} -> Not on slave {slave_acc} ({slave_broker}) -> Opening {m_side} {slave_lots} {m_sym}", flush=True)
+                                    logPrint(f"[Copytrader] 🚀 Opening trade on slave {slave_acc} ({slave_broker}): {m_side} {slave_lots} {m_sym}")
+                                    
+                                    res = CopytraderHandler._execute_order(
+                                        broker=slave_broker,
+                                        account_id=slave_acc,
+                                        symbol=m_sym,
+                                        action=m_side,
+                                        lots=slave_lots,
+                                        sl=sl,
+                                        tp=tp,
+                                        comment=""
+                                    )
+                                    if isinstance(res, dict) and "error" in res:
+                                        logPrint(f"[Copytrader Error] ❌ Failed to open {m_sym} on {slave_acc}: {res.get('error')}")
+
+                            # B) For any position on slave that NO LONGER EXISTS on master -> CLOSE / DELETE IT!
+                            for s_pos in unmatched_slaves:
+                                s_sym = str(s_pos.get("symbol", ""))
+                                if not CopytraderHandler._is_symbol_allowed(s_sym, slave_symbols) or not CopytraderHandler._is_symbol_allowed(s_sym, cfg_symbols):
+                                    continue
+
+                                amt = float(s_pos.get("positionAmt") or s_pos.get("volume") or s_pos.get("lots") or 0)
+                                s_side = "BUY" if ("BUY" in str(s_pos.get("side") or s_pos.get("trade_side") or s_pos.get("type") or "").upper() or str(s_pos.get("type")) == "0" or amt > 0) else "SELL"
+                                s_ticket = str(s_pos.get("position_id") or s_pos.get("ticket") or s_pos.get("id") or "")
+                                s_vol = float(s_pos.get("volume") or abs(amt) or s_pos.get("size") or 0.0)
+
+                                print(f"🛑 [Copytrader Sync] Master has no open {s_side} {s_sym} -> Closing slave position #{s_ticket} on {slave_acc} ({slave_broker})", flush=True)
+                                logPrint(f"[Copytrader] 🛑 Master position closed. Closing slave position #{s_ticket} ({s_side} {s_vol} {s_sym}) on {slave_acc}")
+                                CopytraderHandler._close_position(slave_broker, slave_acc, s_ticket, symbol=s_sym, lots=s_vol)
             except Exception as e:
                 logPrint(f"[Copytrader Sync Exception]: {e}")
             
