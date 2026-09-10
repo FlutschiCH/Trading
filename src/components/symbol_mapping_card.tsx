@@ -128,6 +128,58 @@ export const SymbolMappingCard: React.FC<SymbolMappingCardProps> = ({ isReadOnly
     }
   };
 
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editMainSymbol, setEditMainSymbol] = useState('');
+  const [editAccountId, setEditAccountId] = useState('');
+  const [editBrokerSymbol, setEditBrokerSymbol] = useState('');
+
+  const startEdit = (m: SymbolMapping) => {
+    setEditingId(m.id);
+    setEditMainSymbol(m.main_symbol);
+    setEditAccountId(m.account_id);
+    setEditBrokerSymbol(m.broker_symbol);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditMainSymbol('');
+    setEditAccountId('');
+    setEditBrokerSymbol('');
+  };
+
+  const handleSaveEdit = async (id: number) => {
+    if (isReadOnly) {
+      alert("Action disabled in read-only mode.");
+      return;
+    }
+    const finalMainSymbol = editMainSymbol.toUpperCase().trim();
+    if (!finalMainSymbol || !editAccountId || !editBrokerSymbol) {
+      alert('All fields are required for mapping');
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/symbol-mappings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id,
+          main_symbol: finalMainSymbol,
+          account_id: editAccountId.trim(),
+          broker_symbol: editBrokerSymbol.trim()
+        })
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        cancelEdit();
+        fetchSymbolMappings();
+      } else {
+        alert(data.message || 'Failed to save mapping');
+      }
+    } catch (err) {
+      alert('Network error while saving mapping');
+    }
+  };
+
   const filteredMappings = newMainSymbol.trim()
     ? symbolMappings.filter(m => m.main_symbol.toUpperCase() === newMainSymbol.toUpperCase().trim())
     : symbolMappings;
@@ -260,25 +312,146 @@ export const SymbolMappingCard: React.FC<SymbolMappingCardProps> = ({ isReadOnly
           </div>
         ) : (
           <div style={{ width: '100%', overflowX: 'auto' }}>
-            <table style={{ width: '100%', minWidth: '320px', borderCollapse: 'collapse', fontSize: '11px' }}>
+            <table style={{ width: '100%', minWidth: '380px', borderCollapse: 'collapse', fontSize: '11px' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid #1e293b', textAlign: 'left', color: '#94a3b8' }}>
                   <th style={{ padding: '4px' }}>Master</th>
                   <th style={{ padding: '4px' }}>Account Data</th>
                   <th style={{ padding: '4px' }}>Broker Symbol</th>
-                  <th style={{ padding: '4px', textAlign: 'right' }}>Action</th>
+                  <th style={{ padding: '4px', textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
             <tbody>
               {filteredMappings.map(m => {
-                const matchedBroker = connectedBrokers.find(b => b.account_id === m.account_id);
-                const accLabel = matchedBroker ? `${matchedBroker.name} (#${matchedBroker.account_id})` : `#${m.account_id}`;
+                const isEditing = editingId === m.id;
+                const matchedBroker = connectedBrokers.find(b => b.account_id === (isEditing ? editAccountId : m.account_id));
+                const accLabel = matchedBroker ? `${matchedBroker.name} (#${matchedBroker.account_id})` : `#${isEditing ? editAccountId : m.account_id}`;
+                const editAvailableSymbols = matchedBroker ? matchedBroker.symbols : [];
+
+                if (isEditing) {
+                  return (
+                    <tr key={m.id} style={{ borderBottom: '1px solid #3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.05)' }}>
+                      <td style={{ padding: '4px' }}>
+                        <input
+                          type="text"
+                          value={editMainSymbol}
+                          onChange={e => setEditMainSymbol(e.target.value.toUpperCase())}
+                          style={{
+                            width: '100%',
+                            backgroundColor: '#0f172a',
+                            border: '1px solid #3b82f6',
+                            borderRadius: '4px',
+                            padding: '2px 4px',
+                            color: '#60a5fa',
+                            fontSize: '11px',
+                            fontWeight: 'bold',
+                            outline: 'none'
+                          }}
+                        />
+                      </td>
+                      <td style={{ padding: '4px' }}>
+                        <select
+                          value={editAccountId}
+                          onChange={e => setEditAccountId(e.target.value)}
+                          style={{
+                            width: '100%',
+                            backgroundColor: '#0f172a',
+                            border: '1px solid #334155',
+                            borderRadius: '4px',
+                            padding: '2px 4px',
+                            color: '#cbd5e1',
+                            fontSize: '10px',
+                            outline: 'none'
+                          }}
+                        >
+                          {connectedBrokers.map(b => (
+                            <option key={b.account_id} value={b.account_id}>
+                              {b.name} (#{b.account_id})
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td style={{ padding: '4px' }}>
+                        <input
+                          type="text"
+                          list={`symbols-${m.id}`}
+                          value={editBrokerSymbol}
+                          onChange={e => setEditBrokerSymbol(e.target.value)}
+                          style={{
+                            width: '100%',
+                            backgroundColor: '#0f172a',
+                            border: '1px solid #f59e0b',
+                            borderRadius: '4px',
+                            padding: '2px 4px',
+                            color: '#f59e0b',
+                            fontFamily: 'monospace',
+                            fontSize: '11px',
+                            outline: 'none'
+                          }}
+                        />
+                        <datalist id={`symbols-${m.id}`}>
+                          {editAvailableSymbols.map(sym => (
+                            <option key={sym} value={sym} />
+                          ))}
+                        </datalist>
+                      </td>
+                      <td style={{ padding: '4px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        <button
+                          onClick={() => handleSaveEdit(m.id)}
+                          style={{
+                            backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                            color: '#10b981',
+                            border: '1px solid rgba(16, 185, 129, 0.3)',
+                            borderRadius: '4px',
+                            padding: '2px 6px',
+                            fontSize: '10px',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            marginRight: '4px'
+                          }}
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={cancelEdit}
+                          style={{
+                            backgroundColor: 'rgba(148, 163, 184, 0.1)',
+                            color: '#94a3b8',
+                            border: '1px solid rgba(148, 163, 184, 0.2)',
+                            borderRadius: '4px',
+                            padding: '2px 6px',
+                            fontSize: '10px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                }
+
                 return (
                   <tr key={m.id} style={{ borderBottom: '1px solid #1e293b', color: '#cbd5e1' }}>
                     <td style={{ padding: '4px', fontWeight: 'bold', color: '#3b82f6' }}>{m.main_symbol}</td>
                     <td style={{ padding: '4px', fontFamily: 'monospace', color: '#94a3b8', fontSize: '10px' }}>{accLabel}</td>
                     <td style={{ padding: '4px', color: '#f59e0b', fontFamily: 'monospace' }}>{m.broker_symbol}</td>
-                    <td style={{ padding: '4px', textAlign: 'right' }}>
+                    <td style={{ padding: '4px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <button
+                        onClick={() => startEdit(m)}
+                        style={{
+                          backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                          color: '#3b82f6',
+                          border: '1px solid rgba(59, 130, 246, 0.2)',
+                          borderRadius: '4px',
+                          padding: '2px 6px',
+                          fontSize: '10px',
+                          cursor: 'pointer',
+                          marginRight: '4px'
+                        }}
+                      >
+                        Edit
+                      </button>
                       <button
                         onClick={() => handleDeleteMapping(m.id)}
                         style={{
