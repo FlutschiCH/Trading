@@ -21,7 +21,7 @@ class CopytraderHandler:
                 cls.init_db()
                 # Load configs
                 try:
-                    query_cfg = "SELECT id, name, status, target_computer, master_account, master_broker, slaves_json, updated_at FROM copytrader_configs"
+                    query_cfg = "SELECT * FROM copytrader_configs"
                     rows_cfg = SQLHandler.execute_query(query_cfg) or []
                     new_configs = {}
                     for r in rows_cfg:
@@ -35,7 +35,8 @@ class CopytraderHandler:
                                 "id": r.get("id"),
                                 "name": r.get("name"),
                                 "status": r.get("status"),
-                                "target_computer": r.get("target_computer"),
+                                "target_computer": r.get("target_computer") or "All",
+                                "symbols": r.get("symbols") or "All",
                                 "master_account": r.get("master_account"),
                                 "master_broker": r.get("master_broker"),
                                 "slaves": slaves,
@@ -86,6 +87,7 @@ class CopytraderHandler:
                 name VARCHAR(100) NOT NULL,
                 status VARCHAR(50) DEFAULT 'active',
                 target_computer VARCHAR(100) DEFAULT 'All',
+                symbols VARCHAR(255) DEFAULT 'All',
                 master_account VARCHAR(100) NOT NULL,
                 master_broker VARCHAR(50) NOT NULL,
                 slaves_json LONGTEXT NOT NULL,
@@ -114,6 +116,7 @@ class CopytraderHandler:
                 name TEXT NOT NULL,
                 status TEXT DEFAULT 'active',
                 target_computer TEXT DEFAULT 'All',
+                symbols TEXT DEFAULT 'All',
                 master_account TEXT NOT NULL,
                 master_broker TEXT NOT NULL,
                 slaves_json TEXT NOT NULL,
@@ -139,10 +142,18 @@ class CopytraderHandler:
             try:
                 SQLHandler.execute_query(create_config_mysql)
                 SQLHandler.execute_query(create_mapping_mysql)
+                try:
+                    SQLHandler.execute_query("ALTER TABLE copytrader_configs ADD COLUMN symbols VARCHAR(255) DEFAULT 'All'")
+                except Exception:
+                    pass
             except Exception:
                 try:
                     SQLHandler.execute_query(create_config_sqlite)
                     SQLHandler.execute_query(create_mapping_sqlite)
+                    try:
+                        SQLHandler.execute_query("ALTER TABLE copytrader_configs ADD COLUMN symbols TEXT DEFAULT 'All'")
+                    except Exception:
+                        pass
                 except Exception as e:
                     logPrint(f"[Copytrader DB Init Error]: {e}")
 
@@ -161,6 +172,12 @@ class CopytraderHandler:
         name = config.get("name", "Copytrader Setup")
         status = config.get("status", "active")
         target_computer = config.get("target_computer", "All")
+        raw_symbols = config.get("symbols", "All")
+        if isinstance(raw_symbols, list):
+            symbols = ", ".join(str(s).strip() for s in raw_symbols if str(s).strip()) or "All"
+        else:
+            symbols = str(raw_symbols).strip() or "All"
+
         master_account = config.get("master_account", "")
         master_broker = config.get("master_broker", "metatrader")
         slaves = config.get("slaves", [])
@@ -175,6 +192,7 @@ class CopytraderHandler:
                 "name": name,
                 "status": status,
                 "target_computer": target_computer,
+                "symbols": symbols,
                 "master_account": master_account,
                 "master_broker": master_broker,
                 "slaves": slaves,
@@ -182,23 +200,24 @@ class CopytraderHandler:
             }
 
         query = """
-        INSERT INTO copytrader_configs (id, name, status, target_computer, master_account, master_broker, slaves_json, updated_at)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO copytrader_configs (id, name, status, target_computer, symbols, master_account, master_broker, slaves_json, updated_at)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
             name = VALUES(name),
             status = VALUES(status),
             target_computer = VALUES(target_computer),
+            symbols = VALUES(symbols),
             master_account = VALUES(master_account),
             master_broker = VALUES(master_broker),
             slaves_json = VALUES(slaves_json),
             updated_at = VALUES(updated_at)
         """
-        params = (cfg_id, name, status, target_computer, master_account, master_broker, slaves_json, updated_at)
+        params = (cfg_id, name, status, target_computer, symbols, master_account, master_broker, slaves_json, updated_at)
         res = SQLHandler.execute_query(query, params)
         if res is None:
             query_sqlite = """
-            INSERT OR REPLACE INTO copytrader_configs (id, name, status, target_computer, master_account, master_broker, slaves_json, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT OR REPLACE INTO copytrader_configs (id, name, status, target_computer, symbols, master_account, master_broker, slaves_json, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
             SQLHandler.execute_query(query_sqlite, params)
         return True
@@ -275,7 +294,8 @@ class CopytraderHandler:
                 target_comp = cfg.get("target_computer", "All")
                 slaves = [s for s in cfg.get("slaves", []) if s.get("status") != "paused"]
                 
-                lines.append(f"   [{idx}] {Fore.YELLOW}{cfg_name}{Style.RESET_ALL} (Target Host: {target_comp})")
+                cfg_symbols = cfg.get("symbols", "All")
+                lines.append(f"   [{idx}] {Fore.YELLOW}{cfg_name}{Style.RESET_ALL} (Host: {target_comp} | Symbols: {cfg_symbols})")
                 lines.append(f"       Master: {Fore.GREEN}{m_acc}{Style.RESET_ALL} [{m_brk}]")
                 if not slaves:
                     lines.append(f"       Slaves: {Fore.RED}None active{Style.RESET_ALL}")
@@ -293,6 +313,44 @@ class CopytraderHandler:
         except Exception as e:
             from colorama import Fore, Style
             logPrint(f"{Fore.RED}[Copytrader Engine]{Style.RESET_ALL} Error building start message: {e}")
+
+    @staticmethod
+    def _is_symbol_allowed(symbol: str, allowed_symbols) -> bool:
+        """
+        Checks if a trade symbol matches the allowed symbols filter.
+        Default 'All', '*', or empty allows all symbols.
+        Supports comma-separated strings or lists.
+        """
+        if not symbol:
+            return False
+        if allowed_symbols is None:
+            return True
+        
+        if isinstance(allowed_symbols, str):
+            clean_str = allowed_symbols.strip()
+            if not clean_str or clean_str.lower() in ("all", "*", "any"):
+                return True
+            import re
+            sym_list = [s.strip().upper() for s in re.split(r'[,;\s/|]+', clean_str) if s.strip()]
+        elif isinstance(allowed_symbols, (list, tuple, set)):
+            sym_list = [str(s).strip().upper() for s in allowed_symbols if str(s).strip()]
+            if not sym_list or any(s in ("ALL", "*", "ANY") for s in sym_list):
+                return True
+        else:
+            return True
+
+        sym_upper = symbol.upper().strip()
+        if sym_upper in sym_list:
+            return True
+
+        import re
+        norm_sym = re.sub(r'[^A-Z0-9]', '', sym_upper)
+        for allowed in sym_list:
+            norm_allowed = re.sub(r'[^A-Z0-9]', '', allowed)
+            if norm_sym == norm_allowed or norm_sym.startswith(norm_allowed) or norm_allowed.startswith(norm_sym):
+                return True
+
+        return False
 
     @staticmethod
     def _ensure_account_connected(account_id: str, broker: str):
@@ -435,6 +493,8 @@ class CopytraderHandler:
                         #  )
 
                         master_open_tickets = set()
+                        cfg_symbols = cfg.get("symbols", "All")
+
                         for pos in master_positions:
                             m_ticket = str(pos.get("position_id") or pos.get("ticket") or pos.get("id") or "")
                             if not m_ticket:
@@ -442,6 +502,10 @@ class CopytraderHandler:
                             master_open_tickets.add(m_ticket)
 
                             symbol = pos.get("symbol", "EURUSD")
+
+                            # Config-level symbol filter check (Defaults to 'All')
+                            if not CopytraderHandler._is_symbol_allowed(symbol, cfg_symbols):
+                                continue
                             pos_side = str(pos.get("trade_side") or pos.get("type") or "").upper()
                             action = "BUY" if ("BUY" in pos_side or pos_side == "0") else "SELL"
                             master_lots = float(pos.get("volume") or pos.get("lots") or pos.get("size") or 0.01)
@@ -451,6 +515,12 @@ class CopytraderHandler:
                             for slave in slaves:
                                 if slave.get("status") == "paused":
                                     continue
+
+                                # Slave-level symbol filter check (Defaults to 'All')
+                                slave_symbols = slave.get("symbols", "All")
+                                if not CopytraderHandler._is_symbol_allowed(symbol, slave_symbols):
+                                    continue
+
                                 slave_acc = str(slave.get("account_id"))
                                 slave_broker = slave.get("broker", "metatrader")
                                 mode = slave.get("mode", "direct") # direct or multiplier
