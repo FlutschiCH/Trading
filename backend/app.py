@@ -118,7 +118,7 @@ def start_timer():
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
     method = request.method if request else 'UNKNOWN'
     path = request.path if request else ''
-    if method != 'OPTIONS':
+    if method != 'OPTIONS' and '/live-strategy/worker-heartbeat' not in path:
         print(f"📥 [Flask Inbound] [{now_str}] {method} {path}", flush=True)
 
 @app.after_request
@@ -128,6 +128,9 @@ def log_request_timing(response):
             elapsed = time.time() - g.start_time
             method = request.method if request else 'UNKNOWN'
             path = request.path if request else ''
+            if '/live-strategy/worker-heartbeat' in path:
+                return response
+
             if method == 'OPTIONS':
                 if elapsed > 0.2:
                     logPrint(f"⏱️ [API SLOW] {method} {path} took {elapsed:.4f}s", category="Flask API", level="WARNING")
@@ -168,6 +171,8 @@ class CustomWSGILogger:
         if msg:
             m = msg.strip()
             if m:
+                if '/live-strategy/worker-heartbeat' in m:
+                    return
                 if '"OPTIONS ' in m:
                     try:
                         dur = float(m.split()[-1])
