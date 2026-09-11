@@ -20,6 +20,7 @@ import { CandleDetailsCard } from './candle_details_card';
 import SymbolMappingCard from './symbol_mapping_card';
 import Copytrader from './copytrader';
 import TradeAnalyzerCard from './trade_analyzer_card';
+import BacktestAnalyzerCard from './backtest_analyzer_card';
 import LogPanel from './log_panel';
 import NewsPanel from './news_panel';
 import type { Candle, AccountInfo, Position } from '../types/trading';
@@ -2877,7 +2878,12 @@ export default function Dashboard() {
                     <Copytrader />
                   </div>
                 ) : mobileTab === 'analyzer' ? (
-                  <div style={{ width: '100%' }}>
+                  <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <BacktestAnalyzerCard
+                      currentBacktestResults={backtestResults}
+                      currentSymbol={symbol}
+                      currentTimeframe={timeframe}
+                    />
                     <TradeAnalyzerCard />
                   </div>
                 ) : mobileTab === 'collector' ? (
@@ -3402,6 +3408,15 @@ export default function Dashboard() {
             )}
             {!isMobile && (
               <>
+                {/* Backtest Analyzer Card (AI Prompt Generator) */}
+                <div style={{ marginTop: '24px' }}>
+                  <BacktestAnalyzerCard
+                    currentBacktestResults={backtestResults}
+                    currentSymbol={symbol}
+                    currentTimeframe={timeframe}
+                  />
+                </div>
+
                 {/* Trade Analyzer Card */}
                 <div style={{ marginTop: '24px' }}>
                   <TradeAnalyzerCard />
