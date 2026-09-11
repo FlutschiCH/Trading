@@ -22,6 +22,7 @@ from routes.sltp_sync_routes import sltp_sync_routes
 from routes.copytrader_routes import copytrader_routes
 from routes.computer_routes import computer_routes
 from routes.trade_analyzer_routes import trade_analyzer_routes
+from routes.backtest_analyzer_routes import backtest_analyzer_routes
 from routes.binance_routes import binance_routes
 from routes.news_routes import news_bp
 
@@ -32,6 +33,7 @@ api_blueprint = Blueprint('api', __name__)
 api_blueprint.register_blueprint(news_bp, url_prefix='/news')
 api_blueprint.register_blueprint(binance_routes, url_prefix='/binance')
 api_blueprint.register_blueprint(trade_analyzer_routes)
+api_blueprint.register_blueprint(backtest_analyzer_routes)
 api_blueprint.register_blueprint(copytrader_routes)
 api_blueprint.register_blueprint(computer_routes)
 api_blueprint.register_blueprint(strategy_routes)
