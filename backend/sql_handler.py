@@ -169,8 +169,148 @@ class SQLHandler:
         """
         try:
             cls.execute_query(query)
+            cls.init_archived_backtests_db()
         except Exception as e:
             print(f"[SQLHandler] Error initializing saved_backtests table: {e}", flush=True)
+
+    @classmethod
+    def init_archived_backtests_db(cls):
+        """Creates table for soft-deleted / archived backtest runs."""
+        query = """
+        CREATE TABLE IF NOT EXISTS archived_saved_backtests (
+            id VARCHAR(64) PRIMARY KEY,
+            symbol VARCHAR(32) NOT NULL,
+            timeframe VARCHAR(16) NOT NULL,
+            broker VARCHAR(32) DEFAULT 'metatrader',
+            sl_val FLOAT,
+            sl_type VARCHAR(16),
+            rr FLOAT,
+            be_trigger_r FLOAT,
+            net_pnl FLOAT,
+            win_rate FLOAT,
+            trades_cnt INT,
+            profit_factor FLOAT,
+            max_drawdown FLOAT,
+            payload LONGBLOB NOT NULL,
+            created_at DATETIME,
+            archived_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_symbol (symbol),
+            INDEX idx_archived (archived_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        """
+        try:
+            cls.execute_query(query)
+        except Exception as e:
+            print(f"[SQLHandler] Error initializing archived_saved_backtests table: {e}", flush=True)
+
+    @classmethod
+    def archive_saved_backtest(cls, backtest_id: str) -> bool:
+        """Soft-deletes a single backtest run by moving it to archived_saved_backtests table."""
+        cls.init_saved_backtests_db()
+        copy_query = """
+        INSERT INTO archived_saved_backtests (
+            id, symbol, timeframe, broker, sl_val, sl_type, rr, be_trigger_r,
+            net_pnl, win_rate, trades_cnt, profit_factor, max_drawdown, payload, created_at, archived_at
+        )
+        SELECT id, symbol, timeframe, broker, sl_val, sl_type, rr, be_trigger_r,
+               net_pnl, win_rate, trades_cnt, profit_factor, max_drawdown, payload, created_at, NOW()
+        FROM saved_backtests
+        WHERE id = %s
+        ON DUPLICATE KEY UPDATE
+            archived_at = NOW(),
+            payload = VALUES(payload);
+        """
+        del_query = "DELETE FROM saved_backtests WHERE id = %s"
+        try:
+            cls.execute_query(copy_query, (backtest_id,))
+            cls.execute_query(del_query, (backtest_id,))
+            return True
+        except Exception as e:
+            print(f"[SQLHandler] Error archiving saved backtest {backtest_id}: {e}", flush=True)
+            return False
+
+    @classmethod
+    def archive_all_saved_backtests(cls) -> bool:
+        """Soft-deletes/archives all active saved backtest runs."""
+        cls.init_saved_backtests_db()
+        copy_query = """
+        INSERT INTO archived_saved_backtests (
+            id, symbol, timeframe, broker, sl_val, sl_type, rr, be_trigger_r,
+            net_pnl, win_rate, trades_cnt, profit_factor, max_drawdown, payload, created_at, archived_at
+        )
+        SELECT id, symbol, timeframe, broker, sl_val, sl_type, rr, be_trigger_r,
+               net_pnl, win_rate, trades_cnt, profit_factor, max_drawdown, payload, created_at, NOW()
+        FROM saved_backtests
+        ON DUPLICATE KEY UPDATE
+            archived_at = NOW(),
+            payload = VALUES(payload);
+        """
+        del_query = "DELETE FROM saved_backtests"
+        try:
+            cls.execute_query(copy_query)
+            cls.execute_query(del_query)
+            return True
+        except Exception as e:
+            print(f"[SQLHandler] Error archiving all saved backtests: {e}", flush=True)
+            return False
+
+    @classmethod
+    def get_archived_backtests(cls, symbol: str = None, timeframe: str = None) -> list:
+        """Returns list of archived backtest summary metadata ordered by archived_at DESC."""
+        cls.init_saved_backtests_db()
+        query = """
+        SELECT id, symbol, timeframe, broker, sl_val, sl_type, rr, be_trigger_r,
+               net_pnl, win_rate, trades_cnt, profit_factor, max_drawdown, created_at, archived_at
+        FROM archived_saved_backtests
+        """
+        conditions = []
+        params = []
+        if symbol:
+            conditions.append("symbol = %s")
+            params.append(symbol)
+        if timeframe:
+            conditions.append("timeframe = %s")
+            params.append(timeframe)
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+        query += " ORDER BY archived_at DESC"
+        try:
+            rows = cls.execute_query(query, tuple(params))
+            if isinstance(rows, list):
+                for row in rows:
+                    if 'created_at' in row and row['created_at']:
+                        row['created_at'] = str(row['created_at'])
+                    if 'archived_at' in row and row['archived_at']:
+                        row['archived_at'] = str(row['archived_at'])
+                return rows
+        except Exception as e:
+            print(f"[SQLHandler] Error fetching archived backtests: {e}", flush=True)
+        return []
+
+    @classmethod
+    def restore_archived_backtest(cls, backtest_id: str) -> bool:
+        """Restores an archived backtest run back to saved_backtests."""
+        cls.init_saved_backtests_db()
+        copy_query = """
+        INSERT INTO saved_backtests (
+            id, symbol, timeframe, broker, sl_val, sl_type, rr, be_trigger_r,
+            net_pnl, win_rate, trades_cnt, profit_factor, max_drawdown, payload, created_at
+        )
+        SELECT id, symbol, timeframe, broker, sl_val, sl_type, rr, be_trigger_r,
+               net_pnl, win_rate, trades_cnt, profit_factor, max_drawdown, payload, created_at
+        FROM archived_saved_backtests
+        WHERE id = %s
+        ON DUPLICATE KEY UPDATE
+            payload = VALUES(payload);
+        """
+        del_query = "DELETE FROM archived_saved_backtests WHERE id = %s"
+        try:
+            cls.execute_query(copy_query, (backtest_id,))
+            cls.execute_query(del_query, (backtest_id,))
+            return True
+        except Exception as e:
+            print(f"[SQLHandler] Error restoring archived backtest {backtest_id}: {e}", flush=True)
+            return False
 
     @classmethod
     def save_backtest_run(cls, backtest_id: str, symbol: str, timeframe: str, broker: str,

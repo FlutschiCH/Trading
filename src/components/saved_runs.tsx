@@ -17,6 +17,7 @@ export interface SavedRunSummary {
   profit_factor: number;
   max_drawdown?: number;
   created_at: string;
+  archived_at?: string;
 }
 
 interface SavedRunsProps {
@@ -27,7 +28,9 @@ interface SavedRunsProps {
 export default function SavedRuns({ onClose, onLoadSavedBacktest }: SavedRunsProps) {
   const STORAGE_KEY = 'saved_runs_filters';
 
+  const [viewTab, setViewTab] = useState<'active' | 'archived'>('active');
   const [savedBacktestsList, setSavedBacktestsList] = useState<SavedRunSummary[]>([]);
+  const [archivedBacktestsList, setArchivedBacktestsList] = useState<SavedRunSummary[]>([]);
   const [loadingSavedBacktests, setLoadingSavedBacktests] = useState(false);
 
   // Initialize filter state from localStorage if available
@@ -116,13 +119,20 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest }: SavedRunsPro
   const fetchSavedBacktests = async () => {
     setLoadingSavedBacktests(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/backtest/saved`);
-      const json = await res.json();
-      if (json.status === 'success') {
-        setSavedBacktestsList(json.data || []);
+      const [resActive, resArchived] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/backtest/saved`),
+        fetch(`${API_BASE_URL}/api/backtest/archived`)
+      ]);
+      const jsonActive = await resActive.json();
+      const jsonArchived = await resArchived.json();
+      if (jsonActive.status === 'success') {
+        setSavedBacktestsList(jsonActive.data || []);
+      }
+      if (jsonArchived.status === 'success') {
+        setArchivedBacktestsList(jsonArchived.data || []);
       }
     } catch (e) {
-      console.error("Error fetching saved backtests:", e);
+      console.error("Error fetching backtests:", e);
     } finally {
       setLoadingSavedBacktests(false);
     }
@@ -135,10 +145,12 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest }: SavedRunsPro
   // Reset to page 1 whenever any filter or sorting changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [sbSortField, sbSortDir, sbFilterSymbol, sbMaxDrawdown, sbMinNetPnl, sbMinWinRate, sbMinTrades, sbMinProfitFactor, pageSize]);
+  }, [sbSortField, sbSortDir, sbFilterSymbol, sbMaxDrawdown, sbMinNetPnl, sbMinWinRate, sbMinTrades, sbMinProfitFactor, pageSize, viewTab]);
+
+  const activeDisplayList = viewTab === 'active' ? savedBacktestsList : archivedBacktestsList;
 
   const filteredAndSortedList = React.useMemo(() => {
-    return savedBacktestsList
+    return activeDisplayList
       .filter(item => {
         if (sbFilterSymbol !== 'all' && item.symbol !== sbFilterSymbol) return false;
         if (sbMaxDrawdown !== '' && item.max_drawdown !== undefined && item.max_drawdown !== null && item.max_drawdown > parseFloat(sbMaxDrawdown)) return false;
@@ -158,7 +170,7 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest }: SavedRunsPro
         }
         return sbSortDir === 'desc' ? valB - valA : valA - valB;
       });
-  }, [savedBacktestsList, sbFilterSymbol, sbMaxDrawdown, sbMinNetPnl, sbMinWinRate, sbMinTrades, sbMinProfitFactor, sbSortField, sbSortDir]);
+  }, [activeDisplayList, sbFilterSymbol, sbMaxDrawdown, sbMinNetPnl, sbMinWinRate, sbMinTrades, sbMinProfitFactor, sbSortField, sbSortDir]);
 
   const totalPages = pageSize === 0 ? 1 : Math.max(1, Math.ceil(filteredAndSortedList.length / pageSize));
   const safeCurrentPage = Math.min(currentPage, totalPages);
@@ -169,10 +181,55 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest }: SavedRunsPro
     return filteredAndSortedList.slice(startIdx, startIdx + pageSize);
   }, [filteredAndSortedList, safeCurrentPage, pageSize]);
 
-  const handleDeleteSavedBacktest = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this saved backtest?")) return;
+  const handleArchiveSavedBacktest = async (id: string) => {
+    if (!confirm("Move this run to Archive (soft-delete)? You can restore it anytime.")) return;
     try {
       const res = await fetch(`${API_BASE_URL}/api/backtest/saved/${id}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (json.status === 'success') {
+        fetchSavedBacktests();
+      } else {
+        alert("Failed to archive backtest: " + (json.message || "Unknown error"));
+      }
+    } catch (err: any) {
+      alert("Error archiving saved backtest: " + err.message);
+    }
+  };
+
+  const handleArchiveAllSavedBacktests = async () => {
+    if (savedBacktestsList.length === 0) return;
+    if (!confirm(`Are you sure you want to Archive (soft-delete) all ${savedBacktestsList.length} runs to give you a clean start? You can view and restore them from the Archive tab at any time.`)) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/backtest/saved/archive-all`, { method: 'POST' });
+      const json = await res.json();
+      if (json.status === 'success') {
+        fetchSavedBacktests();
+      } else {
+        alert("Failed to archive all runs: " + (json.message || "Unknown error"));
+      }
+    } catch (err: any) {
+      alert("Error archiving all runs: " + err.message);
+    }
+  };
+
+  const handleRestoreArchivedBacktest = async (id: string) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/backtest/archived/${id}/restore`, { method: 'POST' });
+      const json = await res.json();
+      if (json.status === 'success') {
+        fetchSavedBacktests();
+      } else {
+        alert("Failed to restore backtest: " + (json.message || "Unknown error"));
+      }
+    } catch (err: any) {
+      alert("Error restoring backtest: " + err.message);
+    }
+  };
+
+  const handlePermanentDeleteBacktest = async (id: string) => {
+    if (!confirm("Permanently delete this run from the database? This cannot be undone.")) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/backtest/saved/${id}?permanent=true`, { method: 'DELETE' });
       const json = await res.json();
       if (json.status === 'success') {
         fetchSavedBacktests();
@@ -180,7 +237,7 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest }: SavedRunsPro
         alert("Failed to delete backtest: " + (json.message || "Unknown error"));
       }
     } catch (err: any) {
-      alert("Error deleting saved backtest: " + err.message);
+      alert("Error deleting backtest: " + err.message);
     }
   };
 
@@ -233,7 +290,7 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest }: SavedRunsPro
         border: '1px solid var(--app-card-border, #334155)',
         color: 'var(--app-text, #f8fafc)',
         borderRadius: '12px',
-        width: '1050px',
+        width: '1080px',
         maxWidth: '98vw',
         maxHeight: '94vh',
         height: '90vh',
@@ -253,13 +310,66 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest }: SavedRunsPro
           flexWrap: 'wrap',
           gap: '8px'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
             <span style={{ fontSize: '18px' }}>📁</span>
-            <h3 style={{ margin: 0, color: 'var(--app-text, #f8fafc)', fontSize: '15px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              Saved Backtest Runs
+            <h3 style={{ margin: 0, color: 'var(--app-text, #f8fafc)', fontSize: '15px', fontWeight: 600 }}>
+              Backtest Runs
             </h3>
+
+            {/* Active vs Archive Tab Switcher */}
+            <div style={{ display: 'flex', backgroundColor: 'var(--app-input-bg, #0f172a)', borderRadius: '6px', padding: '2px', border: '1px solid var(--app-card-border, #334155)' }}>
+              <button
+                onClick={() => setViewTab('active')}
+                style={{
+                  padding: '3px 10px',
+                  borderRadius: '4px',
+                  border: 'none',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  backgroundColor: viewTab === 'active' ? '#2563eb' : 'transparent',
+                  color: viewTab === 'active' ? '#ffffff' : 'var(--app-text-muted, #94a3b8)'
+                }}
+              >
+                Active Runs ({savedBacktestsList.length})
+              </button>
+              <button
+                onClick={() => setViewTab('archived')}
+                style={{
+                  padding: '3px 10px',
+                  borderRadius: '4px',
+                  border: 'none',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  backgroundColor: viewTab === 'archived' ? '#d97706' : 'transparent',
+                  color: viewTab === 'archived' ? '#ffffff' : 'var(--app-text-muted, #94a3b8)'
+                }}
+              >
+                📦 Archive ({archivedBacktestsList.length})
+              </button>
+            </div>
           </div>
+
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+            {viewTab === 'active' && savedBacktestsList.length > 0 && (
+              <button
+                onClick={handleArchiveAllSavedBacktests}
+                title="Soft-delete all active runs to start fresh without losing data"
+                style={{
+                  backgroundColor: '#d97706',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '4px 9px',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                📦 Clean Start (Archive All)
+              </button>
+            )}
             <button
               onClick={handleDeleteActiveBacktests}
               style={{
@@ -273,7 +383,7 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest }: SavedRunsPro
                 cursor: 'pointer'
               }}
             >
-              🧹 Clear Active
+              🧹 Clear Jobs
             </button>
             <button
               onClick={onClose}
@@ -478,7 +588,9 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest }: SavedRunsPro
             <table style={{ width: '100%', minWidth: '850px', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
               <thead>
                 <tr style={{ backgroundColor: 'var(--app-panel-header-bg, #1e293b)', color: 'var(--app-text, #cbd5e1)', borderBottom: '1px solid var(--app-card-border, #334155)' }}>
-                  <th style={{ padding: '10px', cursor: 'pointer' }} onClick={() => { setSbSortField('created_at'); setSbSortDir(prev => prev === 'desc' ? 'asc' : 'desc'); }}>Date {sbSortField === 'created_at' ? (sbSortDir === 'desc' ? '▼' : '▲') : ''}</th>
+                  <th style={{ padding: '10px', cursor: 'pointer' }} onClick={() => { setSbSortField(viewTab === 'archived' ? 'archived_at' : 'created_at'); setSbSortDir(prev => prev === 'desc' ? 'asc' : 'desc'); }}>
+                    {viewTab === 'archived' ? 'Archived At' : 'Date'} {sbSortField === (viewTab === 'archived' ? 'archived_at' : 'created_at') ? (sbSortDir === 'desc' ? '▼' : '▲') : ''}
+                  </th>
                   <th style={{ padding: '10px', cursor: 'pointer' }} onClick={() => { setSbSortField('symbol'); setSbSortDir(prev => prev === 'desc' ? 'asc' : 'desc'); }}>Symbol {sbSortField === 'symbol' ? (sbSortDir === 'desc' ? '▼' : '▲') : ''}</th>
                   <th style={{ padding: '10px' }}>TF</th>
                   <th style={{ padding: '10px' }}>SL / RR / BE</th>
@@ -493,7 +605,9 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest }: SavedRunsPro
               <tbody>
                 {paginatedList.map((row) => (
                   <tr key={row.id} style={{ borderBottom: '1px solid var(--app-card-border, #1e293b)', color: 'var(--app-text, #f8fafc)' }}>
-                    <td style={{ padding: '10px', color: 'var(--app-text-muted, #94a3b8)' }}>{row.created_at || 'N/A'}</td>
+                    <td style={{ padding: '10px', color: 'var(--app-text-muted, #94a3b8)', fontSize: '11px' }}>
+                      {viewTab === 'archived' ? (row.archived_at || row.created_at || 'N/A') : (row.created_at || 'N/A')}
+                    </td>
                     <td style={{ padding: '10px', fontWeight: 600, color: '#38bdf8' }}>{row.symbol}</td>
                     <td style={{ padding: '10px' }}>{row.timeframe}</td>
                     <td style={{ padding: '10px', color: 'var(--app-text-muted, #cbd5e1)' }}>SL: {row.sl_val} | RR: 1:{row.rr} | BE: {row.be_trigger_r}R</td>
@@ -536,20 +650,56 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest }: SavedRunsPro
                         >
                           Load
                         </button>
-                        <button
-                          onClick={() => handleDeleteSavedBacktest(row.id)}
-                          style={{
-                            backgroundColor: 'rgba(239, 68, 68, 0.2)',
-                            color: '#ef4444',
-                            border: '1px solid #ef4444',
-                            padding: '4px 8px',
-                            borderRadius: '4px',
-                            fontSize: '11px',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          Delete
-                        </button>
+                        {viewTab === 'active' ? (
+                          <button
+                            onClick={() => handleArchiveSavedBacktest(row.id)}
+                            title="Soft-delete: move to Archive tab"
+                            style={{
+                              backgroundColor: 'rgba(217, 119, 6, 0.2)',
+                              color: '#f59e0b',
+                              border: '1px solid #d97706',
+                              padding: '4px 8px',
+                              borderRadius: '4px',
+                              fontSize: '11px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            📦 Archive
+                          </button>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => handleRestoreArchivedBacktest(row.id)}
+                              title="Restore back to active list"
+                              style={{
+                                backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                                color: '#10b981',
+                                border: '1px solid #10b981',
+                                padding: '4px 8px',
+                                borderRadius: '4px',
+                                fontSize: '11px',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              ♻️ Restore
+                            </button>
+                            <button
+                              onClick={() => handlePermanentDeleteBacktest(row.id)}
+                              title="Permanently remove from database"
+                              style={{
+                                backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                                color: '#ef4444',
+                                border: '1px solid #ef4444',
+                                padding: '4px 8px',
+                                borderRadius: '4px',
+                                fontSize: '11px',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              🗑️ Delete
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
