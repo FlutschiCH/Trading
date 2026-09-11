@@ -2135,9 +2135,9 @@ export default function TVChart({
         if (entryPrice) {
           entryLineRef.current = candlestickSeriesRef.current.createPriceLine({
             price: entryPrice,
-            color: '#3b82f6',
+            color: '#10b981',
             lineWidth: 2,
-            lineStyle: 2,
+            lineStyle: 0,
             axisLabelVisible: true,
             title: 'Entry',
           });
@@ -2147,7 +2147,7 @@ export default function TVChart({
             price: slPrice,
             color: '#ef4444',
             lineWidth: 2,
-            lineStyle: 1,
+            lineStyle: 0,
             axisLabelVisible: true,
             title: 'SL',
           });
@@ -2157,7 +2157,7 @@ export default function TVChart({
             price: tpPrice,
             color: '#10b981',
             lineWidth: 2,
-            lineStyle: 1,
+            lineStyle: 0,
             axisLabelVisible: true,
             title: 'TP',
           });
@@ -2166,9 +2166,9 @@ export default function TVChart({
           const bePrice = 2 * entryPrice - slPrice;
           beLineRef.current = candlestickSeriesRef.current.createPriceLine({
             price: bePrice,
-            color: '#fbbf24',
+            color: '#eab308',
             lineWidth: 2,
-            lineStyle: 1,
+            lineStyle: 2,
             axisLabelVisible: true,
             title: '1:1 BE',
           });
