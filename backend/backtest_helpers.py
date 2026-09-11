@@ -136,10 +136,12 @@ def run_trade_simulation(
     session_config: dict = None,
     daily_first_signals_mode: str = 'disabled',
     daily_first_signals_count: int = 0,
-    daily_first_signals_risk_mult: float = 0.5
+    daily_first_signals_risk_mult: float = 0.5,
+    candles_1m: list = None
 ) -> dict:
     """
     Simulates the Wyckoff strategy trade executions on the annotated candle list.
+    If candles_1m is provided, active open positions are resolved bar-by-bar on 1m candles.
     """
     import pandas as pd
     from trading_handler import TradingHandler
@@ -172,20 +174,117 @@ def run_trade_simulation(
     pip_size = get_pip_size(symbol, close_price)
     lot_size = get_lot_size(symbol)
 
-    total_candles = len(annotated_data)
-    last_percent = -1
-    from colorama import Fore, Style
-    first_c = annotated_data[0] if annotated_data else {}
-    last_c = annotated_data[-1] if annotated_data else {}
-    try:
-        from datetime import datetime
-        t_start_str = datetime.utcfromtimestamp(int(first_c.get('time', 0))).strftime('%Y-%m-%d %H:%M:%S UTC')
-        t_end_str = datetime.utcfromtimestamp(int(last_c.get('time', 0))).strftime('%Y-%m-%d %H:%M:%S UTC')
-    except Exception:
-        t_start_str = str(first_c.get('time'))
-        t_end_str = str(last_c.get('time'))
+    # If candles_1m is available, prepare binary search index of timestamps for fast O(log N) lookup
+    import bisect
+    candles_1m_times = []
+    has_1m = bool(candles_1m and len(candles_1m) > 0)
+    if has_1m:
+        candles_1m_times = [int(cm.get('time', 0)) for cm in candles_1m]
+        print(f"{Fore.GREEN}[Trade Simulation MTF]{Style.RESET_ALL} 1m Intrabar resolution enabled ({len(candles_1m)} 1m candles available).", flush=True)
 
-    print(f"\n{Fore.CYAN}[Trade Simulation]{Style.RESET_ALL} Starting simulation for {symbol} on {total_candles} candles | Range: {t_start_str} -> {t_end_str} | PipSize: {pip_size} | LotMultiplier: {lot_size} | Precision: {precision}", flush=True)
+    def resolve_trade_on_1m(trade: dict) -> dict:
+        """
+        Follows the active trade candle-by-candle on 1m data starting from entry_timestamp.
+        Returns dict with exit details: exit_time, exit_price, exit_reason, closed_1m.
+        """
+        entry_ts = int(trade['entry_timestamp'])
+        start_idx = bisect.bisect_right(candles_1m_times, entry_ts)
+        
+        sl_price = trade['sl_price']
+        original_sl = trade['original_sl']
+        tp_price = trade['tp_price']
+        entry_price = trade['entry_price']
+        sl_distance = trade['sl_distance']
+        is_buy = (trade['type'] == 'BUY')
+        is_be = trade.get('is_break_even', False)
+        
+        if be_offset_mode == 'zero_be':
+            be_offset = 0.0
+        elif be_offset_mode == 'half_r':
+            be_offset = 0.5 * be_trigger_r * sl_distance
+        else:
+            try:
+                fixed_r = float(be_offset_mode)
+                be_offset = fixed_r * sl_distance
+            except (ValueError, TypeError):
+                be_offset = 0.5 * be_trigger_r * sl_distance
+
+        for m_idx in range(start_idx, len(candles_1m)):
+            cm = candles_1m[m_idx]
+            m_time = int(cm.get('time', 0))
+            m_open = float(cm.get('open', 0))
+            m_high = float(cm.get('high', 0))
+            m_low = float(cm.get('low', 0))
+            m_close = float(cm.get('close', 0))
+            m_dt = get_candle_datetime(m_time, timezone)
+
+            # Check Session Auto-Close on End
+            if trade.get('session_close_on_end') and not is_in_specific_session(m_dt, trade.get('session_config')):
+                gross = (m_close - entry_price) * (trade['qty'] * lot_size) if is_buy else (entry_price - m_close) * (trade['qty'] * lot_size)
+                return {
+                    'closed': True,
+                    'exit_price': m_close,
+                    'exit_time': m_time,
+                    'exit_reason': 'Session ended (Auto-close)',
+                    'is_break_even': is_be,
+                    'sl_price': sl_price
+                }
+
+            # Check Global Daily Close
+            if use_global_close and global_close_time and len(global_close_time) == 5:
+                try:
+                    gh, gm = map(int, global_close_time.split(":"))
+                    from datetime import time as dttime
+                    if m_dt.time() >= dttime(gh, gm):
+                        return {
+                            'closed': True,
+                            'exit_price': m_close,
+                            'exit_time': m_time,
+                            'exit_reason': f'Global daily close reached ({global_close_time})',
+                            'is_break_even': is_be,
+                            'sl_price': sl_price
+                        }
+                except Exception:
+                    pass
+
+            # Check Break-Even trigger on 1m
+            if use_break_even and not is_be:
+                if is_buy and m_high >= entry_price + sl_distance * be_trigger_r:
+                    sl_price = round(entry_price + be_offset, precision)
+                    is_be = True
+                elif not is_buy and m_low <= entry_price - sl_distance * be_trigger_r:
+                    sl_price = round(entry_price - be_offset, precision)
+                    is_be = True
+
+            # Check Stop-Loss / Break-Even hit on 1m
+            if is_buy:
+                hit_sl = (m_low <= sl_price)
+                hit_tp = (m_high >= tp_price)
+                if hit_sl and hit_tp:
+                    # Intrabar collision resolution on 1m: check open proximity
+                    if abs(m_open - sl_price) < abs(m_open - tp_price):
+                        return {'closed': True, 'exit_price': sl_price, 'exit_time': m_time, 'exit_reason': 'Hit Break Even' if is_be else 'Hit Stop Loss', 'is_break_even': is_be, 'sl_price': sl_price}
+                    else:
+                        return {'closed': True, 'exit_price': tp_price, 'exit_time': m_time, 'exit_reason': 'Hit Take Profit', 'is_break_even': is_be, 'sl_price': sl_price}
+                elif hit_sl:
+                    return {'closed': True, 'exit_price': sl_price, 'exit_time': m_time, 'exit_reason': 'Hit Break Even' if is_be else 'Hit Stop Loss', 'is_break_even': is_be, 'sl_price': sl_price}
+                elif hit_tp:
+                    return {'closed': True, 'exit_price': tp_price, 'exit_time': m_time, 'exit_reason': 'Hit Take Profit', 'is_break_even': is_be, 'sl_price': sl_price}
+            else:
+                hit_sl = (m_high >= sl_price)
+                hit_tp = (m_low <= tp_price)
+                if hit_sl and hit_tp:
+                    if abs(m_open - sl_price) < abs(m_open - tp_price):
+                        return {'closed': True, 'exit_price': sl_price, 'exit_time': m_time, 'exit_reason': 'Hit Break Even' if is_be else 'Hit Stop Loss', 'is_break_even': is_be, 'sl_price': sl_price}
+                    else:
+                        return {'closed': True, 'exit_price': tp_price, 'exit_time': m_time, 'exit_reason': 'Hit Take Profit', 'is_break_even': is_be, 'sl_price': sl_price}
+                elif hit_sl:
+                    return {'closed': True, 'exit_price': sl_price, 'exit_time': m_time, 'exit_reason': 'Hit Break Even' if is_be else 'Hit Stop Loss', 'is_break_even': is_be, 'sl_price': sl_price}
+                elif hit_tp:
+                    return {'closed': True, 'exit_price': tp_price, 'exit_time': m_time, 'exit_reason': 'Hit Take Profit', 'is_break_even': is_be, 'sl_price': sl_price}
+
+        # Not closed yet in 1m stream
+        return {'closed': False, 'is_break_even': is_be, 'sl_price': sl_price}
 
     for i, c in enumerate(annotated_data):
         if check_cancelled and check_cancelled():
@@ -198,7 +297,6 @@ def run_trade_simulation(
             except ImportError:
                 pass
 
-            
         # Progress logging (maps 50% to 100% of the backtest progress)
         if total_candles > 0:
             percent = int(((i + 1) / total_candles) * 100)
@@ -262,134 +360,142 @@ def run_trade_simulation(
         close_val = float(c.get('close', 0))
 
         if active_trade:
-            closed = False
-            exit_price = close_val
-            pnl = 0.0
-            outcome = 'LOSS'
-            exit_reason = ''
-            
-            # Check if session ended and we need to close
-            if active_trade.get('session_close_on_end') and not is_in_specific_session(dt_curr, active_trade.get('session_config')):
+            # If 1m resolution is active and the exit was already resolved at an earlier 1m candle
+            if has_1m and active_trade.get('exit_resolved_1m'):
+                if candle_time >= active_trade['exit_timestamp']:
+                    # Complete the trade recording
+                    completed_trades.append(active_trade['completed_record'])
+                    current_balance += active_trade['completed_record']['pnl']
+                    active_trade = None
+            elif not has_1m:
+                # Standard resolution on the chart's own timeframe
+                closed = False
                 exit_price = close_val
-                gross_pnl = (exit_price - active_trade['entry_price']) * (active_trade['qty'] * lot_size) if active_trade['type'] == 'BUY' else (active_trade['entry_price'] - exit_price) * (active_trade['qty'] * lot_size)
-                closed = True
-                exit_reason = 'Session ended (Auto-close)'
-            
-            # Check if global daily close time reached
-            if not closed and use_global_close and global_close_time and len(global_close_time) == 5:
-                should_gc = False
-                try:
-                    gh, gm = map(int, global_close_time.split(":"))
-                    from datetime import time as dttime
-                    g_time = dttime(gh, gm)
-                    if i > 0:
-                        dt_prev = get_candle_datetime(int(annotated_data[i-1].get('time', 0)), timezone)
-                        if dt_curr.time() >= g_time:
-                            if dt_prev.date() < dt_curr.date() or dt_prev.time() < g_time:
-                                should_gc = True
-                    else:
-                        if dt_curr.time() >= g_time:
-                            should_gc = True
-                except Exception:
-                    pass
+                pnl = 0.0
+                outcome = 'LOSS'
+                exit_reason = ''
                 
-                if should_gc:
+                # Check if session ended and we need to close
+                if active_trade.get('session_close_on_end') and not is_in_specific_session(dt_curr, active_trade.get('session_config')):
                     exit_price = close_val
                     gross_pnl = (exit_price - active_trade['entry_price']) * (active_trade['qty'] * lot_size) if active_trade['type'] == 'BUY' else (active_trade['entry_price'] - exit_price) * (active_trade['qty'] * lot_size)
                     closed = True
-                    exit_reason = f'Global daily close reached ({global_close_time})'
-            
-            # Check Break Even
-            if not closed and use_break_even and not active_trade.get('is_break_even', False):
-                sl_distance = active_trade['sl_distance']
-                if be_offset_mode == 'zero_be':
-                    be_offset = 0.0
-                elif be_offset_mode == 'half_r':
-                    be_offset = 0.5 * be_trigger_r * sl_distance
-                else:
-                    try:
-                        # Fixed R offset (e.g. 0.2R, 0.5R, 1.0R)
-                        fixed_r = float(be_offset_mode)
-                        be_offset = fixed_r * sl_distance
-                    except (ValueError, TypeError):
-                        be_offset = 0.5 * be_trigger_r * sl_distance
-
-                if active_trade['type'] == 'BUY':
-                    if high_val >= active_trade['entry_price'] + sl_distance * be_trigger_r:
-                        active_trade['sl_price'] = round(active_trade['entry_price'] + be_offset, precision)
-                        active_trade['is_break_even'] = True
-                else:
-                    if low_val <= active_trade['entry_price'] - sl_distance * be_trigger_r:
-                        active_trade['sl_price'] = round(active_trade['entry_price'] - be_offset, precision)
-                        active_trade['is_break_even'] = True
-
-            # Check opposite sweep signals
-            opposite_signal = False
-            if not closed and allow_opposite_close:
-                opposite_signal = (active_trade['type'] == 'BUY' and should_sell) or (active_trade['type'] == 'SELL' and should_buy)
-            
-            if not closed and opposite_signal:
-                exit_price = close_val
-                gross_pnl = (exit_price - active_trade['entry_price']) * (active_trade['qty'] * lot_size) if active_trade['type'] == 'BUY' else (active_trade['entry_price'] - exit_price) * (active_trade['qty'] * lot_size)
-                closed = True
-                exit_reason = 'Closed by opposite sweep signal'
-            elif not closed and active_trade['type'] == 'BUY':
-                if low_val <= active_trade['sl_price']:
-                    exit_price = active_trade['sl_price']
-                    gross_pnl = (exit_price - active_trade['entry_price']) * (active_trade['qty'] * lot_size)
-                    closed = True
-                    exit_reason = 'Hit Break Even' if active_trade.get('is_break_even', False) else 'Hit Stop Loss'
-                elif high_val >= active_trade['tp_price']:
-                    exit_price = active_trade['tp_price']
-                    gross_pnl = (exit_price - active_trade['entry_price']) * (active_trade['qty'] * lot_size)
-                    closed = True
-                    exit_reason = 'Hit Take Profit'
-            elif not closed:
-                if high_val >= active_trade['sl_price']:
-                    exit_price = active_trade['sl_price']
-                    gross_pnl = (active_trade['entry_price'] - exit_price) * (active_trade['qty'] * lot_size)
-                    closed = True
-                    exit_reason = 'Hit Break Even' if active_trade.get('is_break_even', False) else 'Hit Stop Loss'
-                elif low_val <= active_trade['tp_price']:
-                    exit_price = active_trade['tp_price']
-                    gross_pnl = (active_trade['entry_price'] - exit_price) * (active_trade['qty'] * lot_size)
-                    closed = True
-                    exit_reason = 'Hit Take Profit'
-
-            if closed:
-                total_fees = 2 * (active_trade['qty'] * fees_percent)
-                pnl = gross_pnl - total_fees
-                outcome = 'WIN' if pnl >= 0 else 'LOSS'
+                    exit_reason = 'Session ended (Auto-close)'
                 
-                try:
-                    time_str = str(pd.to_datetime(int(c.get('time', 0)), unit='s'))
-                except Exception:
-                    time_str = 'Open'
+                # Check if global daily close time reached
+                if not closed and use_global_close and global_close_time and len(global_close_time) == 5:
+                    should_gc = False
+                    try:
+                        gh, gm = map(int, global_close_time.split(":"))
+                        from datetime import time as dttime
+                        g_time = dttime(gh, gm)
+                        if i > 0:
+                            dt_prev = get_candle_datetime(int(annotated_data[i-1].get('time', 0)), timezone)
+                            if dt_curr.time() >= g_time:
+                                if dt_prev.date() < dt_curr.date() or dt_prev.time() < g_time:
+                                    should_gc = True
+                        else:
+                            if dt_curr.time() >= g_time:
+                                should_gc = True
+                    except Exception:
+                        pass
                     
-                completed_trades.append({
-                    'id': len(completed_trades) + 1,
-                    'type': active_trade['type'],
-                    'entryPrice': float(active_trade['entry_price']),
-                    'exitPrice': float(exit_price),
-                    'pnl': float(pnl),
-                    'fees': float(total_fees),
-                    'outcome': outcome,
-                    'time': time_str,
-                    'timestamp': int(c.get('time', 0)),
-                    'slPrice': float(active_trade['sl_price']),
-                    'originalSlPrice': float(active_trade['original_sl']),
-                    'tpPrice': float(active_trade['tp_price']),
-                    'entryTimestamp': int(active_trade['entry_timestamp']),
-                    'exitTimestamp': int(c.get('time', 0)),
-                    'exitReason': exit_reason,
-                    'duration': int(i - active_trade['entry_index'] + 1),
-                    'qty': float(active_trade['qty']),
-                    'isReducedRisk': bool(active_trade.get('is_reduced_risk', False)),
-                    'riskMultiplier': float(active_trade.get('risk_multiplier', 1.0)),
-                    'triggerReason': active_trade.get('trigger_reason')
-                })
-                current_balance += pnl
-                active_trade = None
+                    if should_gc:
+                        exit_price = close_val
+                        gross_pnl = (exit_price - active_trade['entry_price']) * (active_trade['qty'] * lot_size) if active_trade['type'] == 'BUY' else (active_trade['entry_price'] - exit_price) * (active_trade['qty'] * lot_size)
+                        closed = True
+                        exit_reason = f'Global daily close reached ({global_close_time})'
+                
+                # Check Break Even
+                if not closed and use_break_even and not active_trade.get('is_break_even', False):
+                    sl_distance = active_trade['sl_distance']
+                    if be_offset_mode == 'zero_be':
+                        be_offset = 0.0
+                    elif be_offset_mode == 'half_r':
+                        be_offset = 0.5 * be_trigger_r * sl_distance
+                    else:
+                        try:
+                            fixed_r = float(be_offset_mode)
+                            be_offset = fixed_r * sl_distance
+                        except (ValueError, TypeError):
+                            be_offset = 0.5 * be_trigger_r * sl_distance
+
+                    if active_trade['type'] == 'BUY':
+                        if high_val >= active_trade['entry_price'] + sl_distance * be_trigger_r:
+                            active_trade['sl_price'] = round(active_trade['entry_price'] + be_offset, precision)
+                            active_trade['is_break_even'] = True
+                    else:
+                        if low_val <= active_trade['entry_price'] - sl_distance * be_trigger_r:
+                            active_trade['sl_price'] = round(active_trade['entry_price'] - be_offset, precision)
+                            active_trade['is_break_even'] = True
+
+                # Check opposite sweep signals
+                opposite_signal = False
+                if not closed and allow_opposite_close:
+                    opposite_signal = (active_trade['type'] == 'BUY' and should_sell) or (active_trade['type'] == 'SELL' and should_buy)
+                
+                if not closed and opposite_signal:
+                    exit_price = close_val
+                    gross_pnl = (exit_price - active_trade['entry_price']) * (active_trade['qty'] * lot_size) if active_trade['type'] == 'BUY' else (active_trade['entry_price'] - exit_price) * (active_trade['qty'] * lot_size)
+                    closed = True
+                    exit_reason = 'Closed by opposite sweep signal'
+                elif not closed and active_trade['type'] == 'BUY':
+                    if low_val <= active_trade['sl_price']:
+                        exit_price = active_trade['sl_price']
+                        gross_pnl = (exit_price - active_trade['entry_price']) * (active_trade['qty'] * lot_size)
+                        closed = True
+                        exit_reason = 'Hit Break Even' if active_trade.get('is_break_even', False) else 'Hit Stop Loss'
+                    elif high_val >= active_trade['tp_price']:
+                        exit_price = active_trade['tp_price']
+                        gross_pnl = (exit_price - active_trade['entry_price']) * (active_trade['qty'] * lot_size)
+                        closed = True
+                        exit_reason = 'Hit Take Profit'
+                elif not closed:
+                    if high_val >= active_trade['sl_price']:
+                        exit_price = active_trade['sl_price']
+                        gross_pnl = (active_trade['entry_price'] - exit_price) * (active_trade['qty'] * lot_size)
+                        closed = True
+                        exit_reason = 'Hit Break Even' if active_trade.get('is_break_even', False) else 'Hit Stop Loss'
+                    elif low_val <= active_trade['tp_price']:
+                        exit_price = active_trade['tp_price']
+                        gross_pnl = (active_trade['entry_price'] - exit_price) * (active_trade['qty'] * lot_size)
+                        closed = True
+                        exit_reason = 'Hit Take Profit'
+
+                if closed:
+                    total_fees = 2 * (active_trade['qty'] * fees_percent)
+                    pnl = gross_pnl - total_fees
+                    outcome = 'WIN' if pnl >= 0 else 'LOSS'
+                    
+                    try:
+                        time_str = str(pd.to_datetime(int(c.get('time', 0)), unit='s'))
+                    except Exception:
+                        time_str = 'Open'
+                        
+                    completed_trades.append({
+                        'id': len(completed_trades) + 1,
+                        'type': active_trade['type'],
+                        'entryPrice': float(active_trade['entry_price']),
+                        'exitPrice': float(exit_price),
+                        'pnl': float(pnl),
+                        'fees': float(total_fees),
+                        'outcome': outcome,
+                        'time': time_str,
+                        'timestamp': int(c.get('time', 0)),
+                        'slPrice': float(active_trade['sl_price']),
+                        'originalSlPrice': float(active_trade['original_sl']),
+                        'tpPrice': float(active_trade['tp_price']),
+                        'entryTimestamp': int(active_trade['entry_timestamp']),
+                        'exitTimestamp': int(c.get('time', 0)),
+                        'exitReason': exit_reason,
+                        'duration': int(i - active_trade['entry_index'] + 1),
+                        'qty': float(active_trade['qty']),
+                        'isReducedRisk': bool(active_trade.get('is_reduced_risk', False)),
+                        'riskMultiplier': float(active_trade.get('risk_multiplier', 1.0)),
+                        'triggerReason': active_trade.get('trigger_reason')
+                    })
+                    current_balance += pnl
+                    active_trade = None
 
         if not active_trade:
             if should_buy or should_sell:
@@ -456,6 +562,51 @@ def run_trade_simulation(
                         }
                     }
                 }
+
+                # If 1m data is available, immediately follow through on 1m candles
+                if has_1m:
+                    res_1m = resolve_trade_on_1m(active_trade)
+                    if res_1m.get('closed'):
+                        exit_price_1m = float(res_1m['exit_price'])
+                        exit_time_1m = int(res_1m['exit_time'])
+                        gross_pnl_1m = (exit_price_1m - entry_price) * (trade_qty * lot_size) if trade_type == 'BUY' else (entry_price - exit_price_1m) * (trade_qty * lot_size)
+                        total_fees_1m = 2 * (trade_qty * fees_percent)
+                        pnl_1m = gross_pnl_1m - total_fees_1m
+                        outcome_1m = 'WIN' if pnl_1m >= 0 else 'LOSS'
+                        
+                        try:
+                            time_str_1m = str(pd.to_datetime(exit_time_1m, unit='s'))
+                        except Exception:
+                            time_str_1m = 'Open'
+
+                        record_1m = {
+                            'id': len(completed_trades) + 1,
+                            'type': trade_type,
+                            'entryPrice': float(entry_price),
+                            'exitPrice': float(exit_price_1m),
+                            'pnl': float(pnl_1m),
+                            'fees': float(total_fees_1m),
+                            'outcome': outcome_1m,
+                            'time': time_str_1m,
+                            'timestamp': exit_time_1m,
+                            'slPrice': float(res_1m.get('sl_price', sl_price)),
+                            'originalSlPrice': float(sl_price),
+                            'tpPrice': float(tp_price),
+                            'entryTimestamp': int(c.get('time', 0)),
+                            'exitTimestamp': exit_time_1m,
+                            'exitReason': res_1m.get('exit_reason', '1m Resolution Exit'),
+                            'duration': max(1, int((exit_time_1m - int(c.get('time', 0))) / 60)), # duration in minutes
+                            'qty': float(trade_qty),
+                            'isReducedRisk': bool(is_reduced),
+                            'riskMultiplier': float(effective_risk_mult),
+                            'triggerReason': active_trade.get('trigger_reason')
+                        }
+
+                        # If the exit happened before the next higher-TF candle, we close immediately;
+                        # otherwise mark it to be held until that candle index is passed
+                        active_trade['exit_resolved_1m'] = True
+                        active_trade['exit_timestamp'] = exit_time_1m
+                        active_trade['completed_record'] = record_1m
 
     if active_trade:
         final_candle = annotated_data[-1]

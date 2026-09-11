@@ -252,14 +252,15 @@ class StrategyHandler:
         indicator_rules: list = None,
         daily_first_signals_mode: str = 'disabled',
         daily_first_signals_count: int = 0,
-        daily_first_signals_risk_mult: float = 0.5
+        daily_first_signals_risk_mult: float = 0.5,
+        candles_1m: list = None
     ) -> dict:
         """
         Runs the full Wyckoff structure analysis backtest in Python.
         """
         tf = timeframe
         from colorama import Fore, Style
-        print(f"\n{Fore.CYAN}[Backtest]{Style.RESET_ALL} Starting Wyckoff Structure Analysis backtest for {symbol} on {len(candles)} candles...", flush=True)
+        print(f"\n{Fore.CYAN}[Backtest]{Style.RESET_ALL} Starting Wyckoff Structure Analysis backtest for {symbol} on {len(candles)} candles (1m Intrabar: {'Enabled' if candles_1m else 'Off'})...", flush=True)
         
         # Sanitize Break-Even vs RR (Break-Even cannot be >= RR)
         if use_break_even and be_trigger_r >= rr:
@@ -304,7 +305,8 @@ class StrategyHandler:
             session_config=session_config,
             daily_first_signals_mode=daily_first_signals_mode,
             daily_first_signals_count=daily_first_signals_count,
-            daily_first_signals_risk_mult=daily_first_signals_risk_mult
+            daily_first_signals_risk_mult=daily_first_signals_risk_mult,
+            candles_1m=candles_1m
         )
         
         from candle_sanitizer import sanitize_and_fill_candles
@@ -552,6 +554,7 @@ class StrategyHandler:
         print("==========================================================================\n", flush=True)
 
         analysis_cache = {}
+        candles_1m_cache = {}
         results = []
         total_runs = len(matrix)
 
@@ -644,6 +647,29 @@ class StrategyHandler:
                 print(f"[Optimization] No market data analyzed for {s} {tf}.", flush=True)
                 continue
 
+            # Fetch / cache 1m candles for intrabar resolution if timeframe is not 1m
+            candles_1m_opt = None
+            if tf.lower() not in ('1m', '1min'):
+                if s not in candles_1m_cache:
+                    from broker_handler import BrokerHandler
+                    handler = BrokerHandler.get_handler(candle_source)
+                    try:
+                        c_1m = handler.fetch_candles(
+                            symbol=s,
+                            timeframe='1m',
+                            limit=limit * 15,
+                            date_from=date_from,
+                            date_to=date_to,
+                            account_id=account_id
+                        )
+                        if len(c_1m) > 1 and not date_to:
+                            c_1m = c_1m[:-1]
+                        candles_1m_cache[s] = c_1m
+                    except Exception as e:
+                        print(f"[Optimization] Warning: Failed to fetch 1m candles for {s}: {e}", flush=True)
+                        candles_1m_cache[s] = []
+                candles_1m_opt = candles_1m_cache.get(s)
+
             be_off = combo.get("be_offset", be_offset_mode)
             from backtest_helpers import run_trade_simulation
             sim_result = run_trade_simulation(
@@ -673,7 +699,8 @@ class StrategyHandler:
                 entry_stability_rule=entry_stability_rule,
                 daily_first_signals_mode=daily_first_signals_mode,
                 daily_first_signals_count=daily_first_signals_count,
-                daily_first_signals_risk_mult=daily_first_signals_risk_mult
+                daily_first_signals_risk_mult=daily_first_signals_risk_mult,
+                candles_1m=candles_1m_opt
             )
 
             run_duration = time.time() - run_start_time

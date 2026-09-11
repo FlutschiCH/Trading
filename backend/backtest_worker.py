@@ -237,7 +237,26 @@ def run_worker(job_id: str, is_resume: bool = False):
             t_first = str(first_c.get('time'))
             t_last = str(last_c.get('time'))
 
-        print(f"{Fore.GREEN}[BacktestWorker Data Success]{Style.RESET_ALL} Retrieved {len(candles)} candles for '{symbol}'. Start: {t_first} | End: {t_last} | First Close: {first_c.get('close')} | Last Close: {last_c.get('close')}", flush=True)
+        # If timeframe is not 1m, fetch 1m candles for accurate intrabar trade resolution
+        candles_1m = None
+        if timeframe.lower() not in ('1m', '1min'):
+            try:
+                print(f"{Fore.CYAN}[BacktestWorker Data]{Style.RESET_ALL} Fetching 1m candles for intrabar trade follow-through...", flush=True)
+                candles_1m = handler.fetch_candles(
+                    symbol=symbol,
+                    timeframe='1m',
+                    limit=limit * 15,
+                    date_from=date_from,
+                    date_to=date_to,
+                    login=account_id,
+                    account_id=account_id
+                )
+                if len(candles_1m) > 1 and not date_to:
+                    candles_1m = candles_1m[:-1]
+                print(f"{Fore.GREEN}[BacktestWorker Data]{Style.RESET_ALL} Retrieved {len(candles_1m)} 1m candles for intrabar resolution.", flush=True)
+            except Exception as e_1m:
+                print(f"{Fore.YELLOW}[BacktestWorker Data]{Style.RESET_ALL} Warning: Could not fetch 1m candles ({e_1m}). Falling back to {timeframe} resolution.", flush=True)
+                candles_1m = None
 
         # Record start of actual strategy computations (after fetching data overhead)
         execution_start_time = time.time()
@@ -274,7 +293,8 @@ def run_worker(job_id: str, is_resume: bool = False):
                 indicator_rules=params.get('indicatorRules', params.get('indicator_rules', [])),
                 daily_first_signals_mode=params.get('dailyFirstSignalsMode', 'disabled'),
                 daily_first_signals_count=int(params.get('dailyFirstSignalsCount', 0)),
-                daily_first_signals_risk_mult=float(params.get('dailyFirstSignalsRiskMult', 0.5))
+                daily_first_signals_risk_mult=float(params.get('dailyFirstSignalsRiskMult', 0.5)),
+                candles_1m=candles_1m
             )
 
             total_elapsed = round(time.time() - execution_start_time, 2)
