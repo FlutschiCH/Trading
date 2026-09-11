@@ -141,8 +141,8 @@ interface WyckoffBacktesterProps {
   setBacktestSize: (val: string) => void;
   backtestSL: string;
   setBacktestSL: (val: string) => void;
-  backtestSLType: 'pct' | 'price' | 'dollar';
-  setBacktestSLType: (val: 'pct' | 'price' | 'dollar') => void;
+  backtestSLType: 'pct' | 'price' | 'dollar' | 'atr';
+  setBacktestSLType: (val: 'pct' | 'price' | 'dollar' | 'atr') => void;
   backtestRR: string;
   setBacktestRR: (val: string) => void;
   useBreakEven: boolean;
@@ -2017,20 +2017,20 @@ export default function WyckoffBacktester({
                     value={backtestSL}
                     onChange={(e) => setBacktestSL(e.target.value)}
                     style={{ ...styles.input, flexGrow: 1, minWidth: 0 }}
-                    step={backtestSLType === 'pct' ? '0.1' : '0.1'}
+                    step={backtestSLType === 'pct' || backtestSLType === 'atr' ? '0.1' : '0.1'}
                     min="0.00001"
                   />
                   <select
                     value={backtestSLType}
                     onChange={(e) => {
-                      const newType = e.target.value as 'pct' | 'price' | 'dollar';
+                      const newType = e.target.value as 'pct' | 'price' | 'dollar' | 'atr';
                       setUseRiskSizing(true);
                       setBacktestSLType(newType);
-                      setBacktestSL(newType === 'pct' ? '1.0' : (newType === 'dollar' ? '100' : '1.0'));
+                      setBacktestSL(newType === 'pct' ? '1.0' : (newType === 'dollar' ? '100' : (newType === 'atr' ? '1.5' : '1.0')));
                     }}
                     style={{
                       ...styles.input,
-                      width: '65px',
+                      width: '75px',
                       backgroundColor: '#1f2937',
                       cursor: 'pointer',
                       padding: '0 4px',
@@ -2039,6 +2039,7 @@ export default function WyckoffBacktester({
                     <option value="price">Price ($)</option>
                     <option value="pct">%</option>
                     <option value="dollar">Risk $</option>
+                    <option value="atr">xATR</option>
                   </select>
                 </div>
               ) : (
@@ -2073,7 +2074,7 @@ export default function WyckoffBacktester({
                       onChange={(e) => setBacktestSLType(e.target.value as any)}
                       style={{
                         ...styles.input,
-                        width: '55px',
+                        width: '60px',
                         backgroundColor: '#1f2937',
                         cursor: 'pointer',
                         padding: '0 2px',
@@ -2082,6 +2083,7 @@ export default function WyckoffBacktester({
                       <option value="price">Price</option>
                       <option value="pct">%</option>
                       <option value="dollar">$</option>
+                      <option value="atr">xATR</option>
                     </select>
                   </div>
                   <span style={{ fontSize: '9px', color: '#38bdf8' }}>

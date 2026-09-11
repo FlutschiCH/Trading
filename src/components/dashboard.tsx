@@ -385,7 +385,7 @@ export default function Dashboard() {
 
   // Backtester states
   const [backtestSL, setBacktestSL] = useState(() => localStorage.getItem('wyckoff_backtest_sl') || '20');
-  const [backtestSLType, setBacktestSLType] = useState<'pct' | 'price' | 'dollar'>(() => (localStorage.getItem('wyckoff_backtest_sl_type') as 'pct' | 'price' | 'dollar') || 'price');
+  const [backtestSLType, setBacktestSLType] = useState<'pct' | 'price' | 'dollar' | 'atr'>(() => (localStorage.getItem('wyckoff_backtest_sl_type') as 'pct' | 'price' | 'dollar' | 'atr') || 'price');
   const [backtestRR, setBacktestRR] = useState(() => localStorage.getItem('wyckoff_backtest_rr') || '2');
   const [backtestSize, setBacktestSize] = useState(() => localStorage.getItem('wyckoff_backtest_size') || '1');
   const [lookbackWindow, setLookbackWindow] = useState(() => localStorage.getItem('wyckoff_backtest_lookback') || '20');

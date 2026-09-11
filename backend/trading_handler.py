@@ -4,8 +4,8 @@ class TradingHandler:
         symbol: str,
         entry_price: float,
         direction: str,  # 'BUY' or 'SELL'
-        sl_type: str,    # 'pct', 'price', or 'amount'
-        sl_val: float,   # stop loss value
+        sl_type: str,    # 'pct', 'price', 'amount', or 'atr'
+        sl_val: float,   # stop loss value or ATR multiplier
         rr: float,       # risk reward ratio
         size: float,     # default size/volume
         use_risk_sizing: bool,
@@ -13,7 +13,8 @@ class TradingHandler:
         balance: float,
         lot_size: float,
         pip_size: float,
-        precision: int = 2
+        precision: int = 2,
+        atr_val: float = 0.0
     ) -> dict:
         """
         Calculates entry, stop loss, take profit prices and trade quantity (lot size) based on risk parameters.
@@ -28,6 +29,8 @@ class TradingHandler:
             sl_distance = sl_val / (qty * lot_size) if lot_size > 0 else sl_val
         elif sl_type == 'pips':
             sl_distance = sl_val * pip_size
+        elif sl_type in ('atr', 'xatr'):
+            sl_distance = (sl_val * atr_val) if atr_val > 0 else (sl_val * pip_size if pip_size > 0 else sl_val)
         else: # 'price' / direct price distance
             sl_distance = sl_val
 

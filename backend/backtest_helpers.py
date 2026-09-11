@@ -144,6 +144,7 @@ def run_trade_simulation(
     If candles_1m is provided, active open positions are resolved bar-by-bar on 1m candles.
     """
     import pandas as pd
+    from colorama import Fore, Style
     from trading_handler import TradingHandler
     
     active_trade = None
@@ -536,7 +537,8 @@ def run_trade_simulation(
                     balance=current_balance,
                     lot_size=lot_size,
                     pip_size=pip_size,
-                    precision=precision
+                    precision=precision,
+                    atr_val=float(c.get('atr', 0.0))
                 )
                 
                 sl_price = trade_params["sl_price"]

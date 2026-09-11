@@ -207,15 +207,20 @@ class StrategyHandler:
         from wyckoff_handler import WyckoffHandler
         wyckoff_candles = WyckoffHandler.analyze_wyckoff_structure(bars_list, lookback=lookback, progress_callback=progress_callback)
 
-        if indicator_rules and len(indicator_rules) > 0 and len(wyckoff_candles) > 0:
+        if len(wyckoff_candles) > 0:
             try:
                 df = pd.DataFrame(wyckoff_candles)
-                buy_mask, sell_mask = IndicatorHandler.evaluate_indicator_rules(df, indicator_rules)
+                atr_series = IndicatorHandler.atr(df, period=14, smoothing='rma')
                 for idx, c in enumerate(wyckoff_candles):
-                    c['indicator_buy_valid'] = bool(buy_mask.iloc[idx])
-                    c['indicator_sell_valid'] = bool(sell_mask.iloc[idx])
+                    c['atr'] = float(atr_series.iloc[idx]) if not pd.isna(atr_series.iloc[idx]) else 0.0
+
+                if indicator_rules and len(indicator_rules) > 0:
+                    buy_mask, sell_mask = IndicatorHandler.evaluate_indicator_rules(df, indicator_rules)
+                    for idx, c in enumerate(wyckoff_candles):
+                        c['indicator_buy_valid'] = bool(buy_mask.iloc[idx])
+                        c['indicator_sell_valid'] = bool(sell_mask.iloc[idx])
             except Exception as e:
-                print(f"[StrategyHandler] Warning: indicator rules evaluation failed: {e}", flush=True)
+                print(f"[StrategyHandler] Warning: indicator calculation failed: {e}", flush=True)
 
         return {"status": "success", "data": wyckoff_candles, "fvgs": []}
 
