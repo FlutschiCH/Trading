@@ -230,7 +230,7 @@ class SQLHandler:
             params.append(timeframe)
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
-        query += " ORDER BY created_at DESC LIMIT 500"
+        query += " ORDER BY created_at DESC"
         try:
             rows = cls.execute_query(query, tuple(params))
             if isinstance(rows, list):

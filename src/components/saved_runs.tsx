@@ -106,6 +106,9 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest }: SavedRunsPro
     }
   }, [sbSortField, sbSortDir, sbFilterSymbol, sbMaxDrawdown, sbMinNetPnl, sbMinWinRate, sbMinTrades, sbMinProfitFactor]);
 
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(50);
+
   // Parameters info popup state
   const [infoModalRun, setInfoModalRun] = useState<{ id: string; settings: any } | null>(null);
   const [loadingInfo, setLoadingInfo] = useState(false);
@@ -128,6 +131,43 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest }: SavedRunsPro
   useEffect(() => {
     fetchSavedBacktests();
   }, []);
+
+  // Reset to page 1 whenever any filter or sorting changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [sbSortField, sbSortDir, sbFilterSymbol, sbMaxDrawdown, sbMinNetPnl, sbMinWinRate, sbMinTrades, sbMinProfitFactor, pageSize]);
+
+  const filteredAndSortedList = React.useMemo(() => {
+    return savedBacktestsList
+      .filter(item => {
+        if (sbFilterSymbol !== 'all' && item.symbol !== sbFilterSymbol) return false;
+        if (sbMaxDrawdown !== '' && item.max_drawdown !== undefined && item.max_drawdown !== null && item.max_drawdown > parseFloat(sbMaxDrawdown)) return false;
+        if (sbMinNetPnl !== '' && item.net_pnl < parseFloat(sbMinNetPnl)) return false;
+        if (sbMinWinRate !== '' && item.win_rate < parseFloat(sbMinWinRate)) return false;
+        if (sbMinTrades !== '' && item.trades_cnt < parseInt(sbMinTrades)) return false;
+        if (sbMinProfitFactor !== '' && item.profit_factor < parseFloat(sbMinProfitFactor)) return false;
+        return true;
+      })
+      .sort((a, b) => {
+        let valA = (a as any)[sbSortField];
+        let valB = (b as any)[sbSortField];
+        if (valA === undefined) valA = 0;
+        if (valB === undefined) valB = 0;
+        if (typeof valA === 'string') {
+          return sbSortDir === 'desc' ? valB.localeCompare(valA) : valA.localeCompare(valB);
+        }
+        return sbSortDir === 'desc' ? valB - valA : valA - valB;
+      });
+  }, [savedBacktestsList, sbFilterSymbol, sbMaxDrawdown, sbMinNetPnl, sbMinWinRate, sbMinTrades, sbMinProfitFactor, sbSortField, sbSortDir]);
+
+  const totalPages = pageSize === 0 ? 1 : Math.max(1, Math.ceil(filteredAndSortedList.length / pageSize));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+
+  const paginatedList = React.useMemo(() => {
+    if (pageSize === 0) return filteredAndSortedList;
+    const startIdx = (safeCurrentPage - 1) * pageSize;
+    return filteredAndSortedList.slice(startIdx, startIdx + pageSize);
+  }, [filteredAndSortedList, safeCurrentPage, pageSize]);
 
   const handleDeleteSavedBacktest = async (id: string) => {
     if (!confirm("Are you sure you want to delete this saved backtest?")) return;
@@ -407,17 +447,7 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest }: SavedRunsPro
             )}
 
             <span style={{ color: 'var(--app-text-muted, #94a3b8)', fontSize: '12px' }}>
-              ({
-                savedBacktestsList.filter(item => {
-                  if (sbFilterSymbol !== 'all' && item.symbol !== sbFilterSymbol) return false;
-                  if (sbMaxDrawdown !== '' && item.max_drawdown !== undefined && item.max_drawdown !== null && item.max_drawdown > parseFloat(sbMaxDrawdown)) return false;
-                  if (sbMinNetPnl !== '' && item.net_pnl < parseFloat(sbMinNetPnl)) return false;
-                  if (sbMinWinRate !== '' && item.win_rate < parseFloat(sbMinWinRate)) return false;
-                  if (sbMinTrades !== '' && item.trades_cnt < parseInt(sbMinTrades)) return false;
-                  if (sbMinProfitFactor !== '' && item.profit_factor < parseFloat(sbMinProfitFactor)) return false;
-                  return true;
-                }).length
-              } / {savedBacktestsList.length} runs)
+              ({filteredAndSortedList.length} / {savedBacktestsList.length} runs)
             </span>
           </div>
           <button
@@ -442,6 +472,8 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest }: SavedRunsPro
             <div style={{ textAlign: 'center', padding: '40px', color: 'var(--app-text-muted, #94a3b8)' }}>Loading saved backtests from database...</div>
           ) : savedBacktestsList.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px', color: 'var(--app-text-muted, #94a3b8)' }}>No saved backtests found in MySQL database. Run backtests to auto-save results!</div>
+          ) : filteredAndSortedList.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--app-text-muted, #94a3b8)' }}>No runs match the selected filters.</div>
           ) : (
             <table style={{ width: '100%', minWidth: '850px', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
               <thead>
@@ -459,93 +491,186 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest }: SavedRunsPro
                 </tr>
               </thead>
               <tbody>
-                {savedBacktestsList
-                  .filter(item => {
-                    if (sbFilterSymbol !== 'all' && item.symbol !== sbFilterSymbol) return false;
-                    if (sbMaxDrawdown !== '' && item.max_drawdown !== undefined && item.max_drawdown !== null && item.max_drawdown > parseFloat(sbMaxDrawdown)) return false;
-                    if (sbMinNetPnl !== '' && item.net_pnl < parseFloat(sbMinNetPnl)) return false;
-                    if (sbMinWinRate !== '' && item.win_rate < parseFloat(sbMinWinRate)) return false;
-                    if (sbMinTrades !== '' && item.trades_cnt < parseInt(sbMinTrades)) return false;
-                    if (sbMinProfitFactor !== '' && item.profit_factor < parseFloat(sbMinProfitFactor)) return false;
-                    return true;
-                  })
-                  .sort((a, b) => {
-                    let valA = (a as any)[sbSortField];
-                    let valB = (b as any)[sbSortField];
-                    if (valA === undefined) valA = 0;
-                    if (valB === undefined) valB = 0;
-                    if (typeof valA === 'string') {
-                      return sbSortDir === 'desc' ? valB.localeCompare(valA) : valA.localeCompare(valB);
-                    }
-                    return sbSortDir === 'desc' ? valB - valA : valA - valB;
-                  })
-                  .map((row) => (
-                    <tr key={row.id} style={{ borderBottom: '1px solid var(--app-card-border, #1e293b)', color: 'var(--app-text, #f8fafc)' }}>
-                      <td style={{ padding: '10px', color: 'var(--app-text-muted, #94a3b8)' }}>{row.created_at || 'N/A'}</td>
-                      <td style={{ padding: '10px', fontWeight: 600, color: '#38bdf8' }}>{row.symbol}</td>
-                      <td style={{ padding: '10px' }}>{row.timeframe}</td>
-                      <td style={{ padding: '10px', color: 'var(--app-text-muted, #cbd5e1)' }}>SL: {row.sl_val} | RR: 1:{row.rr} | BE: {row.be_trigger_r}R</td>
-                      <td style={{ padding: '10px' }}>{row.trades_cnt}</td>
-                      <td style={{ padding: '10px', color: row.win_rate >= 50 ? '#4ade80' : '#f87171' }}>{row.win_rate ? row.win_rate.toFixed(1) : 0}%</td>
-                      <td style={{ padding: '10px', fontWeight: 600, color: row.net_pnl >= 0 ? '#4ade80' : '#f87171' }}>
-                        {row.net_pnl >= 0 ? `+$${row.net_pnl.toFixed(2)}` : `-$${Math.abs(row.net_pnl).toFixed(2)}`}
-                      </td>
-                      <td style={{ padding: '10px' }}>{row.profit_factor ? row.profit_factor.toFixed(2) : '0.00'}</td>
-                      <td style={{ padding: '10px', color: '#f87171' }}>{row.max_drawdown !== undefined && row.max_drawdown !== null ? `${Number(row.max_drawdown).toFixed(2)}%` : '0.00%'}</td>
-                      <td style={{ padding: '10px', textAlign: 'right' }}>
-                        <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
-                          <button
-                            onClick={() => handleShowMoreInfos(row.id)}
-                            style={{
-                              backgroundColor: '#0284c7',
-                              color: '#ffffff',
-                              border: 'none',
-                              padding: '4px 8px',
-                              borderRadius: '4px',
-                              fontSize: '11px',
-                              cursor: 'pointer',
-                              fontWeight: 500
-                            }}
-                          >
-                            ℹ️ More Infos
-                          </button>
-                          <button
-                            onClick={() => onLoadSavedBacktest(row.id)}
-                            style={{
-                              backgroundColor: '#2563eb',
-                              color: '#ffffff',
-                              border: 'none',
-                              padding: '4px 10px',
-                              borderRadius: '4px',
-                              fontSize: '11px',
-                              cursor: 'pointer',
-                              fontWeight: 500
-                            }}
-                          >
-                            Load
-                          </button>
-                          <button
-                            onClick={() => handleDeleteSavedBacktest(row.id)}
-                            style={{
-                              backgroundColor: 'rgba(239, 68, 68, 0.2)',
-                              color: '#ef4444',
-                              border: '1px solid #ef4444',
-                              padding: '4px 8px',
-                              borderRadius: '4px',
-                              fontSize: '11px',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                {paginatedList.map((row) => (
+                  <tr key={row.id} style={{ borderBottom: '1px solid var(--app-card-border, #1e293b)', color: 'var(--app-text, #f8fafc)' }}>
+                    <td style={{ padding: '10px', color: 'var(--app-text-muted, #94a3b8)' }}>{row.created_at || 'N/A'}</td>
+                    <td style={{ padding: '10px', fontWeight: 600, color: '#38bdf8' }}>{row.symbol}</td>
+                    <td style={{ padding: '10px' }}>{row.timeframe}</td>
+                    <td style={{ padding: '10px', color: 'var(--app-text-muted, #cbd5e1)' }}>SL: {row.sl_val} | RR: 1:{row.rr} | BE: {row.be_trigger_r}R</td>
+                    <td style={{ padding: '10px' }}>{row.trades_cnt}</td>
+                    <td style={{ padding: '10px', color: row.win_rate >= 50 ? '#4ade80' : '#f87171' }}>{row.win_rate ? row.win_rate.toFixed(1) : 0}%</td>
+                    <td style={{ padding: '10px', fontWeight: 600, color: row.net_pnl >= 0 ? '#4ade80' : '#f87171' }}>
+                      {row.net_pnl >= 0 ? `+$${row.net_pnl.toFixed(2)}` : `-$${Math.abs(row.net_pnl).toFixed(2)}`}
+                    </td>
+                    <td style={{ padding: '10px' }}>{row.profit_factor ? row.profit_factor.toFixed(2) : '0.00'}</td>
+                    <td style={{ padding: '10px', color: '#f87171' }}>{row.max_drawdown !== undefined && row.max_drawdown !== null ? `${Number(row.max_drawdown).toFixed(2)}%` : '0.00%'}</td>
+                    <td style={{ padding: '10px', textAlign: 'right' }}>
+                      <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                        <button
+                          onClick={() => handleShowMoreInfos(row.id)}
+                          style={{
+                            backgroundColor: '#0284c7',
+                            color: '#ffffff',
+                            border: 'none',
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            fontSize: '11px',
+                            cursor: 'pointer',
+                            fontWeight: 500
+                          }}
+                        >
+                          ℹ️ More Infos
+                        </button>
+                        <button
+                          onClick={() => onLoadSavedBacktest(row.id)}
+                          style={{
+                            backgroundColor: '#2563eb',
+                            color: '#ffffff',
+                            border: 'none',
+                            padding: '4px 10px',
+                            borderRadius: '4px',
+                            fontSize: '11px',
+                            cursor: 'pointer',
+                            fontWeight: 500
+                          }}
+                        >
+                          Load
+                        </button>
+                        <button
+                          onClick={() => handleDeleteSavedBacktest(row.id)}
+                          style={{
+                            backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                            color: '#ef4444',
+                            border: '1px solid #ef4444',
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            fontSize: '11px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           )}
         </div>
+
+        {/* Pagination Footer */}
+        {filteredAndSortedList.length > 0 && (
+          <div style={{
+            padding: '10px 16px',
+            backgroundColor: 'var(--app-panel-header-bg, #1e293b)',
+            borderTop: '1px solid var(--app-card-border, #334155)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '12px',
+            fontSize: '12px',
+            color: 'var(--app-text, #cbd5e1)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>Show:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => setPageSize(parseInt(e.target.value))}
+                style={{
+                  backgroundColor: 'var(--app-input-bg, #0f172a)',
+                  color: 'var(--app-input-text, #f8fafc)',
+                  border: '1px solid var(--app-input-border, #475569)',
+                  padding: '3px 8px',
+                  borderRadius: '4px',
+                  fontSize: '12px',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value={250}>250</option>
+                <option value={0}>All ({filteredAndSortedList.length})</option>
+              </select>
+              <span>per page</span>
+              <span style={{ color: 'var(--app-text-muted, #94a3b8)', marginLeft: '6px' }}>
+                Showing {pageSize === 0 ? 1 : Math.min((safeCurrentPage - 1) * pageSize + 1, filteredAndSortedList.length)} - {pageSize === 0 ? filteredAndSortedList.length : Math.min(safeCurrentPage * pageSize, filteredAndSortedList.length)} of {filteredAndSortedList.length}
+              </span>
+            </div>
+
+            {pageSize !== 0 && totalPages > 1 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <button
+                  disabled={safeCurrentPage <= 1}
+                  onClick={() => setCurrentPage(1)}
+                  style={{
+                    backgroundColor: safeCurrentPage <= 1 ? 'rgba(51, 65, 85, 0.4)' : 'var(--app-card-border, #334155)',
+                    color: safeCurrentPage <= 1 ? 'var(--app-text-muted, #64748b)' : 'var(--app-text, #f8fafc)',
+                    border: '1px solid var(--app-input-border, #475569)',
+                    padding: '3px 8px',
+                    borderRadius: '4px',
+                    cursor: safeCurrentPage <= 1 ? 'not-allowed' : 'pointer',
+                    fontSize: '11px'
+                  }}
+                >
+                  ⏮ First
+                </button>
+                <button
+                  disabled={safeCurrentPage <= 1}
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  style={{
+                    backgroundColor: safeCurrentPage <= 1 ? 'rgba(51, 65, 85, 0.4)' : 'var(--app-card-border, #334155)',
+                    color: safeCurrentPage <= 1 ? 'var(--app-text-muted, #64748b)' : 'var(--app-text, #f8fafc)',
+                    border: '1px solid var(--app-input-border, #475569)',
+                    padding: '3px 8px',
+                    borderRadius: '4px',
+                    cursor: safeCurrentPage <= 1 ? 'not-allowed' : 'pointer',
+                    fontSize: '11px'
+                  }}
+                >
+                  ◀ Prev
+                </button>
+
+                <span style={{ padding: '0 4px', fontWeight: 600 }}>
+                  Page {safeCurrentPage} of {totalPages}
+                </span>
+
+                <button
+                  disabled={safeCurrentPage >= totalPages}
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  style={{
+                    backgroundColor: safeCurrentPage >= totalPages ? 'rgba(51, 65, 85, 0.4)' : 'var(--app-card-border, #334155)',
+                    color: safeCurrentPage >= totalPages ? 'var(--app-text-muted, #64748b)' : 'var(--app-text, #f8fafc)',
+                    border: '1px solid var(--app-input-border, #475569)',
+                    padding: '3px 8px',
+                    borderRadius: '4px',
+                    cursor: safeCurrentPage >= totalPages ? 'not-allowed' : 'pointer',
+                    fontSize: '11px'
+                  }}
+                >
+                  Next ▶
+                </button>
+                <button
+                  disabled={safeCurrentPage >= totalPages}
+                  onClick={() => setCurrentPage(totalPages)}
+                  style={{
+                    backgroundColor: safeCurrentPage >= totalPages ? 'rgba(51, 65, 85, 0.4)' : 'var(--app-card-border, #334155)',
+                    color: safeCurrentPage >= totalPages ? 'var(--app-text-muted, #64748b)' : 'var(--app-text, #f8fafc)',
+                    border: '1px solid var(--app-input-border, #475569)',
+                    padding: '3px 8px',
+                    borderRadius: '4px',
+                    cursor: safeCurrentPage >= totalPages ? 'not-allowed' : 'pointer',
+                    fontSize: '11px'
+                  }}
+                >
+                  Last ⏭
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Parameters Info Modal (Simple Text Overview) */}
         {infoModalRun && (
