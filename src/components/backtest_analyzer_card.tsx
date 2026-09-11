@@ -1,18 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { Copy, Check, Sparkles, RefreshCw, Layers, TrendingUp, TrendingDown, Award, AlertTriangle, ExternalLink } from 'lucide-react';
+import { Copy, Check, Sparkles, RefreshCw, Layers, TrendingUp, TrendingDown, Award, AlertTriangle, ExternalLink, Database } from 'lucide-react';
 import { API_BASE_URL } from '../api';
 import DebugComponentBadge from './debug_component_badge';
+import SavedRuns from './saved_runs';
 
 interface BacktestAnalyzerCardProps {
   currentBacktestResults?: any;
   currentSymbol?: string;
   currentTimeframe?: string;
+  onLoadSavedBacktest?: (id: string) => void;
 }
 
 export const BacktestAnalyzerCard: React.FC<BacktestAnalyzerCardProps> = ({
   currentBacktestResults,
   currentSymbol,
-  currentTimeframe
+  currentTimeframe,
+  onLoadSavedBacktest
 }) => {
   const [savedRuns, setSavedRuns] = useState<any[]>([]);
   const [selectedRunId, setSelectedRunId] = useState<string>('current');
@@ -20,6 +23,7 @@ export const BacktestAnalyzerCard: React.FC<BacktestAnalyzerCardProps> = ({
   const [analysisData, setAnalysisData] = useState<any>(null);
   const [copied, setCopied] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
+  const [showSavedRunsModal, setShowSavedRunsModal] = useState<boolean>(false);
 
   const fetchSavedRuns = async () => {
     try {
@@ -153,6 +157,27 @@ export const BacktestAnalyzerCard: React.FC<BacktestAnalyzerCardProps> = ({
               ))}
             </select>
           </div>
+
+          <button
+            onClick={() => setShowSavedRunsModal(true)}
+            title="Browse & Filter all saved backtest runs from database"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              backgroundColor: '#3b0764',
+              border: '1px solid #7e22ce',
+              borderRadius: '6px',
+              color: '#f3e8ff',
+              padding: '4px 10px',
+              fontSize: '11px',
+              fontWeight: 600,
+              cursor: 'pointer'
+            }}
+          >
+            <Database style={{ width: '12px', height: '12px', color: '#c084fc' }} />
+            <span>Browse Saved Runs</span>
+          </button>
 
           <button
             onClick={() => { fetchSavedRuns(); runAnalysis(); }}
@@ -398,6 +423,23 @@ export const BacktestAnalyzerCard: React.FC<BacktestAnalyzerCardProps> = ({
           }}
         />
       </div>
+
+      {/* Saved Runs Browser Modal */}
+      {showSavedRunsModal && (
+        <SavedRuns
+          onClose={() => setShowSavedRunsModal(false)}
+          onLoadSavedBacktest={(id) => {
+            setShowSavedRunsModal(false);
+            if (onLoadSavedBacktest) {
+              onLoadSavedBacktest(id);
+            }
+          }}
+          onAnalyzeBacktest={(id) => {
+            setSelectedRunId(id);
+            setShowSavedRunsModal(false);
+          }}
+        />
+      )}
     </div>
   );
 };

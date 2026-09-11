@@ -1343,6 +1343,18 @@ export default function Dashboard() {
     }
   };
 
+  const handleLoadSavedBacktestById = async (id: string) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/backtest/saved/${id}`);
+      const json = await res.json();
+      if (json.status === 'success' && json.data) {
+        handleLoadSavedPayload(json.data);
+      }
+    } catch (e) {
+      console.error('Failed to load saved backtest by ID:', e);
+    }
+  };
+
   const loadSpecificResults = async (broker: string, symbol: string, timeframe: string, sl: string, rr: string, be: string) => {
     try {
       const url = `${API_BASE_URL}/api/backtest/results?broker=${broker.toLowerCase()}&symbol=${symbol.toUpperCase()}&timeframe=${timeframe}&sl=${sl}&rr=${rr}&be=${be}`;
@@ -2883,6 +2895,7 @@ export default function Dashboard() {
                       currentBacktestResults={backtestResults}
                       currentSymbol={symbol}
                       currentTimeframe={timeframe}
+                      onLoadSavedBacktest={handleLoadSavedBacktestById}
                     />
                     <TradeAnalyzerCard />
                   </div>
@@ -3414,6 +3427,7 @@ export default function Dashboard() {
                     currentBacktestResults={backtestResults}
                     currentSymbol={symbol}
                     currentTimeframe={timeframe}
+                    onLoadSavedBacktest={handleLoadSavedBacktestById}
                   />
                 </div>
 

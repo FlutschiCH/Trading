@@ -23,9 +23,10 @@ export interface SavedRunSummary {
 interface SavedRunsProps {
   onClose: () => void;
   onLoadSavedBacktest: (id: string) => void;
+  onAnalyzeBacktest?: (id: string) => void;
 }
 
-export default function SavedRuns({ onClose, onLoadSavedBacktest }: SavedRunsProps) {
+export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBacktest }: SavedRunsProps) {
   const STORAGE_KEY = 'saved_runs_filters';
 
   const [viewTab, setViewTab] = useState<'active' | 'archived'>('active');
@@ -635,6 +636,27 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest }: SavedRunsPro
                         >
                           ℹ️ More Infos
                         </button>
+                        {onAnalyzeBacktest && (
+                          <button
+                            onClick={() => {
+                              onAnalyzeBacktest(row.id);
+                              onClose();
+                            }}
+                            title="Analyze this run in Backtest AI Prompt Generator"
+                            style={{
+                              backgroundColor: '#7c3aed',
+                              color: '#ffffff',
+                              border: 'none',
+                              padding: '4px 8px',
+                              borderRadius: '4px',
+                              fontSize: '11px',
+                              cursor: 'pointer',
+                              fontWeight: 500
+                            }}
+                          >
+                            ✨ AI Prompt
+                          </button>
+                        )}
                         <button
                           onClick={() => onLoadSavedBacktest(row.id)}
                           style={{
