@@ -34,20 +34,22 @@ const BacktestEquityChart = ({ backtestResults, backtestBalance }: { backtestRes
       });
     }
 
-    if (points.length === 0) return;
-
     const seenTimes = new Set<number>();
     const cleanPoints: any[] = [];
     points.forEach(pt => {
       let t = typeof pt.time === 'number' ? pt.time : Math.floor(new Date(pt.time).getTime() / 1000);
-      if (isNaN(t)) t = Math.floor(Date.now() / 1000);
-      if (!seenTimes.has(t)) {
-        seenTimes.add(t);
-        cleanPoints.push({ time: t, value: pt.value, drawdown_pct: pt.drawdown_pct });
+      if (isNaN(t) || t === null || t === undefined) t = Math.floor(Date.now() / 1000);
+      const val = typeof pt.value === 'number' ? pt.value : parseFloat(pt.value);
+      if (!isNaN(val) && val !== null && val !== undefined && isFinite(val)) {
+        if (!seenTimes.has(t)) {
+          seenTimes.add(t);
+          cleanPoints.push({ time: t, value: val, drawdown_pct: pt.drawdown_pct });
+        }
       }
     });
 
     cleanPoints.sort((a, b) => a.time - b.time);
+    if (cleanPoints.length === 0) return;
 
     const chart = createChart(chartContainerRef.current, {
       layout: {

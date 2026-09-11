@@ -328,11 +328,28 @@ export default function TVChart({
     ? baseCandles
     : (lastValidCandlesRef.current.length > 0 ? lastValidCandlesRef.current : baseCandles);
 
-  // Deduplicate candles by timestamp to prevent duplicate stacking on Lightweight Charts
+  // Deduplicate and sanitize candles by timestamp to prevent duplicate stacking or invalid values on Lightweight Charts
   const currentDisplayCandles = React.useMemo(() => {
     if (!rawDisplayCandles || rawDisplayCandles.length === 0) return [];
     const map = new Map<number, any>();
-    rawDisplayCandles.forEach((c: any) => map.set(Number(c.time), c));
+    rawDisplayCandles.forEach((c: any) => {
+      const t = Number(c.time);
+      const o = Number(c.open);
+      const h = Number(c.high);
+      const l = Number(c.low);
+      const cl = Number(c.close);
+      if (!isNaN(t) && !isNaN(o) && !isNaN(h) && !isNaN(l) && !isNaN(cl)) {
+        map.set(t, {
+          ...c,
+          time: t,
+          open: o,
+          high: h,
+          low: l,
+          close: cl,
+          volume: c.volume !== undefined && c.volume !== null && !isNaN(Number(c.volume)) ? Number(c.volume) : 0,
+        });
+      }
+    });
     return Array.from(map.values()).sort((a: any, b: any) => Number(a.time) - Number(b.time));
   }, [rawDisplayCandles]);
 
@@ -1033,17 +1050,23 @@ export default function TVChart({
         const exitIdx = sortedTimes.indexOf(exitTs);
 
         if (entryIdx !== -1 && exitIdx !== -1) {
-          const pathPoints = sortedTimes.slice(entryIdx, exitIdx + 1).map((time, idx, arr) => {
-            const ratio = arr.length > 1 ? idx / (arr.length - 1) : 1;
-            const val = selectedTrade.entryPrice + (selectedTrade.exitPrice - selectedTrade.entryPrice) * ratio;
-            return { time, value: val };
-          });
+          const entryP = Number(selectedTrade.entryPrice);
+          const exitP = Number(selectedTrade.exitPrice);
+          if (!isNaN(entryP) && !isNaN(exitP) && isFinite(entryP) && isFinite(exitP)) {
+            const pathPoints = sortedTimes.slice(entryIdx, exitIdx + 1).map((time, idx, arr) => {
+              const ratio = arr.length > 1 ? idx / (arr.length - 1) : 1;
+              const val = entryP + (exitP - entryP) * ratio;
+              return { time, value: val };
+            }).filter(pt => !isNaN(pt.value) && isFinite(pt.value));
 
-          const isProfit = selectedTrade.pnl >= 0;
-          selectedTradePathSeriesRef.current.applyOptions({
-            color: isProfit ? '#10b981' : '#ef4444',
-          });
-          selectedTradePathSeriesRef.current.setData(pathPoints);
+            const isProfit = (selectedTrade.pnl || 0) >= 0;
+            selectedTradePathSeriesRef.current.applyOptions({
+              color: isProfit ? '#10b981' : '#ef4444',
+            });
+            selectedTradePathSeriesRef.current.setData(pathPoints);
+          } else {
+            selectedTradePathSeriesRef.current.setData([]);
+          }
         } else {
           selectedTradePathSeriesRef.current.setData([]);
         }
@@ -1909,8 +1932,12 @@ export default function TVChart({
 
     if (trHighSeriesRef.current && trLowSeriesRef.current) {
       if (hasAnalysis && chartSettings.showTrLines && !hasDetailedWyckoff) {
-        const highData = activeCandles.map(c => ({ time: c.time, value: c.tr_high || c.high }));
-        const lowData = activeCandles.map(c => ({ time: c.time, value: c.tr_low || c.low }));
+        const highData = activeCandles
+          .map(c => ({ time: c.time, value: Number(c.tr_high ?? c.high) }))
+          .filter(d => !isNaN(d.value) && d.value !== null && isFinite(d.value));
+        const lowData = activeCandles
+          .map(c => ({ time: c.time, value: Number(c.tr_low ?? c.low) }))
+          .filter(d => !isNaN(d.value) && d.value !== null && isFinite(d.value));
         trHighSeriesRef.current.setData(highData);
         trLowSeriesRef.current.setData(lowData);
       } else {
@@ -1937,14 +1964,23 @@ export default function TVChart({
           const resColor = (c.wyckoff_stage === 'ACCUMULATION' || c.wyckoff_stage === 'MARKUP') ? '#f59e0b' : stageColor;
 
           if (c.support_level !== undefined && c.support_level !== null) {
-            supportData.push({ time: c.time, value: c.support_level, color: supColor });
+            const val = Number(c.support_level);
+            if (!isNaN(val) && isFinite(val)) {
+              supportData.push({ time: c.time, value: val, color: supColor });
+            }
           }
           if (c.resistance_level !== undefined && c.resistance_level !== null) {
-            resistanceData.push({ time: c.time, value: c.resistance_level, color: resColor });
+            const val = Number(c.resistance_level);
+            if (!isNaN(val) && isFinite(val)) {
+              resistanceData.push({ time: c.time, value: val, color: resColor });
+            }
           }
         }
         if (c.sma_20 !== undefined && c.sma_20 !== null) {
-          smaData.push({ time: c.time, value: c.sma_20, color: stageColor });
+          const val = Number(c.sma_20);
+          if (!isNaN(val) && isFinite(val)) {
+            smaData.push({ time: c.time, value: val, color: stageColor });
+          }
         }
       });
 
