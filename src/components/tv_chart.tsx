@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { createChart, ColorType, CandlestickSeries, HistogramSeries, LineSeries, createSeriesMarkers } from 'lightweight-charts';
+import { createChart, ColorType, CandlestickSeries, HistogramSeries, LineSeries, createSeriesMarkers, CrosshairMode } from 'lightweight-charts';
 import type { ISeriesPrimitive, IPrimitivePaneView as SeriesPrimitivePaneView, IPrimitivePaneRenderer as SeriesPrimitivePaneRenderer } from 'lightweight-charts';
 import { Square, PenTool, Trash2, XCircle, RefreshCw, Maximize2, Minimize2, Settings, Play, Pause, SkipBack, SkipForward, X } from 'lucide-react';
 import { calculateDateBounds } from '../App';
@@ -1369,6 +1369,9 @@ export default function TVChart({
         vertLines: { color: gridColor },
         horzLines: { color: gridColor },
       },
+      crosshair: {
+        mode: CrosshairMode.Normal,
+      },
       handleScroll: {
         mouseWheel: true,
         pressedMouseMove: true,
@@ -1453,6 +1456,9 @@ export default function TVChart({
       grid: {
         vertLines: { color: gridColor },
         horzLines: { color: gridColor },
+      },
+      crosshair: {
+        mode: CrosshairMode.Normal,
       },
       handleScroll: {
         mouseWheel: true,
