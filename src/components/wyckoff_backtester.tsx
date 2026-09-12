@@ -2007,568 +2007,584 @@ export default function WyckoffBacktester({
           )}
         </CollapsibleCard>
 
-        <CollapsibleCard title="Risk Management" isCollapsed={collapsedSections.riskManagement} onToggle={() => toggleSection('riskManagement')}>
-          {/* Starting Balance & Fees */}
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '12px' }}>
-            <div style={styles.formGroup}>
-              <label style={{ color: '#9ca3af', fontSize: '11px' }}>Starting Balance ($)</label>
-              <input
-                type="number"
-                value={backtestBalance}
-                onChange={(e) => setBacktestBalance(e.target.value)}
-                style={styles.input}
-                min="100"
-              />
-            </div>
-
-            <div style={styles.formGroup}>
-              <label style={{ color: '#9ca3af', fontSize: '11px' }}>Fees per side (%)</label>
-              <input
-                type="number"
-                value={backtestFees}
-                onChange={(e) => setBacktestFees(e.target.value)}
-                style={styles.input}
-                step="0.01"
-                min="0.0"
-              />
-            </div>
-          </div>
-
-          {/* Position Size settings */}
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.2fr 0.8fr', gap: '12px', alignItems: 'end' }}>
-            <div style={{ ...styles.formGroup, justifyContent: 'center', height: '100%' }}>
-              <label style={{ color: '#9ca3af', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', margin: 0 }}>
-                <input
-                  type="checkbox"
-                  checked={useRiskSizing}
-                  onChange={(e) => setUseRiskSizing(e.target.checked)}
-                  style={{ cursor: 'pointer' }}
-                />
-                Auto Size by Risk
-              </label>
-            </div>
-
-            {useRiskSizing ? (
-              <div style={styles.formGroup}>
-                <label style={{ color: '#9ca3af', fontSize: '11px' }}>Risk %</label>
-                <input
-                  type="number"
-                  value={backtestRiskPct}
-                  onChange={(e) => setBacktestRiskPct(e.target.value)}
-                  style={styles.input}
-                  step="0.1"
-                  min="0.1"
-                  max="10.0"
-                />
-              </div>
-            ) : (
-              <div style={styles.formGroup}>
-                <label style={{ color: '#9ca3af', fontSize: '11px' }}>Qty (Size)</label>
-                <input
-                  type="number"
-                  value={backtestSize}
-                  onChange={(e) => setBacktestSize(e.target.value)}
-                  style={styles.input}
-                  step="0.1"
-                  min="0.1"
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Stop Loss & Profit Target (RR Ratio) */}
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '12px' }}>
-            {/* Stop Loss Field */}
-            <div style={styles.formGroup}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
-                <label style={{ color: '#9ca3af', fontSize: '11px' }}>Stop Loss</label>
+        <CollapsibleCard title="🛡️ Risk Management & Execution" isCollapsed={collapsedSections.riskManagement} onToggle={() => toggleSection('riskManagement')}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {/* Section 1: Account Capital & Position Sizing */}
+            <div style={{
+              backgroundColor: 'rgba(15, 23, 42, 0.65)',
+              border: '1px solid rgba(255, 255, 255, 0.07)',
+              borderRadius: '8px',
+              padding: '12px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  💵 Capital & Sizing
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setUseRiskSizing(!useRiskSizing)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: useRiskSizing ? 'rgba(56, 189, 248, 0.15)' : 'rgba(51, 65, 85, 0.5)',
+                    border: useRiskSizing ? '1px solid #38bdf8' : '1px solid #475569',
+                    borderRadius: '16px',
+                    padding: '3px 10px',
+                    fontSize: '10px',
+                    fontWeight: 600,
+                    color: useRiskSizing ? '#38bdf8' : '#94a3b8',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <span style={{
+                    width: '7px',
+                    height: '7px',
+                    borderRadius: '50%',
+                    backgroundColor: useRiskSizing ? '#38bdf8' : '#64748b'
+                  }} />
+                  {useRiskSizing ? 'Auto Risk Sizing (Active)' : 'Fixed Lot / Qty'}
+                </button>
               </div>
 
-              {!slRangeMode ? (
-                <div style={{ display: 'flex', gap: '4px' }}>
-                  <input
-                    type="number"
-                    value={backtestSL}
-                    onChange={(e) => setBacktestSL(e.target.value)}
-                    style={{ ...styles.input, flexGrow: 1, minWidth: 0 }}
-                    step={backtestSLType === 'pct' || backtestSLType === 'atr' ? '0.1' : '0.1'}
-                    min="0.00001"
-                  />
-                  <select
-                    value={backtestSLType}
-                    onChange={(e) => {
-                      const newType = e.target.value as 'pct' | 'price' | 'dollar' | 'atr';
-                      setUseRiskSizing(true);
-                      setBacktestSLType(newType);
-                      try {
-                        localStorage.setItem('wyckoff_backtest_sl_type', newType);
-                      } catch (err) {}
-                      setBacktestSL(newType === 'pct' ? '1.0' : (newType === 'dollar' ? '100' : (newType === 'atr' ? '1.5' : '1.0')));
-                    }}
-                    style={{
-                      ...styles.input,
-                      width: '75px',
-                      backgroundColor: '#1f2937',
-                      cursor: 'pointer',
-                      padding: '0 4px',
-                    }}
-                  >
-                    <option value="price">Price ($)</option>
-                    <option value="pct">%</option>
-                    <option value="dollar">Risk $</option>
-                    <option value="atr">xATR</option>
-                  </select>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: '10px' }}>
+                <div style={styles.formGroup}>
+                  <label style={{ color: '#94a3b8', fontSize: '10px', fontWeight: 600 }}>STARTING BALANCE</label>
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <span style={{ position: 'absolute', left: '10px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>$</span>
+                    <input
+                      type="number"
+                      value={backtestBalance}
+                      onChange={(e) => setBacktestBalance(e.target.value)}
+                      style={{ ...styles.input, paddingLeft: '24px', backgroundColor: 'rgba(30, 41, 59, 0.8)' }}
+                      min="100"
+                    />
+                  </div>
                 </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <div style={{ display: 'flex', gap: '3px' }}>
+
+                <div style={styles.formGroup}>
+                  <label style={{ color: '#94a3b8', fontSize: '10px', fontWeight: 600 }}>FEES / SIDE</label>
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                     <input
                       type="number"
-                      value={slStart}
-                      onChange={(e) => setSLStart(e.target.value)}
-                      style={{ ...styles.input, minWidth: 0, flex: 1, padding: '4px' }}
-                      placeholder="Start (1)"
-                      step="0.1"
+                      value={backtestFees}
+                      onChange={(e) => setBacktestFees(e.target.value)}
+                      style={{ ...styles.input, paddingRight: '24px', backgroundColor: 'rgba(30, 41, 59, 0.8)' }}
+                      step="0.01"
+                      min="0.0"
                     />
+                    <span style={{ position: 'absolute', right: '10px', color: '#64748b', fontSize: '11px', fontWeight: 600 }}>%</span>
+                  </div>
+                </div>
+
+                {useRiskSizing ? (
+                  <div style={styles.formGroup}>
+                    <label style={{ color: '#94a3b8', fontSize: '10px', fontWeight: 600 }}>RISK PER TRADE</label>
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                      <input
+                        type="number"
+                        value={backtestRiskPct}
+                        onChange={(e) => setBacktestRiskPct(e.target.value)}
+                        style={{ ...styles.input, paddingRight: '24px', backgroundColor: 'rgba(30, 41, 59, 0.8)', color: '#38bdf8', fontWeight: 600 }}
+                        step="0.1"
+                        min="0.1"
+                        max="10.0"
+                      />
+                      <span style={{ position: 'absolute', right: '10px', color: '#38bdf8', fontSize: '11px', fontWeight: 600 }}>%</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={styles.formGroup}>
+                    <label style={{ color: '#94a3b8', fontSize: '10px', fontWeight: 600 }}>FIXED SIZE (LOTS/QTY)</label>
                     <input
                       type="number"
-                      value={slEnd}
-                      onChange={(e) => setSLEnd(e.target.value)}
-                      style={{ ...styles.input, minWidth: 0, flex: 1, padding: '4px' }}
-                      placeholder="End (10)"
+                      value={backtestSize}
+                      onChange={(e) => setBacktestSize(e.target.value)}
+                      style={{ ...styles.input, backgroundColor: 'rgba(30, 41, 59, 0.8)', color: '#38bdf8', fontWeight: 600 }}
                       step="0.1"
+                      min="0.1"
                     />
-                    <input
-                      type="number"
-                      value={slStep}
-                      onChange={(e) => setSLStep(e.target.value)}
-                      style={{ ...styles.input, minWidth: 0, flex: 1, padding: '4px' }}
-                      placeholder="Step (0.5)"
-                      step="0.1"
-                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Section 2: Stop Loss & Take Profit Target */}
+            <div style={{
+              backgroundColor: 'rgba(15, 23, 42, 0.65)',
+              border: '1px solid rgba(255, 255, 255, 0.07)',
+              borderRadius: '8px',
+              padding: '12px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  🎯 Targets & Exits
+                </span>
+                <span style={{ fontSize: '10px', color: '#64748b' }}>
+                  SL Mode: {backtestSLType === 'atr' ? 'xATR' : (backtestSLType === 'dollar' ? 'Dollar Risk' : (backtestSLType === 'pct' ? 'Percentage' : 'Price Delta'))}
+                </span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '12px' }}>
+                {/* Stop Loss Field */}
+                <div style={styles.formGroup}>
+                  <label style={{ color: '#94a3b8', fontSize: '10px', fontWeight: 600 }}>STOP LOSS</label>
+                  {!slRangeMode ? (
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <input
+                        type="number"
+                        value={backtestSL}
+                        onChange={(e) => setBacktestSL(e.target.value)}
+                        style={{ ...styles.input, flexGrow: 1, minWidth: 0, backgroundColor: 'rgba(30, 41, 59, 0.8)' }}
+                        step="0.1"
+                        min="0.00001"
+                      />
+                      <select
+                        value={backtestSLType}
+                        onChange={(e) => {
+                          const newType = e.target.value as 'pct' | 'price' | 'dollar' | 'atr';
+                          setUseRiskSizing(true);
+                          setBacktestSLType(newType);
+                          try {
+                            localStorage.setItem('wyckoff_backtest_sl_type', newType);
+                          } catch (err) {}
+                          setBacktestSL(newType === 'pct' ? '1.0' : (newType === 'dollar' ? '100' : (newType === 'atr' ? '1.5' : '1.0')));
+                        }}
+                        style={{
+                          backgroundColor: 'rgba(30, 41, 59, 0.9)',
+                          border: '1px solid rgba(255, 255, 255, 0.1)',
+                          color: '#38bdf8',
+                          borderRadius: '6px',
+                          fontWeight: 600,
+                          fontSize: '11px',
+                          cursor: 'pointer',
+                          padding: '0 8px',
+                          minWidth: '78px'
+                        }}
+                      >
+                        <option value="price">Price ($)</option>
+                        <option value="pct">% Pct</option>
+                        <option value="dollar">Risk $</option>
+                        <option value="atr">xATR</option>
+                      </select>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        <input
+                          type="number"
+                          value={slStart}
+                          onChange={(e) => setSLStart(e.target.value)}
+                          style={{ ...styles.input, minWidth: 0, flex: 1, padding: '5px', backgroundColor: 'rgba(30, 41, 59, 0.8)' }}
+                          placeholder="Start"
+                          step="0.1"
+                        />
+                        <input
+                          type="number"
+                          value={slEnd}
+                          onChange={(e) => setSLEnd(e.target.value)}
+                          style={{ ...styles.input, minWidth: 0, flex: 1, padding: '5px', backgroundColor: 'rgba(30, 41, 59, 0.8)' }}
+                          placeholder="End"
+                          step="0.1"
+                        />
+                        <input
+                          type="number"
+                          value={slStep}
+                          onChange={(e) => setSLStep(e.target.value)}
+                          style={{ ...styles.input, minWidth: 0, flex: 1, padding: '5px', backgroundColor: 'rgba(30, 41, 59, 0.8)' }}
+                          placeholder="Step"
+                          step="0.1"
+                        />
+                        <select
+                          value={backtestSLType}
+                          onChange={(e) => {
+                            const newType = e.target.value as any;
+                            setBacktestSLType(newType);
+                            try {
+                              localStorage.setItem('wyckoff_backtest_sl_type', newType);
+                            } catch (err) {}
+                          }}
+                          style={{
+                            backgroundColor: 'rgba(30, 41, 59, 0.9)',
+                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                            color: '#38bdf8',
+                            borderRadius: '6px',
+                            fontWeight: 600,
+                            fontSize: '10px',
+                            cursor: 'pointer',
+                            padding: '0 4px',
+                            minWidth: '60px'
+                          }}
+                        >
+                          <option value="price">Price</option>
+                          <option value="pct">%</option>
+                          <option value="dollar">$</option>
+                          <option value="atr">xATR</option>
+                        </select>
+                      </div>
+                      <span style={{ fontSize: '10px', color: '#38bdf8', fontWeight: 600 }}>
+                        ⚡ SL Range: {slStart} → {slEnd} ({slCount} values)
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* RR Ratio Field */}
+                <div style={styles.formGroup}>
+                  <label style={{ color: '#94a3b8', fontSize: '10px', fontWeight: 600 }}>PROFIT TARGET (R:R RATIO)</label>
+                  {!rrRangeMode ? (
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                      <span style={{ position: 'absolute', left: '10px', color: '#64748b', fontSize: '11px', fontWeight: 600 }}>1 :</span>
+                      <input
+                        type="number"
+                        value={backtestRR}
+                        onChange={(e) => setBacktestRR(e.target.value)}
+                        style={{ ...styles.input, paddingLeft: '32px', backgroundColor: 'rgba(30, 41, 59, 0.8)', color: '#10b981', fontWeight: 600 }}
+                        step="0.1"
+                        min="0.5"
+                      />
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        <input
+                          type="number"
+                          value={activeRRStart}
+                          onChange={(e) => setActiveRRStart(e.target.value)}
+                          style={{ ...styles.input, minWidth: 0, flex: 1, padding: '5px', backgroundColor: 'rgba(30, 41, 59, 0.8)' }}
+                          placeholder="Start (0)"
+                          step="0.1"
+                        />
+                        <input
+                          type="number"
+                          value={activeRREnd}
+                          onChange={(e) => setActiveRREnd(e.target.value)}
+                          style={{ ...styles.input, minWidth: 0, flex: 1, padding: '5px', backgroundColor: 'rgba(30, 41, 59, 0.8)' }}
+                          placeholder="End (5)"
+                          step="0.1"
+                        />
+                        <input
+                          type="number"
+                          value={activeRRStep}
+                          onChange={(e) => setActiveRRStep(e.target.value)}
+                          style={{ ...styles.input, minWidth: 0, flex: 1, padding: '5px', backgroundColor: 'rgba(30, 41, 59, 0.8)' }}
+                          placeholder="Step (0.1)"
+                          step="0.1"
+                        />
+                      </div>
+                      <span style={{ fontSize: '10px', color: '#10b981', fontWeight: 600 }}>
+                        ⚡ RR Range: {activeRRStart} → {activeRREnd} ({rrCount} values, step {activeRRStep})
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Section 3: Break-Even Trigger & Offset */}
+            <div style={{
+              backgroundColor: 'rgba(15, 23, 42, 0.65)',
+              border: '1px solid rgba(255, 255, 255, 0.07)',
+              borderRadius: '8px',
+              padding: '12px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  🛡️ Break-Even Stop Loss
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setUseBreakEven(!useBreakEven)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: useBreakEven ? 'rgba(16, 185, 129, 0.15)' : 'rgba(51, 65, 85, 0.5)',
+                    border: useBreakEven ? '1px solid #10b981' : '1px solid #475569',
+                    borderRadius: '16px',
+                    padding: '3px 10px',
+                    fontSize: '10px',
+                    fontWeight: 600,
+                    color: useBreakEven ? '#10b981' : '#94a3b8',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <span style={{
+                    width: '7px',
+                    height: '7px',
+                    borderRadius: '50%',
+                    backgroundColor: useBreakEven ? '#10b981' : '#64748b'
+                  }} />
+                  {useBreakEven ? 'Enabled' : 'Disabled'}
+                </button>
+              </div>
+
+              {useBreakEven ? (
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '10px' }}>
+                  <div style={styles.formGroup}>
+                    <label style={{ color: '#94a3b8', fontSize: '10px', fontWeight: 600 }}>BE TRIGGER LEVEL (IN R)</label>
+                    {!beRangeMode ? (
+                      <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                        <input
+                          type="number"
+                          value={backtestBE}
+                          onChange={(e) => setBacktestBE(e.target.value)}
+                          style={{ ...styles.input, paddingRight: '24px', backgroundColor: 'rgba(30, 41, 59, 0.8)', color: '#38bdf8', fontWeight: 600 }}
+                          step="0.1"
+                          min="0.1"
+                          placeholder="e.g. 1.0"
+                        />
+                        <span style={{ position: 'absolute', right: '10px', color: '#38bdf8', fontSize: '11px', fontWeight: 600 }}>R</span>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                          <input
+                            type="number"
+                            value={beStart}
+                            onChange={(e) => setBEStart(e.target.value)}
+                            style={{ ...styles.input, minWidth: 0, flex: 1, padding: '5px', backgroundColor: 'rgba(30, 41, 59, 0.8)' }}
+                            placeholder="Start"
+                            step="0.1"
+                          />
+                          <input
+                            type="number"
+                            value={beEnd}
+                            onChange={(e) => setBEEnd(e.target.value)}
+                            style={{ ...styles.input, minWidth: 0, flex: 1, padding: '5px', backgroundColor: 'rgba(30, 41, 59, 0.8)' }}
+                            placeholder="End"
+                            step="0.1"
+                          />
+                          <input
+                            type="number"
+                            value={beStep}
+                            onChange={(e) => setBEStep(e.target.value)}
+                            style={{ ...styles.input, minWidth: 0, flex: 1, padding: '5px', backgroundColor: 'rgba(30, 41, 59, 0.8)' }}
+                            placeholder="Step"
+                            step="0.1"
+                          />
+                        </div>
+                        <span style={{ fontSize: '10px', color: '#38bdf8', fontWeight: 600 }}>
+                          ⚡ BE Range: {beStart}R → {beEnd}R ({beCount} values)
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={styles.formGroup}>
+                    <label style={{ color: '#94a3b8', fontSize: '10px', fontWeight: 600 }}>SL PLACEMENT AFTER TRIGGER</label>
                     <select
-                      value={backtestSLType}
+                      value={['half_r', 'zero_be'].includes(beOffsetMode) ? beOffsetMode : 'custom'}
                       onChange={(e) => {
-                        const newType = e.target.value as any;
-                        setBacktestSLType(newType);
-                        try {
-                          localStorage.setItem('wyckoff_backtest_sl_type', newType);
-                        } catch (err) {}
+                        const val = e.target.value;
+                        if (val === 'custom') {
+                          setBeOffsetMode && setBeOffsetMode('0.5');
+                        } else {
+                          setBeOffsetMode && setBeOffsetMode(val);
+                        }
                       }}
                       style={{
                         ...styles.input,
-                        width: '60px',
-                        backgroundColor: '#1f2937',
-                        cursor: 'pointer',
-                        padding: '0 2px',
+                        backgroundColor: 'rgba(30, 41, 59, 0.9)',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        color: '#38bdf8',
+                        fontWeight: 600,
+                        cursor: 'pointer'
                       }}
                     >
-                      <option value="price">Price</option>
-                      <option value="pct">%</option>
-                      <option value="dollar">$</option>
-                      <option value="atr">xATR</option>
+                      <option value="half_r">Half Trigger (Lock 0.5×Trigger)</option>
+                      <option value="zero_be">Exact Entry Price (0.0R Break-Even)</option>
+                      <option value="custom">Fixed Profit R-Offset</option>
                     </select>
-                  </div>
-                  <span style={{ fontSize: '9px', color: '#38bdf8' }}>
-                    ⚡ SL Range: {slStart} → {slEnd} ({slCount} values)
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* RR Ratio Field */}
-            <div style={styles.formGroup}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
-                <label style={{ color: '#9ca3af', fontSize: '11px' }}>RR Ratio</label>
-              </div>
-
-              {!rrRangeMode ? (
-                <input
-                  type="number"
-                  value={backtestRR}
-                  onChange={(e) => setBacktestRR(e.target.value)}
-                  style={styles.input}
-                  step="0.1"
-                  min="0.5"
-                />
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <div style={{ display: 'flex', gap: '3px' }}>
-                    <input
-                      type="number"
-                      value={activeRRStart}
-                      onChange={(e) => setActiveRRStart(e.target.value)}
-                      style={{ ...styles.input, minWidth: 0, flex: 1, padding: '4px' }}
-                      placeholder="Start (0)"
-                      step="0.1"
-                    />
-                    <input
-                      type="number"
-                      value={activeRREnd}
-                      onChange={(e) => setActiveRREnd(e.target.value)}
-                      style={{ ...styles.input, minWidth: 0, flex: 1, padding: '4px' }}
-                      placeholder="End (5)"
-                      step="0.1"
-                    />
-                    <input
-                      type="number"
-                      value={activeRRStep}
-                      onChange={(e) => setActiveRRStep(e.target.value)}
-                      style={{ ...styles.input, minWidth: 0, flex: 1, padding: '4px' }}
-                      placeholder="Step (0.1)"
-                      step="0.1"
-                    />
-                  </div>
-                  <span style={{ fontSize: '9px', color: '#38bdf8' }}>
-                    ⚡ RR Range: {activeRRStart} → {activeRREnd} ({rrCount} values, step {activeRRStep})
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Break Even controls & Sweep Lookback */}
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '85px 1fr', gap: '12px', alignItems: 'end' }}>
-            <div style={{ ...styles.formGroup, height: '100%', justifyContent: 'center' }}>
-              <label style={{ color: '#9ca3af', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', margin: 0, whiteSpace: 'nowrap' }}>
-                <input
-                  type="checkbox"
-                  checked={useBreakEven}
-                  onChange={(e) => setUseBreakEven(e.target.checked)}
-                  style={{ cursor: 'pointer' }}
-                />
-                Enable BE
-              </label>
-            </div>
-
-            {useBreakEven ? (
-              <div style={styles.formGroup}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
-                  <label style={{ color: '#9ca3af', fontSize: '11px' }}>BE Trigger (R)</label>
-                </div>
-
-                {!beRangeMode ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                      <input
-                        type="number"
-                        value={backtestBE}
-                        onChange={(e) => setBacktestBE(e.target.value)}
-                        style={{ ...styles.input, flex: '1 1 110px', minWidth: '80px' }}
-                        step="0.1"
-                        min="0.1"
-                        placeholder="BE Trigger (R)"
-                      />
-                      <select
-                        value={['half_r', 'zero_be'].includes(beOffsetMode) ? beOffsetMode : 'custom'}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (val === 'custom') {
-                            setBeOffsetMode && setBeOffsetMode('0.5');
-                          } else {
-                            setBeOffsetMode && setBeOffsetMode(val);
-                          }
-                        }}
-                        style={{
-                          ...styles.input,
-                          width: 'auto',
-                          flexShrink: 0,
-                          padding: '4px 6px',
-                          fontSize: '10px',
-                          backgroundColor: '#1e293b',
-                          borderColor: '#334155',
-                          color: '#38bdf8',
-                          cursor: 'pointer'
-                        }}
-                        title="Select SL Placement when BE triggers"
-                      >
-                        <option value="half_r">Half Trigger (0.5×Trigger)</option>
-                        <option value="zero_be">Exact Entry (0.0R)</option>
-                        <option value="custom">Fixed R Profit Offset</option>
-                      </select>
-                    </div>
 
                     {!['half_r', 'zero_be'].includes(beOffsetMode) && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <span style={{ fontSize: '10px', color: '#9ca3af', whiteSpace: 'nowrap' }}>Fixed Profit SL:</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
+                        <span style={{ fontSize: '10px', color: '#94a3b8' }}>Offset:</span>
                         <input
                           type="number"
                           value={beOffsetMode}
                           onChange={(e) => setBeOffsetMode && setBeOffsetMode(e.target.value)}
-                          style={{ ...styles.input, flex: 1, padding: '3px 6px', fontSize: '11px', color: '#38bdf8' }}
+                          style={{ ...styles.input, flex: 1, padding: '4px 8px', fontSize: '11px', color: '#38bdf8', backgroundColor: 'rgba(30, 41, 59, 0.8)' }}
                           step="0.1"
                           min="0"
-                          placeholder="e.g. 0.5R"
+                          placeholder="e.g. 0.5"
                         />
-                        <span style={{ fontSize: '10px', color: '#38bdf8' }}>R</span>
+                        <span style={{ fontSize: '10px', color: '#38bdf8', fontWeight: 600 }}>R</span>
                       </div>
                     )}
                   </div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <div style={{ display: 'flex', gap: '3px' }}>
-                      <input
-                        type="number"
-                        value={beStart}
-                        onChange={(e) => setBEStart(e.target.value)}
-                        style={{ ...styles.input, minWidth: 0, flex: 1, padding: '4px' }}
-                        placeholder="Start (1.0)"
-                        step="0.1"
-                      />
-                      <input
-                        type="number"
-                        value={beEnd}
-                        onChange={(e) => setBEEnd(e.target.value)}
-                        style={{ ...styles.input, minWidth: 0, flex: 1, padding: '4px' }}
-                        placeholder="End (3.0)"
-                        step="0.1"
-                      />
-                      <input
-                        type="number"
-                        value={beStep}
-                        onChange={(e) => setBEStep(e.target.value)}
-                        style={{ ...styles.input, minWidth: 0, flex: 1, padding: '4px' }}
-                        placeholder="Step (0.5)"
-                        step="0.1"
-                      />
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: '9px', color: '#38bdf8' }}>
-                        ⚡ BE Range: {beStart}R → {beEnd}R ({beCount} values)
-                      </span>
-                      <select
-                        value={['half_r', 'zero_be'].includes(beOffsetMode) ? beOffsetMode : 'custom'}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (val === 'custom') {
-                            setBeOffsetMode && setBeOffsetMode('0.5');
-                          } else {
-                            setBeOffsetMode && setBeOffsetMode(val);
-                          }
-                        }}
-                        style={{
-                          ...styles.input,
-                          width: 'auto',
-                          padding: '2px 4px',
-                          fontSize: '9px',
-                          backgroundColor: '#1e293b',
-                          borderColor: '#334155',
-                          color: '#38bdf8',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        <option value="half_r">Half Trigger</option>
-                        <option value="zero_be">Exact Entry (0.0R)</option>
-                        <option value="custom">Fixed Offset</option>
-                      </select>
-                    </div>
-                    {!['half_r', 'zero_be'].includes(beOffsetMode) && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '2px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: '9px', color: '#9ca3af' }}>Fixed Profit SL Offset:</span>
-                          <label style={{ color: '#cbd5e1', fontSize: '9px', display: 'flex', alignItems: 'center', gap: '3px', cursor: 'pointer' }}>
-                            <input
-                              type="checkbox"
-                              checked={beOffsetRangeMode}
-                              onChange={(e) => setGlobalRangeMode(e.target.checked)}
-                              style={{ cursor: 'pointer' }}
-                            />
-                            Offset Range
-                          </label>
-                        </div>
-                        {!beOffsetRangeMode ? (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <input
-                              type="number"
-                              value={beOffsetMode}
-                              onChange={(e) => setBeOffsetMode && setBeOffsetMode(e.target.value)}
-                              style={{ ...styles.input, flex: 1, padding: '2px 4px', fontSize: '10px', color: '#38bdf8' }}
-                              step="0.1"
-                              min="0"
-                            />
-                            <span style={{ fontSize: '9px', color: '#38bdf8' }}>R</span>
-                          </div>
-                        ) : (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                            <div style={{ display: 'flex', gap: '3px' }}>
-                              <input
-                                type="number"
-                                value={beOffsetStart}
-                                onChange={(e) => setBEOffsetStart(e.target.value)}
-                                style={{ ...styles.input, minWidth: 0, flex: 1, padding: '2px 4px', fontSize: '9px' }}
-                                placeholder="Start (0.1)"
-                                step="0.1"
-                              />
-                              <input
-                                type="number"
-                                value={beOffsetEnd}
-                                onChange={(e) => setBEOffsetEnd(e.target.value)}
-                                style={{ ...styles.input, minWidth: 0, flex: 1, padding: '2px 4px', fontSize: '9px' }}
-                                placeholder="End (1.0)"
-                                step="0.1"
-                              />
-                              <input
-                                type="number"
-                                value={beOffsetStep}
-                                onChange={(e) => setBEOffsetStep(e.target.value)}
-                                style={{ ...styles.input, minWidth: 0, flex: 1, padding: '2px 4px', fontSize: '9px' }}
-                                placeholder="Step (0.1)"
-                                step="0.1"
-                              />
-                            </div>
-                            <span style={{ fontSize: '9px', color: '#38bdf8' }}>
-                              ⚡ Offset Range: {beOffsetStart}R → {beOffsetEnd}R ({beOffsetCount} values)
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div style={styles.formGroup}>
-                <label style={{ color: '#9ca3af', fontSize: '11px' }}>Sweep Lookback</label>
-                <input
-                  type="number"
-                  value={lookbackWindow}
-                  onChange={(e) => setLookbackWindow(e.target.value)}
-                  style={styles.input}
-                  min="5"
-                  max="200"
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Allow Opposite Close setting */}
-          <div style={styles.formGroup}>
-            <label style={{ color: '#9ca3af', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', margin: 0 }}>
-              <input
-                type="checkbox"
-                checked={allowOppositeClose}
-                onChange={(e) => setAllowOppositeClose(e.target.checked)}
-                style={{ cursor: 'pointer' }}
-              />
-              Allow Opposite Signal to Close Trade
-            </label>
-          </div>
-
-          {/* Sweep Lookback & Daily Retry */}
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : (useBreakEven ? '1fr 1fr' : '1fr'), gap: '12px' }}>
-            {useBreakEven && (
-              <div style={styles.formGroup}>
-                <label style={{ color: '#9ca3af', fontSize: '11px' }}>Sweep Lookback (Bars)</label>
-                <input
-                  type="number"
-                  value={lookbackWindow}
-                  onChange={(e) => setLookbackWindow(e.target.value)}
-                  style={styles.input}
-                  min="5"
-                  max="200"
-                />
-              </div>
-            )}
-            <div style={styles.formGroup}>
-              <label style={{ color: '#9ca3af', fontSize: '11px' }}>Daily Retry Limit</label>
-              <input
-                type="number"
-                value={dailyRetryLimit}
-                onChange={(e) => {
-                  const val = Math.max(0, parseInt(e.target.value) || 0);
-                  setDailyRetryLimit(val.toString());
-                }}
-                style={styles.input}
-                min="0"
-                step="1"
-              />
-            </div>
-          </div>
-
-          {/* Entry Stability Rule */}
-          <div style={styles.formGroup}>
-            <label style={{ color: '#9ca3af', fontSize: '11px' }}>Entry Stability Rule</label>
-            <select
-              value={entryStabilityRule}
-              onChange={(e) => setEntryStabilityRule(e.target.value)}
-              style={styles.input}
-            >
-              <option value="default">Standard (Immediate Entry on Spring/Upthrust)</option>
-              <option value="confirmation">Bullish/Bearish Confirmation (Close above/below Signal High/Low)</option>
-              <option value="duration">Minimum Stage Duration (Accumulation/Distribution &gt;= 3 bars)</option>
-              <option value="both">Both Confirmation & Minimum Stage Duration</option>
-            </select>
-          </div>
-
-          {/* Daily First Signals Management (Skip / Reduced Risk) */}
-          <div style={{
-            backgroundColor: 'rgba(15, 23, 42, 0.6)',
-            border: '1px solid #334155',
-            borderRadius: '6px',
-            padding: '10px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '8px'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ color: '#f8fafc', fontSize: '11px', fontWeight: 600 }}>⚡ Daily First Signals Management</span>
-              {dailyFirstSignalsMode !== 'disabled' && (
-                <span style={{
-                  fontSize: '9px',
-                  backgroundColor: dailyFirstSignalsMode === 'skip' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(245, 158, 11, 0.2)',
-                  color: dailyFirstSignalsMode === 'skip' ? '#ef4444' : '#f59e0b',
-                  padding: '2px 6px',
-                  borderRadius: '4px',
-                  fontWeight: 600,
-                  textTransform: 'uppercase'
-                }}>
-                  {dailyFirstSignalsMode === 'skip' ? `Skip First ${dailyFirstSignalsCount}` : `First ${dailyFirstSignalsCount} @ ${(parseFloat(dailyFirstSignalsRiskMult) * 100).toFixed(0)}% Risk`}
-                </span>
+                </div>
+              ) : (
+                <div style={{ fontSize: '11px', color: '#64748b', fontStyle: 'italic' }}>
+                  Break-even protection is turned off. Positions will only exit on full Stop Loss or Take Profit target.
+                </div>
               )}
             </div>
 
-            <div style={styles.formGroup}>
-              <label style={{ color: '#9ca3af', fontSize: '10px' }}>Daily Initial Signals Mode (Candle Midnight Reset)</label>
-              <select
-                value={dailyFirstSignalsMode}
-                onChange={(e) => setDailyFirstSignalsMode(e.target.value as any)}
-                style={styles.input}
-              >
-                <option value="disabled">Disabled (Trade All Signals Normally)</option>
-                <option value="skip">Skip First X Signals of the Day</option>
-                <option value="reduced_risk">Reduced Risk for First X Signals of the Day</option>
-              </select>
-            </div>
+            {/* Section 4: Execution Rules & Confirmation */}
+            <div style={{
+              backgroundColor: 'rgba(15, 23, 42, 0.65)',
+              border: '1px solid rgba(255, 255, 255, 0.07)',
+              borderRadius: '8px',
+              padding: '12px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px'
+            }}>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                ⚙️ Execution Filters & Limits
+              </span>
 
-            {dailyFirstSignalsMode !== 'disabled' && (
-              <div style={{ display: 'grid', gridTemplateColumns: dailyFirstSignalsMode === 'reduced_risk' ? '1fr 1fr' : '1fr', gap: '8px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '10px' }}>
                 <div style={styles.formGroup}>
-                  <label style={{ color: '#9ca3af', fontSize: '10px' }}>First Signals Count (X)</label>
+                  <label style={{ color: '#94a3b8', fontSize: '10px', fontWeight: 600 }}>SWEEP LOOKBACK (BARS)</label>
                   <input
                     type="number"
-                    value={dailyFirstSignalsCount}
-                    onChange={(e) => setDailyFirstSignalsCount(Math.max(1, parseInt(e.target.value) || 1).toString())}
-                    style={styles.input}
-                    min="1"
-                    step="1"
+                    value={lookbackWindow}
+                    onChange={(e) => setLookbackWindow(e.target.value)}
+                    style={{ ...styles.input, backgroundColor: 'rgba(30, 41, 59, 0.8)' }}
+                    min="5"
+                    max="200"
                   />
                 </div>
-                {dailyFirstSignalsMode === 'reduced_risk' && (
-                  <div style={styles.formGroup}>
-                    <label style={{ color: '#9ca3af', fontSize: '10px' }}>Risk Multiplier (e.g. 0.5 = 50%)</label>
-                    <input
-                      type="number"
-                      value={dailyFirstSignalsRiskMult}
-                      onChange={(e) => setDailyFirstSignalsRiskMult(e.target.value)}
-                      style={styles.input}
-                      min="0.05"
-                      max="1.0"
-                      step="0.05"
-                    />
-                  </div>
+
+                <div style={styles.formGroup}>
+                  <label style={{ color: '#94a3b8', fontSize: '10px', fontWeight: 600 }}>DAILY RETRY LIMIT</label>
+                  <input
+                    type="number"
+                    value={dailyRetryLimit}
+                    onChange={(e) => {
+                      const val = Math.max(0, parseInt(e.target.value) || 0);
+                      setDailyRetryLimit(val.toString());
+                    }}
+                    style={{ ...styles.input, backgroundColor: 'rgba(30, 41, 59, 0.8)' }}
+                    min="0"
+                    step="1"
+                    placeholder="0 = unlimited"
+                  />
+                </div>
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={{ color: '#94a3b8', fontSize: '10px', fontWeight: 600 }}>ENTRY STABILITY RULE</label>
+                <select
+                  value={entryStabilityRule}
+                  onChange={(e) => setEntryStabilityRule(e.target.value)}
+                  style={{ ...styles.input, backgroundColor: 'rgba(30, 41, 59, 0.9)', border: '1px solid rgba(255, 255, 255, 0.1)' }}
+                >
+                  <option value="default">Standard (Immediate Entry on Spring / Upthrust)</option>
+                  <option value="confirmation">Bullish/Bearish Confirmation (Close above/below Signal High/Low)</option>
+                  <option value="duration">Minimum Stage Duration (Accumulation/Distribution &gt;= 3 bars)</option>
+                  <option value="both">Both Confirmation & Minimum Stage Duration</option>
+                </select>
+              </div>
+
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '8px 10px',
+                backgroundColor: 'rgba(30, 41, 59, 0.4)',
+                borderRadius: '6px',
+                border: '1px solid rgba(255, 255, 255, 0.05)'
+              }}>
+                <span style={{ color: '#cbd5e1', fontSize: '11px', fontWeight: 500 }}>
+                  Allow Opposite Signal to Close Open Position
+                </span>
+                <input
+                  type="checkbox"
+                  checked={allowOppositeClose}
+                  onChange={(e) => setAllowOppositeClose(e.target.checked)}
+                  style={{ cursor: 'pointer', width: '15px', height: '15px' }}
+                />
+              </div>
+            </div>
+
+            {/* Section 5: Daily First Signals Management */}
+            <div style={{
+              backgroundColor: 'rgba(15, 23, 42, 0.65)',
+              border: '1px solid rgba(255, 255, 255, 0.07)',
+              borderRadius: '8px',
+              padding: '12px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  ⚡ Daily Opening Signals
+                </span>
+                {dailyFirstSignalsMode !== 'disabled' && (
+                  <span style={{
+                    fontSize: '10px',
+                    backgroundColor: dailyFirstSignalsMode === 'skip' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(245, 158, 11, 0.2)',
+                    border: dailyFirstSignalsMode === 'skip' ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid rgba(245, 158, 11, 0.4)',
+                    color: dailyFirstSignalsMode === 'skip' ? '#f87171' : '#fbbf24',
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    fontWeight: 600,
+                    textTransform: 'uppercase'
+                  }}>
+                    {dailyFirstSignalsMode === 'skip' ? `Skip First ${dailyFirstSignalsCount}` : `First ${dailyFirstSignalsCount} @ ${(parseFloat(dailyFirstSignalsRiskMult) * 100).toFixed(0)}% Risk`}
+                  </span>
                 )}
               </div>
-            )}
+
+              <div style={styles.formGroup}>
+                <label style={{ color: '#94a3b8', fontSize: '10px', fontWeight: 600 }}>DAILY INITIAL SIGNALS MODE</label>
+                <select
+                  value={dailyFirstSignalsMode}
+                  onChange={(e) => setDailyFirstSignalsMode(e.target.value as any)}
+                  style={{ ...styles.input, backgroundColor: 'rgba(30, 41, 59, 0.9)', border: '1px solid rgba(255, 255, 255, 0.1)' }}
+                >
+                  <option value="disabled">Disabled (Trade All Signals Normally)</option>
+                  <option value="skip">Skip First X Signals of the Day</option>
+                  <option value="reduced_risk">Reduced Risk for First X Signals of the Day</option>
+                </select>
+              </div>
+
+              {dailyFirstSignalsMode !== 'disabled' && (
+                <div style={{ display: 'grid', gridTemplateColumns: dailyFirstSignalsMode === 'reduced_risk' ? '1fr 1fr' : '1fr', gap: '10px' }}>
+                  <div style={styles.formGroup}>
+                    <label style={{ color: '#94a3b8', fontSize: '10px', fontWeight: 600 }}>FIRST SIGNALS COUNT (X)</label>
+                    <input
+                      type="number"
+                      value={dailyFirstSignalsCount}
+                      onChange={(e) => setDailyFirstSignalsCount(Math.max(1, parseInt(e.target.value) || 1).toString())}
+                      style={{ ...styles.input, backgroundColor: 'rgba(30, 41, 59, 0.8)' }}
+                      min="1"
+                      step="1"
+                    />
+                  </div>
+                  {dailyFirstSignalsMode === 'reduced_risk' && (
+                    <div style={styles.formGroup}>
+                      <label style={{ color: '#94a3b8', fontSize: '10px', fontWeight: 600 }}>RISK MULTIPLIER</label>
+                      <input
+                        type="number"
+                        value={dailyFirstSignalsRiskMult}
+                        onChange={(e) => setDailyFirstSignalsRiskMult(e.target.value)}
+                        style={{ ...styles.input, backgroundColor: 'rgba(30, 41, 59, 0.8)', color: '#fbbf24', fontWeight: 600 }}
+                        min="0.05"
+                        max="1.0"
+                        step="0.05"
+                        placeholder="0.5 = 50%"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </CollapsibleCard>
 
