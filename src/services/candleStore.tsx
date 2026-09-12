@@ -197,15 +197,10 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           interval: timeframe,
           limit: reqLimit,
           account_id: activeAccId
-        };
-
-        const fetchTs = new Date();
         const reqGen = getCurrentGeneration();
-        console.log(`[CandleStore] [${fetchTs.toISOString()} (${fetchTs.getTime()}ms)] Firing /api/broker/candles request for ${candleSource} ${symbol} ${timeframe} (Gen: ${reqGen})`);
 
         const marketResult = await apiService.fetchTradeCandles(payload);
         if (getCurrentGeneration() !== reqGen) {
-          console.log(`[CandleStore] Stale candle response dropped (reqGen ${reqGen} !== current ${getCurrentGeneration()})`);
           return;
         }
         if (marketResult && marketResult.status === 'error') {
@@ -218,9 +213,6 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         } else if (Array.isArray(marketResult)) {
           rawCandles = marketResult.sort((a: Candle, b: Candle) => a.time - b.time);
         }
-        const returnTs = new Date();
-        console.log(`[CandleStore] [${returnTs.toISOString()} (${returnTs.getTime()}ms)] Received candles response: count=${rawCandles.length} status=${marketResult?.status || 'ok'}`);
-      }
 
       if (rawCandles.length > 0) {
         setCandles(prev => {
