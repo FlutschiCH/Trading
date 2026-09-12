@@ -184,14 +184,8 @@ def run_worker(job_id: str, is_resume: bool = False):
     last_progress_update = 0.0
 
     def progress_cb(pct):
-        nonlocal last_progress_update
-        try:
-            val = float(pct)
-            if val - last_progress_update >= 2.0 or val >= 100.0:
-                last_progress_update = val
-                send_local_update(progress=val, status='running', step_info=f"Running strategy analysis ({int(val)}%)...")
-        except Exception:
-            pass
+        # Match batch optimization handling: do not run blocking DB/HTTP I/O inside the candle analysis loop
+        pass
 
     try:
         symbol = params.get('symbol', 'BTCUSD')
