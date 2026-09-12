@@ -54,9 +54,26 @@ class SystemHandler:
                 except Exception:
                     pass
 
+            # 3. Launch detached restart.bat if on Windows
+            try:
+                if sys.platform == "win32":
+                    import subprocess
+                    root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                    restart_bat = os.path.join(root_dir, "restart.bat")
+                    if os.path.exists(restart_bat):
+                        print(f"[SystemHandler] Launching detached restarter: {restart_bat}...", flush=True)
+                        subprocess.Popen(
+                            ["cmd.exe", "/c", restart_bat],
+                            cwd=root_dir,
+                            creationflags=subprocess.CREATE_NEW_CONSOLE | getattr(subprocess, "DETACHED_PROCESS", 0x00000008),
+                            close_fds=True
+                        )
+            except Exception as launch_err:
+                print(f"[SystemHandler] Error launching restart.bat: {launch_err}", flush=True)
+
             time.sleep(1)
-            # Exit with code 12, which our autoupdater will recognize to restart and update
-            os._exit(12)
+            # Exit process cleanly to allow sockets and file handles to close
+            os._exit(0)
         
         # Run in a separate thread so the response can be returned to the client first
         threading.Thread(target=exit_func, daemon=True).start()
