@@ -41,7 +41,9 @@ from live_runner_handler import calculate_date_bounds
 
 class LiveWorker:
     def __init__(self, strategy_id: str):
-        self.strategy_id = strategy_id
+        self.strategy_id = str(strategy_id)
+        self.lock_file = None
+        self._acquire_instance_lock()
         self.running = True
         self.candles_cache = []
         self.trades_cache = []
@@ -49,6 +51,67 @@ class LiveWorker:
         self.cache_config_fingerprint = None
         self.http_failed = False
         self.last_heartbeat_time = 0
+
+    def _acquire_instance_lock(self):
+        """
+        Ensures only one LiveWorker process runs for a given strategy_id at any time.
+        If another instance is already running, this process exits immediately.
+        """
+        lock_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".worker_locks")
+        os.makedirs(lock_dir, exist_ok=True)
+        lock_path = os.path.join(lock_dir, f"live_worker_{self.strategy_id}.lock")
+
+        try:
+            self.lock_file = open(lock_path, "w+")
+            if sys.platform == "win32":
+                import msvcrt
+                try:
+                    msvcrt.locking(self.lock_file.fileno(), msvcrt.LK_NBLCK, 1)
+                except (IOError, OSError):
+                    print(f"{Fore.YELLOW}[LiveWorker Duplicate Check]{Style.RESET_ALL} Worker for Strategy {self.strategy_id} is already running in another process. Exiting...", flush=True)
+                    self.lock_file.close()
+                    sys.exit(0)
+            else:
+                import fcntl
+                try:
+                    fcntl.flock(self.lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except (IOError, OSError):
+                    print(f"{Fore.YELLOW}[LiveWorker Duplicate Check]{Style.RESET_ALL} Worker for Strategy {self.strategy_id} is already running in another process. Exiting...", flush=True)
+                    self.lock_file.close()
+                    sys.exit(0)
+
+            # Record current PID inside the lock file
+            self.lock_file.seek(0)
+            self.lock_file.truncate()
+            self.lock_file.write(str(os.getpid()))
+            self.lock_file.flush()
+
+        except Exception as ex:
+            print(f"{Fore.RED}[LiveWorker Lock Error]{Style.RESET_ALL} Failed to check/acquire lock for strategy {self.strategy_id}: {ex}", flush=True)
+
+    def _release_instance_lock(self):
+        """
+        Releases the single-instance lock upon exit.
+        """
+        if self.lock_file:
+            try:
+                if sys.platform == "win32":
+                    import msvcrt
+                    try:
+                        self.lock_file.seek(0)
+                        msvcrt.locking(self.lock_file.fileno(), msvcrt.LK_UNLCK, 1)
+                    except Exception:
+                        pass
+                else:
+                    import fcntl
+                    try:
+                        fcntl.flock(self.lock_file, fcntl.LOCK_UN)
+                    except Exception:
+                        pass
+                self.lock_file.close()
+            except Exception:
+                pass
+            self.lock_file = None
 
     def send_update_or_heartbeat(self, state_info: dict = None, status_msg: str = None):
         """
@@ -434,6 +497,7 @@ class LiveWorker:
             print(f"\n{Fore.YELLOW}[LiveWorker]{Style.RESET_ALL} Exit signal received. Stopping worker for {self.strategy_id}...", flush=True)
             self.running = False
             self.send_update_or_heartbeat(status_msg="stopped")
+            self._release_instance_lock()
             sys.exit(0)
 
         # OS Signal handlers
@@ -455,6 +519,7 @@ class LiveWorker:
                 def win_ctrl_handler(ctrl_type):
                     print(f"\n{Fore.YELLOW}[LiveWorker]{Style.RESET_ALL} Received console close signal ({ctrl_type}). Exiting...", flush=True)
                     self.running = False
+                    self._release_instance_lock()
                     sys.exit(0)
 
                 global _win_ctrl_handler_ref
