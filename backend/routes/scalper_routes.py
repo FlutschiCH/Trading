@@ -17,6 +17,8 @@ def evaluate_scalper():
         vol_multiplier = float(data.get('vol_multiplier', 3.0))
         min_wick_ratio = float(data.get('min_wick_ratio', 0.40))
 
+        print(f"\n🔍 [Scalper Evaluation Request] Symbol: {symbol} | Candles: {len(candles)} | Spread: {spread}p | Balance: ${balance} | ATR Multiplier: {atr_multiplier}x | Vol Multiplier: {vol_multiplier}x | Wick: {min_wick_ratio*100}%", flush=True)
+
         result = ScalperHandler.evaluate_market(
             candles=candles,
             state=state,
@@ -28,8 +30,10 @@ def evaluate_scalper():
             vol_multiplier=vol_multiplier,
             min_wick_ratio=min_wick_ratio
         )
+        print(f"📊 [Scalper Result] Action: {result.get('action')} | Status: {result.get('state', {}).get('status', 'IDLE')} | Reason: {result.get('reason', 'N/A')}\n", flush=True)
         return jsonify({"status": "success", "result": result}), 200
     except Exception as e:
+        print(f"❌ [Scalper Error] Exception during evaluation: {e}", flush=True)
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
