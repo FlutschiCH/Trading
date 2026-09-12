@@ -197,6 +197,7 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           interval: timeframe,
           limit: reqLimit,
           account_id: activeAccId
+        };
         const reqGen = getCurrentGeneration();
 
         const marketResult = await apiService.fetchTradeCandles(payload);
