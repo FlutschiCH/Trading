@@ -648,7 +648,9 @@ class StrategyHandler:
                     # Show progress bar during initial symbol/timeframe candle structure analysis
                     pass
 
-                print(f"[Optimization] Analyzing Wyckoff market structure for {s} ({tf}) on {len(candles)} candles...", flush=True)
+                from colorama import Fore, Style
+                candles_1m_enabled = tf.lower() not in ('1m', '1min')
+                print(f"\n{Fore.CYAN}[Backtest]{Style.RESET_ALL} Starting Wyckoff Structure Analysis backtest for {s} on {len(candles)} candles (1m Intrabar: {'Enabled' if candles_1m_enabled else 'Off'})...", flush=True)
                 analysis = StrategyHandler.analyze_market_data(
                     candles,
                     lookback=lookback_window,
