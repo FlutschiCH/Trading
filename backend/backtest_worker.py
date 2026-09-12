@@ -134,9 +134,12 @@ def run_worker(job_id: str, is_resume: bool = False):
 
     http_failed = False
 
+    worker_start_time = time.time()
+
     def send_local_update(progress: float = None, status: str = None, step_info: str = None, results: dict = None, est_sec: int = None):
         nonlocal http_failed
-        print(f"{Fore.CYAN}[BacktestWorker Update]{Style.RESET_ALL} Sending update for job {job_id}: status={status}, progress={progress}", flush=True)
+        elapsed_total = time.time() - worker_start_time
+        print(f"\n{Fore.CYAN}[BacktestWorker Update]{Style.RESET_ALL} [T+{elapsed_total:.2f}s] Job {job_id}: status={status}, progress={progress}%", flush=True)
         # Always update MySQL database directly first for ultimate reliability
         try:
             SQLHandler.update_backtest_job_progress(

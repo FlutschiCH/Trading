@@ -177,6 +177,7 @@ def run_trade_simulation(
 
     total_candles = len(annotated_data)
     last_percent = -1
+    start_sim_time = time.time()
     first_c = annotated_data[0] if annotated_data else {}
     last_c = annotated_data[-1] if annotated_data else {}
     try:
@@ -320,7 +321,10 @@ def run_trade_simulation(
                 bar_length = 20
                 filled_length = int(bar_length * percent // 100)
                 bar = '#' * filled_length + '-' * (bar_length - filled_length)
-                print(f"\r{Fore.CYAN}[Trade Simulation Progress]{Style.RESET_ALL} |{Fore.GREEN}{bar}{Style.RESET_ALL}| {percent}% ({i+1}/{total_candles})", end="" if percent < 100 and i < total_candles - 1 else "\n", flush=True)
+                elapsed_sim = max(0.001, time.time() - start_sim_time)
+                rate_sim = (i + 1) / elapsed_sim
+                rem_sim = max(0, int((total_candles - (i + 1)) / rate_sim)) if rate_sim > 0 else 0
+                print(f"\r{Fore.CYAN}[Trade Simulation Progress]{Style.RESET_ALL} |{Fore.GREEN}{bar}{Style.RESET_ALL}| {percent}% ({i+1}/{total_candles}) [{elapsed_sim:.1f}s | ~{int(rate_sim)} c/s | Rem: {rem_sim}s]", end="" if percent < 100 and i < total_candles - 1 else "\n", flush=True)
                 if progress_callback:
                     try:
                         progress_callback(50 + int(percent / 2))

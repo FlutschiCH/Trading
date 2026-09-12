@@ -82,6 +82,7 @@ class WyckoffStructure:
         last_upthrust_idx = -100
         last_percent = -1
         
+        start_analysis_time = time.time()
         for i in range(n):
             if progress_callback and n > 0:
                 percent = int(((i + 1) / n) * 100)
@@ -90,7 +91,10 @@ class WyckoffStructure:
                     bar_length = 20
                     filled_length = int(bar_length * percent // 100)
                     bar = '█' * filled_length + '-' * (bar_length - filled_length)
-                    print(f"\r[Wyckoff Analysis Progress] |{bar}| {percent}% ({i+1}/{n})", end="" if percent < 100 and i < n - 1 else "\n", flush=True)
+                    elapsed = max(0.001, time.time() - start_analysis_time)
+                    rate = (i + 1) / elapsed
+                    rem_sec = max(0, int((n - (i + 1)) / rate)) if rate > 0 else 0
+                    print(f"\r[Wyckoff Analysis Progress] |{bar}| {percent}% ({i+1}/{n}) [{elapsed:.1f}s | ~{int(rate)} c/s | Rem: {rem_sec}s]", end="" if percent < 100 and i < n - 1 else "\n", flush=True)
                     try:
                         progress_callback(percent)
                     except Exception:
