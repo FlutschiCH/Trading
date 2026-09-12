@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Zap, Target, AlertCircle, RefreshCw, Sliders, Play, CheckCircle2, Activity, Gauge } from 'lucide-react';
+import { Zap, Target, AlertCircle, RefreshCw, Sliders, Play, CheckCircle2, Activity, Gauge, BookOpen } from 'lucide-react';
 import { API_BASE_URL } from '../api';
 import DebugComponentBadge from './debug_component_badge';
 import DeployModal from './deploy_modal';
@@ -219,6 +219,29 @@ export const ScalperCard: React.FC<ScalperCardProps> = ({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <a
+            href="/how-to?tab=scalper"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              padding: '5px 10px',
+              borderRadius: '6px',
+              fontSize: '11px',
+              fontWeight: 600,
+              backgroundColor: 'rgba(56, 189, 248, 0.1)',
+              color: '#38bdf8',
+              border: '1px solid rgba(56, 189, 248, 0.25)',
+              textDecoration: 'none',
+              transition: 'all 0.2s'
+            }}
+            title="Open Strategy Guide & Formulas"
+          >
+            <BookOpen size={12} />
+            Guide & Rules
+          </a>
           <span style={{
             display: 'inline-flex',
             alignItems: 'center',

@@ -1,8 +1,41 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BookOpen, Layers, ShieldAlert, Award, Compass, Eye, ShieldCheck, Flame, RefreshCcw, Zap, Target, Sliders, Activity, Clock } from 'lucide-react';
 
 export default function HowToPage() {
-  const [activeTab, setActiveTab] = useState<'wyckoff' | 'scalper'>('wyckoff');
+  const getInitialTab = (): 'wyckoff' | 'scalper' => {
+    if (typeof window !== 'undefined') {
+      const searchParams = new URLSearchParams(window.location.search);
+      const tabParam = searchParams.get('tab');
+      if (tabParam === 'scalper' || window.location.hash === '#scalper') {
+        return 'scalper';
+      }
+    }
+    return 'wyckoff';
+  };
+
+  const [activeTab, setActiveTab] = useState<'wyckoff' | 'scalper'>(getInitialTab);
+
+  const handleTabChange = (tab: 'wyckoff' | 'scalper') => {
+    setActiveTab(tab);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', tab);
+      url.hash = tab;
+      window.history.replaceState(null, '', url.toString());
+    }
+  };
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setActiveTab(getInitialTab());
+    };
+    window.addEventListener('popstate', handlePopState);
+    window.addEventListener('hashchange', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('hashchange', handlePopState);
+    };
+  }, []);
 
   // Helper to parse simple markdown bold syntax (**text**) into styled span elements
   const renderTextWithMarkdown = (text: string) => {
@@ -208,14 +241,14 @@ export default function HowToPage() {
         <div style={styles.tabBar}>
           <button
             style={styles.tabButton(activeTab === 'wyckoff')}
-            onClick={() => setActiveTab('wyckoff')}
+            onClick={() => handleTabChange('wyckoff')}
           >
             <Layers size={16} />
             Wyckoff VSA & Weis Wave Strategy
           </button>
           <button
             style={styles.tabButton(activeTab === 'scalper')}
-            onClick={() => setActiveTab('scalper')}
+            onClick={() => handleTabChange('scalper')}
           >
             <Zap size={16} color={activeTab === 'scalper' ? '#eab308' : '#94a3b8'} />
             M1/M5 Liquidity Void & Reversal Scalper
