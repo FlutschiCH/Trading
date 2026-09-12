@@ -397,26 +397,6 @@ def run_worker(job_id: str, is_resume: bool = False):
 
             total_elapsed = round(time.time() - execution_start_time, 2)
             results_grid = res.get('results', []) if isinstance(res, dict) else []
-            try:
-                SQLHandler.save_backtest_run(
-                    backtest_id=f"opt_{job_id}",
-                    symbol=", ".join(symbols),
-                    timeframe=", ".join(timeframes),
-                    broker=candle_source,
-                    sl_val=0.0,
-                    sl_type='optimization',
-                    rr=0.0,
-                    be_trigger_r=0.0,
-                    net_pnl=0.0,
-                    win_rate=0.0,
-                    trades_cnt=len(results_grid),
-                    profit_factor=0.0,
-                    max_drawdown=0.0,
-                    payload_dict={"grid": results_grid, "total_duration_sec": total_elapsed}
-                )
-                print(f"{Fore.GREEN}[BacktestWorker SavedRun]{Style.RESET_ALL} Saved completed optimization run 'opt_{job_id}' ({len(results_grid)} combos) to MySQL saved_backtests table.", flush=True)
-            except Exception as save_err:
-                print(f"[BacktestWorker] Warning: Failed to save optimization run: {save_err}", flush=True)
 
             # Update job status via local HTTP callback to Flask in-memory cache and MySQL
             send_local_update(progress=100.0, status='completed', step_info='Finished', results=res if isinstance(res, dict) else {})
