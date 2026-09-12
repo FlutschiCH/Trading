@@ -774,65 +774,97 @@ export default function HowToPage() {
           {/* Section 2: Mathematical Formulas & Triggers */}
           <div style={styles.section}>
             <h2 style={styles.sectionTitle}>
-              <Sliders size={22} style={{ color: '#38bdf8' }} /> Mathematical Trigger Formulas & Sizing
+              <Sliders size={22} style={{ color: '#38bdf8' }} /> Mathematical Trigger Formulas: Wick Rejection vs. Big Candle
             </h2>
             
             <div style={styles.rowLayout}>
               <div style={styles.textContent}>
                 <p style={{ margin: 0 }}>
-                  {renderTextWithMarkdown("The engine evaluates both rejection wicks and full-body impulse expansions across dynamic ATR and volume thresholds:")}
+                  {renderTextWithMarkdown("Both patterns first require baseline volatility and volume surge (**Range ≥ 2.5x ATR(14)** and **Volume ≥ 3.0x SMA(20)**), but differ in how candle anatomy is calculated:")}
                 </p>
 
                 <div style={styles.formula}>
-                  Range = High - Low<br />
-                  Upper Wick % = (High - max(Open, Close)) / Range * 100<br />
-                  Lower Wick % = (min(Open, Close) - Low) / Range * 100<br />
-                  Body % = abs(Close - Open) / Range * 100<br />
-                  50% Retracement Level = Low + (High - Low) * 0.50<br />
-                  Stop Loss = Spike High + 2 pips (SELL) | Spike Low - 2 pips (BUY)<br />
-                  Lot Size = (Balance * Risk%) / (SL Distance * Pip Value)
+                  Total Candle Range = High - Low<br />
+                  Body Top = max(Open, Close) | Body Bottom = min(Open, Close)<br />
+                  Upper Wick Size = High - Body Top → Upper Wick % = (Upper Wick / Range) * 100<br />
+                  Lower Wick Size = Body Bottom - Low → Lower Wick % = (Lower Wick / Range) * 100<br />
+                  Body Size = Body Top - Body Bottom → Body % = (Body Size / Range) * 100<br />
+                  50% Retracement Target = Low + (Range * 0.50)
                 </div>
 
                 <div style={styles.grid}>
-                  <div style={{ backgroundColor: '#070a13', border: '1px solid #1e293b', borderRadius: '8px', padding: '12px' }}>
-                    <strong style={{ color: '#22c55e', fontSize: '12px' }}>🟢 Bullish Exhaustion (BUY Reversal)</strong>
-                    <p style={{ fontSize: '11px', margin: '4px 0 0 0', color: '#94a3b8' }}>
-                      {renderTextWithMarkdown("• **Pattern 1 (Wick)**: Downward spike with **Lower Wick ≥ 40%**.\n• **Pattern 2 (Big Candle)**: Outsized Bearish red candle (`Close < Open`, `Range ≥ 2.5x ATR`, `Vol ≥ 3.0x SMA`).\n• **Trigger**: Next candle close breaks above previous confirmation high.")}
+                  {/* Pattern 1 Card */}
+                  <div style={{ backgroundColor: '#070a13', border: '1px solid #1e293b', borderRadius: '8px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <strong style={{ color: '#38bdf8', fontSize: '13px' }}>🕯️ Pattern 1: Rejection Wick Spike</strong>
+                    <p style={{ fontSize: '11px', margin: 0, color: '#94a3b8', lineHeight: '1.5' }}>
+                      {renderTextWithMarkdown("• **Calculation**: Measures the proportion of the candle that was violently rejected back into the range.\n• **Bullish (BUY)**: `Lower Wick % ≥ 40%` (price dipped sharply down but buyers pushed it back up).\n• **Bearish (SELL)**: `Upper Wick % ≥ 40%` (price spiked sharply up but sellers crushed it back down).")}
                     </p>
                   </div>
 
-                  <div style={{ backgroundColor: '#070a13', border: '1px solid #1e293b', borderRadius: '8px', padding: '12px' }}>
-                    <strong style={{ color: '#ef4444', fontSize: '12px' }}>🔴 Bearish Exhaustion (SELL Reversal)</strong>
-                    <p style={{ fontSize: '11px', margin: '4px 0 0 0', color: '#94a3b8' }}>
-                      {renderTextWithMarkdown("• **Pattern 1 (Wick)**: Upward spike with **Upper Wick ≥ 40%**.\n• **Pattern 2 (Big Candle)**: Outsized Bullish green candle (`Close > Open`, `Range ≥ 2.5x ATR`, `Vol ≥ 3.0x SMA`).\n• **Trigger**: Next candle close breaks below previous confirmation low.")}
+                  {/* Pattern 2 Card */}
+                  <div style={{ backgroundColor: '#070a13', border: '1px solid #1e293b', borderRadius: '8px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <strong style={{ color: '#c084fc', fontSize: '13px' }}>🚀 Pattern 2: Big Candle Impulse (Liquidity Void)</strong>
+                    <p style={{ fontSize: '11px', margin: 0, color: '#94a3b8', lineHeight: '1.5' }}>
+                      {renderTextWithMarkdown("• **Calculation**: Measures an outsized full-body unidirectional expansion that overextends without a wick.\n• **Bullish (BUY)**: Big Red down-candle (`Close < Open` and `Body % ≥ 50%` or `Lower Wick < 40%`) creating an exhausted short vacuum.\n• **Bearish (SELL)**: Big Green up-candle (`Close > Open` and `Body % ≥ 50%` or `Upper Wick < 40%`) creating an exhausted buyer climax.")}
+                    </p>
+                  </div>
+                </div>
+
+                <div style={styles.grid}>
+                  <div style={{ backgroundColor: '#070a13', border: '1px solid rgba(34, 197, 94, 0.3)', borderRadius: '8px', padding: '12px' }}>
+                    <strong style={{ color: '#22c55e', fontSize: '12px' }}>🟢 Bullish Setups (Signal BUY)</strong>
+                    <p style={{ fontSize: '11px', margin: '4px 0 0 0', color: '#cbd5e1' }}>
+                      {renderTextWithMarkdown("Triggered when either **Lower Wick ≥ 40%** OR a **Big Bearish Candle** closes. **Entry**: Next candle breakout above the confirmation high.")}
+                    </p>
+                  </div>
+
+                  <div style={{ backgroundColor: '#070a13', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', padding: '12px' }}>
+                    <strong style={{ color: '#ef4444', fontSize: '12px' }}>🔴 Bearish Setups (Signal SELL)</strong>
+                    <p style={{ fontSize: '11px', margin: '4px 0 0 0', color: '#cbd5e1' }}>
+                      {renderTextWithMarkdown("Triggered when either **Upper Wick ≥ 40%** OR a **Big Bullish Candle** closes. **Entry**: Next candle breakout below the confirmation low.")}
                     </p>
                   </div>
                 </div>
               </div>
 
               <div style={styles.visualContent}>
-                <svg width="340" height="230" viewBox="0 0 340 230" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  {/* Bearish Spike Candle */}
-                  <line x1="80" y1="20" x2="80" y2="180" stroke="#f43f5e" strokeWidth="2" />
-                  <rect x="68" y="110" width="24" height="60" fill="#f43f5e" rx="2" />
-                  <text x="15" y="45" fill="#f43f5e" fontSize="9" fontFamily="monospace">Wick &gt; 40% OR Big Candle</text>
+                <svg width="340" height="250" viewBox="0 0 340 250" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  {/* Wick Pattern Illustration */}
+                  <g>
+                    <line x1="60" y1="30" x2="60" y2="190" stroke="#f43f5e" strokeWidth="2" />
+                    <rect x="48" y="120" width="24" height="60" fill="#f43f5e" rx="2" />
+                    <text x="30" y="20" fill="#38bdf8" fontSize="9" fontWeight="bold">Pattern 1: Wick (≥40%)</text>
+                    <line x1="60" y1="30" x2="85" y2="30" stroke="#38bdf8" strokeWidth="1" strokeDasharray="2 2" />
+                    <line x1="60" y1="120" x2="85" y2="120" stroke="#38bdf8" strokeWidth="1" strokeDasharray="2 2" />
+                    <text x="88" y="75" fill="#38bdf8" fontSize="8" fontFamily="monospace">Upper Wick</text>
+                  </g>
 
-                  {/* 50% TP Line */}
-                  <line x1="68" y1="100" x2="280" y2="100" stroke="#fbbf24" strokeWidth="1.5" strokeDasharray="3 3" />
-                  <text x="170" y="93" fill="#fbbf24" fontSize="10" fontFamily="monospace">50% Impulse TP Target</text>
+                  {/* Big Candle Pattern Illustration */}
+                  <g>
+                    <line x1="160" y1="30" x2="160" y2="190" stroke="#c084fc" strokeWidth="1.5" />
+                    <rect x="146" y="35" width="28" height="150" fill="#a855f7" rx="2" />
+                    <text x="130" y="20" fill="#c084fc" fontSize="9" fontWeight="bold">Pattern 2: Big Body (≥50%)</text>
+                    <text x="180" y="110" fill="#c084fc" fontSize="8" fontFamily="monospace">Large Body</text>
+                  </g>
+
+                  {/* 50% TP Line across both */}
+                  <line x1="40" y1="110" x2="300" y2="110" stroke="#fbbf24" strokeWidth="1.5" strokeDasharray="3 3" />
+                  <text x="210" y="105" fill="#fbbf24" fontSize="9" fontFamily="monospace">50% Retracement TP</text>
 
                   {/* SL Line */}
-                  <line x1="68" y1="15" x2="280" y2="15" stroke="#ef4444" strokeWidth="1.5" strokeDasharray="3 3" />
-                  <text x="170" y="12" fill="#ef4444" fontSize="10" fontFamily="monospace">SL (Spike High + 2 pips)</text>
+                  <line x1="40" y1="25" x2="300" y2="25" stroke="#ef4444" strokeWidth="1.5" strokeDasharray="3 3" />
+                  <text x="210" y="20" fill="#ef4444" fontSize="9" fontFamily="monospace">SL (Spike High + 2p)</text>
 
                   {/* Confirmation Trigger Candle */}
-                  <line x1="140" y1="105" x2="140" y2="185" stroke="#ef4444" strokeWidth="2" />
-                  <rect x="128" y="120" width="24" height="55" fill="#ef4444" rx="2" />
-                  <text x="110" y="200" fill="#38bdf8" fontSize="10" fontFamily="monospace">Entry: Breakout Close</text>
+                  <g>
+                    <line x1="255" y1="115" x2="255" y2="195" stroke="#ef4444" strokeWidth="2" />
+                    <rect x="243" y="130" width="24" height="55" fill="#ef4444" rx="2" />
+                    <text x="230" y="215" fill="#38bdf8" fontSize="9" fontFamily="monospace">Confirmation</text>
+                  </g>
 
                   {/* Retracement Path */}
-                  <path d="M140,175 L180,140 L220,100" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" markerEnd="url(#arrow)" />
-                  <circle cx="220" cy="100" r="4" fill="#22c55e" />
+                  <path d="M255,185 L280,150 L280,110" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" markerEnd="url(#arrow)" />
+                  <circle cx="280" cy="110" r="4" fill="#22c55e" />
                 </svg>
               </div>
             </div>
