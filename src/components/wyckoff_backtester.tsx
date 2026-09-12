@@ -2028,6 +2028,9 @@ export default function WyckoffBacktester({
                       const newType = e.target.value as 'pct' | 'price' | 'dollar' | 'atr';
                       setUseRiskSizing(true);
                       setBacktestSLType(newType);
+                      try {
+                        localStorage.setItem('wyckoff_backtest_sl_type', newType);
+                      } catch (err) {}
                       setBacktestSL(newType === 'pct' ? '1.0' : (newType === 'dollar' ? '100' : (newType === 'atr' ? '1.5' : '1.0')));
                     }}
                     style={{
@@ -2073,7 +2076,13 @@ export default function WyckoffBacktester({
                     />
                     <select
                       value={backtestSLType}
-                      onChange={(e) => setBacktestSLType(e.target.value as any)}
+                      onChange={(e) => {
+                        const newType = e.target.value as any;
+                        setBacktestSLType(newType);
+                        try {
+                          localStorage.setItem('wyckoff_backtest_sl_type', newType);
+                        } catch (err) {}
+                      }}
                       style={{
                         ...styles.input,
                         width: '60px',
