@@ -164,6 +164,7 @@ class LiveRunner:
             if existing_proc and existing_proc.poll() is None:
                 return existing_proc
 
+            python_exe = sys.executable
             strat = LiveStrategyHandler.get_strategy(strategy_id)
             is_scalper = False
             if strat:
