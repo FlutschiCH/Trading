@@ -1,4 +1,5 @@
-from datetime import datetime, timezone as pytimezone, time
+from datetime import datetime, timezone as pytimezone, time as dt_time
+import time as time_module
 
 def get_candle_datetime(ts: float, tz_str: str) -> datetime:
     """
@@ -28,8 +29,8 @@ def is_datetime_in_sessions(dt: datetime, sessions_list: list) -> tuple:
         except ValueError:
             continue
         
-        start_time = time(sh, sm)
-        end_time = time(eh, em)
+        start_time = dt_time(sh, sm)
+        end_time = dt_time(eh, em)
         if start_time <= end_time:
             if start_time <= time_val <= end_time:
                 return True, s
@@ -55,8 +56,8 @@ def is_in_specific_session(dt: datetime, s: dict) -> bool:
     except ValueError:
         return False
     
-    start_time = time(sh, sm)
-    end_time = time(eh, em)
+    start_time = dt_time(sh, sm)
+    end_time = dt_time(eh, em)
     if start_time <= end_time:
         return start_time <= time_val <= end_time
     else:
@@ -177,7 +178,7 @@ def run_trade_simulation(
 
     total_candles = len(annotated_data)
     last_percent = -1
-    start_sim_time = time.time()
+    start_sim_time = time_module.time()
     first_c = annotated_data[0] if annotated_data else {}
     last_c = annotated_data[-1] if annotated_data else {}
     try:
