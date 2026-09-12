@@ -339,6 +339,40 @@ class ScalperHandler:
         log_msg = f"[{symbol}] Checked last candle (Close: {candle_close:.5f}) | Range: {range_pips:.1f}p ({range_atr_ratio:.1f}x ATR) | Vol: {candle_vol:.0f} ({vol_ratio:.1f}x SMA) | UpperWick: {c_upper_wick_pct:.0f}%, LowerWick: {c_lower_wick_pct:.0f}% | Spread: {current_spread_pips:.2f}p | Exhaustion: {exhaustion_info.get('is_exhaustion', False)}"
         logPrint(log_msg, category="Scalper", level="INFO")
 
+        # Check if an exhaustion candle was just discovered
+        if exhaustion_info and exhaustion_info.get("is_exhaustion"):
+            spike_time = exhaustion_info.get("spike_time")
+            last_notified_spike = state.get("last_notified_spike")
+
+            if spike_time and spike_time != last_notified_spike:
+                state["last_notified_spike"] = spike_time
+                dir_emoji = "🟢 📈 BULLISH" if exhaustion_info.get("direction") == "BUY" else "🔴 📉 BEARISH"
+                wick_pct = (exhaustion_info.get('lower_wick_ratio', 0) if exhaustion_info.get('direction') == 'BUY' else exhaustion_info.get('upper_wick_ratio', 0)) * 100
+
+                discord_msg = (
+                    f"⚡ **M1 Liquidity Void / Exhaustion Spike Detected!**\n"
+                    f"📊 **Symbol:** `{symbol}`\n"
+                    f"🧭 **Impulse Direction:** {dir_emoji}\n"
+                    f"📏 **Range:** `{range_pips:.1f} pips` (`{range_atr_ratio:.1f}x ATR`)\n"
+                    f"📦 **Volume:** `{candle_vol:.0f}` (`{vol_ratio:.1f}x SMA`)\n"
+                    f"🕯️ **Rejection Wick:** `{wick_pct:.1f}%`\n"
+                    f"🎯 **50% Retracement Target:** `{exhaustion_info.get('retracement_50', 0):.5f}`\n"
+                    f"🛡️ **Spread:** `{current_spread_pips:.2f} pips`\n"
+                    f"⏳ **Status:** `ARMED` (Awaiting confirmation breakout)"
+                )
+
+                try:
+                    from notification_handler import NotificationHandler
+                    NotificationHandler.send_notification(discord_msg, sound_type="alert")
+                    NotificationHandler.send_web_push(
+                        title=f"⚡ {exhaustion_info.get('direction')} Exhaustion: {symbol}",
+                        body=f"Range: {range_pips:.1f}p ({range_atr_ratio:.1f}x ATR) | Wick: {wick_pct:.0f}% | Awaiting breakout",
+                        url="/dashboard"
+                    )
+                    logPrint(f"🔔 Sent Discord & Mobile Push notification for {symbol} exhaustion spike at {candle_close:.5f}", category="Scalper", level="INFO")
+                except Exception as notif_err:
+                    logPrint(f"Failed to dispatch scalper notification: {notif_err}", category="Scalper", level="WARNING")
+
         current_candle = candles[-1]
         should_buy, should_sell, updated_state = SignalEngine.process_step(
             current_candle=current_candle,
