@@ -52,6 +52,12 @@ def check_interrupted_backtests():
                     continue
                 SQLHandler.update_backtest_job_progress(job_id, status='running', step_info='Resuming worker process post server restart...')
                 cmd = [python_executable, worker_script, '--job_id', str(job_id), '--resume']
+                try:
+                    from system_handler import SystemHandler
+                    if SystemHandler.get_quick_edit().get('enabled'):
+                        cmd.append('--quickedit')
+                except Exception:
+                    pass
                 subprocess.Popen(cmd, creationflags=subprocess.CREATE_NEW_CONSOLE if os.name == 'nt' else 0)
                 print(f"{Fore.CYAN}[Reboot Recovery]{Style.RESET_ALL} Automatically resumed backtest worker for job_id={job_id}", flush=True)
     except Exception as e:

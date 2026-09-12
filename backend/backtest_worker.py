@@ -8,7 +8,7 @@ import atexit
 from colorama import init, Fore, Style
 init(autoreset=True)
 
-def disable_quick_edit():
+def set_console_quick_edit(enabled: bool):
     if sys.platform == "win32":
         try:
             import ctypes
@@ -16,12 +16,13 @@ def disable_quick_edit():
             h_input = kernel32.GetStdHandle(-10)
             mode = ctypes.c_ulong()
             if kernel32.GetConsoleMode(h_input, ctypes.byref(mode)):
-                new_mode = (mode.value & ~0x0040) | 0x0080
+                if enabled:
+                    new_mode = (mode.value | 0x0040) | 0x0080
+                else:
+                    new_mode = (mode.value & ~0x0040) | 0x0080
                 kernel32.SetConsoleMode(h_input, new_mode)
         except Exception:
             pass
-
-disable_quick_edit()
 
 # Ensure backend root directory is in sys.path
 backend_dir = os.path.dirname(os.path.abspath(__file__))
@@ -438,7 +439,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Standalone Backtest Worker Process")
     parser.add_argument('--job_id', type=str, required=True, help="Job ID to execute")
     parser.add_argument('--resume', action='store_true', help="Resume execution from checkpoint")
+    parser.add_argument('--quickedit', action='store_true', default=False, help="Enable Windows Console QuickEdit mode for debugging")
     args = parser.parse_args()
 
+    set_console_quick_edit(args.quickedit)
     run_worker(job_id=args.job_id, is_resume=args.resume)
 

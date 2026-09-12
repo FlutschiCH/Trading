@@ -9,7 +9,7 @@ from datetime import datetime
 from colorama import init, Fore, Style
 init(autoreset=True)
 
-def disable_quick_edit():
+def set_console_quick_edit(enabled: bool):
     if sys.platform == "win32":
         try:
             import ctypes
@@ -17,12 +17,13 @@ def disable_quick_edit():
             h_input = kernel32.GetStdHandle(-10)
             mode = ctypes.c_ulong()
             if kernel32.GetConsoleMode(h_input, ctypes.byref(mode)):
-                new_mode = (mode.value & ~0x0040) | 0x0080
+                if enabled:
+                    new_mode = (mode.value | 0x0040) | 0x0080
+                else:
+                    new_mode = (mode.value & ~0x0040) | 0x0080
                 kernel32.SetConsoleMode(h_input, new_mode)
         except Exception:
             pass
-
-disable_quick_edit()
 
 # Ensure backend root directory is in sys.path
 backend_dir = os.path.dirname(os.path.abspath(__file__))
@@ -773,7 +774,9 @@ class LiveWorker:
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Standalone Live Strategy Worker Process")
     parser.add_argument('--strategy_id', type=str, required=True, help="Strategy ID to run")
+    parser.add_argument('--quickedit', action='store_true', default=False, help="Enable Windows Console QuickEdit mode for debugging")
     args = parser.parse_args()
 
+    set_console_quick_edit(args.quickedit)
     worker = LiveWorker(strategy_id=args.strategy_id)
     worker.run()

@@ -157,6 +157,12 @@ def resume_backtest_job(job_id):
     python_executable = sys.executable
     worker_script = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'backtest_worker.py')
     cmd = [python_executable, worker_script, '--job_id', str(job_id), '--resume']
+    try:
+        from system_handler import SystemHandler
+        if SystemHandler.get_quick_edit().get('enabled'):
+            cmd.append('--quickedit')
+    except Exception:
+        pass
 
     SQLHandler.update_backtest_job_progress(str(job_id), status='running', step_info='Resuming worker process...')
     subprocess.Popen(cmd, creationflags=subprocess.CREATE_NEW_CONSOLE if os.name == 'nt' else 0)
@@ -195,6 +201,12 @@ def backtest():
     python_executable = sys.executable
     worker_script = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'backtest_worker.py')
     cmd = [python_executable, worker_script, '--job_id', str(job_id)]
+    try:
+        from system_handler import SystemHandler
+        if SystemHandler.get_quick_edit().get('enabled'):
+            cmd.append('--quickedit')
+    except Exception:
+        pass
 
     subprocess.Popen(cmd, creationflags=subprocess.CREATE_NEW_CONSOLE if os.name == 'nt' else 0)
 
@@ -302,6 +314,12 @@ def backtest_optimize():
     python_executable = sys.executable
     worker_script = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'backtest_worker.py')
     cmd = [python_executable, worker_script, '--job_id', str(job_id)]
+    try:
+        from system_handler import SystemHandler
+        if SystemHandler.get_quick_edit().get('enabled'):
+            cmd.append('--quickedit')
+    except Exception:
+        pass
 
     subprocess.Popen(cmd, creationflags=subprocess.CREATE_NEW_CONSOLE if os.name == 'nt' else 0)
 

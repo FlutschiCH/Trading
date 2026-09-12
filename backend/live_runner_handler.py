@@ -167,6 +167,12 @@ class LiveRunner:
             python_exe = sys.executable
             worker_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "live_worker.py")
             cmd = [python_exe, worker_script, "--strategy_id", str(strategy_id)]
+            try:
+                from system_handler import SystemHandler
+                if SystemHandler.get_quick_edit().get('enabled'):
+                    cmd.append("--quickedit")
+            except Exception:
+                pass
 
             try:
                 if sys.platform == "win32":
