@@ -74,8 +74,8 @@ class SystemHandler:
                 print(f"[SystemHandler] Error launching restart.bat: {launch_err}", flush=True)
 
             time.sleep(1)
-            # Exit process cleanly to allow sockets and file handles to close
-            os._exit(0)
+            # Exit with code 99 so any parent autoupdate.py / run_autoupdate.bat terminates completely instead of auto-looping
+            os._exit(99)
         
         # Run in a separate thread so the response can be returned to the client first
         threading.Thread(target=exit_func, daemon=True).start()
