@@ -162,6 +162,16 @@ class StrategyHandler:
         if c.get('indicator_sell_valid') is False:
             should_sell = False
 
+        # HTF EMA Trend Filter (Longs require Close > HTF EMA; Shorts require Close < HTF EMA)
+        if c.get('htf_ema_enabled'):
+            htf_ema_val = c.get('htf_ema')
+            if htf_ema_val is not None and not pd.isna(htf_ema_val):
+                close_price = float(c.get('close', 0))
+                if close_price <= float(htf_ema_val):
+                    should_buy = False
+                if close_price >= float(htf_ema_val):
+                    should_sell = False
+
         # Daily Initial Signals (First X of Day: Skip or Reduced Risk based on candle-time midnight)
         if should_buy or should_sell:
             daily_signals_count[date_str] = daily_signals_count.get(date_str, 0) + 1
@@ -196,10 +206,19 @@ class StrategyHandler:
         return should_buy, should_sell, state
 
     @staticmethod
-    def analyze_market_data(bars_list: list, lookback: int = 20, progress_callback=None, indicator_rules: list = None) -> dict:
+    def analyze_market_data(
+        bars_list: list,
+        lookback: int = 20,
+        progress_callback=None,
+        indicator_rules: list = None,
+        htf_candles: list = None,
+        htf_ema_enabled: bool = False,
+        htf_ema_period: int = 200
+    ) -> dict:
         """
         Takes raw candlestick data, runs Wyckoff structure analysis,
-        evaluates indicator rules layer, and returns the annotated dataset.
+        evaluates indicator rules layer, calculates optional HTF EMA trend filter,
+        and returns the annotated dataset.
         """
         if not bars_list:
             return {"status": "success", "data": [], "fvgs": []}
@@ -219,6 +238,18 @@ class StrategyHandler:
                     for idx, c in enumerate(wyckoff_candles):
                         c['indicator_buy_valid'] = bool(buy_mask.iloc[idx])
                         c['indicator_sell_valid'] = bool(sell_mask.iloc[idx])
+
+                # Calculate and annotate progressive HTF EMA if enabled and htf_candles provided
+                if htf_ema_enabled and htf_candles and len(htf_candles) > 0:
+                    htf_df = pd.DataFrame(htf_candles)
+                    htf_ema_series = IndicatorHandler.htf_ema(df, htf_df, period=int(htf_ema_period), column='close')
+                    for idx, c in enumerate(wyckoff_candles):
+                        ema_val = htf_ema_series.iloc[idx]
+                        c['htf_ema_enabled'] = True
+                        c['htf_ema'] = float(ema_val) if not pd.isna(ema_val) else None
+                elif htf_ema_enabled:
+                    for c in wyckoff_candles:
+                        c['htf_ema_enabled'] = True
             except Exception as e:
                 print(f"[StrategyHandler] Warning: indicator calculation failed: {e}", flush=True)
 
@@ -258,14 +289,19 @@ class StrategyHandler:
         daily_first_signals_mode: str = 'disabled',
         daily_first_signals_count: int = 0,
         daily_first_signals_risk_mult: float = 0.5,
-        candles_1m: list = None
+        candles_1m: list = None,
+        htf_candles: list = None,
+        htf_ema_enabled: bool = False,
+        htf_ema_period: int = 200,
+        htf_ema_timeframe: str = '4h'
     ) -> dict:
         """
         Runs the full Wyckoff structure analysis backtest in Python.
         """
         tf = timeframe
         from colorama import Fore, Style
-        print(f"\n{Fore.CYAN}[Backtest]{Style.RESET_ALL} Starting Wyckoff Structure Analysis backtest for {symbol} on {len(candles)} candles (1m Intrabar: {'Enabled' if candles_1m else 'Off'})...", flush=True)
+        htf_str = f" | HTF EMA: {htf_ema_timeframe} {htf_ema_period} EMA" if htf_ema_enabled else ""
+        print(f"\n{Fore.CYAN}[Backtest]{Style.RESET_ALL} Starting Wyckoff Structure Analysis backtest for {symbol} on {len(candles)} candles (1m Intrabar: {'Enabled' if candles_1m else 'Off'}{htf_str})...", flush=True)
         
         # Sanitize Break-Even vs RR (Break-Even cannot be >= RR)
         if use_break_even and be_trigger_r >= rr:
@@ -277,7 +313,15 @@ class StrategyHandler:
         if progress_callback:
             wrapped_cb = lambda p: progress_callback(int(p / 2))
             
-        analysis = StrategyHandler.analyze_market_data(candles, lookback=lookback_window, progress_callback=wrapped_cb, indicator_rules=indicator_rules)
+        analysis = StrategyHandler.analyze_market_data(
+            candles,
+            lookback=lookback_window,
+            progress_callback=wrapped_cb,
+            indicator_rules=indicator_rules,
+            htf_candles=htf_candles,
+            htf_ema_enabled=htf_ema_enabled,
+            htf_ema_period=htf_ema_period
+        )
         annotated_data = list(analysis.get('data', []))
         
         # 2. Run Trade Simulation (50% to 100% progress)
@@ -353,6 +397,9 @@ class StrategyHandler:
                     "global_close_time": global_close_time,
                     "entry_stability_rule": entry_stability_rule,
                     "indicator_rules": indicator_rules,
+                    "htf_ema_enabled": htf_ema_enabled,
+                    "htf_ema_period": htf_ema_period,
+                    "htf_ema_timeframe": htf_ema_timeframe,
                     "limit": len(annotated_data)
                 },
                 "metrics": {
@@ -464,7 +511,11 @@ class StrategyHandler:
         be_offset_step: float = None,
         daily_first_signals_mode: str = 'disabled',
         daily_first_signals_count: int = 0,
-        daily_first_signals_risk_mult: float = 0.5
+        daily_first_signals_risk_mult: float = 0.5,
+        htf_ema_enabled: bool = False,
+        htf_ema_period: int = 200,
+        htf_ema_timeframe: str = '4h',
+        htf_ema_range_mode: bool = False
     ) -> dict:
         """
         Runs Wyckoff parameter grid search optimization, fetching candles dynamically and executing simulations.
@@ -511,6 +562,12 @@ class StrategyHandler:
         else:
             be_offset_values = [be_offset_mode]
 
+        # Generate HTF EMA binary range values (On / Off)
+        if htf_ema_range_mode:
+            htf_ema_modes = [False, True]
+        else:
+            htf_ema_modes = [htf_ema_enabled]
+
         symbols_list = symbols if (symbols and len(symbols) > 0) else [symbol]
         timeframes_list = timeframes if (timeframes and len(timeframes) > 0) else [timeframe]
 
@@ -523,17 +580,21 @@ class StrategyHandler:
                     for rr in rr_values:
                         for be in be_values:
                             for be_off in be_offset_values:
-                                if use_break_even and be is not None and be >= rr:
-                                    skipped_invalid_combos += 1
-                                    continue
-                                matrix.append({
-                                    "symbol": s,
-                                    "timeframe": tf,
-                                    "sl": sl,
-                                    "rr": rr,
-                                    "be": be,
-                                    "be_offset": be_off
-                                })
+                                for htf_on in htf_ema_modes:
+                                    if use_break_even and be is not None and be >= rr:
+                                        skipped_invalid_combos += 1
+                                        continue
+                                    matrix.append({
+                                        "symbol": s,
+                                        "timeframe": tf,
+                                        "sl": sl,
+                                        "rr": rr,
+                                        "be": be,
+                                        "be_offset": be_off,
+                                        "htf_ema_enabled": htf_on,
+                                        "htf_ema_period": htf_ema_period,
+                                        "htf_ema_timeframe": htf_ema_timeframe
+                                    })
 
         # Translate master symbols to broker symbols using SymbolMappingHandler
         from symbol_mapping_handler import SymbolMappingHandler
@@ -621,7 +682,11 @@ class StrategyHandler:
 
 
 
-            cache_key = (s, tf)
+            htf_on = combo.get("htf_ema_enabled", htf_ema_enabled)
+            htf_tf = combo.get("htf_ema_timeframe", htf_ema_timeframe)
+            htf_per = combo.get("htf_ema_period", htf_ema_period)
+
+            cache_key = (s, tf, htf_on, htf_tf, htf_per)
             if cache_key not in analysis_cache:
                 from broker_handler import BrokerHandler
                 handler = BrokerHandler.get_handler(candle_source)
@@ -644,17 +709,35 @@ class StrategyHandler:
                     print(f"[Optimization] No candle data available for {s} {tf}.", flush=True)
                     continue
 
-                def opt_analysis_progress(pct):
-                    # Show progress bar during initial symbol/timeframe candle structure analysis
-                    pass
+                # Fetch HTF candles if HTF EMA filter is active for this combo
+                htf_candles_opt = None
+                if htf_on:
+                    try:
+                        htf_candles_opt = handler.fetch_candles(
+                            symbol=s,
+                            timeframe=htf_tf,
+                            limit=limit,
+                            date_from=date_from,
+                            date_to=date_to,
+                            account_id=account_id
+                        )
+                        if len(htf_candles_opt) > 1 and not date_to:
+                            htf_candles_opt = htf_candles_opt[:-1]
+                    except Exception as e_htf:
+                        print(f"[Optimization] Warning: Failed to fetch HTF candles for {s} {htf_tf}: {e_htf}", flush=True)
+                        htf_candles_opt = None
 
                 from colorama import Fore, Style
                 candles_1m_enabled = tf.lower() not in ('1m', '1min')
-                print(f"\n{Fore.CYAN}[Backtest]{Style.RESET_ALL} Starting Wyckoff Structure Analysis backtest for {s} on {len(candles)} candles (1m Intrabar: {'Enabled' if candles_1m_enabled else 'Off'})...", flush=True)
+                htf_str = f" | HTF EMA: {htf_tf} {htf_per} EMA" if htf_on else ""
+                print(f"\n{Fore.CYAN}[Backtest]{Style.RESET_ALL} Starting Wyckoff Structure Analysis backtest for {s} on {len(candles)} candles (1m Intrabar: {'Enabled' if candles_1m_enabled else 'Off'}{htf_str})...", flush=True)
                 analysis = StrategyHandler.analyze_market_data(
                     candles,
                     lookback=lookback_window,
-                    progress_callback=lambda p: None  # classify_wyckoff_stages will print the progress bar to console
+                    progress_callback=lambda p: None,
+                    htf_candles=htf_candles_opt,
+                    htf_ema_enabled=htf_on,
+                    htf_ema_period=htf_per
                 )
                 analysis_cache[cache_key] = list(analysis.get('data', []))
 
@@ -756,6 +839,9 @@ class StrategyHandler:
                     "use_global_close": use_global_close,
                     "global_close_time": global_close_time,
                     "entry_stability_rule": entry_stability_rule,
+                    "htf_ema_enabled": htf_on,
+                    "htf_ema_period": htf_per,
+                    "htf_ema_timeframe": htf_tf,
                     "date_from": date_from,
                     "date_to": date_to,
                     "limit": len(annotated_data)
@@ -778,7 +864,8 @@ class StrategyHandler:
                 # Auto-persist iteration run to MySQL database
                 from sql_handler import SQLHandler
                 be_str = str(be) if be is not None else "off"
-                backtest_id_str = f"bt_{s.lower()}_{tf}_sl{sl}_rr{rr}_be{be_str}_{int(time.time())}"
+                htf_tag = f"_htf{htf_per}" if htf_on else ""
+                backtest_id_str = f"bt_{s.lower()}_{tf}_sl{sl}_rr{rr}_be{be_str}{htf_tag}_{int(time.time())}"
                 SQLHandler.save_backtest_run(
                     backtest_id=backtest_id_str,
                     symbol=s,
@@ -804,9 +891,6 @@ class StrategyHandler:
                 import gc
                 gc.collect()
 
-
-
-
             results.append({
                 "symbol": s,
                 "timeframe": tf,
@@ -815,6 +899,9 @@ class StrategyHandler:
                 "rr": rr,
                 "be": be,
                 "beOffsetMode": be_off,
+                "htfEmaEnabled": htf_on,
+                "htfEmaPeriod": htf_per,
+                "htfEmaTimeframe": htf_tf,
                 "winRate": sim_result["winRate"],
                 "netPnl": sim_result["netPnl"],
                 "profitFactor": sim_result["profitFactor"],

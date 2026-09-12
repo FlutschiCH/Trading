@@ -269,6 +269,32 @@ def run_worker(job_id: str, is_resume: bool = False):
                 print(f"{Fore.YELLOW}[BacktestWorker Data]{Style.RESET_ALL} Warning: Could not fetch 1m candles ({e_1m}). Falling back to {timeframe} resolution.", flush=True)
                 candles_1m = None
 
+        # If HTF EMA Filter is active, fetch dedicated HTF candles from broker
+        htf_candles = None
+        htf_ema_enabled = bool(params.get('htfEmaEnabled', params.get('htf_ema_enabled', False)))
+        htf_ema_timeframe = str(params.get('htfEmaTimeframe', params.get('htf_ema_timeframe', '4h')))
+        htf_ema_period = int(params.get('htfEmaPeriod', params.get('htf_ema_period', 200)))
+        htf_ema_range_mode = bool(params.get('htfEmaRangeMode', params.get('htf_ema_range_mode', False)))
+
+        if htf_ema_enabled:
+            try:
+                print(f"{Fore.CYAN}[BacktestWorker Data]{Style.RESET_ALL} Fetching {htf_ema_timeframe} HTF candles for HTF {htf_ema_period} EMA filter...", flush=True)
+                htf_candles = handler.fetch_candles(
+                    symbol=symbol,
+                    timeframe=htf_ema_timeframe,
+                    limit=limit,
+                    date_from=date_from,
+                    date_to=date_to,
+                    login=account_id,
+                    account_id=account_id
+                )
+                if len(htf_candles) > 1 and not date_to:
+                    htf_candles = htf_candles[:-1]
+                print(f"{Fore.GREEN}[BacktestWorker Data]{Style.RESET_ALL} Retrieved {len(htf_candles)} {htf_ema_timeframe} candles for HTF EMA filter.", flush=True)
+            except Exception as e_htf:
+                print(f"{Fore.YELLOW}[BacktestWorker Data]{Style.RESET_ALL} Warning: Could not fetch {htf_ema_timeframe} HTF candles ({e_htf}).", flush=True)
+                htf_candles = None
+
         # Record start of actual strategy computations (after fetching data overhead)
         execution_start_time = time.time()
 
@@ -305,7 +331,11 @@ def run_worker(job_id: str, is_resume: bool = False):
                 daily_first_signals_mode=params.get('dailyFirstSignalsMode', 'disabled'),
                 daily_first_signals_count=int(params.get('dailyFirstSignalsCount', 0)),
                 daily_first_signals_risk_mult=float(params.get('dailyFirstSignalsRiskMult', 0.5)),
-                candles_1m=candles_1m
+                candles_1m=candles_1m,
+                htf_candles=htf_candles,
+                htf_ema_enabled=htf_ema_enabled,
+                htf_ema_period=htf_ema_period,
+                htf_ema_timeframe=htf_ema_timeframe
             )
 
             total_elapsed = round(time.time() - execution_start_time, 2)
@@ -365,7 +395,11 @@ def run_worker(job_id: str, is_resume: bool = False):
                 be_offset_step=float(params.get('beOffsetStep')) if params.get('beOffsetStep') is not None else None,
                 daily_first_signals_mode=params.get('dailyFirstSignalsMode', 'disabled'),
                 daily_first_signals_count=int(params.get('dailyFirstSignalsCount', 0)),
-                daily_first_signals_risk_mult=float(params.get('dailyFirstSignalsRiskMult', 0.5))
+                daily_first_signals_risk_mult=float(params.get('dailyFirstSignalsRiskMult', 0.5)),
+                htf_ema_enabled=htf_ema_enabled,
+                htf_ema_period=htf_ema_period,
+                htf_ema_timeframe=htf_ema_timeframe,
+                htf_ema_range_mode=htf_ema_range_mode
             )
 
             total_elapsed = round(time.time() - execution_start_time, 2)

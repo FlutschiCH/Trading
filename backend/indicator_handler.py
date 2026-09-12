@@ -38,6 +38,41 @@ class IndicatorHandler:
         return df[column].ewm(span=period, adjust=False, min_periods=1).mean()
 
     @staticmethod
+    def htf_ema(ltf_df: pd.DataFrame, htf_df: pd.DataFrame, period: int = 200, column: str = 'close') -> pd.Series:
+        """
+        Higher-Timeframe (HTF) Exponential Moving Average.
+        Calculates EMA on the HTF candles and aligns it continuously / progressively
+        to the lower-timeframe (LTF) candles based on timestamp.
+        """
+        if ltf_df.empty:
+            return pd.Series(dtype=float)
+        if htf_df.empty:
+            return pd.Series(np.nan, index=ltf_df.index)
+
+        # Ensure time columns are numeric
+        htf = htf_df.copy()
+        ltf = ltf_df[['time']].copy() if 'time' in ltf_df.columns else pd.DataFrame({'time': ltf_df.index})
+        
+        htf['time'] = pd.to_numeric(htf['time'])
+        ltf['time'] = pd.to_numeric(ltf['time'])
+        htf = htf.sort_values('time').reset_index(drop=True)
+        
+        # Calculate EMA on HTF
+        htf['htf_ema_val'] = IndicatorHandler.ema(htf, period=period, column=column)
+        
+        # Align progressively to LTF using merge_asof (backward lookup matches latest available HTF candle)
+        merged = pd.merge_asof(
+            ltf.sort_values('time'),
+            htf[['time', 'htf_ema_val']],
+            on='time',
+            direction='backward'
+        )
+        
+        # Restore original LTF index order
+        aligned_series = merged.set_index(ltf_df.index)['htf_ema_val']
+        return aligned_series
+
+    @staticmethod
     def wma(df: pd.DataFrame, period: int = 20, column: str = 'close') -> pd.Series:
         """Weighted Moving Average (WMA)."""
         return IndicatorHandler._apply_smoothing(df[column], period=period, method='wma')

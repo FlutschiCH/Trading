@@ -542,6 +542,50 @@ export default function WyckoffBacktester({
     }
   }, [dailyFirstSignalsMode, dailyFirstSignalsCount, dailyFirstSignalsRiskMult]);
 
+  // Higher-Timeframe (HTF) EMA Trend Filter State (persisted in localStorage)
+  const [htfEmaEnabled, setHtfEmaEnabled] = React.useState<boolean>(() => {
+    try {
+      return localStorage.getItem('wyckoff_bt_htf_ema_enabled') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const [htfEmaTimeframe, setHtfEmaTimeframe] = React.useState<string>(() => {
+    try {
+      return localStorage.getItem('wyckoff_bt_htf_ema_tf') || '4h';
+    } catch {
+      return '4h';
+    }
+  });
+
+  const [htfEmaPeriod, setHtfEmaPeriod] = React.useState<string>(() => {
+    try {
+      return localStorage.getItem('wyckoff_bt_htf_ema_period') || '200';
+    } catch {
+      return '200';
+    }
+  });
+
+  const [htfEmaRangeMode, setHtfEmaRangeMode] = React.useState<boolean>(() => {
+    try {
+      return localStorage.getItem('wyckoff_bt_htf_ema_range') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('wyckoff_bt_htf_ema_enabled', String(htfEmaEnabled));
+      localStorage.setItem('wyckoff_bt_htf_ema_tf', htfEmaTimeframe);
+      localStorage.setItem('wyckoff_bt_htf_ema_period', htfEmaPeriod);
+      localStorage.setItem('wyckoff_bt_htf_ema_range', String(htfEmaRangeMode));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [htfEmaEnabled, htfEmaTimeframe, htfEmaPeriod, htfEmaRangeMode]);
+
   // New Rule Form State
   const [newRuleInd, setNewRuleInd] = React.useState('rsi');
   const [newRulePeriod, setNewRulePeriod] = React.useState('14');
@@ -797,8 +841,9 @@ export default function WyckoffBacktester({
   const rrCount = (rrRangeMode || isOptimizeMode) ? calcStepCount(activeRRStart, activeRREnd, activeRRStep) : 1;
   const beCount = (useBreakEven && beRangeMode) ? calcStepCount(beStart, beEnd, beStep) : 1;
   const beOffsetCount = (useBreakEven && beOffsetRangeMode) ? calcStepCount(beOffsetStart, beOffsetEnd, beOffsetStep) : 1;
+  const htfEmaCount = htfEmaRangeMode ? 2 : 1;
 
-  const totalRunCombinations = symbolCount * timeframeCount * slCount * rrCount * beCount * beOffsetCount;
+  const totalRunCombinations = symbolCount * timeframeCount * slCount * rrCount * beCount * beOffsetCount * htfEmaCount;
 
   const [optSortBy, setOptSortBy] = React.useState<'netPnl' | 'winRate' | 'profitFactor' | 'maxDrawdown' | 'totalTrades'>('netPnl');
   const [optSortDir, setOptSortDir] = React.useState<'asc' | 'desc'>('desc');
@@ -1563,7 +1608,7 @@ export default function WyckoffBacktester({
           }}>
             <span>⚡ Grid Search Matrix:</span>
             <span>
-              {symbolCount} Syms × {timeframeCount} TFs × {slCount} SL × {rrCount} RR × {beCount} BE = <strong style={{ color: '#10b981' }}>{totalRunCombinations.toLocaleString()} runs</strong>
+              {symbolCount} Syms × {timeframeCount} TFs × {slCount} SL × {rrCount} RR × {beCount} BE{htfEmaRangeMode ? ' × 2 HTF' : ''} = <strong style={{ color: '#10b981' }}>{totalRunCombinations.toLocaleString()} runs</strong>
             </span>
           </div>
         )}
@@ -1702,7 +1747,11 @@ export default function WyckoffBacktester({
                 indicatorRules: indicatorRules.filter((r: any) => r.enabled !== false),
                 dailyFirstSignalsMode,
                 dailyFirstSignalsCount: parseInt(dailyFirstSignalsCount) || 0,
-                dailyFirstSignalsRiskMult: parseFloat(dailyFirstSignalsRiskMult) || 0.5
+                dailyFirstSignalsRiskMult: parseFloat(dailyFirstSignalsRiskMult) || 0.5,
+                htfEmaEnabled,
+                htfEmaTimeframe,
+                htfEmaPeriod: parseInt(htfEmaPeriod) || 200,
+                htfEmaRangeMode: globalRangeMode && htfEmaRangeMode
               };
               if (totalRunCombinations > 1 || isOptimizeMode) {
                 onRunOptimization(rangeParams);
@@ -2509,6 +2558,113 @@ export default function WyckoffBacktester({
                   style={{ cursor: 'pointer', width: '15px', height: '15px' }}
                 />
               </div>
+            </div>
+
+            {/* Section: Higher-Timeframe (HTF) EMA Trend Filter */}
+            <div style={{
+              backgroundColor: 'rgba(15, 23, 42, 0.65)',
+              border: htfEmaEnabled ? '1px solid rgba(56, 189, 248, 0.35)' : '1px solid rgba(255, 255, 255, 0.07)',
+              borderRadius: '8px',
+              padding: '12px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px',
+              transition: 'border-color 0.2s',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <input
+                    type="checkbox"
+                    id="htf_ema_filter_toggle"
+                    checked={htfEmaEnabled}
+                    onChange={(e) => setHtfEmaEnabled(e.target.checked)}
+                    style={{ cursor: 'pointer', width: '15px', height: '15px' }}
+                  />
+                  <label htmlFor="htf_ema_filter_toggle" style={{ fontSize: '11px', fontWeight: 700, color: htfEmaEnabled ? '#38bdf8' : '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', cursor: 'pointer' }}>
+                    📈 HTF EMA Trend Filter
+                  </label>
+                </div>
+                {htfEmaEnabled && (
+                  <span style={{
+                    fontSize: '10px',
+                    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+                    border: '1px solid rgba(56, 189, 248, 0.3)',
+                    color: '#38bdf8',
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    fontWeight: 600,
+                    textTransform: 'uppercase'
+                  }}>
+                    {htfEmaTimeframe} {htfEmaPeriod} EMA
+                  </span>
+                )}
+              </div>
+
+              {htfEmaEnabled && (
+                <>
+                  <div style={{ fontSize: '10.5px', color: '#94a3b8', lineHeight: 1.4, backgroundColor: 'rgba(30, 41, 59, 0.4)', padding: '6px 10px', borderRadius: '6px' }}>
+                    <span style={{ color: '#10b981', fontWeight: 'bold' }}>Longs:</span> Price &gt; {htfEmaTimeframe} {htfEmaPeriod} EMA &nbsp;|&nbsp; <span style={{ color: '#ef4444', fontWeight: 'bold' }}>Shorts:</span> Price &lt; {htfEmaTimeframe} {htfEmaPeriod} EMA
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    <div style={styles.formGroup}>
+                      <label style={{ color: '#94a3b8', fontSize: '10px', fontWeight: 600 }}>HTF TIMEFRAME</label>
+                      <select
+                        value={htfEmaTimeframe}
+                        onChange={(e) => setHtfEmaTimeframe(e.target.value)}
+                        style={{ ...styles.input, backgroundColor: 'rgba(30, 41, 59, 0.9)', border: '1px solid rgba(255, 255, 255, 0.1)' }}
+                      >
+                        <option value="30m">30m (30 Min)</option>
+                        <option value="1h">1h (1 Hour)</option>
+                        <option value="2h">2h (2 Hours)</option>
+                        <option value="4h">4h (4 Hours)</option>
+                        <option value="1d">1d (Daily)</option>
+                      </select>
+                    </div>
+
+                    <div style={styles.formGroup}>
+                      <label style={{ color: '#94a3b8', fontSize: '10px', fontWeight: 600 }}>EMA PERIOD</label>
+                      <input
+                        type="number"
+                        value={htfEmaPeriod}
+                        onChange={(e) => setHtfEmaPeriod(Math.max(1, parseInt(e.target.value) || 1).toString())}
+                        style={{ ...styles.input, backgroundColor: 'rgba(30, 41, 59, 0.8)', color: '#38bdf8', fontWeight: 600 }}
+                        min="5"
+                        max="1000"
+                        step="1"
+                        placeholder="e.g. 200"
+                      />
+                    </div>
+                  </div>
+
+                  {globalRangeMode && (
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '6px 10px',
+                      backgroundColor: 'rgba(56, 189, 248, 0.08)',
+                      borderRadius: '6px',
+                      border: '1px solid rgba(56, 189, 248, 0.2)'
+                    }}>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <span style={{ color: '#38bdf8', fontSize: '11px', fontWeight: 600 }}>
+                          Optimization Grid Search: Test ON vs OFF
+                        </span>
+                        <span style={{ color: '#94a3b8', fontSize: '9.5px' }}>
+                          Doubles matrix runs to compare results with and without the filter
+                        </span>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={htfEmaRangeMode}
+                        onChange={(e) => setHtfEmaRangeMode(e.target.checked)}
+                        style={{ cursor: 'pointer', width: '15px', height: '15px' }}
+                      />
+                    </div>
+                  )}
+                </>
+              )}
             </div>
 
             {/* Section 5: Daily First Signals Management */}
@@ -3359,8 +3515,21 @@ export default function WyckoffBacktester({
                         <span style={{ fontWeight: 700, color: isSelected ? '#38bdf8' : (idx === 0 ? '#facc15' : '#94a3b8'), fontSize: '10px' }}>{rankMedal}</span>
                         <span style={{ fontWeight: 600, color: '#f8fafc' }}>{r.symbol || symbol} • {r.timeframe || timeframe}</span>
                         {!isMobile && (
-                          <span style={{ color: '#94a3b8', fontSize: '10px' }}>
-                            SL: {r.sl ?? backtestSL}{r.slType === 'price' ? ` (${((r.sl ?? parseFloat(backtestSL)) / 0.0001).toFixed(0)}p)` : (r.slType === 'dollar' ? '$' : (r.slType === 'atr' ? 'xATR' : '%'))} | RR: 1:{Number(r.rr).toFixed(1)} | BE: {r.be ? `${r.be}R` : 'Off'}
+                          <span style={{ color: '#94a3b8', fontSize: '10px', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                            <span>SL: {r.sl ?? backtestSL}{r.slType === 'price' ? ` (${((r.sl ?? parseFloat(backtestSL)) / 0.0001).toFixed(0)}p)` : (r.slType === 'dollar' ? '$' : (r.slType === 'atr' ? 'xATR' : '%'))} | RR: 1:{Number(r.rr).toFixed(1)} | BE: {r.be ? `${r.be}R` : 'Off'}</span>
+                            {r.htfEmaEnabled !== undefined && (
+                              <span style={{
+                                fontSize: '9px',
+                                padding: '1px 5px',
+                                borderRadius: '3px',
+                                backgroundColor: r.htfEmaEnabled ? 'rgba(56, 189, 248, 0.2)' : 'rgba(148, 163, 184, 0.1)',
+                                color: r.htfEmaEnabled ? '#38bdf8' : '#94a3b8',
+                                border: `1px solid ${r.htfEmaEnabled ? 'rgba(56, 189, 248, 0.4)' : 'rgba(148, 163, 184, 0.2)'}`,
+                                fontWeight: 'bold'
+                              }}>
+                                {r.htfEmaEnabled ? `HTF ${r.htfEmaPeriod || 200}` : 'No HTF'}
+                              </span>
+                            )}
                           </span>
                         )}
                         <span style={{ textAlign: 'right', color: isProfit ? '#10b981' : '#ef4444', fontWeight: 700, fontSize: '12px' }}>
