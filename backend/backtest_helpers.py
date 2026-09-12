@@ -1,5 +1,5 @@
+import time
 from datetime import datetime, timezone as pytimezone, time as dt_time
-import time as time_module
 
 def get_candle_datetime(ts: float, tz_str: str) -> datetime:
     """
@@ -178,7 +178,7 @@ def run_trade_simulation(
 
     total_candles = len(annotated_data)
     last_percent = -1
-    start_sim_time = time_module.time()
+    start_sim_time = time.time()
     first_c = annotated_data[0] if annotated_data else {}
     last_c = annotated_data[-1] if annotated_data else {}
     try:
