@@ -179,6 +179,18 @@ class PositionManager:
 
                 be_trigger_dist = risk_dist * be_trigger_r
 
+                # Scalper specific: Partial TP (50% retracement) & Hard time stop (8 min)
+                is_scalper = strategy.get("strategy_type") == "scalper" or "scalper" in str(strategy_id).lower()
+                open_time = float(pos.get("time_open") or pos.get("open_time") or time.time())
+                hold_seconds = time.time() - open_time
+                retracement_50 = float(strategy.get("retracement_50", 0.0))
+
+                # Hard time-stop exit after 8 minutes (480s)
+                if is_scalper and hold_seconds >= 480:
+                    print(f"[Position Manager] Hard time stop reached (8 min) for {symbol} pos {position_id}. Closing position.", flush=True)
+                    handler.close_position(position_id=position_id, symbol=symbol, **target_kwargs)
+                    continue
+
                 # Fetch recent candles to check highest high / lowest low since position was opened (handles rapid price spikes)
                 recent_high = current_price
                 recent_low = current_price
@@ -190,6 +202,22 @@ class PositionManager:
                         recent_low = min(float(c.get("low", current_price)) for c in candles)
                 except Exception:
                     pass
+
+                # Partial Take Profit at 50% impulse retracement level for scalper
+                if is_scalper and retracement_50 > 0 and not cls._known_positions[pos_key].get("partial_closed", False):
+                    pos_vol = float(pos.get("volume", 0.0))
+                    should_partial = False
+                    if pos_type in ("BUY", "POSITION_TYPE_BUY", "0") and max(current_price, recent_high) >= retracement_50:
+                        should_partial = True
+                    elif pos_type in ("SELL", "POSITION_TYPE_SELL", "1") and min(current_price, recent_low) <= retracement_50:
+                        should_partial = True
+
+                    if should_partial and pos_vol > 0.01:
+                        close_vol = round(pos_vol * 0.5, 2)
+                        if close_vol >= 0.01:
+                            print(f"[Position Manager] Closing 50% partial ({close_vol} lots) at 50% retracement {retracement_50:.5f} on {symbol}", flush=True)
+                            handler.close_position(position_id=position_id, volume=close_vol, symbol=symbol, **target_kwargs)
+                            cls._known_positions[pos_key]["partial_closed"] = True
 
                 # Check BUY position Break-Even
                 if pos_type in ("BUY", "POSITION_TYPE_BUY", "0"):
