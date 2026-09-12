@@ -40,4 +40,6 @@ mt5/*
 !mt5/mt5_plugin_base
 !mt5/mt5_base/**
 !mt5/mt5_plugin_base/**
+backend/.worker_locks/
+
 

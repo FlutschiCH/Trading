@@ -442,25 +442,40 @@ class SQLHandler:
             checkpoint_data LONGTEXT,
             params LONGTEXT,
             results LONGTEXT,
+            computer_name VARCHAR(128) DEFAULT '',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
         """
         try:
             cls.execute_query(query)
+            # Ensure computer_name column exists if table was created previously
+            try:
+                cls.execute_query("ALTER TABLE backtest_jobs ADD COLUMN computer_name VARCHAR(128) DEFAULT ''")
+            except Exception:
+                pass
         except Exception as e:
             print(f"[SQLHandler] Error initializing backtest_jobs table: {e}", flush=True)
 
     @classmethod
-    def create_backtest_job(cls, job_id: str, job_type: str, params: dict) -> bool:
+    def create_backtest_job(cls, job_id: str, job_type: str, params: dict, computer_name: str = None) -> bool:
         cls.init_backtest_jobs_table()
+        import socket
+        if not computer_name:
+            try:
+                computer_name = socket.gethostname().strip().lower()
+            except Exception:
+                computer_name = "unknown"
+        else:
+            computer_name = computer_name.strip().lower()
+
         query = """
-        INSERT INTO backtest_jobs (job_id, type, status, progress, params)
-        VALUES (%s, %s, 'queued', 0.0, %s)
-        ON DUPLICATE KEY UPDATE type=VALUES(type), status='queued', progress=0.0, params=VALUES(params)
+        INSERT INTO backtest_jobs (job_id, type, status, progress, params, computer_name)
+        VALUES (%s, %s, 'queued', 0.0, %s, %s)
+        ON DUPLICATE KEY UPDATE type=VALUES(type), status='queued', progress=0.0, params=VALUES(params), computer_name=VALUES(computer_name)
         """
         try:
-            cls.execute_query(query, (job_id, job_type, json.dumps(params)))
+            cls.execute_query(query, (job_id, job_type, json.dumps(params), computer_name))
             return True
         except Exception as e:
             print(f"[SQLHandler] Error creating backtest job {job_id}: {e}", flush=True)
@@ -569,11 +584,16 @@ class SQLHandler:
             return False
 
     @classmethod
-    def get_unfinished_backtest_jobs(cls) -> list:
+    def get_unfinished_backtest_jobs(cls, computer_name: str = None) -> list:
         cls.init_backtest_jobs_table()
-        query = "SELECT * FROM backtest_jobs WHERE status IN ('queued', 'running', 'interrupted')"
+        if computer_name:
+            query = "SELECT * FROM backtest_jobs WHERE status IN ('queued', 'running', 'interrupted') AND LOWER(computer_name) = %s ORDER BY created_at DESC"
+            params = (computer_name.strip().lower(),)
+        else:
+            query = "SELECT * FROM backtest_jobs WHERE status IN ('queued', 'running', 'interrupted') ORDER BY created_at DESC"
+            params = ()
         try:
-            rows = cls.execute_query(query)
+            rows = cls.execute_query(query, params)
             if isinstance(rows, list):
                 for row in rows:
                     if row.get('params') and isinstance(row['params'], str):
@@ -581,10 +601,27 @@ class SQLHandler:
                             row['params'] = json.loads(row['params'])
                         except Exception:
                             pass
+                    if row.get('checkpoint_data') and isinstance(row['checkpoint_data'], str):
+                        try:
+                            row['checkpoint_data'] = json.loads(row['checkpoint_data'])
+                        except Exception:
+                            pass
+                    if row.get('results') and isinstance(row['results'], str):
+                        try:
+                            row['results'] = json.loads(row['results'])
+                        except Exception:
+                            pass
                 return rows
         except Exception as e:
             print(f"[SQLHandler] Error fetching unfinished backtest jobs: {e}", flush=True)
         return []
+
+    @classmethod
+    def get_active_backtest_job(cls, computer_name: str = None) -> dict:
+        jobs = cls.get_unfinished_backtest_jobs(computer_name=computer_name)
+        if jobs and len(jobs) > 0:
+            return jobs[0]
+        return None
 
 
 

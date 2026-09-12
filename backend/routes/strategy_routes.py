@@ -85,6 +85,21 @@ def internal_worker_update():
 
     return jsonify({"status": "success"})
 
+@strategy_routes.route('/backtest/active-job', methods=['GET'])
+def get_active_backtest_job_endpoint():
+    """
+    Returns the currently active/running backtest job for a specific computer (or any computer).
+    """
+    computer_name = request.args.get('computer_name')
+    from sql_handler import SQLHandler
+    job = SQLHandler.get_active_backtest_job(computer_name=computer_name)
+    if job:
+        job_id_str = str(job['job_id'])
+        if job_id_str in _in_memory_job_cache:
+            job.update(_in_memory_job_cache[job_id_str])
+        return jsonify({"status": "success", "has_active_job": True, "job": job})
+    return jsonify({"status": "success", "has_active_job": False, "job": None})
+
 @strategy_routes.route('/backtest/status/<job_id>', methods=['GET'])
 def get_backtest_status(job_id):
     job_id_str = str(job_id)
@@ -161,9 +176,10 @@ def backtest():
     print(f"[Backend] /api/backtest endpoint hit at {time.strftime('%Y-%m-%d %H:%M:%S')}", flush=True)
     payload = request.get_json(silent=True) or {}
     job_id = payload.get('backtestId') or str(uuid.uuid4())
+    comp_name = payload.get('computer_name')
 
     # Create job in MySQL DB and set initial state immediately
-    SQLHandler.create_backtest_job(job_id=job_id, job_type='single', params=payload)
+    SQLHandler.create_backtest_job(job_id=job_id, job_type='single', params=payload, computer_name=comp_name)
     SQLHandler.update_backtest_job_progress(job_id, status='running', progress=1.0, step_info='Worker process initializing...')
     _in_memory_job_cache[str(job_id)] = {
         'job_id': str(job_id),
@@ -171,6 +187,7 @@ def backtest():
         'progress': 1.0,
         'step_info': 'Worker process initializing...',
         'estimated_seconds_remaining': 0,
+        'computer_name': comp_name,
         'results': None
     }
 
@@ -266,9 +283,10 @@ def backtest_optimize():
 
     payload = request.get_json(silent=True) or {}
     job_id = payload.get('backtestId') or str(uuid.uuid4())
+    comp_name = payload.get('computer_name')
 
     # Create job in MySQL DB and set initial state immediately
-    SQLHandler.create_backtest_job(job_id=job_id, job_type='optimize', params=payload)
+    SQLHandler.create_backtest_job(job_id=job_id, job_type='optimize', params=payload, computer_name=comp_name)
     SQLHandler.update_backtest_job_progress(job_id, status='running', progress=1.0, step_info='Worker process initializing...')
     _in_memory_job_cache[str(job_id)] = {
         'job_id': str(job_id),
@@ -276,6 +294,7 @@ def backtest_optimize():
         'progress': 1.0,
         'step_info': 'Worker process initializing...',
         'estimated_seconds_remaining': 0,
+        'computer_name': comp_name,
         'results': None
     }
 

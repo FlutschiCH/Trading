@@ -824,6 +824,19 @@ export default function Dashboard() {
   const [liveStrategies, setLiveStrategies] = useState<any[]>([]);
   const [selectedStrategyId, setSelectedStrategyId] = useState<string>(() => localStorage.getItem('wyckoff_selected_live_strategy_id') || '');
   const [isDeploying, setIsDeploying] = useState(false);
+  const [currentComputerName, setCurrentComputerName] = useState<string>('');
+
+  // Fetch host computer name
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/api/system/status`)
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.computer_name) {
+          setCurrentComputerName(data.computer_name.trim().toLowerCase());
+        }
+      })
+      .catch(err => console.error("Error fetching system computer name:", err));
+  }, []);
 
   useEffect(() => {
     if (selectedStrategyId) {
@@ -837,6 +850,106 @@ export default function Dashboard() {
   const lastNotifiedSignalRef = useRef<number>(0);
   const backtestAbortControllerRef = useRef<AbortController | null>(null);
   const activeBacktestIdRef = useRef<string | null>(null);
+
+  // Auto-reconnect to any active backtest currently running on this computer
+  useEffect(() => {
+    if (!currentComputerName) return;
+
+    let isSubscribed = true;
+    const checkAndReconnect = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/backtest/active-job?computer_name=${encodeURIComponent(currentComputerName)}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!isSubscribed) return;
+
+        if (data.status === 'success' && data.has_active_job && data.job) {
+          const job = data.job;
+          const jobId = job.job_id;
+
+          // If we are not already polling this job
+          if (activeBacktestIdRef.current !== jobId) {
+            console.log(`[Backtest Reconnect] Reconnecting to active running job ${jobId} on ${currentComputerName}...`);
+            activeBacktestIdRef.current = jobId;
+            setLoadingBacktest(true);
+            if (job.progress !== undefined) setBacktestProgress(Math.round(job.progress));
+
+            if (backtestAbortControllerRef.current) {
+              backtestAbortControllerRef.current.abort();
+            }
+            const controller = new AbortController();
+            backtestAbortControllerRef.current = controller;
+
+            // Start polling loop
+            (async () => {
+              let isDone = false;
+              while (!isDone && isSubscribed) {
+                if (controller.signal.aborted) break;
+                await new Promise((r) => setTimeout(r, 1000));
+
+                try {
+                  const statusRes = await fetch(`${API_BASE_URL}/api/backtest/status/${jobId}`);
+                  if (!statusRes.ok) continue;
+                  const statusData = await statusRes.json();
+                  const currentJob = statusData.job;
+
+                  if (currentJob) {
+                    if (currentJob.progress !== undefined) {
+                      setBacktestProgress(Math.round(currentJob.progress));
+                    }
+                    if (currentJob.estimated_seconds_remaining !== undefined) {
+                      setBacktestRunInfo((prev: any) => ({
+                        ...prev,
+                        current: currentJob.checkpoint_index || prev?.current || 0,
+                        total: currentJob.checkpoint_data?.total_combos || prev?.total || 0,
+                        etaSeconds: currentJob.estimated_seconds_remaining
+                      }));
+                    }
+
+                    if (currentJob.status === 'completed') {
+                      isDone = true;
+                      const resData = currentJob.results || {};
+                      setIsLiveFeed(false);
+                      if (currentJob.type === 'optimize') {
+                        if (resData.grid) {
+                          setOptimizationResults(resData.grid);
+                        }
+                      } else {
+                        setBacktestResults(resData);
+                        if (resData.symbol && resData.symbol !== symbol) setSymbol(resData.symbol);
+                        if (resData.timeframe && resData.timeframe !== timeframe) setTimeframe(resData.timeframe);
+                        setFvgs(resData.fvgs || []);
+                        if (resData.trades && resData.trades.length > 0) {
+                          setSelectedTrade(resData.trades[0]);
+                        } else {
+                          setSelectedTrade(null);
+                        }
+                      }
+                    } else if (currentJob.status === 'failed' || currentJob.status === 'cancelled') {
+                      isDone = true;
+                    }
+                  }
+                } catch (pollErr) {
+                  console.warn("[Backtest Reconnect Poller] Server unreachable:", pollErr);
+                }
+              }
+              if (activeBacktestIdRef.current === jobId) {
+                activeBacktestIdRef.current = null;
+                setLoadingBacktest(false);
+              }
+            })();
+          }
+        }
+      } catch (err) {
+        console.error("[Backtest Reconnect Error]:", err);
+      }
+    };
+
+    checkAndReconnect();
+    return () => {
+      isSubscribed = false;
+    };
+  }, [currentComputerName]);
 
   const cancelBacktest = () => {
     if (activeBacktestIdRef.current) {
@@ -1090,6 +1203,7 @@ export default function Dashboard() {
           dailyRetryLimit: parseInt(dailyRetryLimit) || 0,
           allowOppositeClose,
           backtestId,
+          computer_name: currentComputerName || undefined,
           enabledIndicators,
           timezone: sessionsTimezone,
           sessions: tradingSessions,
@@ -1232,6 +1346,7 @@ export default function Dashboard() {
           dailyRetryLimit: parseInt(dailyRetryLimit) || 0,
           allowOppositeClose,
           backtestId,
+          computer_name: currentComputerName || undefined,
           rrStart: parseFloat(rrStart) || 1.0,
           rrEnd: parseFloat(rrEnd) || 5.0,
           rrStep: parseFloat(rrStep) || 0.5,
