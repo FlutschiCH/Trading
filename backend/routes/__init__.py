@@ -25,11 +25,13 @@ from routes.trade_analyzer_routes import trade_analyzer_routes
 from routes.backtest_analyzer_routes import backtest_analyzer_routes
 from routes.binance_routes import binance_routes
 from routes.news_routes import news_bp
+from routes.scalper_routes import scalper_routes
 
 # Create consolidated api blueprint
 api_blueprint = Blueprint('api', __name__)
 
 # Register sub-blueprints
+api_blueprint.register_blueprint(scalper_routes, url_prefix='/scalper')
 api_blueprint.register_blueprint(news_bp, url_prefix='/news')
 api_blueprint.register_blueprint(binance_routes, url_prefix='/binance')
 api_blueprint.register_blueprint(trade_analyzer_routes)
