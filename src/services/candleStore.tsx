@@ -214,6 +214,7 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         } else if (Array.isArray(marketResult)) {
           rawCandles = marketResult.sort((a: Candle, b: Candle) => a.time - b.time);
         }
+      }
 
       if (rawCandles.length > 0) {
         setCandles(prev => {
