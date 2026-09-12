@@ -46,6 +46,19 @@ def run_worker(job_id: str, is_resume: bool = False):
     symbols = params.get('symbols') or [params.get('symbol', 'BTCUSD')]
     timeframes = params.get('timeframes') or [params.get('timeframe') or params.get('interval', '15m')]
 
+    # Set console window title to "Backtest - <symbol>"
+    try:
+        title_sym = ", ".join(symbols) if symbols else "Unknown"
+        window_title = f"Backtest - {title_sym}"
+        if sys.platform == "win32":
+            import ctypes
+            ctypes.windll.kernel32.SetConsoleTitleW(window_title)
+        else:
+            sys.stdout.write(f"\x1b]2;{window_title}\x07")
+            sys.stdout.flush()
+    except Exception:
+        pass
+
     if job_type == 'single':
         total_jobs = 1
     else:
