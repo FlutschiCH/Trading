@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Zap, Target, AlertCircle, RefreshCw, Sliders } from 'lucide-react';
+import { Zap, Target, AlertCircle, RefreshCw, Sliders, Play, CheckCircle2 } from 'lucide-react';
 import { API_BASE_URL } from '../api';
 import DebugComponentBadge from './debug_component_badge';
+import DeployModal from './deploy_modal';
 import type { Candle } from '../types/trading';
 
 interface ScalperCardProps {
@@ -26,7 +27,12 @@ export const ScalperCard: React.FC<ScalperCardProps> = ({
   const [loading, setLoading] = useState<boolean>(false);
   const [evalResult, setEvalResult] = useState<any>(null);
   const [errorMsg, setErrorMsg] = useState<string>('');
+  const [successMsg, setSuccessMsg] = useState<string>('');
   const [scalperState, setScalperState] = useState<any>({});
+
+  // Deploy Modal state
+  const [showDeployModal, setShowDeployModal] = useState<boolean>(false);
+  const [isDeploying, setIsDeploying] = useState<boolean>(false);
 
   const handleEvaluate = async () => {
     setLoading(true);
@@ -73,6 +79,59 @@ export const ScalperCard: React.FC<ScalperCardProps> = ({
     }
   }, [candles.length, currentSymbol]);
 
+  const handleDeployConfirm = async (
+    targetComputer: string,
+    targets: Array<{ broker: string; account_id: string }>,
+    name: string
+  ) => {
+    setIsDeploying(true);
+    setErrorMsg('');
+    setSuccessMsg('');
+    try {
+      const stratPayload = {
+        name: name || `M1 Scalper [${currentSymbol}]`,
+        symbol: currentSymbol,
+        timeframe: currentTimeframe || 'M1',
+        status: 'active',
+        strategy_type: 'scalper',
+        slVal: 2.0,
+        slType: 'pips',
+        rr: 2.0,
+        size: 1.0,
+        useRiskSizing: true,
+        riskPct: riskPercent,
+        useBreakEven: true,
+        beTriggerR: 1.0,
+        allowOppositeClose: true,
+        lookbackWindow: 50,
+        target_computer: targetComputer || 'All',
+        targets: targets,
+        atr_multiplier: atrMultiplier,
+        vol_multiplier: volMultiplier,
+        min_wick_ratio: minWickRatio / 100.0,
+        max_spread_pips: maxSpreadPips
+      };
+
+      const res = await fetch(`${API_BASE_URL}/api/live-strategy/deploy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(stratPayload)
+      });
+
+      const data = await res.json();
+      if (data.status === 'success' || data.success) {
+        setSuccessMsg(`🚀 Scalper deployed successfully to machine '${targetComputer}'!`);
+        setShowDeployModal(false);
+      } else {
+        setErrorMsg(data.message || 'Failed to deploy strategy');
+      }
+    } catch (e: any) {
+      setErrorMsg(e.message || 'Error communicating with server for deployment');
+    } finally {
+      setIsDeploying(false);
+    }
+  };
+
   const stateStatus = scalperState?.status || 'IDLE';
 
   return (
@@ -94,7 +153,9 @@ export const ScalperCard: React.FC<ScalperCardProps> = ({
         alignItems: 'center',
         paddingBottom: '16px',
         borderBottom: '1px solid var(--app-card-border, #1f2937)',
-        marginBottom: '16px'
+        marginBottom: '16px',
+        flexWrap: 'wrap',
+        gap: '10px'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{
@@ -168,7 +229,29 @@ export const ScalperCard: React.FC<ScalperCardProps> = ({
             }}
           >
             <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
-            {loading ? 'Evaluating...' : 'Scan Market'}
+            {loading ? 'Evaluating...' : 'Scan'}
+          </button>
+
+          <button
+            onClick={() => setShowDeployModal(true)}
+            disabled={isDeploying}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              backgroundColor: '#10b981',
+              color: '#ffffff',
+              border: 'none',
+              padding: '6px 12px',
+              borderRadius: '6px',
+              fontSize: '12px',
+              fontWeight: 600,
+              cursor: isDeploying ? 'not-allowed' : 'pointer',
+              opacity: isDeploying ? 0.7 : 1
+            }}
+          >
+            <Play size={13} fill="#ffffff" />
+            Deploy to Machine
           </button>
         </div>
       </div>
@@ -413,6 +496,43 @@ export const ScalperCard: React.FC<ScalperCardProps> = ({
           <AlertCircle size={15} />
           <span>{errorMsg}</span>
         </div>
+      )}
+
+      {successMsg && (
+        <div style={{
+          marginTop: '12px',
+          padding: '10px 12px',
+          borderRadius: '6px',
+          backgroundColor: 'rgba(16, 185, 129, 0.1)',
+          border: '1px solid rgba(16, 185, 129, 0.2)',
+          color: '#10b981',
+          fontSize: '12px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}>
+          <CheckCircle2 size={15} />
+          <span>{successMsg}</span>
+        </div>
+      )}
+
+      {/* Machine + Account Deploy Modal */}
+      {showDeployModal && (
+        <DeployModal
+          symbol={currentSymbol}
+          timeframe={currentTimeframe || 'M1'}
+          slVal="2.0"
+          slType="pips"
+          rr="2.0"
+          size="1.0"
+          useRiskSizing={true}
+          riskPct={riskPercent.toString()}
+          initialName={`M1 Scalper [${currentSymbol}]`}
+          onClose={() => setShowDeployModal(false)}
+          onConfirm={(targetComputer, targets, name) => {
+            handleDeployConfirm(targetComputer, targets, name);
+          }}
+        />
       )}
     </div>
   );

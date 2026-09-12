@@ -164,8 +164,13 @@ class LiveRunner:
             if existing_proc and existing_proc.poll() is None:
                 return existing_proc
 
-            python_exe = sys.executable
-            worker_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "live_worker.py")
+            strat = LiveStrategyHandler.get_strategy(strategy_id)
+            is_scalper = False
+            if strat:
+                is_scalper = strat.get("strategy_type") == "scalper" or "scalper" in str(strat.get("name", "")).lower()
+
+            worker_file = "liquidity_worker.py" if is_scalper else "live_worker.py"
+            worker_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), worker_file)
             cmd = [python_exe, worker_script, "--strategy_id", str(strategy_id)]
             try:
                 from system_handler import SystemHandler
