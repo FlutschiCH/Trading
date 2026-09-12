@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, X, Menu, ChevronDown, Sun, Moon, RefreshCw, ShieldAlert, Terminal, Monitor } from 'lucide-react';
+import { Activity, X, Menu, ChevronDown, Sun, Moon, RefreshCw, ShieldAlert, Terminal, Monitor, Lock, Unlock } from 'lucide-react';
 import { API_BASE_URL } from '../api';
 import { IPSwitcher } from './ip_switcher';
 import AccountSelector from './account_selector';
@@ -49,6 +49,10 @@ interface HeaderProps {
   setView: (view: string) => void;
   styles: any;
   onToggleLandscape?: () => void;
+  isProdHost?: boolean;
+  isAuthenticated?: boolean;
+  onOpenLoginModal?: () => void;
+  onLogout?: () => void;
 }
 
 export default function Header({
@@ -66,6 +70,10 @@ export default function Header({
   setView,
   styles,
   onToggleLandscape,
+  isProdHost = false,
+  isAuthenticated = true,
+  onOpenLoginModal,
+  onLogout,
 }: HeaderProps) {
   const { refreshAccounts } = useAccountsStore();
   const { refreshPositions } = usePositionsStore();
@@ -376,6 +384,37 @@ export default function Header({
                   >
                     <ShieldAlert size={12} /> Authorize Laptop SSL
                   </button>
+                  {isProdHost && (
+                    <button
+                      onClick={() => {
+                        setShowMobileNav(false);
+                        if (isAuthenticated) {
+                          onLogout?.();
+                        } else {
+                          onOpenLoginModal?.();
+                        }
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        backgroundColor: isAuthenticated ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.2)',
+                        border: `1px solid ${isAuthenticated ? '#10b981' : '#ef4444'}`,
+                        cursor: 'pointer',
+                        borderRadius: '6px',
+                        padding: '8px',
+                        color: isAuthenticated ? '#10b981' : '#ef4444',
+                        outline: 'none',
+                        fontSize: '11px',
+                        fontWeight: 'bold',
+                        gridColumn: 'span 2',
+                      }}
+                    >
+                      {isAuthenticated ? <Unlock size={12} /> : <Lock size={12} />}
+                      {isAuthenticated ? 'Unlocked (Click to Logout)' : 'Login / Unlock Controls'}
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -665,6 +704,34 @@ export default function Header({
                 <Monitor size={12} />
                 Remote Desktop
               </a>
+
+              {/* Login / Auth Button */}
+              {isProdHost && (
+                <button
+                  onClick={isAuthenticated ? onLogout : onOpenLoginModal}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    backgroundColor: isAuthenticated ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.2)',
+                    border: `1px solid ${isAuthenticated ? '#10b981' : '#ef4444'}`,
+                    cursor: 'pointer',
+                    borderRadius: '6px',
+                    padding: '6px 12px',
+                    color: isAuthenticated ? '#10b981' : '#ef4444',
+                    fontWeight: 'bold',
+                    fontSize: '11px',
+                    outline: 'none',
+                    transition: 'all 0.2s',
+                    boxShadow: isAuthenticated ? 'none' : '0 0 8px rgba(239, 68, 68, 0.4)',
+                  }}
+                  title={isAuthenticated ? "Authenticated. Click to lock / logout." : "Read-Only Mode. Click to login and unlock controls."}
+                >
+                  {isAuthenticated ? <Unlock size={12} /> : <Lock size={12} />}
+                  {isAuthenticated ? 'Unlocked' : 'Login / Unlock'}
+                </button>
+              )}
+
               <div style={{ position: 'relative' }}>
                 <button
                   onClick={() => setShowMenu(!showMenu)}

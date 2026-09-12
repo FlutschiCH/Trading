@@ -159,6 +159,7 @@ export default function Dashboard() {
     if (!isProdHost) return true;
     return sessionStorage.getItem('wyckoff_auth_token') === 'true';
   });
+  const [showLoginModal, setShowLoginModal] = useState(false);
   const [authUsername, setAuthUsername] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [authError, setAuthError] = useState('');
@@ -205,10 +206,17 @@ export default function Dashboard() {
     if (authUsername.trim().toLowerCase() === 'flutschi' && authPassword === 'Godzilla_12') {
       sessionStorage.setItem('wyckoff_auth_token', 'true');
       setIsAuthenticated(true);
+      setShowLoginModal(false);
       setAuthError('');
+      setAuthPassword('');
     } else {
       setAuthError('Invalid username or password.');
     }
+  };
+
+  const handleLogout = () => {
+    sessionStorage.removeItem('wyckoff_auth_token');
+    setIsAuthenticated(false);
   };
 
   const {
@@ -2591,6 +2599,13 @@ export default function Dashboard() {
         setView={(v: string) => setView(v as any)}
         styles={styles}
         onToggleLandscape={() => setShowLandscapeMode(true)}
+        isProdHost={isProdHost}
+        isAuthenticated={isAuthenticated}
+        onOpenLoginModal={() => {
+          setAuthError('');
+          setShowLoginModal(true);
+        }}
+        onLogout={handleLogout}
       />
 
       {window.location.pathname === '/how-to' ? (
@@ -3691,6 +3706,150 @@ export default function Dashboard() {
 
 
         </>
+      )}
+
+      {/* Production Auth Login Modal */}
+      {showLoginModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(6px)',
+          WebkitBackdropFilter: 'blur(6px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 99999,
+        }}>
+          <div style={{
+            backgroundColor: 'var(--app-card-bg, #111827)',
+            border: '1px solid var(--app-card-border, #1f2937)',
+            borderRadius: '12px',
+            padding: '24px',
+            width: '90%',
+            maxWidth: '380px',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 20px rgba(59, 130, 246, 0.2)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', fontSize: '16px', color: 'var(--app-text, #f3f4f6)' }}>
+                <span>🔒</span>
+                <span>Authorize Controls</span>
+              </div>
+              <button
+                onClick={() => setShowLoginModal(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--app-text-muted, #9ca3af)',
+                  cursor: 'pointer',
+                  fontSize: '18px',
+                  lineHeight: 1,
+                  padding: '4px',
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <p style={{ fontSize: '12px', color: 'var(--app-text-muted, #9ca3af)', marginBottom: '16px', lineHeight: 1.4 }}>
+              Enter administrator credentials to enable full trading, backtesting controls, and settings persistence.
+            </p>
+
+            <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 'bold', color: 'var(--app-text-muted, #9ca3af)', marginBottom: '4px' }}>
+                  Username
+                </label>
+                <input
+                  type="text"
+                  value={authUsername}
+                  onChange={(e) => setAuthUsername(e.target.value)}
+                  placeholder="e.g. flutschi"
+                  autoFocus
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    backgroundColor: 'var(--app-input-bg, #0b0f19)',
+                    border: '1px solid var(--app-input-border, #1f2937)',
+                    color: 'var(--app-input-text, #ffffff)',
+                    fontSize: '13px',
+                    boxSizing: 'border-box',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 'bold', color: 'var(--app-text-muted, #9ca3af)', marginBottom: '4px' }}>
+                  Password
+                </label>
+                <input
+                  type="password"
+                  value={authPassword}
+                  onChange={(e) => setAuthPassword(e.target.value)}
+                  placeholder="Enter password..."
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    backgroundColor: 'var(--app-input-bg, #0b0f19)',
+                    border: '1px solid var(--app-input-border, #1f2937)',
+                    color: 'var(--app-input-text, #ffffff)',
+                    fontSize: '13px',
+                    boxSizing: 'border-box',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+
+              {authError && (
+                <div style={{ color: '#ef4444', fontSize: '12px', fontWeight: '500' }}>
+                  {authError}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowLoginModal(false)}
+                  style={{
+                    flex: 1,
+                    padding: '9px',
+                    borderRadius: '6px',
+                    backgroundColor: 'transparent',
+                    border: '1px solid var(--app-card-border, #1f2937)',
+                    color: 'var(--app-text-muted, #9ca3af)',
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    flex: 1,
+                    padding: '9px',
+                    borderRadius: '6px',
+                    backgroundColor: '#3b82f6',
+                    border: 'none',
+                    color: '#ffffff',
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Login & Unlock
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
     </div>
