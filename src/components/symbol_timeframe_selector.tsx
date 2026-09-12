@@ -303,7 +303,7 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', opacity: disabled ? 0.6 : 1, pointerEvents: disabled ? 'none' : 'auto' }}>
       {/* Symbol Selector */}
       {showSymbol && (
-        <div ref={symbolDropdownRef} style={{ position: 'relative', flex: 1, minWidth: multiSelect ? '280px' : '180px' }}>
+        <div ref={symbolDropdownRef} style={{ position: 'relative', flex: 1, minWidth: multiSelect ? '280px' : '180px', zIndex: showSymbolDropdown ? 10000 : 'auto' }}>
           {showLabel && (
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
               <span style={{ fontSize: '11px', fontWeight: 600, color: isLight ? '#475569' : '#9ca3af' }}>
@@ -410,7 +410,7 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
             <>
               <div
                 onClick={() => setShowSymbolDropdown(false)}
-                style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }}
+                style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999998 }}
               />
               <div style={{
                 position: 'absolute',
@@ -419,7 +419,7 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
                 backgroundColor: isLight ? '#ffffff' : '#0f172a',
                 border: isLight ? '1px solid #cbd5e1' : '1px solid #334155',
                 borderRadius: '8px',
-                zIndex: 1000,
+                zIndex: 999999,
                 boxShadow: '0 15px 30px rgba(0, 0, 0, 0.4)',
                 minWidth: '240px',
                 width: '100%',
@@ -543,7 +543,7 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
 
       {/* Timeframe Selector */}
       {showTimeframe && (
-        <div ref={timeframeDropdownRef} style={{ position: 'relative', minWidth: multiSelect ? '220px' : '120px' }}>
+        <div ref={timeframeDropdownRef} style={{ position: 'relative', minWidth: multiSelect ? '220px' : '120px', zIndex: showTimeframeDropdown ? 10000 : 'auto' }}>
           {showLabel && (
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
               <span style={{ fontSize: '11px', fontWeight: 600, color: isLight ? '#475569' : '#9ca3af' }}>
@@ -622,7 +622,7 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
             <>
               <div
                 onClick={() => setShowTimeframeDropdown(false)}
-                style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }}
+                style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999998 }}
               />
               <div style={{
                 position: 'absolute',
@@ -634,7 +634,7 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
                 borderRadius: '8px',
                 maxHeight: '200px',
                 overflowY: 'auto',
-                zIndex: 1000,
+                zIndex: 999999,
                 boxShadow: '0 10px 25px rgba(0,0,0,0.4)',
                 minWidth: '140px',
                 padding: '4px',
