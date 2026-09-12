@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 from typing import Dict, Any, Tuple, Optional, List
 from backtest_helpers import get_pip_size, get_lot_size
+from logger_handler import logPrint
 
 
 class ExhaustionDetector:
@@ -334,8 +335,9 @@ class ScalperHandler:
             "candles_analyzed": len(candles)
         }
 
-        # Terminal logging
-        print(f"[Scalper Scanner] [{symbol}] Checked last candle (Close: {candle_close:.5f}) | Range: {range_pips:.1f}p ({range_atr_ratio:.1f}x ATR) | Vol: {candle_vol:.0f} ({vol_ratio:.1f}x SMA) | UpperWick: {c_upper_wick_pct:.0f}%, LowerWick: {c_lower_wick_pct:.0f}% | Spread: {current_spread_pips:.2f}p", flush=True)
+        # Terminal & SSE streaming log
+        log_msg = f"[{symbol}] Checked last candle (Close: {candle_close:.5f}) | Range: {range_pips:.1f}p ({range_atr_ratio:.1f}x ATR) | Vol: {candle_vol:.0f} ({vol_ratio:.1f}x SMA) | UpperWick: {c_upper_wick_pct:.0f}%, LowerWick: {c_lower_wick_pct:.0f}% | Spread: {current_spread_pips:.2f}p | Exhaustion: {exhaustion_info.get('is_exhaustion', False)}"
+        logPrint(log_msg, category="Scalper", level="INFO")
 
         current_candle = candles[-1]
         should_buy, should_sell, updated_state = SignalEngine.process_step(

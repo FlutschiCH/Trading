@@ -12,6 +12,9 @@ class LoggerHandler:
     ENABLED_CATEGORIES = [
         "LiveRunner",
         "LiveStrategy",
+        "Scalper",
+        "ScalperHandler",
+        "LiquidityWorker",
         "TradingHandler",
         "MetaTraderHandler",
         "CTraderHandler",
