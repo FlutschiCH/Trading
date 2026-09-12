@@ -687,7 +687,8 @@ export const ScalperCard: React.FC<ScalperCardProps> = ({
                   <thead style={{ backgroundColor: '#111827', color: '#9ca3af', position: 'sticky', top: 0 }}>
                     <tr>
                       <th style={{ padding: '6px 8px' }}>Time</th>
-                      <th style={{ padding: '6px 8px' }}>Type</th>
+                      <th style={{ padding: '6px 8px' }}>Direction</th>
+                      <th style={{ padding: '6px 8px' }}>Pattern</th>
                       <th style={{ padding: '6px 8px' }}>High</th>
                       <th style={{ padding: '6px 8px' }}>Low</th>
                       <th style={{ padding: '6px 8px' }}>Close</th>
@@ -711,6 +712,18 @@ export const ScalperCard: React.FC<ScalperCardProps> = ({
                               color: tc.spike_direction === 'BUY' ? '#22c55e' : '#ef4444'
                             }}>
                               {tc.spike_direction || 'SPIKE'}
+                            </span>
+                          </td>
+                          <td style={{ padding: '6px 8px' }}>
+                            <span style={{
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              fontSize: '10px',
+                              fontWeight: 600,
+                              backgroundColor: tc.spike_type === 'BIG_CANDLE_IMPULSE' ? 'rgba(168, 85, 247, 0.2)' : 'rgba(56, 189, 248, 0.2)',
+                              color: tc.spike_type === 'BIG_CANDLE_IMPULSE' ? '#c084fc' : '#38bdf8'
+                            }}>
+                              {tc.spike_type === 'BIG_CANDLE_IMPULSE' ? 'Big Candle' : 'Wick Rejection'}
                             </span>
                           </td>
                           <td style={{ padding: '6px 8px', color: '#9ca3af' }}>{tc.high}</td>

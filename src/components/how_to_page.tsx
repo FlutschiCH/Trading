@@ -738,16 +738,16 @@ export default function HowToPage() {
               <Zap size={22} style={{ color: '#eab308' }} /> M1/M5 Liquidity Void & Reversal Scalper Overview
             </h2>
             <p style={{ margin: 0 }}>
-              {renderTextWithMarkdown("The **Liquidity Void & Reversal Scalper** is an ultra-fast precision execution system designed for **M1 and M5** timeframes. It targets extreme algorithmic exhaustion spikes caused by institutional news releases, stop hunts, or sudden liquidity imbalances, and exploits the immediate 50% impulse retracement back to fair value.")}
+              {renderTextWithMarkdown("The **Liquidity Void & Reversal Scalper** is an ultra-fast precision execution system designed for **M1 and M5** timeframes. It targets extreme algorithmic exhaustion spikes and outsized impulse expansions caused by institutional news releases, stop hunts, or sudden liquidity imbalances, and exploits the immediate 50% impulse retracement back to fair value.")}
             </p>
 
             <div style={styles.grid}>
               <div style={styles.card}>
                 <h3 style={styles.cardTitle('#38bdf8')}>
-                  <Eye size={16} /> 1. Spike Exhaustion Detection
+                  <Eye size={16} /> 1. Dual Exhaustion Detection (Wick + Big Candle)
                 </h3>
                 <p style={{ fontSize: '13px', margin: 0 }}>
-                  {renderTextWithMarkdown("Monitors closed candles for **Range > 2.5x ATR(14)** and **Volume > 3.0x SMA(20)** with severe rejection wicks (**Wick ≥ 40% of total range**).")}
+                  {renderTextWithMarkdown("Monitors closed candles for **Range ≥ 2.5x ATR(14)** and **Volume ≥ 3.0x SMA(20)** across two structural patterns:\n• **Rejection Wick Spike**: Severe wick (**≥ 40% of range**) showing aggressive stop hunt absorption.\n• **Big Candle Impulse**: Outsized full-body expansion creating an unsustainable liquidity void.")}
                 </p>
               </div>
 
@@ -756,7 +756,7 @@ export default function HowToPage() {
                   <Target size={16} /> 2. Confirmation Breakout Trigger
                 </h3>
                 <p style={{ fontSize: '13px', margin: 0 }}>
-                  {renderTextWithMarkdown("Once an exhaustion spike occurs (**ARMED state**), the engine waits up to **3 candles** for price to break beyond the spike's body boundary before firing a market order.")}
+                  {renderTextWithMarkdown("Once an exhaustion pattern triggers (**ARMED state**), the engine waits up to **3 candles** for confirmation breakout before firing a market order.")}
                 </p>
               </div>
 
@@ -780,13 +780,14 @@ export default function HowToPage() {
             <div style={styles.rowLayout}>
               <div style={styles.textContent}>
                 <p style={{ margin: 0 }}>
-                  {renderTextWithMarkdown("The engine uses dynamic ATR, volume moving averages, and pip calculations across forex, gold, and crypto pairs:")}
+                  {renderTextWithMarkdown("The engine evaluates both rejection wicks and full-body impulse expansions across dynamic ATR and volume thresholds:")}
                 </p>
 
                 <div style={styles.formula}>
                   Range = High - Low<br />
                   Upper Wick % = (High - max(Open, Close)) / Range * 100<br />
                   Lower Wick % = (min(Open, Close) - Low) / Range * 100<br />
+                  Body % = abs(Close - Open) / Range * 100<br />
                   50% Retracement Level = Low + (High - Low) * 0.50<br />
                   Stop Loss = Spike High + 2 pips (SELL) | Spike Low - 2 pips (BUY)<br />
                   Lot Size = (Balance * Risk%) / (SL Distance * Pip Value)
@@ -794,16 +795,16 @@ export default function HowToPage() {
 
                 <div style={styles.grid}>
                   <div style={{ backgroundColor: '#070a13', border: '1px solid #1e293b', borderRadius: '8px', padding: '12px' }}>
-                    <strong style={{ color: '#22c55e', fontSize: '12px' }}>🟢 Bullish Exhaustion (BUY Setup)</strong>
+                    <strong style={{ color: '#22c55e', fontSize: '12px' }}>🟢 Bullish Exhaustion (BUY Reversal)</strong>
                     <p style={{ fontSize: '11px', margin: '4px 0 0 0', color: '#94a3b8' }}>
-                      {renderTextWithMarkdown("• Red/Bearish body with large **Lower Wick ≥ 40%**\n• `Range >= 2.5 * ATR(14)`\n• `Volume >= 3.0 * Volume_SMA(20)`\n• **Trigger**: Next candle close > `max(Open, Close)` of spike.")}
+                      {renderTextWithMarkdown("• **Pattern 1 (Wick)**: Downward spike with **Lower Wick ≥ 40%**.\n• **Pattern 2 (Big Candle)**: Outsized Bearish red candle (`Close < Open`, `Range ≥ 2.5x ATR`, `Vol ≥ 3.0x SMA`).\n• **Trigger**: Next candle close breaks above previous confirmation high.")}
                     </p>
                   </div>
 
                   <div style={{ backgroundColor: '#070a13', border: '1px solid #1e293b', borderRadius: '8px', padding: '12px' }}>
-                    <strong style={{ color: '#ef4444', fontSize: '12px' }}>🔴 Bearish Exhaustion (SELL Setup)</strong>
+                    <strong style={{ color: '#ef4444', fontSize: '12px' }}>🔴 Bearish Exhaustion (SELL Reversal)</strong>
                     <p style={{ fontSize: '11px', margin: '4px 0 0 0', color: '#94a3b8' }}>
-                      {renderTextWithMarkdown("• Green/Bullish body with large **Upper Wick ≥ 40%**\n• `Range >= 2.5 * ATR(14)`\n• `Volume >= 3.0 * Volume_SMA(20)`\n• **Trigger**: Next candle close < `min(Open, Close)` of spike.")}
+                      {renderTextWithMarkdown("• **Pattern 1 (Wick)**: Upward spike with **Upper Wick ≥ 40%**.\n• **Pattern 2 (Big Candle)**: Outsized Bullish green candle (`Close > Open`, `Range ≥ 2.5x ATR`, `Vol ≥ 3.0x SMA`).\n• **Trigger**: Next candle close breaks below previous confirmation low.")}
                     </p>
                   </div>
                 </div>
@@ -814,20 +815,20 @@ export default function HowToPage() {
                   {/* Bearish Spike Candle */}
                   <line x1="80" y1="20" x2="80" y2="180" stroke="#f43f5e" strokeWidth="2" />
                   <rect x="68" y="110" width="24" height="60" fill="#f43f5e" rx="2" />
-                  <text x="30" y="50" fill="#f43f5e" fontSize="10" fontFamily="monospace">Upper Wick &gt; 40%</text>
+                  <text x="15" y="45" fill="#f43f5e" fontSize="9" fontFamily="monospace">Wick &gt; 40% OR Big Candle</text>
 
                   {/* 50% TP Line */}
                   <line x1="68" y1="100" x2="280" y2="100" stroke="#fbbf24" strokeWidth="1.5" strokeDasharray="3 3" />
-                  <text x="180" y="93" fill="#fbbf24" fontSize="10" fontFamily="monospace">50% Impulse TP Target</text>
+                  <text x="170" y="93" fill="#fbbf24" fontSize="10" fontFamily="monospace">50% Impulse TP Target</text>
 
                   {/* SL Line */}
                   <line x1="68" y1="15" x2="280" y2="15" stroke="#ef4444" strokeWidth="1.5" strokeDasharray="3 3" />
-                  <text x="180" y="12" fill="#ef4444" fontSize="10" fontFamily="monospace">SL (Spike High + 2 pips)</text>
+                  <text x="170" y="12" fill="#ef4444" fontSize="10" fontFamily="monospace">SL (Spike High + 2 pips)</text>
 
                   {/* Confirmation Trigger Candle */}
                   <line x1="140" y1="105" x2="140" y2="185" stroke="#ef4444" strokeWidth="2" />
                   <rect x="128" y="120" width="24" height="55" fill="#ef4444" rx="2" />
-                  <text x="110" y="200" fill="#38bdf8" fontSize="10" fontFamily="monospace">Entry: Close &lt; Body</text>
+                  <text x="110" y="200" fill="#38bdf8" fontSize="10" fontFamily="monospace">Entry: Breakout Close</text>
 
                   {/* Retracement Path */}
                   <path d="M140,175 L180,140 L220,100" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" markerEnd="url(#arrow)" />
@@ -848,7 +849,7 @@ export default function HowToPage() {
                 <div style={styles.stepBadge}>1</div>
                 <strong style={{ color: '#f8fafc', fontSize: '14px' }}>Realtime Exhaustion Scanning & Multi-Channel Alert</strong>
                 <p style={{ fontSize: '13px', margin: '4px 0 0 0', color: '#94a3b8' }}>
-                  {renderTextWithMarkdown("The engine monitors live M1 ticks. When an exhaustion candle closes meeting ATR & Volume criteria, it sends push notifications to **Discord** and **Mobile PWA** and arms the system (`status = ARMED`).")}
+                  {renderTextWithMarkdown("The engine monitors live M1 ticks for either large rejection wicks (≥ 40%) or massive impulse expansion candles (≥ 2.5x ATR & ≥ 3.0x SMA volume). When detected, it dispatches alerts to **Discord** and **Mobile PWA** and arms the state machine (`status = ARMED`).")}
                 </p>
               </div>
 
@@ -856,7 +857,7 @@ export default function HowToPage() {
                 <div style={styles.stepBadge}>2</div>
                 <strong style={{ color: '#f8fafc', fontSize: '14px' }}>Confirmation Breakout Check</strong>
                 <p style={{ fontSize: '13px', margin: '4px 0 0 0', color: '#94a3b8' }}>
-                  {renderTextWithMarkdown("Within 3 candles, if the market breaks beyond the spike candle's open/close body, the trade enters immediately at market price.")}
+                  {renderTextWithMarkdown("Within 3 candles, if the market breaks beyond the confirmation boundary, the trade enters immediately at market price.")}
                 </p>
               </div>
 
@@ -864,7 +865,7 @@ export default function HowToPage() {
                 <div style={styles.stepBadge}>3</div>
                 <strong style={{ color: '#f8fafc', fontSize: '14px' }}>Automatic +3 Pip Break-Even Trailing</strong>
                 <p style={{ fontSize: '13px', margin: '4px 0 0 0', color: '#94a3b8' }}>
-                  {renderTextWithMarkdown("As soon as price gains **+3.0 pips** in favor of the trade, the Stop Loss is automatically updated to Entry Price + spread cushion, guaranteeing zero risk.")}
+                  {renderTextWithMarkdown("As soon as price gains **+3.0 pips** in favor of the trade, the Stop Loss is automatically updated to Entry Price, locking in a risk-free position.")}
                 </p>
               </div>
 
@@ -872,7 +873,7 @@ export default function HowToPage() {
                 <div style={styles.stepBadge}>4</div>
                 <strong style={{ color: '#f8fafc', fontSize: '14px' }}>50% Impulse Take-Profit & 8-Minute Hard Timeout</strong>
                 <p style={{ fontSize: '13px', margin: '4px 0 0 0', color: '#94a3b8' }}>
-                  {renderTextWithMarkdown("Half of the position closes when price hits the 50% impulse retracement mark. If 8 minutes elapse without reaching full target or stop, the position manager executes a market exit.")}
+                  {renderTextWithMarkdown("Half of the position closes when price hits the 50% impulse retracement mark. If 8 minutes elapse without reaching target or stop, the position manager executes a market exit.")}
                 </p>
               </div>
             </div>

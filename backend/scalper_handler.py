@@ -41,7 +41,10 @@ class ExhaustionDetector:
         min_wick_ratio: float = 0.40
     ) -> Dict[str, Any]:
         """
-        Evaluates a single closed candle for exhaustion spike characteristics.
+        Evaluates a single closed candle for exhaustion spike characteristics:
+        1. Wick Rejection Exhaustion: Large rejection wick (>= 40%) showing sharp intraday rejection.
+        2. Big Candle (Liquidity Void Impulse): Large body / extreme extension (Range >= 2.5x ATR, Vol >= 3.0x SMA)
+           creating an overextended price void ready for mean reversion.
         """
         high = float(candle.get('high', 0))
         low = float(candle.get('low', 0))
@@ -63,26 +66,49 @@ class ExhaustionDetector:
         # 2. Wick calculations
         body_top = max(open_price, close)
         body_bottom = min(open_price, close)
+        body_size = body_top - body_bottom
         upper_wick = high - body_top
         lower_wick = body_bottom - low
 
         upper_wick_ratio = upper_wick / candle_range
         lower_wick_ratio = lower_wick / candle_range
+        body_ratio = body_size / candle_range
 
-        # Bullish exhaustion (spike down with large lower rejection wick) -> Signal Buy
-        is_bullish_rejection = lower_wick_ratio >= min_wick_ratio and (close > open_price or lower_wick > upper_wick)
-        # Bearish exhaustion (spike up with large upper rejection wick) -> Signal Sell
-        is_bearish_rejection = upper_wick_ratio >= min_wick_ratio and (close < open_price or upper_wick > lower_wick)
+        # Case A: Wick Rejection Exhaustion
+        is_bullish_wick_rejection = lower_wick_ratio >= min_wick_ratio and (close > open_price or lower_wick > upper_wick)
+        is_bearish_wick_rejection = upper_wick_ratio >= min_wick_ratio and (close < open_price or upper_wick > lower_wick)
 
-        if not (is_bullish_rejection or is_bearish_rejection):
+        # Case B: Very Big Candle / Liquidity Void Impulse (Full Expansion without required large wick)
+        # Extreme downward impulse candle (large red candle) -> Anticipate mean reversion BUY
+        is_bullish_big_candle = (close < open_price) and not is_bearish_wick_rejection and (body_ratio >= 0.50 or lower_wick_ratio < min_wick_ratio)
+        # Extreme upward impulse candle (large green candle) -> Anticipate mean reversion SELL
+        is_bearish_big_candle = (close > open_price) and not is_bullish_wick_rejection and (body_ratio >= 0.50 or upper_wick_ratio < min_wick_ratio)
+
+        is_bullish = is_bullish_wick_rejection or is_bullish_big_candle
+        is_bearish = is_bearish_wick_rejection or is_bearish_big_candle
+
+        if not (is_bullish or is_bearish):
             return {"is_exhaustion": False}
 
-        direction = "BUY" if is_bullish_rejection else "SELL"
+        if is_bullish_wick_rejection:
+            spike_type = "WICK_REJECTION"
+            direction = "BUY"
+        elif is_bearish_wick_rejection:
+            spike_type = "WICK_REJECTION"
+            direction = "SELL"
+        elif is_bullish_big_candle:
+            spike_type = "BIG_CANDLE_IMPULSE"
+            direction = "BUY"
+        else:
+            spike_type = "BIG_CANDLE_IMPULSE"
+            direction = "SELL"
+
         retracement_50 = low + (candle_range * 0.5)
 
         return {
             "is_exhaustion": True,
             "direction": direction,
+            "spike_type": spike_type,
             "candle_range": candle_range,
             "atr_14": atr_14,
             "vol_sma_20": vol_sma_20,
@@ -90,6 +116,7 @@ class ExhaustionDetector:
             "spike_low": low,
             "upper_wick_ratio": upper_wick_ratio,
             "lower_wick_ratio": lower_wick_ratio,
+            "body_ratio": body_ratio,
             "retracement_50": retracement_50,
             "spike_time": candle.get('time')
         }
@@ -125,6 +152,7 @@ class SignalEngine:
             state = {
                 "status": "ARMED",
                 "direction": exhaustion_info["direction"],
+                "spike_type": exhaustion_info.get("spike_type", "WICK_REJECTION"),
                 "spike_high": exhaustion_info["spike_high"],
                 "spike_low": exhaustion_info["spike_low"],
                 "retracement_50": exhaustion_info["retracement_50"],
@@ -347,11 +375,13 @@ class ScalperHandler:
             if spike_time and spike_time != last_notified_spike:
                 state["last_notified_spike"] = spike_time
                 dir_emoji = "🟢 📈 BULLISH" if exhaustion_info.get("direction") == "BUY" else "🔴 📉 BEARISH"
+                spike_kind = "🔥 Rejection Wick" if exhaustion_info.get("spike_type") == "WICK_REJECTION" else "🚀 Large Impulse Body"
                 wick_pct = (exhaustion_info.get('lower_wick_ratio', 0) if exhaustion_info.get('direction') == 'BUY' else exhaustion_info.get('upper_wick_ratio', 0)) * 100
 
                 discord_msg = (
                     f"⚡ **M1 Liquidity Void / Exhaustion Spike Detected!**\n"
                     f"📊 **Symbol:** `{symbol}`\n"
+                    f"🏷️ **Pattern Type:** `{spike_kind}`\n"
                     f"🧭 **Impulse Direction:** {dir_emoji}\n"
                     f"📏 **Range:** `{range_pips:.1f} pips` (`{range_atr_ratio:.1f}x ATR`)\n"
                     f"📦 **Volume:** `{candle_vol:.0f}` (`{vol_ratio:.1f}x SMA`)\n"
@@ -365,11 +395,11 @@ class ScalperHandler:
                     from notification_handler import NotificationHandler
                     NotificationHandler.send_notification(discord_msg, sound_type="alert")
                     NotificationHandler.send_web_push(
-                        title=f"⚡ {exhaustion_info.get('direction')} Exhaustion: {symbol}",
-                        body=f"Range: {range_pips:.1f}p ({range_atr_ratio:.1f}x ATR) | Wick: {wick_pct:.0f}% | Awaiting breakout",
+                        title=f"⚡ {exhaustion_info.get('direction')} Exhaustion ({spike_kind}): {symbol}",
+                        body=f"Range: {range_pips:.1f}p ({range_atr_ratio:.1f}x ATR) | Vol: {vol_ratio:.1f}x SMA | Awaiting breakout",
                         url="/dashboard"
                     )
-                    logPrint(f"🔔 Sent Discord & Mobile Push notification for {symbol} exhaustion spike at {candle_close:.5f}", category="Scalper", level="INFO")
+                    logPrint(f"🔔 Sent Discord & Mobile Push notification for {symbol} exhaustion spike ({spike_kind}) at {candle_close:.5f}", category="Scalper", level="INFO")
                 except Exception as notif_err:
                     logPrint(f"Failed to dispatch scalper notification: {notif_err}", category="Scalper", level="WARNING")
 
@@ -587,6 +617,7 @@ class ScalperHandler:
             if exhaustion_info.get("is_exhaustion"):
                 closed_candle['is_spike'] = True
                 closed_candle['spike_direction'] = exhaustion_info.get("direction")
+                closed_candle['spike_type'] = exhaustion_info.get("spike_type")
                 closed_candle['retracement_50'] = exhaustion_info.get("retracement_50")
                 triggered_candles.append(dict(closed_candle))
 
