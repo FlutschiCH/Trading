@@ -1034,6 +1034,22 @@ export default function Dashboard() {
     const saved = localStorage.getItem('wyckoff_desk_card_heights');
     return saved ? JSON.parse(saved) : {};
   });
+  const [collapsedCards, setCollapsedCards] = useState<{ [key: string]: boolean }>(() => {
+    try {
+      const saved = localStorage.getItem('wyckoff_desk_collapsed_cards');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const toggleCardCollapse = (id: string) => {
+    setCollapsedCards(prev => {
+      const next = { ...prev, [id]: !prev[id] };
+      localStorage.setItem('wyckoff_desk_collapsed_cards', JSON.stringify(next));
+      return next;
+    });
+  };
   const [activeResize, setActiveResize] = useState<{
     id: string;
     direction: 'horizontal' | 'vertical';
@@ -3040,13 +3056,13 @@ export default function Dashboard() {
               }}>
                 {panelOrder.map((panelId) => {
                   const isDragOver = dragOverId === panelId;
+                  const isCollapsed = !!collapsedCards[panelId];
                   const defaultWidth = panelId === 'chart' ? 'calc(50% - 16px)' : 'calc(25% - 16px)';
                   const dragStyles = {
                     width: cardWidths[panelId] ? `${cardWidths[panelId]}px` : defaultWidth,
-                    height: cardHeights[panelId] ? `${cardHeights[panelId]}px` : undefined,
-                    maxHeight: panelId === 'backtester' ? 'none' : '800px',
+                    height: isCollapsed ? 'auto' : (cardHeights[panelId] ? `${cardHeights[panelId]}px` : undefined),
+                    maxHeight: isCollapsed ? 'none' : (panelId === 'backtester' ? 'none' : '800px'),
                     display: 'flex',
-
                     flexDirection: 'column' as const,
                     flexGrow: cardWidths[panelId] ? 0 : 1,
                     flexShrink: 1,
@@ -3054,7 +3070,7 @@ export default function Dashboard() {
                     border: isDragOver ? '2px dashed #3b82f6' : '1px solid var(--app-card-border)',
                     borderRadius: '12px',
                     backgroundColor: 'var(--app-card-bg)',
-                    transition: activeResize ? 'none' : 'border 0.2s, opacity 0.2s',
+                    transition: activeResize ? 'none' : 'border 0.2s, opacity 0.2s, height 0.2s',
                     opacity: isDragOver ? 0.75 : 1,
                     position: 'relative' as const,
                     overflow: 'hidden',
@@ -3068,7 +3084,7 @@ export default function Dashboard() {
                     padding: '10px 16px',
                     cursor: 'grab',
                     userSelect: 'none' as const,
-                    borderBottom: '1px solid var(--app-card-border)',
+                    borderBottom: isCollapsed ? 'none' : '1px solid var(--app-card-border)',
                     fontSize: '12px',
                     fontWeight: 'bold',
                     color: 'var(--app-text)',
@@ -3079,6 +3095,48 @@ export default function Dashboard() {
                     flex: 1,
                     overflowY: 'auto' as const,
                   };
+
+                  const renderCollapseButton = (id: string) => (
+                    <button
+                      type="button"
+                      className="no-drag"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        toggleCardCollapse(id);
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#9ca3af',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '2px 4px',
+                        borderRadius: '4px',
+                        transition: 'background-color 0.15s, color 0.15s, transform 0.2s',
+                        marginLeft: '4px',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = 'var(--app-hover-bg)';
+                        e.currentTarget.style.color = '#ffffff';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                        e.currentTarget.style.color = '#9ca3af';
+                      }}
+                      title={collapsedCards[id] ? 'Expand Card' : 'Collapse Card'}
+                    >
+                      <ChevronDown
+                        size={15}
+                        style={{
+                          transform: collapsedCards[id] ? 'rotate(-90deg)' : 'rotate(0deg)',
+                          transition: 'transform 0.2s ease',
+                        }}
+                      />
+                    </button>
+                  );
 
                   if (panelId === 'chart') {
                     return (
@@ -3093,74 +3151,81 @@ export default function Dashboard() {
                           onDragStart={(e) => handleDragStart(e, 'chart')}
                           style={headerStyle}
                         >
-                          <span>📊 Candlestick & Weis Wave Analysis Chart</span>
-                          <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header to Move</span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                            📊 Candlestick & Weis Wave Analysis Chart
+                          </span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header</span>
+                            {renderCollapseButton('chart')}
+                          </div>
                         </div>
-                        <div className="no-drag" style={{ padding: '0px', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                          <TVChart
-                            theme={theme}
-                            symbol={symbol}
-                            openPositions={positions}
-                            onSymbolChange={setSymbol}
-                            timeframe={timeframe}
-                            onTimeframeChange={setTimeframe}
-                            candleSource={candleSource}
-                            onCandleSourceChange={setCandleSource}
-                            availableSymbols={availableSymbols}
-                            availableTimeframes={availableTimeframes}
-                            candles={(() => {
-                              const btCandles = backtestResults?.candles || [];
-                              if (!isLiveFeed || btCandles.length === 0) return isLiveFeed ? candles : (btCandles.length > 0 ? btCandles : candles);
-                              const mergedMap = new Map<number, Candle>();
-                              btCandles.forEach((c: Candle) => mergedMap.set(c.time, c));
-                              candles.forEach((c: Candle) => mergedMap.set(c.time, c));
-                              return Array.from(mergedMap.values()).sort((a, b) => a.time - b.time);
-                            })()}
-                            loading={loading}
-                            loadingStrategy={loadingStrategy}
-                            onRefresh={(broker, isBg) => fetchCandles(broker, isBg, true)}
-                            entryPrice={selectedTrade?.entryPrice}
-                            slPrice={selectedTrade?.slPrice}
-                            tpPrice={selectedTrade?.tpPrice}
-                            trades={(() => {
-                              const btTrades = backtestResults?.trades || [];
-                              const liveList = liveSimulatedTrades.length > 0 ? liveSimulatedTrades : liveTrades;
-                              if (!isLiveFeed) return btTrades.length > 0 ? btTrades : liveList;
-                              if (btTrades.length === 0) return liveList;
-                              if (liveList.length === 0) return btTrades;
-                              const combined = [...btTrades];
-                              liveList.forEach((lt: any) => {
-                                const exists = combined.some((bt: any) =>
-                                  (lt.id && bt.id && lt.id === bt.id) ||
-                                  (lt.entryTimestamp && bt.entryTimestamp && lt.entryTimestamp === bt.entryTimestamp && lt.symbol === bt.symbol)
-                                );
-                                if (!exists) combined.push(lt);
-                              });
-                              return combined;
-                            })()}
-                            selectedTrade={selectedTrade}
-                            onSelectTrade={(trade) => {
-                              setSelectedTrade(trade);
-                              setShowModal(true);
-                            }}
-                            dateRangeOption={dateRangeOption}
-                            customFrom={customFrom}
-                            customTo={customTo}
-                            onSelectCandle={setSelectedCandle}
-                            locateTimestamp={locateTimestamp}
-                            enabledIndicators={enabledIndicators}
-                            fvgs={fvgs}
-                            tradeFilter={tradeFilter}
-                            onTradeFilterChange={setTradeFilter}
-                            sessions={tradingSessions}
-                            sessionsTimezone={sessionsTimezone}
-                            selectedCandle={selectedCandle}
-                            hiddenStages={hiddenStages}
-                            isLiveFeed={isLiveFeed}
-                            onLiveFeedChange={setIsLiveFeed}
-                          />
-                        </div>
-                        {renderResizeHandle('chart')}
+                        {!isCollapsed && (
+                          <div className="no-drag" style={{ padding: '0px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                            <TVChart
+                              theme={theme}
+                              symbol={symbol}
+                              openPositions={positions}
+                              onSymbolChange={setSymbol}
+                              timeframe={timeframe}
+                              onTimeframeChange={setTimeframe}
+                              candleSource={candleSource}
+                              onCandleSourceChange={setCandleSource}
+                              availableSymbols={availableSymbols}
+                              availableTimeframes={availableTimeframes}
+                              candles={(() => {
+                                const btCandles = backtestResults?.candles || [];
+                                if (!isLiveFeed || btCandles.length === 0) return isLiveFeed ? candles : (btCandles.length > 0 ? btCandles : candles);
+                                const mergedMap = new Map<number, Candle>();
+                                btCandles.forEach((c: Candle) => mergedMap.set(c.time, c));
+                                candles.forEach((c: Candle) => mergedMap.set(c.time, c));
+                                return Array.from(mergedMap.values()).sort((a, b) => a.time - b.time);
+                              })()}
+                              loading={loading}
+                              loadingStrategy={loadingStrategy}
+                              onRefresh={(broker, isBg) => fetchCandles(broker, isBg, true)}
+                              entryPrice={selectedTrade?.entryPrice}
+                              slPrice={selectedTrade?.slPrice}
+                              tpPrice={selectedTrade?.tpPrice}
+                              trades={(() => {
+                                const btTrades = backtestResults?.trades || [];
+                                const liveList = liveSimulatedTrades.length > 0 ? liveSimulatedTrades : liveTrades;
+                                if (!isLiveFeed) return btTrades.length > 0 ? btTrades : liveList;
+                                if (btTrades.length === 0) return liveList;
+                                if (liveList.length === 0) return btTrades;
+                                const combined = [...btTrades];
+                                liveList.forEach((lt: any) => {
+                                  const exists = combined.some((bt: any) =>
+                                    (lt.id && bt.id && lt.id === bt.id) ||
+                                    (lt.entryTimestamp && bt.entryTimestamp && lt.entryTimestamp === bt.entryTimestamp && lt.symbol === bt.symbol)
+                                  );
+                                  if (!exists) combined.push(lt);
+                                });
+                                return combined;
+                              })()}
+                              selectedTrade={selectedTrade}
+                              onSelectTrade={(trade) => {
+                                setSelectedTrade(trade);
+                                setShowModal(true);
+                              }}
+                              dateRangeOption={dateRangeOption}
+                              customFrom={customFrom}
+                              customTo={customTo}
+                              onSelectCandle={setSelectedCandle}
+                              locateTimestamp={locateTimestamp}
+                              enabledIndicators={enabledIndicators}
+                              fvgs={fvgs}
+                              tradeFilter={tradeFilter}
+                              onTradeFilterChange={setTradeFilter}
+                              sessions={tradingSessions}
+                              sessionsTimezone={sessionsTimezone}
+                              selectedCandle={selectedCandle}
+                              hiddenStages={hiddenStages}
+                              isLiveFeed={isLiveFeed}
+                              onLiveFeedChange={setIsLiveFeed}
+                            />
+                          </div>
+                        )}
+                        {!isCollapsed && renderResizeHandle('chart')}
                       </div>
                     );
                   }
@@ -3181,7 +3246,7 @@ export default function Dashboard() {
                           onDragStart={(e) => handleDragStart(e, 'backtester')}
                           style={headerStyle}
                         >
-                          <span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                             ⚙️ Wyckoff Backtester
                             {liveStrategy && liveStrategy.symbol === symbol && liveStrategy.timeframe === timeframe ? (
                               <span style={{
@@ -3213,107 +3278,112 @@ export default function Dashboard() {
                               </span>
                             )}
                           </span>
-                          <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header to Move</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header</span>
+                            {renderCollapseButton('backtester')}
+                          </div>
                         </div>
-                        <div className="no-drag" style={contentStyle}>
-                          <WyckoffBacktester
-                            isReadOnly={isProdHost && !isAuthenticated}
-                            availableSymbols={availableSymbols}
-                            availableTimeframes={availableTimeframes}
-                            symbol={symbol}
-                            timeframe={timeframe}
-                            broker={candleSource}
-                            liveStrategy={liveStrategy}
-                            isDeploying={isDeploying}
-                            deployLiveStrategy={deployLiveStrategy}
-                            backtestBalance={backtestBalance}
-                            setBacktestBalance={setBacktestBalance}
-                            useRiskSizing={useRiskSizing}
-                            setUseRiskSizing={setUseRiskSizing}
-                            backtestRiskPct={backtestRiskPct}
-                            setBacktestRiskPct={setBacktestRiskPct}
-                            backtestSize={backtestSize}
-                            setBacktestSize={setBacktestSize}
-                            backtestSL={backtestSL}
-                            setBacktestSL={setBacktestSL}
-                            backtestSLType={backtestSLType}
-                            setBacktestSLType={setBacktestSLType}
-                            backtestRR={backtestRR}
-                            setBacktestRR={setBacktestRR}
-                            useBreakEven={useBreakEven}
-                            setUseBreakEven={setUseBreakEven}
-                            backtestBE={backtestBE}
-                            setBacktestBE={setBacktestBE}
-                            beOffsetMode={beOffsetMode}
-                            setBeOffsetMode={setBeOffsetMode as any}
-                            lookbackWindow={lookbackWindow}
-                            setLookbackWindow={setLookbackWindow}
-                            backtestResults={backtestResults}
-                            backtestTab={backtestTab}
-                            setBacktestTab={setBacktestTab}
-                            tradeFilter={tradeFilter}
-                            setTradeFilter={setTradeFilter}
-                            selectedTrade={selectedTrade}
-                            setSelectedTrade={setSelectedTrade}
-                            setShowModal={setShowModal}
-                            backtestFees={backtestFees}
-                            setBacktestFees={setBacktestFees}
-                            enabledIndicators={enabledIndicators}
-                            setEnabledIndicators={setEnabledIndicators}
-                            dateRangeOption={dateRangeOption}
-                            setDateRangeOption={setDateRangeOption}
-                            customFrom={customFrom}
-                            setCustomFrom={setCustomFrom}
-                            customTo={customTo}
-                            setCustomTo={setCustomTo}
-                            entryStabilityRule={entryStabilityRule}
-                            setEntryStabilityRule={setEntryStabilityRule}
-                            candleLimit={candleLimit}
-                            setCandleLimit={setCandleLimit}
-                            favouriteCandles={favouriteCandles}
-                            onDeleteFavourite={handleDeleteFavourite}
-                            onUpdateNotes={handleUpdateFavouriteNotes}
-                            onLocateCandle={handleLocateCandle}
-                            styles={styles}
-                            onRunBacktest={runBacktest}
-                            loadingBacktest={loadingBacktest}
-                            backtestProgress={backtestProgress}
-                            dailyRetryLimit={dailyRetryLimit}
-                            setDailyRetryLimit={setDailyRetryLimit}
-                            allowOppositeClose={allowOppositeClose}
-                            setAllowOppositeClose={setAllowOppositeClose}
-                            onCancelBacktest={cancelBacktest}
-                            sessionsTimezone={sessionsTimezone}
-                            setSessionsTimezone={setSessionsTimezone}
-                            tradingSessions={tradingSessions}
-                            setTradingSessions={setTradingSessions}
-                            useGlobalClose={useGlobalClose}
-                            setUseGlobalClose={setUseGlobalClose}
-                            globalCloseTime={globalCloseTime}
-                            setGlobalCloseTime={setGlobalCloseTime}
-                            hiddenStages={hiddenStages}
-                            setHiddenStages={setHiddenStages}
+                        {!isCollapsed && (
+                          <div className="no-drag" style={contentStyle}>
+                            <WyckoffBacktester
+                              isReadOnly={isProdHost && !isAuthenticated}
+                              availableSymbols={availableSymbols}
+                              availableTimeframes={availableTimeframes}
+                              symbol={symbol}
+                              timeframe={timeframe}
+                              broker={candleSource}
+                              liveStrategy={liveStrategy}
+                              isDeploying={isDeploying}
+                              deployLiveStrategy={deployLiveStrategy}
+                              backtestBalance={backtestBalance}
+                              setBacktestBalance={setBacktestBalance}
+                              useRiskSizing={useRiskSizing}
+                              setUseRiskSizing={setUseRiskSizing}
+                              backtestRiskPct={backtestRiskPct}
+                              setBacktestRiskPct={setBacktestRiskPct}
+                              backtestSize={backtestSize}
+                              setBacktestSize={setBacktestSize}
+                              backtestSL={backtestSL}
+                              setBacktestSL={setBacktestSL}
+                              backtestSLType={backtestSLType}
+                              setBacktestSLType={setBacktestSLType}
+                              backtestRR={backtestRR}
+                              setBacktestRR={setBacktestRR}
+                              useBreakEven={useBreakEven}
+                              setUseBreakEven={setUseBreakEven}
+                              backtestBE={backtestBE}
+                              setBacktestBE={setBacktestBE}
+                              beOffsetMode={beOffsetMode}
+                              setBeOffsetMode={setBeOffsetMode as any}
+                              lookbackWindow={lookbackWindow}
+                              setLookbackWindow={setLookbackWindow}
+                              backtestResults={backtestResults}
+                              backtestTab={backtestTab}
+                              setBacktestTab={setBacktestTab}
+                              tradeFilter={tradeFilter}
+                              setTradeFilter={setTradeFilter}
+                              selectedTrade={selectedTrade}
+                              setSelectedTrade={setSelectedTrade}
+                              setShowModal={setShowModal}
+                              backtestFees={backtestFees}
+                              setBacktestFees={setBacktestFees}
+                              enabledIndicators={enabledIndicators}
+                              setEnabledIndicators={setEnabledIndicators}
+                              dateRangeOption={dateRangeOption}
+                              setDateRangeOption={setDateRangeOption}
+                              customFrom={customFrom}
+                              setCustomFrom={setCustomFrom}
+                              customTo={customTo}
+                              setCustomTo={setCustomTo}
+                              entryStabilityRule={entryStabilityRule}
+                              setEntryStabilityRule={setEntryStabilityRule}
+                              candleLimit={candleLimit}
+                              setCandleLimit={setCandleLimit}
+                              favouriteCandles={favouriteCandles}
+                              onDeleteFavourite={handleDeleteFavourite}
+                              onUpdateNotes={handleUpdateFavouriteNotes}
+                              onLocateCandle={handleLocateCandle}
+                              styles={styles}
+                              onRunBacktest={runBacktest}
+                              loadingBacktest={loadingBacktest}
+                              backtestProgress={backtestProgress}
+                              dailyRetryLimit={dailyRetryLimit}
+                              setDailyRetryLimit={setDailyRetryLimit}
+                              allowOppositeClose={allowOppositeClose}
+                              setAllowOppositeClose={setAllowOppositeClose}
+                              onCancelBacktest={cancelBacktest}
+                              sessionsTimezone={sessionsTimezone}
+                              setSessionsTimezone={setSessionsTimezone}
+                              tradingSessions={tradingSessions}
+                              setTradingSessions={setTradingSessions}
+                              useGlobalClose={useGlobalClose}
+                              setUseGlobalClose={setUseGlobalClose}
+                              globalCloseTime={globalCloseTime}
+                              setGlobalCloseTime={setGlobalCloseTime}
+                              hiddenStages={hiddenStages}
+                              setHiddenStages={setHiddenStages}
 
-                            isOptimizeMode={isOptimizeMode}
-                            setIsOptimizeMode={setIsOptimizeMode}
-                            rrStart={rrStart}
-                            setRRStart={setRRStart}
-                            rrEnd={rrEnd}
-                            setRREnd={setRREnd}
-                            rrStep={rrStep}
-                            setRRStep={setRRStep}
-                            optimizationResults={optimizationResults}
-                            setOptimizationResults={setOptimizationResults}
-                            onRunOptimization={runOptimization}
-                            onSaveSettings={saveBacktestSettings}
-                            onLoadSpecificResults={loadSpecificResults}
-                            setBacktestResults={setBacktestResults}
-                            onLoadSavedPayload={handleLoadSavedPayload}
-                            onSymbolChange={setSymbol}
-                            onTimeframeChange={setTimeframe}
-                          />
-                        </div>
-                        {renderResizeHandle('backtester')}
+                              isOptimizeMode={isOptimizeMode}
+                              setIsOptimizeMode={setIsOptimizeMode}
+                              rrStart={rrStart}
+                              setRRStart={setRRStart}
+                              rrEnd={rrEnd}
+                              setRREnd={setRREnd}
+                              rrStep={rrStep}
+                              setRRStep={setRRStep}
+                              optimizationResults={optimizationResults}
+                              setOptimizationResults={setOptimizationResults}
+                              onRunOptimization={runOptimization}
+                              onSaveSettings={saveBacktestSettings}
+                              onLoadSpecificResults={loadSpecificResults}
+                              setBacktestResults={setBacktestResults}
+                              onLoadSavedPayload={handleLoadSavedPayload}
+                              onSymbolChange={setSymbol}
+                              onTimeframeChange={setTimeframe}
+                            />
+                          </div>
+                        )}
+                        {!isCollapsed && renderResizeHandle('backtester')}
                       </div>
                     );
                   }
@@ -3429,19 +3499,22 @@ export default function Dashboard() {
                                 </>
                               )}
                               <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header</span>
+                              {renderCollapseButton('trades')}
                             </div>
                           </div>
                         </div>
-                        <div className="no-drag" style={contentStyle}>
-                          <LiveTradesPanel
-                            dailyPnl={dailyPnl}
-                            weeklyPnl={weeklyPnl}
-                            openPositions={positions}
-                            handleClosePosition={handleClosePosition}
-                            isMobileLayout={false}
-                          />
-                        </div>
-                        {renderResizeHandle('trades')}
+                        {!isCollapsed && (
+                          <div className="no-drag" style={contentStyle}>
+                            <LiveTradesPanel
+                              dailyPnl={dailyPnl}
+                              weeklyPnl={weeklyPnl}
+                              openPositions={positions}
+                              handleClosePosition={handleClosePosition}
+                              isMobileLayout={false}
+                            />
+                          </div>
+                        )}
+                        {!isCollapsed && renderResizeHandle('trades')}
                       </div>
                     );
                   }
@@ -3459,25 +3532,32 @@ export default function Dashboard() {
                           onDragStart={(e) => handleDragStart(e, 'live_overview')}
                           style={headerStyle}
                         >
-                          <span>⚡ Live Strategies Overview</span>
-                          <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header to Move</span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                            ⚡ Live Strategies Overview
+                          </span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header</span>
+                            {renderCollapseButton('live_overview')}
+                          </div>
                         </div>
-                        <div className="no-drag" style={contentStyle}>
-                          <LiveOverviewPanel
-                            isMobileLayout={false}
-                            selectedStrategyId={selectedStrategyId}
-                            isLiveFeed={isLiveFeed}
-                            onSelectStrategy={(id) => {
-                              setSelectedStrategyId(id);
-                              localStorage.setItem('wyckoff_selected_live_strategy_id', id);
-                              setIsLiveFeed(true);
-                              localStorage.setItem('wyckoff_is_live_feed', 'true');
-                              // Trigger candle fetch on active display update
-                              setTimeout(() => fetchCandles(), 50);
-                            }}
-                          />
-                        </div>
-                        {renderResizeHandle('live_overview')}
+                        {!isCollapsed && (
+                          <div className="no-drag" style={contentStyle}>
+                            <LiveOverviewPanel
+                              isMobileLayout={false}
+                              selectedStrategyId={selectedStrategyId}
+                              isLiveFeed={isLiveFeed}
+                              onSelectStrategy={(id) => {
+                                setSelectedStrategyId(id);
+                                localStorage.setItem('wyckoff_selected_live_strategy_id', id);
+                                setIsLiveFeed(true);
+                                localStorage.setItem('wyckoff_is_live_feed', 'true');
+                                // Trigger candle fetch on active display update
+                                setTimeout(() => fetchCandles(), 50);
+                              }}
+                            />
+                          </div>
+                        )}
+                        {!isCollapsed && renderResizeHandle('live_overview')}
                       </div>
                     );
                   }
@@ -3495,13 +3575,20 @@ export default function Dashboard() {
                           onDragStart={(e) => handleDragStart(e, 'symbol_mapping')}
                           style={headerStyle}
                         >
-                          <span>🔗 Symbol Mappings Manager</span>
-                          <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header to Move</span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                            🔗 Symbol Mappings Manager
+                          </span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header</span>
+                            {renderCollapseButton('symbol_mapping')}
+                          </div>
                         </div>
-                        <div className="no-drag" style={contentStyle}>
-                          <SymbolMappingCard isReadOnly={isProdHost && !isAuthenticated} />
-                        </div>
-                        {renderResizeHandle('symbol_mapping')}
+                        {!isCollapsed && (
+                          <div className="no-drag" style={contentStyle}>
+                            <SymbolMappingCard isReadOnly={isProdHost && !isAuthenticated} />
+                          </div>
+                        )}
+                        {!isCollapsed && renderResizeHandle('symbol_mapping')}
                       </div>
                     );
                   }
@@ -3519,13 +3606,20 @@ export default function Dashboard() {
                           onDragStart={(e) => handleDragStart(e, 'copytrader')}
                           style={headerStyle}
                         >
-                          <span>🔄 Master / Slave Copytrader Manager</span>
-                          <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header to Move</span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                            🔄 Master / Slave Copytrader Manager
+                          </span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontSize: '10px', color: '#9ca3af' }}>⋮ Drag Header</span>
+                            {renderCollapseButton('copytrader')}
+                          </div>
                         </div>
-                        <div className="no-drag" style={contentStyle}>
-                          <Copytrader />
-                        </div>
-                        {renderResizeHandle('copytrader')}
+                        {!isCollapsed && (
+                          <div className="no-drag" style={contentStyle}>
+                            <Copytrader />
+                          </div>
+                        )}
+                        {!isCollapsed && renderResizeHandle('copytrader')}
                       </div>
                     );
                   }
