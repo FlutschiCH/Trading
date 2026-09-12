@@ -57,17 +57,19 @@ class SystemHandler:
             # 3. Launch detached restart.bat if on Windows
             try:
                 if sys.platform == "win32":
-                    import subprocess
                     root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
                     restart_bat = os.path.join(root_dir, "restart.bat")
                     if os.path.exists(restart_bat):
                         print(f"[SystemHandler] Launching detached restarter: {restart_bat}...", flush=True)
-                        subprocess.Popen(
-                            ["cmd.exe", "/c", restart_bat],
-                            cwd=root_dir,
-                            creationflags=subprocess.CREATE_NEW_CONSOLE | getattr(subprocess, "DETACHED_PROCESS", 0x00000008),
-                            close_fds=True
-                        )
+                        try:
+                            os.startfile(restart_bat)
+                        except Exception:
+                            import subprocess
+                            subprocess.Popen(
+                                ["cmd.exe", "/c", restart_bat],
+                                cwd=root_dir,
+                                creationflags=subprocess.CREATE_NEW_CONSOLE
+                            )
             except Exception as launch_err:
                 print(f"[SystemHandler] Error launching restart.bat: {launch_err}", flush=True)
 
