@@ -21,6 +21,7 @@ import SymbolMappingCard from './symbol_mapping_card';
 import Copytrader from './copytrader';
 import TradeAnalyzerCard from './trade_analyzer_card';
 import BacktestAnalyzerCard from './backtest_analyzer_card';
+import ScalperCard from './scalper_card';
 import LogPanel from './log_panel';
 import NewsPanel from './news_panel';
 import type { Candle, AccountInfo, Position } from '../types/trading';
@@ -3658,6 +3659,15 @@ export default function Dashboard() {
                 {/* Trade Analyzer Card */}
                 <div style={{ marginTop: '24px' }}>
                   <TradeAnalyzerCard />
+                </div>
+
+                {/* M1/M5 Liquidity Void & Reversal Scalper Card */}
+                <div style={{ marginTop: '24px' }}>
+                  <ScalperCard
+                    currentSymbol={symbol}
+                    currentTimeframe={timeframe}
+                    candles={candles}
+                  />
                 </div>
 
                 {/* Copytrader Master / Slave Engine Card */}
