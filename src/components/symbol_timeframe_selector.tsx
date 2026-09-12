@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { API_BASE_URL } from '../api';
 import * as apiService from '../services/apiService';
 
@@ -210,11 +211,40 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
   const [showSymbolDropdown, setShowSymbolDropdown] = useState(false);
   const [symbolSearch, setSymbolSearch] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const [symbolRect, setSymbolRect] = useState<{ top: number; left: number; width: number } | null>(null);
 
   const [showTimeframeDropdown, setShowTimeframeDropdown] = useState(false);
+  const [timeframeRect, setTimeframeRect] = useState<{ top: number; left: number; width: number } | null>(null);
 
+  const symbolInputRef = useRef<HTMLInputElement>(null);
+  const timeframeButtonRef = useRef<HTMLButtonElement>(null);
   const symbolDropdownRef = useRef<HTMLDivElement>(null);
   const timeframeDropdownRef = useRef<HTMLDivElement>(null);
+
+  const openSymbolDropdown = () => {
+    if (symbolInputRef.current) {
+      const rect = symbolInputRef.current.getBoundingClientRect();
+      setSymbolRect({
+        top: rect.bottom + window.scrollY,
+        left: rect.left + window.scrollX,
+        width: Math.max(rect.width, 240)
+      });
+    }
+    setSymbolSearch('');
+    setShowSymbolDropdown(true);
+  };
+
+  const openTimeframeDropdown = () => {
+    if (timeframeButtonRef.current) {
+      const rect = timeframeButtonRef.current.getBoundingClientRect();
+      setTimeframeRect({
+        top: rect.bottom + window.scrollY,
+        left: rect.left + window.scrollX,
+        width: Math.max(rect.width, 160)
+      });
+    }
+    setShowTimeframeDropdown(prev => !prev);
+  };
 
   // Filtered & sorted symbol list
   const sortedSymbols = useMemo(() => {
@@ -355,16 +385,14 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
           {/* Symbol Input / Trigger */}
           <div style={{ position: 'relative' }}>
             <input
+              ref={symbolInputRef}
               type="text"
               readOnly={!showSymbolDropdown}
               disabled={disabled}
               placeholder={placeholder}
               value={multiSelect ? (selectedSymbols.length > 0 ? selectedSymbols.join(', ') : symbol) : (showSymbolDropdown ? symbolSearch : symbol)}
-              onFocus={() => {
-                setSymbolSearch('');
-                setShowSymbolDropdown(true);
-              }}
-              onClick={() => setShowSymbolDropdown(true)}
+              onFocus={openSymbolDropdown}
+              onClick={openSymbolDropdown}
               onChange={(e) => {
                 setSymbolSearch(e.target.value);
                 setShowSymbolDropdown(true);
@@ -388,7 +416,13 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
             <button
               type="button"
               disabled={disabled}
-              onClick={() => setShowSymbolDropdown(!showSymbolDropdown)}
+              onClick={() => {
+                if (showSymbolDropdown) {
+                  setShowSymbolDropdown(false);
+                } else {
+                  openSymbolDropdown();
+                }
+              }}
               style={{
                 position: 'absolute',
                 right: '6px',
@@ -405,8 +439,8 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
             </button>
           </div>
 
-          {/* Dropdown Popup */}
-          {showSymbolDropdown && (
+          {/* Dropdown Popup via Portal */}
+          {showSymbolDropdown && symbolRect && typeof document !== 'undefined' && createPortal(
             <>
               <div
                 onClick={() => setShowSymbolDropdown(false)}
@@ -414,17 +448,16 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
               />
               <div style={{
                 position: 'absolute',
-                top: '100%',
-                left: 0,
+                top: symbolRect.top + 4,
+                left: symbolRect.left,
+                width: symbolRect.width,
                 backgroundColor: isLight ? '#ffffff' : '#0f172a',
                 border: isLight ? '1px solid #cbd5e1' : '1px solid #334155',
                 borderRadius: '8px',
                 zIndex: 999999,
-                boxShadow: '0 15px 30px rgba(0, 0, 0, 0.4)',
+                boxShadow: '0 20px 40px rgba(0, 0, 0, 0.6)',
                 minWidth: '240px',
-                width: '100%',
-                overflow: 'hidden',
-                marginTop: '4px'
+                overflow: 'hidden'
               }}>
                 <div style={{ padding: '6px', borderBottom: isLight ? '1px solid #e2e8f0' : '1px solid #334155', backgroundColor: isLight ? '#f8fafc' : '#1e293b', display: 'flex', gap: '6px', alignItems: 'center' }}>
                   <input
@@ -478,11 +511,12 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
 
                 <div style={{ maxHeight: '240px', overflowY: 'auto', padding: '4px' }}>
                   {sortedSymbols.length > 0 ? (
-                    sortedSymbols.slice(0, 100).map((sym, idx) => {
+                    sortedSymbols.map((sym, idx) => {
                       const isSelected = multiSelect ? selectedSymbols.includes(sym) : symbol === sym;
                       const isFav = favoriteSymbols.includes(sym);
+                      const isHighlighted = idx === highlightedIndex;
+                      const mappedTargets = mappedMasterSymbols.mainToBrokerMap[sym];
                       const isMasterMap = mappedMasterSymbols.masterList.includes(sym);
-                      const brokerTargets = mappedMasterSymbols.mainToBrokerMap[sym];
 
                       return (
                         <div
@@ -493,25 +527,28 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
                             cursor: 'pointer',
                             fontSize: '12px',
                             color: isLight ? '#0f172a' : '#ffffff',
-                            backgroundColor: idx === highlightedIndex
-                              ? '#2563eb'
-                              : (isSelected ? 'rgba(37, 99, 235, 0.2)' : 'transparent'),
+                            backgroundColor: isSelected
+                              ? 'rgba(37, 99, 235, 0.2)'
+                              : isHighlighted
+                                ? (isLight ? '#f1f5f9' : '#1e293b')
+                                : 'transparent',
                             transition: 'background-color 0.15s',
                             display: 'flex',
                             justifyContent: 'space-between',
                             alignItems: 'center',
                             borderRadius: '4px'
                           }}
-                          onMouseEnter={() => setHighlightedIndex(idx)}
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             {multiSelect && <span style={{ fontSize: '12px' }}>{isSelected ? '☑' : '☐'}</span>}
-                            <span style={{ fontWeight: isSelected ? 'bold' : 'normal' }}>{sym}</span>
-                            {isMasterMap && (
-                              <span style={{ fontSize: '9px', color: '#a855f7', backgroundColor: 'rgba(168, 85, 247, 0.15)', padding: '1px 5px', borderRadius: '4px', fontWeight: 'bold' }}>
-                                🔀 Master{brokerTargets && brokerTargets.length > 0 ? ` (➔ ${brokerTargets.join(', ')})` : ''}
-                              </span>
-                            )}
+                            <div>
+                              <span style={{ fontWeight: isSelected ? 'bold' : 'normal' }}>{sym}</span>
+                              {isMasterMap && mappedTargets && (
+                                <span style={{ fontSize: '10px', color: '#a855f7', marginLeft: '6px', fontWeight: 'bold' }}>
+                                  [➔ {mappedTargets.join(', ')}]
+                                </span>
+                              )}
+                            </div>
                           </div>
                           <span
                             onClick={(e) => toggleFavSymbol(sym, e)}
@@ -530,13 +567,14 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
                       );
                     })
                   ) : (
-                    <div style={{ padding: '8px 10px', fontSize: '11px', color: '#6b7280', textAlign: 'center' }}>
-                      No symbols found
+                    <div style={{ padding: '8px', color: '#9ca3af', fontSize: '12px', textAlign: 'center' }}>
+                      No symbols found.
                     </div>
                   )}
                 </div>
               </div>
-            </>
+            </>,
+            document.body
           )}
         </div>
       )}
@@ -585,9 +623,10 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
           {/* Timeframe Trigger */}
           <div style={{ position: 'relative' }}>
             <button
+              ref={timeframeButtonRef}
               type="button"
               disabled={disabled}
-              onClick={() => setShowTimeframeDropdown(!showTimeframeDropdown)}
+              onClick={openTimeframeDropdown}
               style={{
                 width: '100%',
                 boxSizing: 'border-box',
@@ -617,8 +656,8 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
             </button>
           </div>
 
-          {/* Timeframe Dropdown */}
-          {showTimeframeDropdown && (
+          {/* Timeframe Dropdown via Portal */}
+          {showTimeframeDropdown && timeframeRect && typeof document !== 'undefined' && createPortal(
             <>
               <div
                 onClick={() => setShowTimeframeDropdown(false)}
@@ -626,19 +665,18 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
               />
               <div style={{
                 position: 'absolute',
-                top: '100%',
-                left: 0,
-                right: 0,
+                top: timeframeRect.top + 4,
+                left: timeframeRect.left,
+                width: timeframeRect.width,
                 backgroundColor: isLight ? '#ffffff' : '#0f172a',
                 border: isLight ? '1px solid #cbd5e1' : '1px solid #334155',
                 borderRadius: '8px',
-                maxHeight: '200px',
+                maxHeight: '220px',
                 overflowY: 'auto',
                 zIndex: 999999,
-                boxShadow: '0 10px 25px rgba(0,0,0,0.4)',
+                boxShadow: '0 20px 40px rgba(0,0,0,0.6)',
                 minWidth: '140px',
-                padding: '4px',
-                marginTop: '4px'
+                padding: '4px'
               }}>
                 {sortedTimeframes.map((tf) => {
                   const isSelected = multiSelect ? selectedTimeframes.includes(tf) : timeframe === tf;
@@ -681,7 +719,8 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
                   );
                 })}
               </div>
-            </>
+            </>,
+            document.body
           )}
         </div>
       )}
