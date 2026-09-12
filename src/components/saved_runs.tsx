@@ -56,6 +56,13 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
     } catch {}
     return 'all';
   });
+  const [sbFilterSlType, setSbFilterSlType] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) return JSON.parse(saved).sbFilterSlType ?? 'all';
+    } catch {}
+    return 'all';
+  });
   const [sbMaxDrawdown, setSbMaxDrawdown] = useState<string>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -99,6 +106,7 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
         sbSortField,
         sbSortDir,
         sbFilterSymbol,
+        sbFilterSlType,
         sbMaxDrawdown,
         sbMinNetPnl,
         sbMinWinRate,
@@ -108,7 +116,7 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
     } catch (e) {
       console.error("Failed to save filters to localStorage", e);
     }
-  }, [sbSortField, sbSortDir, sbFilterSymbol, sbMaxDrawdown, sbMinNetPnl, sbMinWinRate, sbMinTrades, sbMinProfitFactor]);
+  }, [sbSortField, sbSortDir, sbFilterSymbol, sbFilterSlType, sbMaxDrawdown, sbMinNetPnl, sbMinWinRate, sbMinTrades, sbMinProfitFactor]);
 
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(50);
@@ -146,7 +154,7 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
   // Reset to page 1 whenever any filter or sorting changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [sbSortField, sbSortDir, sbFilterSymbol, sbMaxDrawdown, sbMinNetPnl, sbMinWinRate, sbMinTrades, sbMinProfitFactor, pageSize, viewTab]);
+  }, [sbSortField, sbSortDir, sbFilterSymbol, sbFilterSlType, sbMaxDrawdown, sbMinNetPnl, sbMinWinRate, sbMinTrades, sbMinProfitFactor, pageSize, viewTab]);
 
   const activeDisplayList = viewTab === 'active' ? savedBacktestsList : archivedBacktestsList;
 
@@ -154,6 +162,11 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
     return activeDisplayList
       .filter(item => {
         if (sbFilterSymbol !== 'all' && item.symbol !== sbFilterSymbol) return false;
+        if (sbFilterSlType !== 'all') {
+          const itemType = (item.sl_type || 'pct').toLowerCase();
+          const targetType = sbFilterSlType.toLowerCase();
+          if (itemType !== targetType) return false;
+        }
         if (sbMaxDrawdown !== '' && item.max_drawdown !== undefined && item.max_drawdown !== null && item.max_drawdown > parseFloat(sbMaxDrawdown)) return false;
         if (sbMinNetPnl !== '' && item.net_pnl < parseFloat(sbMinNetPnl)) return false;
         if (sbMinWinRate !== '' && item.win_rate < parseFloat(sbMinWinRate)) return false;
@@ -171,7 +184,7 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
         }
         return sbSortDir === 'desc' ? valB - valA : valA - valB;
       });
-  }, [activeDisplayList, sbFilterSymbol, sbMaxDrawdown, sbMinNetPnl, sbMinWinRate, sbMinTrades, sbMinProfitFactor, sbSortField, sbSortDir]);
+  }, [activeDisplayList, sbFilterSymbol, sbFilterSlType, sbMaxDrawdown, sbMinNetPnl, sbMinWinRate, sbMinTrades, sbMinProfitFactor, sbSortField, sbSortDir]);
 
   const totalPages = pageSize === 0 ? 1 : Math.max(1, Math.ceil(filteredAndSortedList.length / pageSize));
   const safeCurrentPage = Math.min(currentPage, totalPages);
@@ -438,6 +451,29 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <label style={{ color: 'var(--app-text, #cbd5e1)', fontSize: '12px', fontWeight: 500 }}>SL Mode:</label>
+              <select
+                value={sbFilterSlType}
+                onChange={(e) => setSbFilterSlType(e.target.value)}
+                style={{
+                  backgroundColor: 'var(--app-input-bg, #0f172a)',
+                  color: 'var(--app-input-text, #f8fafc)',
+                  border: '1px solid var(--app-input-border, #475569)',
+                  padding: '4px 8px',
+                  borderRadius: '4px',
+                  fontSize: '12px'
+                }}
+              >
+                <option value="all">All SL Types</option>
+                <option value="price">Price</option>
+                <option value="pct">% (Pct)</option>
+                <option value="xatr">xATR</option>
+                <option value="points">Points</option>
+                <option value="pips">Pips</option>
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <label style={{ color: 'var(--app-text, #cbd5e1)', fontSize: '12px', fontWeight: 500 }}>Max DD (%):</label>
               <input
                 type="number"
@@ -533,10 +569,11 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
               />
             </div>
 
-            {(sbFilterSymbol !== 'all' || sbMaxDrawdown || sbMinNetPnl || sbMinWinRate || sbMinTrades || sbMinProfitFactor) && (
+            {(sbFilterSymbol !== 'all' || sbFilterSlType !== 'all' || sbMaxDrawdown || sbMinNetPnl || sbMinWinRate || sbMinTrades || sbMinProfitFactor) && (
               <button
                 onClick={() => {
                   setSbFilterSymbol('all');
+                  setSbFilterSlType('all');
                   setSbMaxDrawdown('');
                   setSbMinNetPnl('');
                   setSbMinWinRate('');
