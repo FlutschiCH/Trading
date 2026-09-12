@@ -311,34 +311,7 @@ def run_worker(job_id: str, is_resume: bool = False):
             total_elapsed = round(time.time() - execution_start_time, 2)
             if isinstance(res, dict):
                 res['total_duration_sec'] = total_elapsed
-                summary = res.get('summary', {})
-                print(f"{Fore.GREEN}[BacktestWorker Finished]{Style.RESET_ALL} Job {job_id} finished in {total_elapsed}s | Net PnL: ${summary.get('net_profit', 0.0):.2f} | Trades: {summary.get('total_trades', 0)} | WinRate: {summary.get('win_rate', 0.0):.1f}%", flush=True)
-
-            # Auto-save single backtest run to saved_backtests table ONCE at completion
-            try:
-                summary = res.get('summary', {}) if isinstance(res, dict) else {}
-                save_payload = dict(res) if isinstance(res, dict) else {}
-                if 'settings' not in save_payload:
-                    save_payload['settings'] = params
-                SQLHandler.save_backtest_run(
-                    backtest_id=f"single_{job_id}",
-                    symbol=symbol,
-                    timeframe=timeframe,
-                    broker=candle_source,
-                    sl_val=float(params.get('slVal', 1.0)),
-                    sl_type=params.get('slType', 'pct'),
-                    rr=float(params.get('rr', 2.0)),
-                    be_trigger_r=float(params.get('beTriggerR', 1.0)) if params.get('useBreakEven') else 0.0,
-                    net_pnl=float(summary.get('net_profit', 0.0)),
-                    win_rate=float(summary.get('win_rate', 0.0)),
-                    trades_cnt=int(summary.get('total_trades', 0)),
-                    profit_factor=float(summary.get('profit_factor', 0.0)),
-                    max_drawdown=float(summary.get('max_drawdown', 0.0)),
-                    payload_dict=save_payload
-                )
-                print(f"{Fore.GREEN}[BacktestWorker SavedRun]{Style.RESET_ALL} Saved completed single backtest run 'single_{job_id}' to MySQL saved_backtests table.", flush=True)
-            except Exception as save_err:
-                print(f"[BacktestWorker] Warning: Failed to save single backtest run: {save_err}", flush=True)
+                print(f"{Fore.GREEN}[BacktestWorker Finished]{Style.RESET_ALL} Job {job_id} finished in {total_elapsed}s | Net PnL: ${res.get('netPnl', 0.0):.2f} | Trades: {res.get('totalTrades', 0)} | WinRate: {res.get('winRate', 0.0):.1f}%", flush=True)
 
             # Update job status via local HTTP callback to Flask in-memory cache and MySQL
             send_local_update(progress=100.0, status='completed', step_info='Finished', results=res if isinstance(res, dict) else {})
