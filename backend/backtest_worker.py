@@ -32,6 +32,43 @@ if backend_dir not in sys.path:
 from sql_handler import SQLHandler
 from strategy_handler import StrategyHandler
 from broker_handler import BrokerHandler
+from scalper_handler import ScalperHandler
+
+def run_scalper_backtest_job(job_id: str, params: dict, candles: list, symbol: str, send_local_update):
+    """
+    Dedicated backtest executor for M1/M5 Liquidity Void & Reversal Scalper.
+    Identifies all historical spike exhaustion triggers, confirms breakouts, and records triggered candles.
+    """
+    print(f"\n{Fore.CYAN}[BacktestWorker Scalper]{Style.RESET_ALL} Executing Liquidity Void Scalper backtest for '{symbol}' ({len(candles)} candles)...", flush=True)
+    initial_balance = float(params.get('initialBalance', params.get('balance', 1000.0)))
+    risk_pct = float(params.get('riskPct', params.get('risk_percent', 1.0)))
+    atr_mult = float(params.get('atr_multiplier', params.get('atrMultiplier', 2.5)))
+    vol_mult = float(params.get('vol_multiplier', params.get('volMultiplier', 3.0)))
+    min_wick = float(params.get('min_wick_ratio', params.get('minWickRatio', 0.40)))
+    max_spread = float(params.get('max_spread_pips', params.get('maxSpreadPips', 1.2)))
+    hard_stop_m = int(params.get('hard_stop_minutes', 8))
+
+    res = ScalperHandler.run_scalper_backtest(
+        candles=candles,
+        symbol=symbol,
+        initial_balance=initial_balance,
+        risk_percent=risk_pct,
+        atr_multiplier=atr_mult,
+        vol_multiplier=vol_mult,
+        min_wick_ratio=min_wick,
+        max_spread_pips=max_spread,
+        hard_stop_minutes=hard_stop_m,
+        progress_callback=lambda p: send_local_update(progress=float(p), step_info=f"Simulating M1 Scalper ({p}%)")
+    )
+
+    summary = res.get('summary', {})
+    triggered = res.get('triggered_candles', [])
+    print(f"{Fore.GREEN}[BacktestWorker Scalper Finished]{Style.RESET_ALL} Completed! Net Profit: ${summary.get('net_profit', 0.0)} | WinRate: {summary.get('win_rate', 0)}% ({summary.get('wins', 0)}W / {summary.get('losses', 0)}L) | Spikes Detected: {summary.get('triggered_spikes_count', 0)}", flush=True)
+    if triggered:
+        print(f"{Fore.YELLOW}[BacktestWorker Triggered Candles]{Style.RESET_ALL} Saved {len(triggered)} spike candles for chart display.", flush=True)
+
+    send_local_update(progress=100.0, status='completed', step_info='Finished', results=res)
+    return res
 
 def run_worker(job_id: str, is_resume: bool = False):
     print(f"{Fore.CYAN}[BacktestWorker]{Style.RESET_ALL} Starting worker for job_id={job_id} (resume={is_resume})", flush=True)
@@ -295,10 +332,18 @@ def run_worker(job_id: str, is_resume: bool = False):
                 print(f"{Fore.YELLOW}[BacktestWorker Data]{Style.RESET_ALL} Warning: Could not fetch {htf_ema_timeframe} HTF candles ({e_htf}).", flush=True)
                 htf_candles = None
 
-        # Record start of actual strategy computations (after fetching data overhead)
-        execution_start_time = time.time()
+        # Check if this is a scalper backtest
+        is_scalper = params.get('strategy_type') == 'scalper' or 'scalper' in str(params.get('strategy_name', '')).lower() or 'scalper' in str(params.get('name', '')).lower()
 
-        if job_type == 'single':
+        if is_scalper:
+            res = run_scalper_backtest_job(
+                job_id=job_id,
+                params=params,
+                candles=candles,
+                symbol=symbol,
+                send_local_update=send_local_update
+            )
+        elif job_type == 'single':
             print(f"{Fore.CYAN}[BacktestWorker]{Style.RESET_ALL} Running single backtest for job {job_id}...", flush=True)
             res = StrategyHandler.run_backtest(
                 candles=candles,

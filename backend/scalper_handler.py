@@ -422,3 +422,267 @@ class ScalperHandler:
             "diagnostics": diagnostics,
             "exhaustion_info": exhaustion_info if exhaustion_info.get("is_exhaustion") else None
         }
+
+    @classmethod
+    def run_scalper_backtest(
+        cls,
+        candles: list,
+        symbol: str = "EURUSD",
+        initial_balance: float = 1000.0,
+        risk_percent: float = 1.0,
+        atr_multiplier: float = 2.5,
+        vol_multiplier: float = 3.0,
+        min_wick_ratio: float = 0.40,
+        max_spread_pips: float = 1.2,
+        hard_stop_minutes: int = 8,
+        progress_callback = None
+    ) -> dict:
+        """
+        Simulates the M1/M5 Liquidity Void & Reversal Scalper across historical candles.
+        Tracks all triggered signals, BE transitions, 50% impulse partial closes, and 8-min hard time stops.
+        """
+        if not candles or len(candles) < 35:
+            return {"status": "error", "message": "Insufficient candles for backtesting", "trades": [], "summary": {}}
+
+        df = pd.DataFrame(candles)
+        df['high'] = df['high'].astype(float)
+        df['low'] = df['low'].astype(float)
+        df['open'] = df['open'].astype(float)
+        df['close'] = df['close'].astype(float)
+        if 'volume' not in df.columns and 'tick_volume' in df.columns:
+            df['volume'] = df['tick_volume'].astype(float)
+        else:
+            df['volume'] = df.get('volume', pd.Series(0, index=df.index)).astype(float)
+
+        atr_series = ExhaustionDetector.calculate_atr(df, period=14)
+        vol_series = ExhaustionDetector.calculate_volume_sma(df, period=20)
+
+        # Annotate candles
+        for idx, c in enumerate(candles):
+            c['atr'] = float(atr_series.iloc[idx]) if not np.isnan(atr_series.iloc[idx]) else 0.0
+            c['vol_sma'] = float(vol_series.iloc[idx]) if not np.isnan(vol_series.iloc[idx]) else 0.0
+
+        state = {}
+        active_trades = []
+        completed_trades = []
+        triggered_candles = []
+        current_balance = initial_balance
+        pip_size = get_pip_size(symbol, float(candles[0].get('close', 1.0)))
+        lot_mult = get_lot_size(symbol)
+
+        total_candles = len(candles)
+        for i in range(25, total_candles):
+            if progress_callback and i % 500 == 0:
+                progress_callback(int((i / total_candles) * 100))
+
+            closed_candle = candles[i - 1]
+            curr_candle = candles[i]
+            c_time = int(curr_candle.get('time', 0))
+            c_high = float(curr_candle.get('high', 0))
+            c_low = float(curr_candle.get('low', 0))
+            c_close = float(curr_candle.get('close', 0))
+
+            # 1. Manage active trades on current bar
+            remaining_trades = []
+            for tr in active_trades:
+                entry_p = tr['entry_price']
+                sl_p = tr['sl_price']
+                tp_p = tr['tp_price']
+                direction = tr['type']
+                qty = tr['qty']
+                hold_sec = c_time - int(tr['entry_timestamp'])
+                is_be = tr.get('is_be', False)
+                partial_closed = tr.get('partial_closed', False)
+
+                # Check BE trigger (+3 pips profit)
+                if not is_be:
+                    if direction == 'BUY' and (c_high - entry_p) >= (3.0 * pip_size):
+                        tr['sl_price'] = entry_p
+                        tr['is_be'] = True
+                        is_be = True
+                        sl_p = entry_p
+                    elif direction == 'SELL' and (entry_p - c_low) >= (3.0 * pip_size):
+                        tr['sl_price'] = entry_p
+                        tr['is_be'] = True
+                        is_be = True
+                        sl_p = entry_p
+
+                # Check 50% impulse partial TP
+                if not partial_closed and tp_p is not None:
+                    should_partial = False
+                    if direction == 'BUY' and c_high >= tp_p:
+                        should_partial = True
+                    elif direction == 'SELL' and c_low <= tp_p:
+                        should_partial = True
+
+                    if should_partial:
+                        partial_qty = round(qty * 0.5, 2)
+                        pnl_partial = (tp_p - entry_p) * (partial_qty * lot_mult) if direction == 'BUY' else (entry_p - tp_p) * (partial_qty * lot_mult)
+                        current_balance += pnl_partial
+                        tr['realized_pnl'] = tr.get('realized_pnl', 0.0) + pnl_partial
+                        tr['qty'] = round(qty - partial_qty, 2)
+                        tr['partial_closed'] = True
+
+                # Check Stop Loss
+                sl_hit = False
+                exit_price = 0.0
+                if direction == 'BUY' and c_low <= sl_p:
+                    sl_hit = True
+                    exit_price = sl_p
+                elif direction == 'SELL' and c_high >= sl_p:
+                    sl_hit = True
+                    exit_price = sl_p
+
+                if sl_hit:
+                    rem_qty = tr['qty']
+                    pnl_rem = (exit_price - entry_p) * (rem_qty * lot_mult) if direction == 'BUY' else (entry_p - exit_price) * (rem_qty * lot_mult)
+                    total_pnl = tr.get('realized_pnl', 0.0) + pnl_rem
+                    current_balance += pnl_rem
+                    tr.update({
+                        'exit_time': c_time,
+                        'exit_price': exit_price,
+                        'exit_reason': 'Break-Even Hit' if is_be else 'Stop-Loss Hit',
+                        'pnl': round(total_pnl, 2),
+                        'return_pct': round((total_pnl / initial_balance) * 100, 2),
+                        'is_winner': total_pnl > 0
+                    })
+                    completed_trades.append(tr)
+                    continue
+
+                # Check Hard Time Stop (e.g. 8 minutes)
+                if hold_sec >= (hard_stop_minutes * 60):
+                    rem_qty = tr['qty']
+                    exit_price = c_close
+                    pnl_rem = (exit_price - entry_p) * (rem_qty * lot_mult) if direction == 'BUY' else (entry_p - exit_price) * (rem_qty * lot_mult)
+                    total_pnl = tr.get('realized_pnl', 0.0) + pnl_rem
+                    current_balance += pnl_rem
+                    tr.update({
+                        'exit_time': c_time,
+                        'exit_price': exit_price,
+                        'exit_reason': f'Hard Time Stop ({hard_stop_minutes}m)',
+                        'pnl': round(total_pnl, 2),
+                        'return_pct': round((total_pnl / initial_balance) * 100, 2),
+                        'is_winner': total_pnl > 0
+                    })
+                    completed_trades.append(tr)
+                    continue
+
+                remaining_trades.append(tr)
+
+            active_trades = remaining_trades
+
+            # 2. Evaluate for new exhaustion trigger
+            atr_v = float(atr_series.iloc[i - 1]) if not np.isnan(atr_series.iloc[i - 1]) else 0.0
+            vol_v = float(vol_series.iloc[i - 1]) if not np.isnan(vol_series.iloc[i - 1]) else 0.0
+
+            exhaustion_info = ExhaustionDetector.evaluate_candle(
+                candle=closed_candle,
+                atr_14=atr_v,
+                vol_sma_20=vol_v,
+                atr_multiplier=atr_multiplier,
+                vol_multiplier=vol_multiplier,
+                min_wick_ratio=min_wick_ratio
+            )
+
+            if exhaustion_info.get("is_exhaustion"):
+                closed_candle['is_spike'] = True
+                closed_candle['spike_direction'] = exhaustion_info.get("direction")
+                closed_candle['retracement_50'] = exhaustion_info.get("retracement_50")
+                triggered_candles.append(dict(closed_candle))
+
+            should_buy, should_sell, state = SignalEngine.process_step(
+                current_candle=curr_candle,
+                state=state,
+                exhaustion_info=exhaustion_info
+            )
+
+            if should_buy or should_sell:
+                direction = "BUY" if should_buy else "SELL"
+                entry_price = c_close
+                spike_h = float(state.get('spike_high', entry_price))
+                spike_l = float(state.get('spike_low', entry_price))
+
+                risk_res = RiskManager.evaluate_risk(
+                    symbol=symbol,
+                    direction=direction,
+                    entry_price=entry_price,
+                    spike_high=spike_h,
+                    spike_low=spike_l,
+                    account_balance=current_balance,
+                    current_spread_pips=0.8,
+                    risk_percent=risk_percent,
+                    max_spread_pips=max_spread_pips
+                )
+
+                if risk_res.get("valid"):
+                    curr_candle['is_entry'] = True
+                    curr_candle['entry_direction'] = direction
+
+                    trade_obj = {
+                        'id': len(completed_trades) + len(active_trades) + 1,
+                        'symbol': symbol,
+                        'type': direction,
+                        'entry_time': c_time,
+                        'entry_timestamp': c_time,
+                        'entry_price': entry_price,
+                        'sl_price': risk_res['sl_price'],
+                        'original_sl': risk_res['sl_price'],
+                        'tp_price': state.get('retracement_50'),
+                        'qty': risk_res['lot_size'],
+                        'risk_usd': risk_res['risk_amount'],
+                        'is_be': False,
+                        'partial_closed': False,
+                        'realized_pnl': 0.0
+                    }
+                    active_trades.append(trade_obj)
+
+        # Close any remaining open trades at final close price
+        if active_trades and len(candles) > 0:
+            final_c = candles[-1]
+            final_time = int(final_c.get('time', 0))
+            final_close = float(final_c.get('close', 0))
+            for tr in active_trades:
+                entry_p = tr['entry_price']
+                direction = tr['type']
+                rem_qty = tr['qty']
+                pnl_rem = (final_close - entry_p) * (rem_qty * lot_mult) if direction == 'BUY' else (entry_p - final_close) * (rem_qty * lot_mult)
+                total_pnl = tr.get('realized_pnl', 0.0) + pnl_rem
+                current_balance += pnl_rem
+                tr.update({
+                    'exit_time': final_time,
+                    'exit_price': final_close,
+                    'exit_reason': 'Backtest Ended',
+                    'pnl': round(total_pnl, 2),
+                    'return_pct': round((total_pnl / initial_balance) * 100, 2),
+                    'is_winner': total_pnl > 0
+                })
+                completed_trades.append(tr)
+
+        # Summary statistics
+        total_trades = len(completed_trades)
+        wins = [t for t in completed_trades if t.get('is_winner')]
+        losses = [t for t in completed_trades if not t.get('is_winner')]
+        win_rate = (len(wins) / total_trades * 100) if total_trades > 0 else 0.0
+        net_profit = current_balance - initial_balance
+        pnl_pct = (net_profit / initial_balance * 100) if initial_balance > 0 else 0.0
+
+        summary = {
+            "total_trades": total_trades,
+            "wins": len(wins),
+            "losses": len(losses),
+            "win_rate": round(win_rate, 2),
+            "initial_balance": initial_balance,
+            "final_balance": round(current_balance, 2),
+            "net_profit": round(net_profit, 2),
+            "pnl_pct": round(pnl_pct, 2),
+            "triggered_spikes_count": len(triggered_candles)
+        }
+
+        return {
+            "status": "success",
+            "summary": summary,
+            "trades": completed_trades,
+            "triggered_candles": triggered_candles[-50:],  # Save last 50 triggered spike candles for chart inspection
+            "annotated_candles": candles[-5000:] if len(candles) > 5000 else candles
+        }
+

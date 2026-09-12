@@ -34,6 +34,11 @@ export const ScalperCard: React.FC<ScalperCardProps> = ({
   const [showDeployModal, setShowDeployModal] = useState<boolean>(false);
   const [isDeploying, setIsDeploying] = useState<boolean>(false);
 
+  const [backtestLoading, setBacktestLoading] = useState<boolean>(false);
+  const [backtestResult, setBacktestResult] = useState<any>(null);
+  const [showTriggeredModal, setShowTriggeredModal] = useState<boolean>(false);
+  const [selectedSpikeCandle, setSelectedSpikeCandle] = useState<any>(null);
+
   const handleEvaluate = async () => {
     setLoading(true);
     setErrorMsg('');
@@ -70,6 +75,42 @@ export const ScalperCard: React.FC<ScalperCardProps> = ({
       setErrorMsg(e.message || 'Network error evaluating scalper');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRunBacktest = async () => {
+    setBacktestLoading(true);
+    setErrorMsg('');
+    try {
+      const payload = {
+        symbol: currentSymbol,
+        candles: candles,
+        balance: accountBalance,
+        risk_percent: riskPercent,
+        atr_multiplier: atrMultiplier,
+        vol_multiplier: volMultiplier,
+        min_wick_ratio: minWickRatio / 100.0,
+        max_spread_pips: maxSpreadPips,
+        hard_stop_minutes: 8
+      };
+
+      const res = await fetch(`${API_BASE_URL}/api/scalper/backtest`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+      if (data.status === 'success') {
+        setBacktestResult(data);
+        setSuccessMsg(`Backtest finished: ${data.summary?.total_trades || 0} trades executed, ${data.triggered_candles?.length || 0} spikes recorded.`);
+      } else {
+        setErrorMsg(data.message || 'Backtest failed');
+      }
+    } catch (e: any) {
+      setErrorMsg(e.message || 'Network error running scalper backtest');
+    } finally {
+      setBacktestLoading(false);
     }
   };
 
@@ -231,6 +272,28 @@ export const ScalperCard: React.FC<ScalperCardProps> = ({
           >
             <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
             {loading ? 'Evaluating...' : 'Scan'}
+          </button>
+
+          <button
+            onClick={handleRunBacktest}
+            disabled={backtestLoading || candles.length === 0}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              backgroundColor: '#8b5cf6',
+              color: '#ffffff',
+              border: 'none',
+              padding: '6px 12px',
+              borderRadius: '6px',
+              fontSize: '12px',
+              fontWeight: 600,
+              cursor: (backtestLoading || candles.length === 0) ? 'not-allowed' : 'pointer',
+              opacity: (backtestLoading || candles.length === 0) ? 0.7 : 1
+            }}
+          >
+            <Activity size={13} className={backtestLoading ? 'animate-spin' : ''} />
+            {backtestLoading ? 'Backtesting...' : 'Run Scalper Backtest'}
           </button>
 
           <button
@@ -536,6 +599,109 @@ export const ScalperCard: React.FC<ScalperCardProps> = ({
               <span style={{ color: '#64748b', fontSize: '9px', display: 'block' }}>Max allowed: {maxSpreadPips}p</span>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Backtest Results & Triggered Spikes Display */}
+      {backtestResult && (
+        <div style={{
+          backgroundColor: 'var(--app-bg-secondary, #0b0f19)',
+          border: '1px solid rgba(139, 92, 246, 0.3)',
+          borderRadius: '8px',
+          padding: '16px',
+          marginBottom: '16px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Activity size={16} color="#a78bfa" />
+              <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: '#f3f4f6' }}>
+                Scalper Backtest Summary ({currentSymbol})
+              </h4>
+            </div>
+            <span style={{
+              fontSize: '12px',
+              fontWeight: 700,
+              padding: '3px 8px',
+              borderRadius: '4px',
+              backgroundColor: (backtestResult.summary?.net_profit >= 0) ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+              color: (backtestResult.summary?.net_profit >= 0) ? '#22c55e' : '#ef4444'
+            }}>
+              Net: ${backtestResult.summary?.net_profit ?? 0} ({backtestResult.summary?.pnl_pct ?? 0}%)
+            </span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '8px', marginBottom: '14px' }}>
+            <div style={{ padding: '8px', backgroundColor: 'rgba(31, 41, 55, 0.5)', borderRadius: '6px' }}>
+              <span style={{ color: '#9ca3af', fontSize: '10px', display: 'block' }}>TOTAL TRADES</span>
+              <strong style={{ color: '#ffffff', fontSize: '13px' }}>{backtestResult.summary?.total_trades || 0}</strong>
+            </div>
+            <div style={{ padding: '8px', backgroundColor: 'rgba(31, 41, 55, 0.5)', borderRadius: '6px' }}>
+              <span style={{ color: '#9ca3af', fontSize: '10px', display: 'block' }}>WIN RATE</span>
+              <strong style={{ color: '#22c55e', fontSize: '13px' }}>{backtestResult.summary?.win_rate || 0}%</strong>
+            </div>
+            <div style={{ padding: '8px', backgroundColor: 'rgba(31, 41, 55, 0.5)', borderRadius: '6px' }}>
+              <span style={{ color: '#9ca3af', fontSize: '10px', display: 'block' }}>WINS / LOSSES</span>
+              <strong style={{ color: '#f3f4f6', fontSize: '13px' }}>{backtestResult.summary?.wins || 0}W / {backtestResult.summary?.losses || 0}L</strong>
+            </div>
+            <div style={{ padding: '8px', backgroundColor: 'rgba(31, 41, 55, 0.5)', borderRadius: '6px' }}>
+              <span style={{ color: '#9ca3af', fontSize: '10px', display: 'block' }}>SPIKES DETECTED</span>
+              <strong style={{ color: '#eab308', fontSize: '13px' }}>{backtestResult.summary?.triggered_spikes_count || 0}</strong>
+            </div>
+            <div style={{ padding: '8px', backgroundColor: 'rgba(31, 41, 55, 0.5)', borderRadius: '6px' }}>
+              <span style={{ color: '#9ca3af', fontSize: '10px', display: 'block' }}>FINAL BALANCE</span>
+              <strong style={{ color: '#60a5fa', fontSize: '13px' }}>${backtestResult.summary?.final_balance || accountBalance}</strong>
+            </div>
+          </div>
+
+          {/* Triggered Spike Candles Table */}
+          {backtestResult.triggered_candles && backtestResult.triggered_candles.length > 0 && (
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: '#e2e8f0', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>🎯 Detected Trigger Spike Candles ({backtestResult.triggered_candles.length} Saved)</span>
+              </div>
+              <div style={{ maxHeight: '180px', overflowY: 'auto', border: '1px solid #1f2937', borderRadius: '6px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', textAlign: 'left' }}>
+                  <thead style={{ backgroundColor: '#111827', color: '#9ca3af', position: 'sticky', top: 0 }}>
+                    <tr>
+                      <th style={{ padding: '6px 8px' }}>Time</th>
+                      <th style={{ padding: '6px 8px' }}>Type</th>
+                      <th style={{ padding: '6px 8px' }}>High</th>
+                      <th style={{ padding: '6px 8px' }}>Low</th>
+                      <th style={{ padding: '6px 8px' }}>Close</th>
+                      <th style={{ padding: '6px 8px' }}>50% Retrace Target</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {backtestResult.triggered_candles.map((tc: any, idx: number) => {
+                      const dt = new Date((tc.time || tc.timestamp || 0) * 1000);
+                      const timeStr = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')} ${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
+                      return (
+                        <tr key={idx} style={{ borderBottom: '1px solid #1f2937', backgroundColor: idx % 2 === 0 ? 'rgba(17, 24, 39, 0.4)' : 'transparent' }}>
+                          <td style={{ padding: '6px 8px', color: '#f3f4f6' }}>{timeStr}</td>
+                          <td style={{ padding: '6px 8px' }}>
+                            <span style={{
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              fontSize: '10px',
+                              fontWeight: 700,
+                              backgroundColor: tc.spike_direction === 'BUY' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                              color: tc.spike_direction === 'BUY' ? '#22c55e' : '#ef4444'
+                            }}>
+                              {tc.spike_direction || 'SPIKE'}
+                            </span>
+                          </td>
+                          <td style={{ padding: '6px 8px', color: '#9ca3af' }}>{tc.high}</td>
+                          <td style={{ padding: '6px 8px', color: '#9ca3af' }}>{tc.low}</td>
+                          <td style={{ padding: '6px 8px', color: '#f3f4f6' }}>{tc.close}</td>
+                          <td style={{ padding: '6px 8px', color: '#eab308', fontWeight: 600 }}>{tc.retracement_50?.toFixed(5) || '-'}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
