@@ -644,7 +644,16 @@ class StrategyHandler:
                     print(f"[Optimization] No candle data available for {s} {tf}.", flush=True)
                     continue
 
-                analysis = StrategyHandler.analyze_market_data(candles, lookback=lookback_window)
+                def opt_analysis_progress(pct):
+                    # Show progress bar during initial symbol/timeframe candle structure analysis
+                    pass
+
+                print(f"[Optimization] Analyzing Wyckoff market structure for {s} ({tf}) on {len(candles)} candles...", flush=True)
+                analysis = StrategyHandler.analyze_market_data(
+                    candles,
+                    lookback=lookback_window,
+                    progress_callback=lambda p: None  # classify_wyckoff_stages will print the progress bar to console
+                )
                 analysis_cache[cache_key] = list(analysis.get('data', []))
 
             annotated_data = analysis_cache[cache_key]
