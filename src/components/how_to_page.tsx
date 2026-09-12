@@ -1,7 +1,9 @@
-import React from 'react';
-import { BookOpen, Layers, ShieldAlert, Award, Compass, Eye, ShieldCheck, Flame, RefreshCcw } from 'lucide-react';
+import React, { useState } from 'react';
+import { BookOpen, Layers, ShieldAlert, Award, Compass, Eye, ShieldCheck, Flame, RefreshCcw, Zap, Target, Sliders, Activity, Clock } from 'lucide-react';
 
 export default function HowToPage() {
+  const [activeTab, setActiveTab] = useState<'wyckoff' | 'scalper'>('wyckoff');
+
   // Helper to parse simple markdown bold syntax (**text**) into styled span elements
   const renderTextWithMarkdown = (text: string) => {
     const parts = text.split(/(\*\*[^*]+\*\*)/g);
@@ -31,17 +33,17 @@ export default function HowToPage() {
       margin: '0 auto',
       display: 'flex',
       flexDirection: 'column' as const,
-      gap: '32px',
+      gap: '24px',
     },
     header: {
-      paddingBottom: '24px',
+      paddingBottom: '16px',
       borderBottom: '1px solid #1e293b',
       display: 'flex',
       justifyContent: 'space-between',
       alignItems: 'center',
     },
     title: {
-      fontSize: '28px',
+      fontSize: '26px',
       fontWeight: 'bold',
       color: '#ffffff',
       display: 'flex',
@@ -49,6 +51,27 @@ export default function HowToPage() {
       gap: '14px',
       margin: 0,
     },
+    tabBar: {
+      display: 'flex',
+      gap: '12px',
+      borderBottom: '1px solid #1e293b',
+      paddingBottom: '8px',
+    },
+    tabButton: (isActive: boolean) => ({
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+      padding: '10px 18px',
+      borderRadius: '8px',
+      fontSize: '14px',
+      fontWeight: '600' as const,
+      cursor: 'pointer',
+      border: 'none',
+      backgroundColor: isActive ? 'rgba(59, 130, 246, 0.15)' : 'transparent',
+      color: isActive ? '#60a5fa' : '#94a3b8',
+      borderBottom: isActive ? '2px solid #3b82f6' : '2px solid transparent',
+      transition: 'all 0.2s',
+    }),
     section: {
       backgroundColor: '#0b0f19',
       border: '1px solid #1e293b',
@@ -173,14 +196,34 @@ export default function HowToPage() {
       <div style={styles.wrapper}>
         <header style={styles.header}>
           <h1 style={styles.title}>
-            <BookOpen size={32} style={{ color: '#38bdf8' }} />
-            Wyckoff VSA & Weis Wave Trading Strategy Guide
+            <BookOpen size={30} style={{ color: '#38bdf8' }} />
+            Strategy & Algorithm Knowledge Base
           </h1>
           <a href="/" style={styles.backLink}>
             ← Go to Dashboard
           </a>
         </header>
 
+        {/* Tab Navigation */}
+        <div style={styles.tabBar}>
+          <button
+            style={styles.tabButton(activeTab === 'wyckoff')}
+            onClick={() => setActiveTab('wyckoff')}
+          >
+            <Layers size={16} />
+            Wyckoff VSA & Weis Wave Strategy
+          </button>
+          <button
+            style={styles.tabButton(activeTab === 'scalper')}
+            onClick={() => setActiveTab('scalper')}
+          >
+            <Zap size={16} color={activeTab === 'scalper' ? '#eab308' : '#94a3b8'} />
+            M1/M5 Liquidity Void & Reversal Scalper
+          </button>
+        </div>
+
+        {activeTab === 'wyckoff' ? (
+          <>
         {/* Section 0: Wyckoff Market Structure Engine */}
         <div style={styles.section}>
           <h2 style={styles.sectionTitle}>
@@ -638,7 +681,6 @@ export default function HowToPage() {
                 
                 {/* Path from entry to 1:1 and then target */}
                 <path d="M120,120 L160,95 L200,75 L240,50 L280,30" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" />
-                
                 {/* Trail action visual */}
                 <path d="M200,175 L200,125" stroke="#fbbf24" strokeWidth="2" strokeLinecap="round" markerEnd="url(#arrow)" />
                 <circle cx="200" cy="75" r="4" fill="#fbbf24" />
@@ -653,6 +695,157 @@ export default function HowToPage() {
             </div>
           </div>
         </div>
+        </>
+      ) : (
+        /* ==================== M1/M5 SCALPER GUIDE ==================== */
+        <>
+          {/* Section 1: Overview & Philosophy */}
+          <div style={styles.section}>
+            <h2 style={styles.sectionTitle}>
+              <Zap size={22} style={{ color: '#eab308' }} /> M1/M5 Liquidity Void & Reversal Scalper Overview
+            </h2>
+            <p style={{ margin: 0 }}>
+              {renderTextWithMarkdown("The **Liquidity Void & Reversal Scalper** is an ultra-fast precision execution system designed for **M1 and M5** timeframes. It targets extreme algorithmic exhaustion spikes caused by institutional news releases, stop hunts, or sudden liquidity imbalances, and exploits the immediate 50% impulse retracement back to fair value.")}
+            </p>
+
+            <div style={styles.grid}>
+              <div style={styles.card}>
+                <h3 style={styles.cardTitle('#38bdf8')}>
+                  <Eye size={16} /> 1. Spike Exhaustion Detection
+                </h3>
+                <p style={{ fontSize: '13px', margin: 0 }}>
+                  {renderTextWithMarkdown("Monitors closed candles for **Range > 2.5x ATR(14)** and **Volume > 3.0x SMA(20)** with severe rejection wicks (**Wick ≥ 40% of total range**).")}
+                </p>
+              </div>
+
+              <div style={styles.card}>
+                <h3 style={styles.cardTitle('#eab308')}>
+                  <Target size={16} /> 2. Confirmation Breakout Trigger
+                </h3>
+                <p style={{ fontSize: '13px', margin: 0 }}>
+                  {renderTextWithMarkdown("Once an exhaustion spike occurs (**ARMED state**), the engine waits up to **3 candles** for price to break beyond the spike's body boundary before firing a market order.")}
+                </p>
+              </div>
+
+              <div style={styles.card}>
+                <h3 style={styles.cardTitle('#34d399')}>
+                  <ShieldCheck size={16} /> 3. 3-Tier Defensive Management
+                </h3>
+                <p style={{ fontSize: '13px', margin: 0 }}>
+                  {renderTextWithMarkdown("• **+3 Pips Break Even**: Moves SL to entry once in +3 pips profit.\n• **50% Retracement TP**: Closes half position at the impulse midpoint.\n• **8-Minute Time Exit**: Hard stop close if trade fails to move within 8 minutes.")}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 2: Mathematical Formulas & Triggers */}
+          <div style={styles.section}>
+            <h2 style={styles.sectionTitle}>
+              <Sliders size={22} style={{ color: '#38bdf8' }} /> Mathematical Trigger Formulas & Sizing
+            </h2>
+            
+            <div style={styles.rowLayout}>
+              <div style={styles.textContent}>
+                <p style={{ margin: 0 }}>
+                  {renderTextWithMarkdown("The engine uses dynamic ATR, volume moving averages, and pip calculations across forex, gold, and crypto pairs:")}
+                </p>
+
+                <div style={styles.formula}>
+                  Range = High - Low<br />
+                  Upper Wick % = (High - max(Open, Close)) / Range * 100<br />
+                  Lower Wick % = (min(Open, Close) - Low) / Range * 100<br />
+                  50% Retracement Level = Low + (High - Low) * 0.50<br />
+                  Stop Loss = Spike High + 2 pips (SELL) | Spike Low - 2 pips (BUY)<br />
+                  Lot Size = (Balance * Risk%) / (SL Distance * Pip Value)
+                </div>
+
+                <div style={styles.grid}>
+                  <div style={{ backgroundColor: '#070a13', border: '1px solid #1e293b', borderRadius: '8px', padding: '12px' }}>
+                    <strong style={{ color: '#22c55e', fontSize: '12px' }}>🟢 Bullish Exhaustion (BUY Setup)</strong>
+                    <p style={{ fontSize: '11px', margin: '4px 0 0 0', color: '#94a3b8' }}>
+                      {renderTextWithMarkdown("• Red/Bearish body with large **Lower Wick ≥ 40%**\n• `Range >= 2.5 * ATR(14)`\n• `Volume >= 3.0 * Volume_SMA(20)`\n• **Trigger**: Next candle close > `max(Open, Close)` of spike.")}
+                    </p>
+                  </div>
+
+                  <div style={{ backgroundColor: '#070a13', border: '1px solid #1e293b', borderRadius: '8px', padding: '12px' }}>
+                    <strong style={{ color: '#ef4444', fontSize: '12px' }}>🔴 Bearish Exhaustion (SELL Setup)</strong>
+                    <p style={{ fontSize: '11px', margin: '4px 0 0 0', color: '#94a3b8' }}>
+                      {renderTextWithMarkdown("• Green/Bullish body with large **Upper Wick ≥ 40%**\n• `Range >= 2.5 * ATR(14)`\n• `Volume >= 3.0 * Volume_SMA(20)`\n• **Trigger**: Next candle close < `min(Open, Close)` of spike.")}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div style={styles.visualContent}>
+                <svg width="340" height="230" viewBox="0 0 340 230" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  {/* Bearish Spike Candle */}
+                  <line x1="80" y1="20" x2="80" y2="180" stroke="#f43f5e" strokeWidth="2" />
+                  <rect x="68" y="110" width="24" height="60" fill="#f43f5e" rx="2" />
+                  <text x="30" y="50" fill="#f43f5e" fontSize="10" fontFamily="monospace">Upper Wick &gt; 40%</text>
+
+                  {/* 50% TP Line */}
+                  <line x1="68" y1="100" x2="280" y2="100" stroke="#fbbf24" strokeWidth="1.5" strokeDasharray="3 3" />
+                  <text x="180" y="93" fill="#fbbf24" fontSize="10" fontFamily="monospace">50% Impulse TP Target</text>
+
+                  {/* SL Line */}
+                  <line x1="68" y1="15" x2="280" y2="15" stroke="#ef4444" strokeWidth="1.5" strokeDasharray="3 3" />
+                  <text x="180" y="12" fill="#ef4444" fontSize="10" fontFamily="monospace">SL (Spike High + 2 pips)</text>
+
+                  {/* Confirmation Trigger Candle */}
+                  <line x1="140" y1="105" x2="140" y2="185" stroke="#ef4444" strokeWidth="2" />
+                  <rect x="128" y="120" width="24" height="55" fill="#ef4444" rx="2" />
+                  <text x="110" y="200" fill="#38bdf8" fontSize="10" fontFamily="monospace">Entry: Close &lt; Body</text>
+
+                  {/* Retracement Path */}
+                  <path d="M140,175 L180,140 L220,100" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" markerEnd="url(#arrow)" />
+                  <circle cx="220" cy="100" r="4" fill="#22c55e" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 3: Step-by-Step Execution Lifecycle */}
+          <div style={styles.section}>
+            <h2 style={styles.sectionTitle}>
+              <Clock size={22} style={{ color: '#a855f7' }} /> Complete Trade Lifecycle (From Spike to Exit)
+            </h2>
+
+            <div style={styles.stepTimeline}>
+              <div style={styles.stepBlock}>
+                <div style={styles.stepBadge}>1</div>
+                <strong style={{ color: '#f8fafc', fontSize: '14px' }}>Realtime Exhaustion Scanning & Multi-Channel Alert</strong>
+                <p style={{ fontSize: '13px', margin: '4px 0 0 0', color: '#94a3b8' }}>
+                  {renderTextWithMarkdown("The engine monitors live M1 ticks. When an exhaustion candle closes meeting ATR & Volume criteria, it sends push notifications to **Discord** and **Mobile PWA** and arms the system (`status = ARMED`).")}
+                </p>
+              </div>
+
+              <div style={styles.stepBlock}>
+                <div style={styles.stepBadge}>2</div>
+                <strong style={{ color: '#f8fafc', fontSize: '14px' }}>Confirmation Breakout Check</strong>
+                <p style={{ fontSize: '13px', margin: '4px 0 0 0', color: '#94a3b8' }}>
+                  {renderTextWithMarkdown("Within 3 candles, if the market breaks beyond the spike candle's open/close body, the trade enters immediately at market price.")}
+                </p>
+              </div>
+
+              <div style={styles.stepBlock}>
+                <div style={styles.stepBadge}>3</div>
+                <strong style={{ color: '#f8fafc', fontSize: '14px' }}>Automatic +3 Pip Break-Even Trailing</strong>
+                <p style={{ fontSize: '13px', margin: '4px 0 0 0', color: '#94a3b8' }}>
+                  {renderTextWithMarkdown("As soon as price gains **+3.0 pips** in favor of the trade, the Stop Loss is automatically updated to Entry Price + spread cushion, guaranteeing zero risk.")}
+                </p>
+              </div>
+
+              <div style={styles.stepBlock}>
+                <div style={styles.stepBadge}>4</div>
+                <strong style={{ color: '#f8fafc', fontSize: '14px' }}>50% Impulse Take-Profit & 8-Minute Hard Timeout</strong>
+                <p style={{ fontSize: '13px', margin: '4px 0 0 0', color: '#94a3b8' }}>
+                  {renderTextWithMarkdown("Half of the position closes when price hits the 50% impulse retracement mark. If 8 minutes elapse without reaching full target or stop, the position manager executes a market exit.")}
+                </p>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       </div>
     </div>
