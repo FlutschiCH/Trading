@@ -243,11 +243,13 @@ interface CollapsibleCardProps {
 const CollapsibleCard = ({ title, isCollapsed, onToggle, children, style }: CollapsibleCardProps) => {
   return (
     <div style={{
-      backgroundColor: 'var(--app-card-bg, #111827)',
-      border: '1px solid var(--app-card-border, #1f2937)',
-      borderRadius: '6px',
+      backgroundColor: 'var(--app-card-bg, #0f172a)',
+      border: '1px solid rgba(255, 255, 255, 0.07)',
+      borderRadius: '10px',
       overflow: isCollapsed ? 'hidden' : 'visible',
-      transition: 'all 0.2s',
+      boxShadow: '0 4px 20px -2px rgba(0, 0, 0, 0.35)',
+      backdropFilter: 'blur(8px)',
+      transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
       ...style
     }}>
       <div
@@ -256,24 +258,35 @@ const CollapsibleCard = ({ title, isCollapsed, onToggle, children, style }: Coll
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          padding: '8px 10px',
+          padding: '10px 14px',
           cursor: 'pointer',
-          backgroundColor: 'var(--app-panel-header-bg, #1f2937)',
+          background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.8) 100%)',
+          borderBottom: isCollapsed ? 'none' : '1px solid rgba(255, 255, 255, 0.06)',
           userSelect: 'none',
-          transition: 'background-color 0.2s'
+          transition: 'background 0.2s, color 0.2s',
+          borderTopLeftRadius: '10px',
+          borderTopRightRadius: '10px',
+          borderBottomLeftRadius: isCollapsed ? '10px' : '0px',
+          borderBottomRightRadius: isCollapsed ? '10px' : '0px',
         }}
-        onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--app-hover-bg, #374151)'}
-        onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'var(--app-panel-header-bg, #1f2937)'}
+        onMouseOver={(e) => e.currentTarget.style.background = 'linear-gradient(180deg, rgba(51, 65, 85, 0.8) 0%, rgba(30, 41, 59, 0.9) 100%)'}
+        onMouseOut={(e) => e.currentTarget.style.background = 'linear-gradient(180deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.8) 100%)'}
       >
-        <span style={{ fontWeight: 'bold', color: 'var(--app-text, #cbd5e1)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+        <span style={{ fontWeight: 600, color: '#f1f5f9', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
           {title}
         </span>
-        <span style={{ color: '#9ca3af', fontSize: '10px' }}>
-          {isCollapsed ? '▼' : '▲'}
+        <span style={{
+          color: '#94a3b8',
+          fontSize: '11px',
+          transition: 'transform 0.25s ease',
+          display: 'inline-block',
+          transform: isCollapsed ? 'rotate(0deg)' : 'rotate(180deg)',
+        }}>
+          ▾
         </span>
       </div>
       {!isCollapsed && (
-        <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {children}
         </div>
       )}
@@ -1560,23 +1573,37 @@ export default function WyckoffBacktester({
           flexDirection: isMobile ? 'column' : 'row',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: '8px',
+          gap: '10px',
           position: 'sticky',
           top: '-16px',
           zIndex: 10,
-          backgroundColor: 'var(--app-card-bg, #111827)',
-          paddingTop: '4px',
-          paddingBottom: '8px',
-          borderBottom: '1px solid var(--app-card-border, #1f2937)',
-          marginBottom: '8px'
+          backgroundColor: 'rgba(15, 23, 42, 0.85)',
+          backdropFilter: 'blur(12px)',
+          padding: '8px 12px',
+          borderRadius: '10px',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+          marginBottom: '10px'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <div style={{ fontSize: '12px', fontWeight: 'bold', color: globalRangeMode ? '#38bdf8' : '#60a5fa' }}>
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '4px 10px',
+              borderRadius: '20px',
+              fontSize: '11px',
+              fontWeight: 600,
+              background: globalRangeMode ? 'rgba(56, 189, 248, 0.15)' : 'rgba(99, 102, 241, 0.15)',
+              border: globalRangeMode ? '1px solid rgba(56, 189, 248, 0.3)' : '1px solid rgba(99, 102, 241, 0.3)',
+              color: globalRangeMode ? '#38bdf8' : '#818cf8',
+              letterSpacing: '0.3px'
+            }}>
               {globalRangeMode ? '📊 Range Mode Active' : `⚡ Single Mode (${symbol} • ${timeframe})`}
             </div>
             <DebugComponentBadge name="WyckoffBacktester" />
           </div>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
           {onSaveSettings && (
             <button
               onClick={() => {
@@ -1588,18 +1615,25 @@ export default function WyckoffBacktester({
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '6px',
-                backgroundColor: '#475569',
-                color: '#ffffff',
-                border: 'none',
-                padding: '6px 12px',
-                borderRadius: '4px',
+                background: 'linear-gradient(180deg, #334155 0%, #1e293b 100%)',
+                color: '#f1f5f9',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                padding: '7px 13px',
+                borderRadius: '8px',
                 cursor: 'pointer',
-                fontWeight: 500,
+                fontWeight: 600,
                 fontSize: '11px',
-                transition: 'background-color 0.2s',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
+                transition: 'all 0.2s',
               }}
-              onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#334155'}
-              onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#475569'}
+              onMouseOver={(e) => {
+                e.currentTarget.style.background = 'linear-gradient(180deg, #475569 0%, #334155 100%)';
+                e.currentTarget.style.transform = 'translateY(-1px)';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.background = 'linear-gradient(180deg, #334155 0%, #1e293b 100%)';
+                e.currentTarget.style.transform = 'translateY(0)';
+              }}
             >
               📋 Templates
             </button>
@@ -1621,18 +1655,25 @@ export default function WyckoffBacktester({
               alignItems: 'center',
               justifyContent: 'center',
               gap: '6px',
-              backgroundColor: '#0284c7',
+              background: 'linear-gradient(180deg, #0284c7 0%, #0369a1 100%)',
               color: '#ffffff',
-              border: 'none',
-              padding: '6px 12px',
-              borderRadius: '4px',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              padding: '7px 13px',
+              borderRadius: '8px',
               cursor: 'pointer',
-              fontWeight: 500,
+              fontWeight: 600,
               fontSize: '11px',
-              transition: 'background-color 0.2s',
+              boxShadow: '0 2px 10px rgba(2, 132, 199, 0.25)',
+              transition: 'all 0.2s',
             }}
-            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#0369a1'}
-            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#0284c7'}
+            onMouseOver={(e) => {
+              e.currentTarget.style.background = 'linear-gradient(180deg, #0369a1 0%, #075985 100%)';
+              e.currentTarget.style.transform = 'translateY(-1px)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.background = 'linear-gradient(180deg, #0284c7 0%, #0369a1 100%)';
+              e.currentTarget.style.transform = 'translateY(0)';
+            }}
           >
             📁 Saved Runs
           </button>
@@ -1674,19 +1715,33 @@ export default function WyckoffBacktester({
               alignItems: 'center',
               justifyContent: 'center',
               gap: '6px',
-              backgroundColor: loadingBacktest ? '#1e293b' : '#3b82f6',
+              background: loadingBacktest 
+                ? 'rgba(30, 41, 59, 0.8)' 
+                : 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
               color: '#ffffff',
-              border: loadingBacktest ? '1px solid #3b82f6' : 'none',
-              padding: '6px 12px',
-              borderRadius: '4px',
+              border: loadingBacktest ? '1px solid rgba(59, 130, 246, 0.4)' : '1px solid rgba(255, 255, 255, 0.2)',
+              padding: '7px 15px',
+              borderRadius: '8px',
               cursor: loadingBacktest ? 'not-allowed' : 'pointer',
-              fontWeight: 500,
+              fontWeight: 600,
               fontSize: '11px',
-              transition: 'background-color 0.2s',
+              letterSpacing: '0.3px',
+              boxShadow: loadingBacktest ? 'none' : '0 4px 14px rgba(37, 99, 235, 0.4)',
+              transition: 'all 0.2s',
               opacity: loadingBacktest ? 0.9 : 1
             }}
-            onMouseOver={(e) => !loadingBacktest && (e.currentTarget.style.backgroundColor = '#2563eb')}
-            onMouseOut={(e) => !loadingBacktest && (e.currentTarget.style.backgroundColor = '#3b82f6')}
+            onMouseOver={(e) => {
+              if (!loadingBacktest) {
+                e.currentTarget.style.background = 'linear-gradient(135deg, #60a5fa 0%, #2563eb 100%)';
+                e.currentTarget.style.transform = 'translateY(-1px)';
+              }
+            }}
+            onMouseOut={(e) => {
+              if (!loadingBacktest) {
+                e.currentTarget.style.background = 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)';
+                e.currentTarget.style.transform = 'translateY(0)';
+              }
+            }}
           >
             {loadingBacktest ? (() => {
               const etaSec = backtestRunInfo?.etaSeconds;
@@ -1707,9 +1762,6 @@ export default function WyckoffBacktester({
             })() : (
               '🔄 Run Backtest'
             )}
-
-
-
           </button>
           {loadingBacktest && (
             <button
@@ -1719,18 +1771,25 @@ export default function WyckoffBacktester({
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '4px',
-                backgroundColor: '#ef4444',
+                background: 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)',
                 color: '#ffffff',
-                border: 'none',
-                padding: '6px 10px',
-                borderRadius: '4px',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                padding: '7px 11px',
+                borderRadius: '8px',
                 cursor: 'pointer',
-                fontWeight: 500,
+                fontWeight: 600,
                 fontSize: '11px',
-                transition: 'background-color 0.2s',
+                boxShadow: '0 4px 12px rgba(239, 68, 68, 0.35)',
+                transition: 'all 0.2s',
               }}
-              onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#dc2626'}
-              onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#ef4444'}
+              onMouseOver={(e) => {
+                e.currentTarget.style.background = 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)';
+                e.currentTarget.style.transform = 'translateY(-1px)';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.background = 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)';
+                e.currentTarget.style.transform = 'translateY(0)';
+              }}
             >
               🛑 Stop
             </button>
@@ -1745,19 +1804,30 @@ export default function WyckoffBacktester({
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '6px',
-                backgroundColor: '#ef4444',
+                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                 color: '#ffffff',
-                border: 'none',
-                padding: '6px 12px',
-                borderRadius: '4px',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                padding: '7px 13px',
+                borderRadius: '8px',
                 cursor: isDeploying ? 'not-allowed' : 'pointer',
-                fontWeight: 500,
+                fontWeight: 600,
                 fontSize: '11px',
-                transition: 'background-color 0.2s',
+                boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
+                transition: 'all 0.2s',
                 opacity: isDeploying ? 0.7 : 1,
               }}
-              onMouseOver={(e) => !isDeploying && (e.currentTarget.style.backgroundColor = '#dc2626')}
-              onMouseOut={(e) => !isDeploying && (e.currentTarget.style.backgroundColor = '#ef4444')}
+              onMouseOver={(e) => {
+                if (!isDeploying) {
+                  e.currentTarget.style.background = 'linear-gradient(135deg, #059669 0%, #047857 100%)';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                }
+              }}
+              onMouseOut={(e) => {
+                if (!isDeploying) {
+                  e.currentTarget.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }
+              }}
             >
               {isDeploying ? '⏳ Deploying...' : '🚀 Deploy Live'}
             </button>
@@ -1786,67 +1856,69 @@ export default function WyckoffBacktester({
           const dateRangeStr = (fromFormatted && toFormatted) ? `${fromFormatted} to ${toFormatted}` : null;
 
           return (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '2px', marginBottom: '8px' }}>
               <div style={{
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                backgroundColor: '#1e293b',
-                padding: '6px 12px',
-                borderRadius: '6px',
-                border: '1px solid #334155',
+                backgroundColor: 'rgba(30, 41, 59, 0.7)',
+                padding: '8px 12px',
+                borderRadius: '8px',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
                 fontSize: '11px',
                 fontWeight: 500,
-                color: '#9ca3af',
+                color: '#94a3b8',
                 flexWrap: 'wrap',
                 gap: '4px'
               }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                  <span>Backtest Overview</span>
+                  <span style={{ fontWeight: 600, color: '#f1f5f9' }}>Backtest Summary</span>
                   {dateRangeStr && (
-                    <span style={{ fontSize: '10px', color: '#cbd5e1', fontWeight: 'normal' }}>
+                    <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 'normal' }}>
                       📅 {dateRangeStr}
                     </span>
                   )}
                 </div>
-                <span style={{ color: '#38bdf8', fontWeight: 'bold' }}>{broker.toUpperCase()} • {symbol} • {timeframe}</span>
+                <span style={{ color: '#38bdf8', fontWeight: 600, background: 'rgba(56, 189, 248, 0.1)', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(56, 189, 248, 0.2)' }}>
+                  {broker.toUpperCase()} • {symbol} • {timeframe}
+                </span>
               </div>
             <div style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(3, 1fr)',
               gap: '8px',
-              backgroundColor: '#1e293b',
-              padding: '8px',
-              borderRadius: '6px',
-              border: '1px solid #334155'
+              backgroundColor: 'rgba(15, 23, 42, 0.75)',
+              padding: '10px',
+              borderRadius: '8px',
+              border: '1px solid rgba(255, 255, 255, 0.06)'
             }}>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2px' }}>
-                <span style={{ color: '#9ca3af', fontSize: '9px', textTransform: 'uppercase', fontWeight: 600 }}>Trades</span>
-                <span style={{ color: '#ffffff', fontSize: '11px', fontWeight: 'bold' }}>{backtestResults?.totalTrades ?? backtestResults?.summary?.total_trades ?? 0}</span>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '6px', background: 'rgba(30, 41, 59, 0.4)', borderRadius: '6px', border: '1px solid rgba(255, 255, 255, 0.04)' }}>
+                <span style={{ color: '#94a3b8', fontSize: '10px', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.4px' }}>Trades</span>
+                <span style={{ color: '#ffffff', fontSize: '13px', fontWeight: 700, marginTop: '2px' }}>{backtestResults?.totalTrades ?? backtestResults?.summary?.total_trades ?? 0}</span>
               </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2px' }}>
-              <span style={{ color: '#9ca3af', fontSize: '9px', textTransform: 'uppercase', fontWeight: 600 }}>Win Rate</span>
-              <span style={{ color: ((backtestResults?.winRate ?? backtestResults?.summary?.win_rate ?? 0) >= 50) ? '#10b981' : '#ef4444', fontSize: '11px', fontWeight: 'bold' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '6px', background: 'rgba(30, 41, 59, 0.4)', borderRadius: '6px', border: '1px solid rgba(255, 255, 255, 0.04)' }}>
+              <span style={{ color: '#94a3b8', fontSize: '10px', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.4px' }}>Win Rate</span>
+              <span style={{ color: ((backtestResults?.winRate ?? backtestResults?.summary?.win_rate ?? 0) >= 50) ? '#10b981' : '#f87171', fontSize: '13px', fontWeight: 700, marginTop: '2px' }}>
                 {(backtestResults?.winRate ?? backtestResults?.summary?.win_rate ?? 0).toFixed(1)}%
               </span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2px' }}>
-              <span style={{ color: '#9ca3af', fontSize: '9px', textTransform: 'uppercase', fontWeight: 600 }}>Net Profit</span>
-              <span style={{ color: ((backtestResults?.netPnl ?? backtestResults?.summary?.net_profit ?? 0) >= 0) ? '#10b981' : '#ef4444', fontSize: '11px', fontWeight: 'bold' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '6px', background: 'rgba(30, 41, 59, 0.4)', borderRadius: '6px', border: '1px solid rgba(255, 255, 255, 0.04)' }}>
+              <span style={{ color: '#94a3b8', fontSize: '10px', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.4px' }}>Net Profit</span>
+              <span style={{ color: ((backtestResults?.netPnl ?? backtestResults?.summary?.net_profit ?? 0) >= 0) ? '#10b981' : '#f87171', fontSize: '13px', fontWeight: 700, marginTop: '2px' }}>
                 ${(backtestResults?.netPnl ?? backtestResults?.summary?.net_profit ?? 0).toFixed(2)}
               </span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2px' }}>
-              <span style={{ color: '#9ca3af', fontSize: '9px', textTransform: 'uppercase', fontWeight: 600 }}>Prof. Fact</span>
-              <span style={{ color: '#ffffff', fontSize: '11px', fontWeight: 'bold' }}>{(backtestResults?.profitFactor ?? backtestResults?.summary?.profit_factor ?? 0).toFixed(2)}</span>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '6px', background: 'rgba(30, 41, 59, 0.4)', borderRadius: '6px', border: '1px solid rgba(255, 255, 255, 0.04)' }}>
+              <span style={{ color: '#94a3b8', fontSize: '10px', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.4px' }}>Prof. Fact</span>
+              <span style={{ color: '#ffffff', fontSize: '13px', fontWeight: 700, marginTop: '2px' }}>{(backtestResults?.profitFactor ?? backtestResults?.summary?.profit_factor ?? 0).toFixed(2)}</span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2px' }}>
-              <span style={{ color: '#9ca3af', fontSize: '9px', textTransform: 'uppercase', fontWeight: 600 }}>Max DD</span>
-              <span style={{ color: '#ffffff', fontSize: '11px', fontWeight: 'bold' }}>{(backtestResults?.maxDrawdown ?? backtestResults?.summary?.max_drawdown ?? 0).toFixed(2)}%</span>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '6px', background: 'rgba(30, 41, 59, 0.4)', borderRadius: '6px', border: '1px solid rgba(255, 255, 255, 0.04)' }}>
+              <span style={{ color: '#94a3b8', fontSize: '10px', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.4px' }}>Max DD</span>
+              <span style={{ color: '#ffffff', fontSize: '13px', fontWeight: 700, marginTop: '2px' }}>{(backtestResults?.maxDrawdown ?? backtestResults?.summary?.max_drawdown ?? 0).toFixed(2)}%</span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2px' }}>
-              <span style={{ color: '#9ca3af', fontSize: '9px', textTransform: 'uppercase', fontWeight: 600 }}>Daily Loss</span>
-              <span style={{ color: ((backtestResults?.maxDailyLoss ?? backtestResults?.summary?.max_daily_loss ?? 0) >= 5.0) ? '#ef4444' : '#ffffff', fontSize: '11px', fontWeight: 'bold' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '6px', background: 'rgba(30, 41, 59, 0.4)', borderRadius: '6px', border: '1px solid rgba(255, 255, 255, 0.04)' }}>
+              <span style={{ color: '#94a3b8', fontSize: '10px', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.4px' }}>Daily Loss</span>
+              <span style={{ color: ((backtestResults?.maxDailyLoss ?? backtestResults?.summary?.max_daily_loss ?? 0) >= 5.0) ? '#f87171' : '#ffffff', fontSize: '13px', fontWeight: 700, marginTop: '2px' }}>
                 {(backtestResults?.maxDailyLoss ?? backtestResults?.summary?.max_daily_loss ?? 0).toFixed(2)}%
               </span>
             </div>
@@ -3153,50 +3225,52 @@ export default function WyckoffBacktester({
 
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: isMobile ? '35px 1fr 1fr 1fr' : '35px 1.1fr 1.6fr 1fr 0.9fr 0.9fr 0.9fr',
-                padding: '6px 8px',
+                gridTemplateColumns: isMobile ? '38px 1fr 1fr 1fr' : '44px 1.1fr 1.6fr 1fr 0.9fr 0.9fr 0.9fr',
+                padding: '8px 10px',
                 fontSize: '10px',
-                fontWeight: 'bold',
-                color: '#9ca3af',
-                borderBottom: '1px solid #1e293b',
-                backgroundColor: '#1e293b',
-                borderRadius: '4px 4px 0 0',
-                userSelect: 'none'
+                fontWeight: 700,
+                color: '#94a3b8',
+                backgroundColor: 'rgba(30, 41, 59, 0.7)',
+                border: '1px solid rgba(255, 255, 255, 0.06)',
+                borderRadius: '8px 8px 0 0',
+                userSelect: 'none',
+                letterSpacing: '0.4px',
+                textTransform: 'uppercase'
               }}>
                 <span>Rank</span>
                 <span>Symbol/TF</span>
                 {!isMobile && <span>Params (SL / RR / BE)</span>}
                 <span
                   onClick={() => handleHeaderSort('netPnl')}
-                  style={{ textAlign: 'right', color: optSortBy === 'netPnl' ? '#38bdf8' : '#9ca3af', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '3px' }}
+                  style={{ textAlign: 'right', color: optSortBy === 'netPnl' ? '#38bdf8' : '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '3px' }}
                 >
-                  Net Profit {optSortBy === 'netPnl' ? (optSortDir === 'desc' ? '▼' : '▲') : ''}
+                  Net PnL {optSortBy === 'netPnl' ? (optSortDir === 'desc' ? '▼' : '▲') : ''}
                 </span>
                 <span
                   onClick={() => handleHeaderSort('winRate')}
-                  style={{ textAlign: 'center', color: optSortBy === 'winRate' ? '#38bdf8' : '#9ca3af', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}
+                  style={{ textAlign: 'center', color: optSortBy === 'winRate' ? '#38bdf8' : '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}
                 >
                   Win Rate {optSortBy === 'winRate' ? (optSortDir === 'desc' ? '▼' : '▲') : ''}
                 </span>
                 {!isMobile && (
                   <span
                     onClick={() => handleHeaderSort('profitFactor')}
-                    style={{ textAlign: 'center', color: optSortBy === 'profitFactor' ? '#38bdf8' : '#9ca3af', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}
+                    style={{ textAlign: 'center', color: optSortBy === 'profitFactor' ? '#38bdf8' : '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}
                   >
-                    Prof. Fact {optSortBy === 'profitFactor' ? (optSortDir === 'desc' ? '▼' : '▲') : ''}
+                    PF {optSortBy === 'profitFactor' ? (optSortDir === 'desc' ? '▼' : '▲') : ''}
                   </span>
                 )}
                 {!isMobile && (
                   <span
                     onClick={() => handleHeaderSort('maxDrawdown')}
-                    style={{ textAlign: 'right', color: optSortBy === 'maxDrawdown' ? '#38bdf8' : '#9ca3af', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '3px' }}
+                    style={{ textAlign: 'right', color: optSortBy === 'maxDrawdown' ? '#38bdf8' : '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '3px' }}
                   >
                     Max DD {optSortBy === 'maxDrawdown' ? (optSortDir === 'desc' ? '▼' : '▲') : ''}
                   </span>
                 )}
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '420px', overflowY: 'auto' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', maxHeight: '420px', overflowY: 'auto' }}>
                 {(() => {
                   const rawList = (optimizationResults && optimizationResults.length > 0)
                     ? optimizationResults
@@ -3218,7 +3292,6 @@ export default function WyckoffBacktester({
                     if (valA === valB) return 0;
                     return optSortDir === 'desc' ? (valB > valA ? 1 : -1) : (valA > valB ? 1 : -1);
                   });
-
 
                   return sortedList.map((r, idx) => {
                     const isProfit = (r.netPnl ?? 0) >= 0;
@@ -3247,46 +3320,44 @@ export default function WyckoffBacktester({
                             ).catch(err => console.error("Error loading specific backtest result:", err));
                           }
                         }}
-
                         style={{
                           display: 'grid',
-                          gridTemplateColumns: isMobile ? '35px 1fr 1fr 1fr' : '35px 1.1fr 1.6fr 1fr 0.9fr 0.9fr 0.9fr',
-                          padding: '8px 8px',
+                          gridTemplateColumns: isMobile ? '38px 1fr 1fr 1fr' : '44px 1.1fr 1.6fr 1fr 0.9fr 0.9fr 0.9fr',
+                          padding: '8px 10px',
                           alignItems: 'center',
-                          borderLeft: `4px solid ${isSelected ? '#3b82f6' : (idx === 0 ? '#eab308' : (isProfit ? '#10b981' : '#ef4444'))}`,
-                          backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.25)' : (idx === 0 ? 'rgba(234, 179, 8, 0.15)' : 'rgba(31, 41, 55, 0.45)'),
-                          border: isSelected ? '1px solid #3b82f6' : '1px solid transparent',
-                          borderRadius: '4px',
+                          borderLeft: `3px solid ${isSelected ? '#38bdf8' : (idx === 0 ? '#eab308' : (isProfit ? '#10b981' : '#ef4444'))}`,
+                          backgroundColor: isSelected ? 'rgba(56, 189, 248, 0.15)' : (idx === 0 ? 'rgba(234, 179, 8, 0.08)' : 'rgba(15, 23, 42, 0.6)'),
+                          border: isSelected ? '1px solid #38bdf8' : '1px solid rgba(255, 255, 255, 0.05)',
+                          borderRadius: '6px',
                           fontSize: '11px',
                           cursor: 'pointer',
                           transition: 'all 0.15s'
                         }}
                         onMouseOver={(e) => {
-                          if (!isSelected) e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.2)';
+                          if (!isSelected) e.currentTarget.style.backgroundColor = 'rgba(56, 189, 248, 0.1)';
                         }}
                         onMouseOut={(e) => {
-                          if (!isSelected) e.currentTarget.style.backgroundColor = idx === 0 ? 'rgba(234, 179, 8, 0.15)' : 'rgba(31, 41, 55, 0.45)';
+                          if (!isSelected) e.currentTarget.style.backgroundColor = idx === 0 ? 'rgba(234, 179, 8, 0.08)' : 'rgba(15, 23, 42, 0.6)';
                         }}
                       >
-                        <span style={{ fontWeight: 'bold', color: isSelected ? '#38bdf8' : (idx === 0 ? '#facc15' : '#9ca3af') }}>{rankMedal}</span>
-                        <span style={{ fontWeight: 'bold', color: '#ffffff' }}>{r.symbol || symbol} • {r.timeframe || timeframe}</span>
+                        <span style={{ fontWeight: 700, color: isSelected ? '#38bdf8' : (idx === 0 ? '#facc15' : '#94a3b8'), fontSize: '10px' }}>{rankMedal}</span>
+                        <span style={{ fontWeight: 600, color: '#f8fafc' }}>{r.symbol || symbol} • {r.timeframe || timeframe}</span>
                         {!isMobile && (
-                          <span style={{ color: '#cbd5e1', fontSize: '10px' }}>
-                            SL: {r.sl ?? backtestSL}{r.slType === 'price' ? ` (${((r.sl ?? parseFloat(backtestSL)) / 0.0001).toFixed(0)}p)` : (r.slType === 'dollar' ? '$' : '%')} | RR: 1:{Number(r.rr).toFixed(1)} | BE: {r.be ? `${r.be}R (${r.beOffsetMode === 'zero_be' ? '0.0R' : (r.beOffsetMode === 'half_r' ? 'Half R' : `${r.beOffsetMode}R`)})` : 'Off'}
+                          <span style={{ color: '#94a3b8', fontSize: '10px' }}>
+                            SL: {r.sl ?? backtestSL}{r.slType === 'price' ? ` (${((r.sl ?? parseFloat(backtestSL)) / 0.0001).toFixed(0)}p)` : (r.slType === 'dollar' ? '$' : (r.slType === 'atr' ? 'xATR' : '%'))} | RR: 1:{Number(r.rr).toFixed(1)} | BE: {r.be ? `${r.be}R` : 'Off'}
                           </span>
                         )}
-                        <span style={{ textAlign: 'right', color: isProfit ? '#10b981' : '#ef4444', fontWeight: 'bold', fontSize: '12px' }}>
+                        <span style={{ textAlign: 'right', color: isProfit ? '#10b981' : '#ef4444', fontWeight: 700, fontSize: '12px' }}>
                           ${(r.netPnl ?? 0).toFixed(2)}
                         </span>
-                        <span style={{ textAlign: 'center', color: (r.winRate ?? 0) >= 50 ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>
+                        <span style={{ textAlign: 'center', color: (r.winRate ?? 0) >= 50 ? '#10b981' : '#ef4444', fontWeight: 700 }}>
                           {(r.winRate ?? 0).toFixed(1)}%
                         </span>
-                        {!isMobile && <span style={{ textAlign: 'center', color: '#ffffff', fontWeight: 'bold' }}>{(r.profitFactor ?? 0).toFixed(2)}</span>}
-                        {!isMobile && <span style={{ textAlign: 'right', color: (r.maxDrawdown ?? 0) > 5 ? '#ef4444' : '#9ca3af' }}>{(r.maxDrawdown ?? 0).toFixed(1)}%</span>}
+                        {!isMobile && <span style={{ textAlign: 'center', color: '#f8fafc', fontWeight: 600 }}>{(r.profitFactor ?? 0).toFixed(2)}</span>}
+                        {!isMobile && <span style={{ textAlign: 'right', color: (r.maxDrawdown ?? 0) > 5 ? '#ef4444' : '#94a3b8' }}>{(r.maxDrawdown ?? 0).toFixed(1)}%</span>}
                       </div>
                     );
                   });
-
                 })()}
               </div>
             </div>
@@ -3468,20 +3539,33 @@ export default function WyckoffBacktester({
               </>
             )}
 
-            <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid #1f2937', paddingBottom: '4px', marginTop: '8px' }}>
+            <div style={{
+              display: 'flex',
+              gap: '6px',
+              backgroundColor: 'rgba(15, 23, 42, 0.6)',
+              padding: '4px',
+              borderRadius: '8px',
+              border: '1px solid rgba(255, 255, 255, 0.05)',
+              marginTop: '10px',
+              overflowX: 'auto',
+              flexWrap: 'nowrap'
+            }}>
               {backtestResults && (
                 <>
                   <button
                     onClick={() => setBacktestTab('trades')}
                     style={{
-                      background: 'none',
+                      background: backtestTab === 'trades' ? 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' : 'transparent',
                       border: 'none',
-                      color: backtestTab === 'trades' ? '#3b82f6' : '#9ca3af',
-                      fontWeight: 'bold',
+                      color: backtestTab === 'trades' ? '#ffffff' : '#94a3b8',
+                      fontWeight: 600,
                       fontSize: '11px',
                       cursor: 'pointer',
-                      borderBottom: backtestTab === 'trades' ? '2px solid #3b82f6' : 'none',
-                      paddingBottom: '2px'
+                      borderRadius: '6px',
+                      padding: '5px 10px',
+                      boxShadow: backtestTab === 'trades' ? '0 2px 8px rgba(37, 99, 235, 0.3)' : 'none',
+                      transition: 'all 0.2s',
+                      whiteSpace: 'nowrap'
                     }}
                   >
                     Trades ({backtestResults.trades.length})
@@ -3489,14 +3573,17 @@ export default function WyckoffBacktester({
                   <button
                     onClick={() => setBacktestTab('equity')}
                     style={{
-                      background: 'none',
+                      background: backtestTab === 'equity' ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'transparent',
                       border: 'none',
-                      color: backtestTab === 'equity' ? '#10b981' : '#9ca3af',
-                      fontWeight: 'bold',
+                      color: backtestTab === 'equity' ? '#ffffff' : '#94a3b8',
+                      fontWeight: 600,
                       fontSize: '11px',
                       cursor: 'pointer',
-                      borderBottom: backtestTab === 'equity' ? '2px solid #10b981' : 'none',
-                      paddingBottom: '2px'
+                      borderRadius: '6px',
+                      padding: '5px 10px',
+                      boxShadow: backtestTab === 'equity' ? '0 2px 8px rgba(16, 185, 129, 0.3)' : 'none',
+                      transition: 'all 0.2s',
+                      whiteSpace: 'nowrap'
                     }}
                   >
                     📈 Equity & Drawdowns
@@ -3504,14 +3591,17 @@ export default function WyckoffBacktester({
                   <button
                     onClick={() => setBacktestTab('weekly')}
                     style={{
-                      background: 'none',
+                      background: backtestTab === 'weekly' ? 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' : 'transparent',
                       border: 'none',
-                      color: backtestTab === 'weekly' ? '#3b82f6' : '#9ca3af',
-                      fontWeight: 'bold',
+                      color: backtestTab === 'weekly' ? '#ffffff' : '#94a3b8',
+                      fontWeight: 600,
                       fontSize: '11px',
                       cursor: 'pointer',
-                      borderBottom: backtestTab === 'weekly' ? '2px solid #3b82f6' : 'none',
-                      paddingBottom: '2px'
+                      borderRadius: '6px',
+                      padding: '5px 10px',
+                      boxShadow: backtestTab === 'weekly' ? '0 2px 8px rgba(37, 99, 235, 0.3)' : 'none',
+                      transition: 'all 0.2s',
+                      whiteSpace: 'nowrap'
                     }}
                   >
                     Weekly
@@ -3519,14 +3609,17 @@ export default function WyckoffBacktester({
                   <button
                     onClick={() => setBacktestTab('monthly')}
                     style={{
-                      background: 'none',
+                      background: backtestTab === 'monthly' ? 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' : 'transparent',
                       border: 'none',
-                      color: backtestTab === 'monthly' ? '#3b82f6' : '#9ca3af',
-                      fontWeight: 'bold',
+                      color: backtestTab === 'monthly' ? '#ffffff' : '#94a3b8',
+                      fontWeight: 600,
                       fontSize: '11px',
                       cursor: 'pointer',
-                      borderBottom: backtestTab === 'monthly' ? '2px solid #3b82f6' : 'none',
-                      paddingBottom: '2px'
+                      borderRadius: '6px',
+                      padding: '5px 10px',
+                      boxShadow: backtestTab === 'monthly' ? '0 2px 8px rgba(37, 99, 235, 0.3)' : 'none',
+                      transition: 'all 0.2s',
+                      whiteSpace: 'nowrap'
                     }}
                   >
                     Monthly
@@ -3534,14 +3627,17 @@ export default function WyckoffBacktester({
                   <button
                     onClick={() => setBacktestTab('hourly')}
                     style={{
-                      background: 'none',
+                      background: backtestTab === 'hourly' ? 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' : 'transparent',
                       border: 'none',
-                      color: backtestTab === 'hourly' ? '#3b82f6' : '#9ca3af',
-                      fontWeight: 'bold',
+                      color: backtestTab === 'hourly' ? '#ffffff' : '#94a3b8',
+                      fontWeight: 600,
                       fontSize: '11px',
                       cursor: 'pointer',
-                      borderBottom: backtestTab === 'hourly' ? '2px solid #3b82f6' : 'none',
-                      paddingBottom: '2px'
+                      borderRadius: '6px',
+                      padding: '5px 10px',
+                      boxShadow: backtestTab === 'hourly' ? '0 2px 8px rgba(37, 99, 235, 0.3)' : 'none',
+                      transition: 'all 0.2s',
+                      whiteSpace: 'nowrap'
                     }}
                   >
                     Hourly
@@ -3551,14 +3647,17 @@ export default function WyckoffBacktester({
               <button
                 onClick={() => setBacktestTab('favourites')}
                 style={{
-                  background: 'none',
+                  background: backtestTab === 'favourites' ? 'linear-gradient(135deg, #eab308 0%, #ca8a04 100%)' : 'transparent',
                   border: 'none',
-                  color: backtestTab === 'favourites' ? '#eab308' : '#9ca3af',
-                  fontWeight: 'bold',
+                  color: backtestTab === 'favourites' ? '#0f172a' : '#94a3b8',
+                  fontWeight: 600,
                   fontSize: '11px',
                   cursor: 'pointer',
-                  borderBottom: backtestTab === 'favourites' ? '2px solid #eab308' : 'none',
-                  paddingBottom: '2px'
+                  borderRadius: '6px',
+                  padding: '5px 10px',
+                  boxShadow: backtestTab === 'favourites' ? '0 2px 8px rgba(234, 179, 8, 0.3)' : 'none',
+                  transition: 'all 0.2s',
+                  whiteSpace: 'nowrap'
                 }}
               >
                 ⭐ Favourites ({favouriteCandles.length})
@@ -3570,60 +3669,60 @@ export default function WyckoffBacktester({
             )}
 
             {backtestTab === 'trades' && backtestResults && (
-              <div style={{ display: 'flex', gap: '8px', padding: '6px 0', alignItems: 'center', marginBottom: '4px' }}>
-                <span style={{ fontSize: '10px', color: '#9ca3af' }}>Filter:</span>
+              <div style={{ display: 'flex', gap: '6px', padding: '8px 0', alignItems: 'center', marginBottom: '6px' }}>
+                <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 600 }}>FILTER:</span>
                 <button
                   onClick={() => setTradeFilter('all')}
                   style={{
-                    background: tradeFilter === 'all' ? '#1f2937' : 'none',
-                    border: '1px solid #1f2937',
-                    color: tradeFilter === 'all' ? '#ffffff' : '#9ca3af',
-                    fontSize: '9px',
-                    fontWeight: 'bold',
-                    padding: '2px 8px',
-                    borderRadius: '4px',
+                    background: tradeFilter === 'all' ? 'rgba(51, 65, 85, 0.8)' : 'rgba(30, 41, 59, 0.4)',
+                    border: tradeFilter === 'all' ? '1px solid #64748b' : '1px solid rgba(255, 255, 255, 0.08)',
+                    color: tradeFilter === 'all' ? '#ffffff' : '#94a3b8',
+                    fontSize: '10px',
+                    fontWeight: 600,
+                    padding: '3px 10px',
+                    borderRadius: '6px',
                     cursor: 'pointer',
                     transition: 'all 0.15s'
                   }}
                 >
-                  All
+                  All ({backtestResults.trades.length})
                 </button>
                 <button
                   onClick={() => setTradeFilter('wins')}
                   style={{
-                    background: tradeFilter === 'wins' ? 'rgba(16, 185, 129, 0.2)' : 'none',
-                    border: '1px solid rgba(16, 185, 129, 0.4)',
-                    color: '#10b981',
-                    fontSize: '9px',
-                    fontWeight: 'bold',
-                    padding: '2px 8px',
-                    borderRadius: '4px',
+                    background: tradeFilter === 'wins' ? 'rgba(16, 185, 129, 0.25)' : 'rgba(30, 41, 59, 0.4)',
+                    border: tradeFilter === 'wins' ? '1px solid #10b981' : '1px solid rgba(255, 255, 255, 0.08)',
+                    color: tradeFilter === 'wins' ? '#34d399' : '#94a3b8',
+                    fontSize: '10px',
+                    fontWeight: 600,
+                    padding: '3px 10px',
+                    borderRadius: '6px',
                     cursor: 'pointer',
                     transition: 'all 0.15s'
                   }}
                 >
-                  Wins
+                  Wins ({backtestResults.trades.filter((t: any) => t.pnl >= 0).length})
                 </button>
                 <button
                   onClick={() => setTradeFilter('losses')}
                   style={{
-                    background: tradeFilter === 'losses' ? 'rgba(239, 68, 68, 0.2)' : 'none',
-                    border: '1px solid rgba(239, 68, 68, 0.4)',
-                    color: '#ef4444',
-                    fontSize: '9px',
-                    fontWeight: 'bold',
-                    padding: '2px 8px',
-                    borderRadius: '4px',
+                    background: tradeFilter === 'losses' ? 'rgba(239, 68, 68, 0.25)' : 'rgba(30, 41, 59, 0.4)',
+                    border: tradeFilter === 'losses' ? '1px solid #ef4444' : '1px solid rgba(255, 255, 255, 0.08)',
+                    color: tradeFilter === 'losses' ? '#f87171' : '#94a3b8',
+                    fontSize: '10px',
+                    fontWeight: 600,
+                    padding: '3px 10px',
+                    borderRadius: '6px',
                     cursor: 'pointer',
                     transition: 'all 0.15s'
                   }}
                 >
-                  Losses
+                  Losses ({backtestResults.trades.filter((t: any) => t.pnl < 0).length})
                 </button>
               </div>
             )}
 
-            <div style={{ ...styles.positionsList, maxHeight: '350px', overflowY: 'auto' }}>
+            <div style={{ ...styles.positionsList, maxHeight: '380px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {backtestTab === 'trades' && backtestResults && backtestResults.trades.map((trade: any) => (
                 <div
                   key={trade.id}
@@ -3632,44 +3731,55 @@ export default function WyckoffBacktester({
                     setShowModal(true);
                   }}
                   style={{
-                    ...styles.positionRow,
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '8px 12px',
+                    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+                    borderRadius: '8px',
                     cursor: 'pointer',
                     border: selectedTrade?.id === trade.id
-                      ? '1.5px solid #3b82f6'
-                      : (trade.pnl >= 0 ? '1.5px solid rgba(16, 185, 129, 0.4)' : '1.5px solid rgba(239, 68, 68, 0.4)'),
-                    transform: selectedTrade?.id === trade.id ? 'scale(1.02)' : 'scale(1)',
+                      ? '1px solid #3b82f6'
+                      : (trade.pnl >= 0 ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(239, 68, 68, 0.25)'),
+                    boxShadow: selectedTrade?.id === trade.id
+                      ? '0 0 12px rgba(59, 130, 246, 0.3)'
+                      : 'none',
                     opacity: tradeFilter === 'all'
                       ? 1
-                      : (tradeFilter === 'wins' ? (trade.pnl >= 0 ? 1 : 0.3) : (trade.pnl < 0 ? 1 : 0.3)),
-                    transition: 'all 0.15s'
+                      : (tradeFilter === 'wins' ? (trade.pnl >= 0 ? 1 : 0.25) : (trade.pnl < 0 ? 1 : 0.25)),
+                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
                   }}
                 >
-                  <div style={styles.posDetails}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span style={{
-                        fontSize: '9px',
-                        fontWeight: 'bold',
+                        fontSize: '10px',
+                        fontWeight: 700,
                         textTransform: 'uppercase',
-                        padding: '2px 6px',
+                        padding: '2px 7px',
                         borderRadius: '4px',
-                        border: `1.5px solid ${trade.type === 'BUY' ? '#10b981' : '#ef4444'}`,
-                        backgroundColor: trade.type === 'BUY' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
-                        color: trade.type === 'BUY' ? '#10b981' : '#ef4444',
+                        border: `1px solid ${trade.type === 'BUY' ? 'rgba(16, 185, 129, 0.5)' : 'rgba(239, 68, 68, 0.5)'}`,
+                        backgroundColor: trade.type === 'BUY' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                        color: trade.type === 'BUY' ? '#34d399' : '#f87171',
                         display: 'inline-block',
                         lineHeight: '1',
                       }}>
                         {trade.type}
                       </span>
-                      <span style={{ color: '#ffffff', fontWeight: 'bold' }}>
+                      <span style={{ color: '#f8fafc', fontWeight: 600, fontSize: '12px' }}>
                         @{formatPrice(trade.entryPrice, symbol)}
                       </span>
                     </div>
-                    <span style={{ fontSize: '10px', color: '#6b7280' }}>
+                    <span style={{ fontSize: '10px', color: '#94a3b8' }}>
                       Exit: {formatPrice(trade.exitPrice, symbol)} | Fees: ${trade.fees ? trade.fees.toFixed(2) : '0.00'} | {trade.time}
                     </span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={styles.posPnl(trade.pnl >= 0)}>
+                    <span style={{
+                      fontWeight: 700,
+                      fontSize: '12px',
+                      color: trade.pnl >= 0 ? '#10b981' : '#ef4444'
+                    }}>
                       {trade.pnl >= 0 ? '+' : ''}${trade.pnl.toFixed(2)}
                     </span>
                     {onLocateCandle && trade.entryTimestamp && (
@@ -3683,18 +3793,19 @@ export default function WyckoffBacktester({
                           });
                         }}
                         style={{
-                          background: 'rgba(59, 130, 246, 0.15)',
-                          border: '1px solid rgba(59, 130, 246, 0.3)',
-                          color: '#3b82f6',
-                          borderRadius: '4px',
-                          padding: '2px 6px',
-                          fontSize: '9px',
+                          background: 'rgba(56, 189, 248, 0.15)',
+                          border: '1px solid rgba(56, 189, 248, 0.3)',
+                          color: '#38bdf8',
+                          borderRadius: '6px',
+                          padding: '3px 7px',
+                          fontSize: '11px',
                           cursor: 'pointer',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
+                          transition: 'all 0.15s'
                         }}
-                        title="Go to Trade"
+                        title="Locate candle on chart"
                       >
                         📍
                       </button>
