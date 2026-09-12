@@ -611,7 +611,9 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
                     </td>
                     <td style={{ padding: '10px', fontWeight: 600, color: '#38bdf8' }}>{row.symbol}</td>
                     <td style={{ padding: '10px' }}>{row.timeframe}</td>
-                    <td style={{ padding: '10px', color: 'var(--app-text-muted, #cbd5e1)' }}>SL: {row.sl_val} | RR: 1:{row.rr} | BE: {row.be_trigger_r}R</td>
+                    <td style={{ padding: '10px', color: 'var(--app-text-muted, #cbd5e1)' }}>
+                      SL: {row.sl_val}{row.sl_type ? (row.sl_type === 'pct' ? '%' : row.sl_type) : ''} | RR: 1:{row.rr} | BE: {row.be_trigger_r !== undefined && row.be_trigger_r > 0 ? `${row.be_trigger_r}R` : 'Off'}
+                    </td>
                     <td style={{ padding: '10px' }}>{row.trades_cnt}</td>
                     <td style={{ padding: '10px', color: row.win_rate >= 50 ? '#4ade80' : '#f87171' }}>{row.win_rate ? row.win_rate.toFixed(1) : 0}%</td>
                     <td style={{ padding: '10px', fontWeight: 600, color: row.net_pnl >= 0 ? '#4ade80' : '#f87171' }}>
