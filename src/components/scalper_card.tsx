@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Zap, Target, AlertCircle, RefreshCw, Sliders, Play, CheckCircle2 } from 'lucide-react';
+import { Zap, Target, AlertCircle, RefreshCw, Sliders, Play, CheckCircle2, Activity, Gauge } from 'lucide-react';
 import { API_BASE_URL } from '../api';
 import DebugComponentBadge from './debug_component_badge';
 import DeployModal from './deploy_modal';
@@ -133,6 +133,7 @@ export const ScalperCard: React.FC<ScalperCardProps> = ({
   };
 
   const stateStatus = scalperState?.status || 'IDLE';
+  const diag = evalResult?.diagnostics;
 
   return (
     <div style={{
@@ -479,6 +480,64 @@ export const ScalperCard: React.FC<ScalperCardProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Real-time Diagnostics Telemetry */}
+      {diag && (
+        <div style={{
+          backgroundColor: 'var(--app-bg-secondary, #0b0f19)',
+          border: '1px solid var(--app-card-border, #1f2937)',
+          borderRadius: '8px',
+          padding: '14px',
+          marginBottom: '16px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px', color: 'var(--app-text, #f3f4f6)', fontSize: '13px', fontWeight: 600 }}>
+            <Activity size={15} color="#38bdf8" />
+            <span>Latest M1 Candle Telemetry ({diag.symbol} • Close: {diag.candle_close})</span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px', fontSize: '11px' }}>
+            <div style={{ padding: '8px', backgroundColor: 'rgba(31, 41, 55, 0.4)', borderRadius: '6px' }}>
+              <span style={{ color: 'var(--app-text-muted, #9ca3af)', display: 'block', fontSize: '10px' }}>RANGE / ATR</span>
+              <strong style={{ color: diag.range_atr_ratio >= diag.target_atr_ratio ? '#22c55e' : '#f59e0b', fontSize: '13px' }}>
+                {diag.range_atr_ratio}x
+              </strong>
+              <span style={{ color: '#64748b', fontSize: '9px', display: 'block' }}>Target ≥ {diag.target_atr_ratio}x ({diag.range_pips}p / {diag.atr_14_pips}p)</span>
+            </div>
+
+            <div style={{ padding: '8px', backgroundColor: 'rgba(31, 41, 55, 0.4)', borderRadius: '6px' }}>
+              <span style={{ color: 'var(--app-text-muted, #9ca3af)', display: 'block', fontSize: '10px' }}>VOLUME / SMA</span>
+              <strong style={{ color: diag.vol_ratio >= diag.target_vol_ratio ? '#22c55e' : '#f59e0b', fontSize: '13px' }}>
+                {diag.vol_ratio}x
+              </strong>
+              <span style={{ color: '#64748b', fontSize: '9px', display: 'block' }}>Target ≥ {diag.target_vol_ratio}x ({diag.candle_volume} / {diag.volume_sma_20})</span>
+            </div>
+
+            <div style={{ padding: '8px', backgroundColor: 'rgba(31, 41, 55, 0.4)', borderRadius: '6px' }}>
+              <span style={{ color: 'var(--app-text-muted, #9ca3af)', display: 'block', fontSize: '10px' }}>UPPER WICK</span>
+              <strong style={{ color: diag.upper_wick_pct >= diag.target_wick_pct ? '#22c55e' : '#9ca3af', fontSize: '13px' }}>
+                {diag.upper_wick_pct}%
+              </strong>
+              <span style={{ color: '#64748b', fontSize: '9px', display: 'block' }}>Target ≥ {diag.target_wick_pct}% (Bearish)</span>
+            </div>
+
+            <div style={{ padding: '8px', backgroundColor: 'rgba(31, 41, 55, 0.4)', borderRadius: '6px' }}>
+              <span style={{ color: 'var(--app-text-muted, #9ca3af)', display: 'block', fontSize: '10px' }}>LOWER WICK</span>
+              <strong style={{ color: diag.lower_wick_pct >= diag.target_wick_pct ? '#22c55e' : '#9ca3af', fontSize: '13px' }}>
+                {diag.lower_wick_pct}%
+              </strong>
+              <span style={{ color: '#64748b', fontSize: '9px', display: 'block' }}>Target ≥ {diag.target_wick_pct}% (Bullish)</span>
+            </div>
+
+            <div style={{ padding: '8px', backgroundColor: 'rgba(31, 41, 55, 0.4)', borderRadius: '6px' }}>
+              <span style={{ color: 'var(--app-text-muted, #9ca3af)', display: 'block', fontSize: '10px' }}>SPREAD</span>
+              <strong style={{ color: diag.spread_pips <= maxSpreadPips ? '#22c55e' : '#ef4444', fontSize: '13px' }}>
+                {diag.spread_pips} pips
+              </strong>
+              <span style={{ color: '#64748b', fontSize: '9px', display: 'block' }}>Max allowed: {maxSpreadPips}p</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {errorMsg && (
         <div style={{

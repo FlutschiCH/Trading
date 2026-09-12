@@ -294,6 +294,49 @@ class ScalperHandler:
             min_wick_ratio=min_wick_ratio
         )
 
+        # Compute diagnostics on the last completed candle
+        candle_high = float(last_closed_candle.get('high', 0))
+        candle_low = float(last_closed_candle.get('low', 0))
+        candle_open = float(last_closed_candle.get('open', 0))
+        candle_close = float(last_closed_candle.get('close', 0))
+        candle_vol = float(last_closed_candle.get('volume', last_closed_candle.get('tick_volume', 0)))
+
+        c_range = candle_high - candle_low
+        c_body_top = max(candle_open, candle_close)
+        c_body_bottom = min(candle_open, candle_close)
+        c_upper_wick = candle_high - c_body_top
+        c_lower_wick = c_body_bottom - candle_low
+        c_upper_wick_pct = (c_upper_wick / c_range * 100) if c_range > 0 else 0
+        c_lower_wick_pct = (c_lower_wick / c_range * 100) if c_range > 0 else 0
+        range_atr_ratio = (c_range / atr_val) if atr_val > 0 else 0
+        vol_ratio = (candle_vol / vol_val) if vol_val > 0 else 0
+
+        pip_size = get_pip_size(symbol, candle_close)
+        range_pips = c_range / pip_size if pip_size > 0 else 0
+        atr_pips = atr_val / pip_size if pip_size > 0 else 0
+
+        diagnostics = {
+            "symbol": symbol,
+            "candle_time": last_closed_candle.get("time"),
+            "candle_close": candle_close,
+            "range_pips": round(range_pips, 2),
+            "atr_14_pips": round(atr_pips, 2),
+            "range_atr_ratio": round(range_atr_ratio, 2),
+            "target_atr_ratio": atr_multiplier,
+            "candle_volume": round(candle_vol, 1),
+            "volume_sma_20": round(vol_val, 1),
+            "vol_ratio": round(vol_ratio, 2),
+            "target_vol_ratio": vol_multiplier,
+            "upper_wick_pct": round(c_upper_wick_pct, 1),
+            "lower_wick_pct": round(c_lower_wick_pct, 1),
+            "target_wick_pct": round(min_wick_ratio * 100, 1),
+            "spread_pips": round(current_spread_pips, 2),
+            "candles_analyzed": len(candles)
+        }
+
+        # Terminal logging
+        print(f"[Scalper Scanner] [{symbol}] Checked last candle (Close: {candle_close:.5f}) | Range: {range_pips:.1f}p ({range_atr_ratio:.1f}x ATR) | Vol: {candle_vol:.0f} ({vol_ratio:.1f}x SMA) | UpperWick: {c_upper_wick_pct:.0f}%, LowerWick: {c_lower_wick_pct:.0f}% | Spread: {current_spread_pips:.2f}p", flush=True)
+
         current_candle = candles[-1]
         should_buy, should_sell, updated_state = SignalEngine.process_step(
             current_candle=current_candle,
@@ -322,6 +365,7 @@ class ScalperHandler:
                 return {
                     "action": direction,
                     "state": updated_state,
+                    "diagnostics": diagnostics,
                     "trade_params": {
                         **risk_eval,
                         "retracement_50": updated_state.get("retracement_50"),
@@ -332,11 +376,13 @@ class ScalperHandler:
                 return {
                     "action": "HOLD",
                     "state": updated_state,
+                    "diagnostics": diagnostics,
                     "reason": risk_eval.get("reason", "Risk check failed")
                 }
 
         return {
             "action": "HOLD",
             "state": updated_state,
+            "diagnostics": diagnostics,
             "exhaustion_info": exhaustion_info if exhaustion_info.get("is_exhaustion") else None
         }
