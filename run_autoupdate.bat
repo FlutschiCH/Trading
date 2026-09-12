@@ -39,5 +39,5 @@ timeout /t 5 /nobreak >nul
 goto loop
 
 :end
-echo [AutoUpdater Bat] Process finished.
-pause
+echo [AutoUpdater Bat] Process finished. Closing window...
+exit
