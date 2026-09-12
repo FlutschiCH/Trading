@@ -7,8 +7,53 @@ import time
 class SystemHandler:
     @staticmethod
     def restart_server():
-        print("Restart requested from frontend. Exiting process in 1 second...", flush=True)
+        print("Restart requested from frontend. Stopping live workers and exiting process in 1 second...", flush=True)
         def exit_func():
+            # 1. Stop all live workers registered in supervisor
+            try:
+                from live_runner_handler import LiveRunner
+                LiveRunner.stop()
+            except Exception as e:
+                print(f"[SystemHandler] LiveRunner stop warning: {e}", flush=True)
+
+            # 2. Terminate any orphan live_worker processes using lock files or process scan
+            try:
+                import psutil
+                current_pid = os.getpid()
+                for p in psutil.process_iter(['pid', 'name', 'cmdline']):
+                    try:
+                        if p.info['pid'] == current_pid:
+                            continue
+                        cmdline = p.info.get('cmdline') or []
+                        cmd_str = " ".join(cmdline)
+                        if "live_worker.py" in cmd_str and "backtest_worker.py" not in cmd_str:
+                            print(f"[SystemHandler] Killing live_worker process (PID {p.info['pid']})...", flush=True)
+                            p.kill()
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        pass
+            except Exception:
+                # If psutil is not available or errors out, clean up via worker lock files
+                try:
+                    lock_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".worker_locks")
+                    if os.path.exists(lock_dir):
+                        for f in os.listdir(lock_dir):
+                            if f.startswith("live_worker_") and f.endswith(".lock"):
+                                fpath = os.path.join(lock_dir, f)
+                                try:
+                                    with open(fpath, "r") as lf:
+                                        pid_str = lf.read().strip()
+                                        if pid_str and pid_str.isdigit():
+                                            target_pid = int(pid_str)
+                                            if target_pid != os.getpid():
+                                                if sys.platform == "win32":
+                                                    os.system(f"taskkill /F /PID {target_pid} >nul 2>&1")
+                                                else:
+                                                    os.kill(target_pid, 9)
+                                except Exception:
+                                    pass
+                except Exception:
+                    pass
+
             time.sleep(1)
             # Exit with code 12, which our autoupdater will recognize to restart and update
             os._exit(12)
