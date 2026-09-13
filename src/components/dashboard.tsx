@@ -21,7 +21,7 @@ import SymbolMappingCard from './symbol_mapping_card';
 import Copytrader from './copytrader';
 import TradeAnalyzerCard from './trade_analyzer_card';
 import BacktestAnalyzerCard from './backtest_analyzer_card';
-import ScalperCard from './scalper_card';
+import ScalperCard from './scalper';
 import LogPanel from './log_panel';
 import NewsPanel from './news_panel';
 import type { Candle, AccountInfo, Position } from '../types/trading';
