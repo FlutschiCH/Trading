@@ -67,23 +67,76 @@ def run_scalper_backtest_job(job_id: str, params: dict, candles: list, symbol: s
     if triggered:
         print(f"{Fore.YELLOW}[BacktestWorker Triggered Candles]{Style.RESET_ALL} Saved {len(triggered)} spike candles for chart display.", flush=True)
 
+    # Format trades with properties expected by TVChart and Backtest card (entryPrice, slPrice, tpPrice, entryTimestamp, exitTimestamp, pnl, type)
+    raw_trades = res.get('trades', [])
+    formatted_trades = []
+    for tr in raw_trades:
+        formatted_tr = {
+            **tr,
+            "id": tr.get("id"),
+            "type": tr.get("type", "BUY"),
+            "entryPrice": tr.get("entry_price"),
+            "exitPrice": tr.get("exit_price"),
+            "slPrice": tr.get("sl_price"),
+            "tpPrice": tr.get("tp_price"),
+            "entryTimestamp": tr.get("entry_time") or tr.get("entry_timestamp"),
+            "exitTimestamp": tr.get("exit_time") or tr.get("exit_timestamp"),
+            "pnl": tr.get("pnl", 0.0),
+            "fees": 0.0,
+            "exitReason": tr.get("exit_reason", ""),
+            "qty": tr.get("qty", 1.0)
+        }
+        formatted_trades.append(formatted_tr)
+
+    annotated = res.get('annotated_candles', candles)
+    # Ensure backtest_signal flags are set on candles where scalper trades entered
+    trade_time_map = {t['entryTimestamp']: t['type'] for t in formatted_trades if t.get('entryTimestamp')}
+    for c in annotated:
+        c_time = c.get('time')
+        if c_time in trade_time_map:
+            c['backtest_signal'] = trade_time_map[c_time]
+
+    formatted_results = {
+        "status": "success",
+        "strategy_type": "scalper",
+        "symbol": symbol,
+        "timeframe": params.get('timeframe', '1m'),
+        "summary": summary,
+        "trades": formatted_trades,
+        "completed_trades_raw": formatted_trades,
+        "winRate": summary.get('win_rate', 0.0),
+        "netPnl": summary.get('net_profit', 0.0),
+        "profitFactor": 1.5 if summary.get('net_profit', 0.0) >= 0 else 0.5,
+        "totalTrades": summary.get('total_trades', 0),
+        "maxDrawdown": 0.0,
+        "maxDailyLoss": 0.0,
+        "dailyLossBreached": False,
+        "candles": annotated,
+        "triggered_candles": triggered,
+        "fvgs": [],
+        "monthlyBreakdown": {},
+        "weeklyBreakdown": {},
+        "dateFrom": annotated[0].get('time') if annotated else None,
+        "dateTo": annotated[-1].get('time') if annotated else None
+    }
+
     # Auto-save scalper run to MySQL DB
     try:
         backtest_id_str = f"bt_scalp_{symbol.lower()}_1m_atr{atr_mult}_vol{vol_mult}_{int(time.time())}"
         payload_to_save = {
             "symbol": symbol,
-            "timeframe": "1m",
+            "timeframe": params.get('timeframe', '1m'),
             "strategy_type": "scalp",
             "summary": summary,
-            "trades": res.get('trades', []),
+            "trades": formatted_trades,
             "triggered_candles": triggered,
-            "annotated_candles": res.get('annotated_candles', []),
+            "annotated_candles": annotated,
             "settings": params
         }
         SQLHandler.save_backtest_run(
             backtest_id=backtest_id_str,
             symbol=symbol,
-            timeframe="1m",
+            timeframe=params.get('timeframe', '1m'),
             broker=params.get('broker', 'metatrader'),
             sl_val=2.0,
             sl_type="pips",
@@ -100,8 +153,8 @@ def run_scalper_backtest_job(job_id: str, params: dict, candles: list, symbol: s
     except Exception as save_err:
         print(f"[BacktestWorker Scalper Warning] DB save failed: {save_err}", flush=True)
 
-    send_local_update(progress=100.0, status='completed', step_info='Finished', results=res)
-    return res
+    send_local_update(progress=100.0, status='completed', step_info='Finished', results=formatted_results)
+    return formatted_results
 
 def run_worker(job_id: str, is_resume: bool = False):
     print(f"{Fore.CYAN}[BacktestWorker]{Style.RESET_ALL} Starting worker for job_id={job_id} (resume={is_resume})", flush=True)

@@ -297,7 +297,7 @@ const CollapsibleCard = ({ title, isCollapsed, onToggle, children, style }: Coll
 const hoursList = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
 const minutesList = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0'));
 
-export default function WyckoffBacktester({
+export default function Backtester({
   symbol,
   timeframe,
   broker = 'metatrader',
@@ -399,7 +399,51 @@ export default function WyckoffBacktester({
   setBacktestResults,
   onLoadSavedPayload,
 }: WyckoffBacktesterProps) {
-  const [copied, setCopied] = React.useState(false);
+  // Strategy Selection Tab: 'wyckoff' | 'scalper'
+  const [strategyType, setStrategyType] = React.useState<'wyckoff' | 'scalper'>(() => {
+    try {
+      return (localStorage.getItem('backtest_active_strategy_type') as 'wyckoff' | 'scalper') || 'wyckoff';
+    } catch {
+      return 'wyckoff';
+    }
+  });
+
+  const handleStrategyChange = (st: 'wyckoff' | 'scalper') => {
+    setStrategyType(st);
+    try {
+      localStorage.setItem('backtest_active_strategy_type', st);
+    } catch {}
+  };
+
+  // Scalper Specific States
+  const [atrMultiplier, setAtrMultiplier] = React.useState<number>(() => {
+    const val = localStorage.getItem('scalper_atr_multiplier');
+    return val ? parseFloat(val) : 2.5;
+  });
+  const [volMultiplier, setVolMultiplier] = React.useState<number>(() => {
+    const val = localStorage.getItem('scalper_vol_multiplier');
+    return val ? parseFloat(val) : 3.0;
+  });
+  const [minWickRatio, setMinWickRatio] = React.useState<number>(() => {
+    const val = localStorage.getItem('scalper_min_wick_ratio');
+    return val ? parseFloat(val) : 40;
+  });
+  const [maxSpreadPips, setMaxSpreadPips] = React.useState<number>(() => {
+    const val = localStorage.getItem('scalper_max_spread_pips');
+    return val ? parseFloat(val) : 1.2;
+  });
+  const [hardStopMinutes, setHardStopMinutes] = React.useState<number>(() => {
+    const val = localStorage.getItem('scalper_hard_stop_minutes');
+    return val ? parseInt(val, 10) : 8;
+  });
+
+  React.useEffect(() => {
+    localStorage.setItem('scalper_atr_multiplier', String(atrMultiplier));
+    localStorage.setItem('scalper_vol_multiplier', String(volMultiplier));
+    localStorage.setItem('scalper_min_wick_ratio', String(minWickRatio));
+    localStorage.setItem('scalper_max_spread_pips', String(maxSpreadPips));
+    localStorage.setItem('scalper_hard_stop_minutes', String(hardStopMinutes));
+  }, [atrMultiplier, volMultiplier, minWickRatio, maxSpreadPips, hardStopMinutes]);
   const [isMobile, setIsMobile] = React.useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
   const [showDeployModal, setShowDeployModal] = React.useState(false);
 
@@ -1516,6 +1560,74 @@ export default function WyckoffBacktester({
           gap: '12px',
           fontSize: '12px',
         }}>
+        {/* Top Strategy Selector Tabs (Wyckoff vs Scalper) */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: '8px',
+          backgroundColor: '#0b0f19',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          borderRadius: '10px',
+          padding: '4px',
+          marginBottom: '2px'
+        }}>
+          <button
+            type="button"
+            onClick={() => handleStrategyChange('wyckoff')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              padding: '10px 14px',
+              borderRadius: '8px',
+              border: strategyType === 'wyckoff' ? '1px solid #3b82f6' : '1px solid transparent',
+              background: strategyType === 'wyckoff' ? 'linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%)' : 'transparent',
+              color: strategyType === 'wyckoff' ? '#ffffff' : '#94a3b8',
+              fontSize: '12px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              boxShadow: strategyType === 'wyckoff' ? '0 4px 12px rgba(37, 99, 235, 0.35)' : 'none'
+            }}
+          >
+            <span>🏛️ Wyckoff VSA Engine</span>
+            {strategyType === 'wyckoff' && (
+              <span style={{ fontSize: '9px', backgroundColor: 'rgba(255,255,255,0.2)', padding: '2px 6px', borderRadius: '4px' }}>
+                ACTIVE
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleStrategyChange('scalper')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              padding: '10px 14px',
+              borderRadius: '8px',
+              border: strategyType === 'scalper' ? '1px solid #eab308' : '1px solid transparent',
+              background: strategyType === 'scalper' ? 'linear-gradient(135deg, #854d0e 0%, #ca8a04 100%)' : 'transparent',
+              color: strategyType === 'scalper' ? '#ffffff' : '#94a3b8',
+              fontSize: '12px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              boxShadow: strategyType === 'scalper' ? '0 4px 12px rgba(234, 179, 8, 0.35)' : 'none'
+            }}
+          >
+            <span>⚡ M1/M5 Void Scalper</span>
+            {strategyType === 'scalper' && (
+              <span style={{ fontSize: '9px', backgroundColor: 'rgba(255,255,255,0.2)', padding: '2px 6px', borderRadius: '4px' }}>
+                ACTIVE
+              </span>
+            )}
+          </button>
+        </div>
+
         {/* Top Mode Selector Tabs Header */}
         <div style={{
           display: 'flex',
@@ -1538,7 +1650,7 @@ export default function WyckoffBacktester({
               padding: '10px 14px',
               borderRadius: '6px',
               border: 'none',
-              backgroundColor: !globalRangeMode ? '#2563eb' : 'transparent',
+              backgroundColor: !globalRangeMode ? (strategyType === 'scalper' ? '#ca8a04' : '#2563eb') : 'transparent',
               color: !globalRangeMode ? '#ffffff' : '#94a3b8',
               fontSize: '12px',
               fontWeight: 'bold',
@@ -1548,7 +1660,7 @@ export default function WyckoffBacktester({
               justifyContent: 'center',
               gap: '8px',
               transition: 'all 0.2s',
-              boxShadow: !globalRangeMode ? '0 4px 6px -1px rgba(37, 99, 235, 0.3)' : 'none'
+              boxShadow: !globalRangeMode ? `0 4px 6px -1px ${strategyType === 'scalper' ? 'rgba(202, 138, 4, 0.3)' : 'rgba(37, 99, 235, 0.3)'}` : 'none'
             }}
           >
             <span>⚡ Single Backtest</span>
@@ -1732,6 +1844,8 @@ export default function WyckoffBacktester({
               console.log(`[Wyckoff Backtester] Run Backtest clicked (Combos: ${totalRunCombinations}). Symbol: "${targetSymbol}", Effective Symbols:`, effectiveSymbols, "Timeframe:", targetTimeframe);
               console.time("Backtest execution duration");
               const rangeParams = {
+                strategy_type: strategyType,
+                strategy_name: strategyType === 'scalper' ? 'M1 Scalper' : 'Wyckoff VSA',
                 symbol: targetSymbol,
                 timeframe: targetTimeframe,
                 slRangeMode,
@@ -1751,7 +1865,13 @@ export default function WyckoffBacktester({
                 htfEmaEnabled,
                 htfEmaTimeframe,
                 htfEmaPeriod: parseInt(htfEmaPeriod) || 200,
-                htfEmaRangeMode: globalRangeMode && htfEmaRangeMode
+                htfEmaRangeMode: globalRangeMode && htfEmaRangeMode,
+                // Scalper specific parameters
+                atr_multiplier: atrMultiplier,
+                vol_multiplier: volMultiplier,
+                min_wick_ratio: minWickRatio / 100.0,
+                max_spread_pips: maxSpreadPips,
+                hard_stop_minutes: hardStopMinutes
               };
               if (totalRunCombinations > 1 || isOptimizeMode) {
                 onRunOptimization(rangeParams);
@@ -2055,6 +2175,73 @@ export default function WyckoffBacktester({
             </div>
           )}
         </CollapsibleCard>
+
+        {/* Scalper Specific Settings Card */}
+        {strategyType === 'scalper' && (
+          <CollapsibleCard title="⚡ Scalper Detection & Void Configuration" isCollapsed={false} onToggle={() => {}}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : '1fr 1fr 1fr 1fr', gap: '10px' }}>
+                <div style={styles.formGroup}>
+                  <label style={{ color: '#9ca3af', fontSize: '10px', fontWeight: 600 }}>ATR MULTIPLIER (≥ 2.5x)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={atrMultiplier}
+                    onChange={(e) => setAtrMultiplier(parseFloat(e.target.value) || 2.5)}
+                    style={{ ...styles.input, backgroundColor: 'rgba(30, 41, 59, 0.8)', color: '#38bdf8', fontWeight: 600 }}
+                  />
+                </div>
+
+                <div style={styles.formGroup}>
+                  <label style={{ color: '#9ca3af', fontSize: '10px', fontWeight: 600 }}>VOL SMA MULTIPLIER (≥ 3.0x)</label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    value={volMultiplier}
+                    onChange={(e) => setVolMultiplier(parseFloat(e.target.value) || 3.0)}
+                    style={{ ...styles.input, backgroundColor: 'rgba(30, 41, 59, 0.8)', color: '#38bdf8', fontWeight: 600 }}
+                  />
+                </div>
+
+                <div style={styles.formGroup}>
+                  <label style={{ color: '#9ca3af', fontSize: '10px', fontWeight: 600 }}>MIN REJECTION WICK (%)</label>
+                  <input
+                    type="number"
+                    value={minWickRatio}
+                    onChange={(e) => setMinWickRatio(parseFloat(e.target.value) || 40)}
+                    style={{ ...styles.input, backgroundColor: 'rgba(30, 41, 59, 0.8)', color: '#eab308', fontWeight: 600 }}
+                  />
+                </div>
+
+                <div style={styles.formGroup}>
+                  <label style={{ color: '#9ca3af', fontSize: '10px', fontWeight: 600 }}>MAX SPREAD (PIPS)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={maxSpreadPips}
+                    onChange={(e) => setMaxSpreadPips(parseFloat(e.target.value) || 1.2)}
+                    style={{ ...styles.input, backgroundColor: 'rgba(30, 41, 59, 0.8)', color: '#10b981', fontWeight: 600 }}
+                  />
+                </div>
+              </div>
+
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                padding: '8px 12px',
+                backgroundColor: 'rgba(234, 179, 8, 0.1)',
+                border: '1px solid rgba(234, 179, 8, 0.25)',
+                borderRadius: '6px',
+                fontSize: '11px',
+                color: '#fde047'
+              }}>
+                <span>🛡️ Auto Break-Even at +3.0 pips</span>
+                <span>🎯 50% TP Target at Half Retracement</span>
+                <span>⏱️ Hard Exit Time Limit: 8 Minutes</span>
+              </div>
+            </div>
+          </CollapsibleCard>
+        )}
 
         <CollapsibleCard title="🛡️ Risk Management & Execution" isCollapsed={collapsedSections.riskManagement} onToggle={() => toggleSection('riskManagement')}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>

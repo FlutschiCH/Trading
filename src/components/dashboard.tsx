@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Activity, X, TrendingUp, TrendingDown, Clock, HelpCircle, RefreshCw, Menu, ChevronDown, Sun, Moon, Settings, ShieldAlert } from 'lucide-react';
 import TVChart from './tv_chart';
-import WyckoffBacktester from './wyckoff_backtester';
+import Backtester from './backtest';
 import HowToPage from './how_to_page';
 import LiveTradesPanel from './live_trades_panel';
 import LiveOverviewPanel from './live_overview_panel';
@@ -2757,10 +2757,10 @@ export default function Dashboard() {
                       fontWeight: 'bold',
                       color: 'var(--app-text)',
                     }}>
-                      <span>⚙️ Wyckoff Backtester</span>
+                      <span>⚙️ Backtester</span>
                     </div>
                     <div style={{ padding: '16px', overflowY: 'auto' }}>
-                      <WyckoffBacktester
+                      <Backtester
                         isReadOnly={isProdHost && !isAuthenticated}
                         availableSymbols={availableSymbols}
                         availableTimeframes={availableTimeframes}
@@ -3301,7 +3301,7 @@ export default function Dashboard() {
                         </div>
                         {!isCollapsed && (
                           <div className="no-drag" style={contentStyle}>
-                            <WyckoffBacktester
+                            <Backtester
                               isReadOnly={isProdHost && !isAuthenticated}
                               availableSymbols={availableSymbols}
                               availableTimeframes={availableTimeframes}
