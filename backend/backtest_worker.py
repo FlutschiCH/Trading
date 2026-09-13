@@ -67,6 +67,39 @@ def run_scalper_backtest_job(job_id: str, params: dict, candles: list, symbol: s
     if triggered:
         print(f"{Fore.YELLOW}[BacktestWorker Triggered Candles]{Style.RESET_ALL} Saved {len(triggered)} spike candles for chart display.", flush=True)
 
+    # Auto-save scalper run to MySQL DB
+    try:
+        backtest_id_str = f"bt_scalp_{symbol.lower()}_1m_atr{atr_mult}_vol{vol_mult}_{int(time.time())}"
+        payload_to_save = {
+            "symbol": symbol,
+            "timeframe": "1m",
+            "strategy_type": "scalp",
+            "summary": summary,
+            "trades": res.get('trades', []),
+            "triggered_candles": triggered,
+            "annotated_candles": res.get('annotated_candles', []),
+            "settings": params
+        }
+        SQLHandler.save_backtest_run(
+            backtest_id=backtest_id_str,
+            symbol=symbol,
+            timeframe="1m",
+            broker=params.get('broker', 'metatrader'),
+            sl_val=2.0,
+            sl_type="pips",
+            rr=1.5,
+            be_trigger_r=1.0,
+            net_pnl=summary.get('net_profit', 0.0),
+            win_rate=summary.get('win_rate', 0.0),
+            trades_cnt=summary.get('total_trades', 0),
+            profit_factor=1.0 if summary.get('net_profit', 0.0) >= 0 else 0.0,
+            max_drawdown=0.0,
+            payload_dict=payload_to_save,
+            strategy_type="scalp"
+        )
+    except Exception as save_err:
+        print(f"[BacktestWorker Scalper Warning] DB save failed: {save_err}", flush=True)
+
     send_local_update(progress=100.0, status='completed', step_info='Finished', results=res)
     return res
 

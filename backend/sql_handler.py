@@ -151,6 +151,7 @@ class SQLHandler:
             id VARCHAR(64) PRIMARY KEY,
             symbol VARCHAR(32) NOT NULL,
             timeframe VARCHAR(16) NOT NULL,
+            strategy_type VARCHAR(32) DEFAULT 'wyckoff',
             broker VARCHAR(32) DEFAULT 'metatrader',
             sl_val FLOAT,
             sl_type VARCHAR(16),
@@ -164,11 +165,16 @@ class SQLHandler:
             payload LONGBLOB NOT NULL,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             INDEX idx_symbol (symbol),
+            INDEX idx_strategy_type (strategy_type),
             INDEX idx_created (created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
         """
         try:
             cls.execute_query(query)
+            try:
+                cls.execute_query("ALTER TABLE saved_backtests ADD COLUMN strategy_type VARCHAR(32) DEFAULT 'wyckoff'")
+            except Exception:
+                pass
             cls.init_archived_backtests_db()
         except Exception as e:
             print(f"[SQLHandler] Error initializing saved_backtests table: {e}", flush=True)
@@ -181,6 +187,7 @@ class SQLHandler:
             id VARCHAR(64) PRIMARY KEY,
             symbol VARCHAR(32) NOT NULL,
             timeframe VARCHAR(16) NOT NULL,
+            strategy_type VARCHAR(32) DEFAULT 'wyckoff',
             broker VARCHAR(32) DEFAULT 'metatrader',
             sl_val FLOAT,
             sl_type VARCHAR(16),
@@ -195,11 +202,16 @@ class SQLHandler:
             created_at DATETIME,
             archived_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             INDEX idx_symbol (symbol),
+            INDEX idx_strategy_type (strategy_type),
             INDEX idx_archived (archived_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
         """
         try:
             cls.execute_query(query)
+            try:
+                cls.execute_query("ALTER TABLE archived_saved_backtests ADD COLUMN strategy_type VARCHAR(32) DEFAULT 'wyckoff'")
+            except Exception:
+                pass
         except Exception as e:
             print(f"[SQLHandler] Error initializing archived_saved_backtests table: {e}", flush=True)
 
@@ -209,10 +221,10 @@ class SQLHandler:
         cls.init_saved_backtests_db()
         copy_query = """
         INSERT INTO archived_saved_backtests (
-            id, symbol, timeframe, broker, sl_val, sl_type, rr, be_trigger_r,
+            id, symbol, timeframe, strategy_type, broker, sl_val, sl_type, rr, be_trigger_r,
             net_pnl, win_rate, trades_cnt, profit_factor, max_drawdown, payload, created_at, archived_at
         )
-        SELECT id, symbol, timeframe, broker, sl_val, sl_type, rr, be_trigger_r,
+        SELECT id, symbol, timeframe, COALESCE(strategy_type, 'wyckoff'), broker, sl_val, sl_type, rr, be_trigger_r,
                net_pnl, win_rate, trades_cnt, profit_factor, max_drawdown, payload, created_at, NOW()
         FROM saved_backtests
         WHERE id = %s
@@ -235,10 +247,10 @@ class SQLHandler:
         cls.init_saved_backtests_db()
         copy_query = """
         INSERT INTO archived_saved_backtests (
-            id, symbol, timeframe, broker, sl_val, sl_type, rr, be_trigger_r,
+            id, symbol, timeframe, strategy_type, broker, sl_val, sl_type, rr, be_trigger_r,
             net_pnl, win_rate, trades_cnt, profit_factor, max_drawdown, payload, created_at, archived_at
         )
-        SELECT id, symbol, timeframe, broker, sl_val, sl_type, rr, be_trigger_r,
+        SELECT id, symbol, timeframe, COALESCE(strategy_type, 'wyckoff'), broker, sl_val, sl_type, rr, be_trigger_r,
                net_pnl, win_rate, trades_cnt, profit_factor, max_drawdown, payload, created_at, NOW()
         FROM saved_backtests
         ON DUPLICATE KEY UPDATE
@@ -255,11 +267,11 @@ class SQLHandler:
             return False
 
     @classmethod
-    def get_archived_backtests(cls, symbol: str = None, timeframe: str = None) -> list:
+    def get_archived_backtests(cls, symbol: str = None, timeframe: str = None, strategy_type: str = None) -> list:
         """Returns list of archived backtest summary metadata ordered by archived_at DESC."""
         cls.init_saved_backtests_db()
         query = """
-        SELECT id, symbol, timeframe, broker, sl_val, sl_type, rr, be_trigger_r,
+        SELECT id, symbol, timeframe, COALESCE(strategy_type, 'wyckoff') AS strategy_type, broker, sl_val, sl_type, rr, be_trigger_r,
                net_pnl, win_rate, trades_cnt, profit_factor, max_drawdown, created_at, archived_at
         FROM archived_saved_backtests
         """
@@ -271,6 +283,9 @@ class SQLHandler:
         if timeframe:
             conditions.append("timeframe = %s")
             params.append(timeframe)
+        if strategy_type and strategy_type != 'all':
+            conditions.append("strategy_type = %s")
+            params.append(strategy_type)
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
         query += " ORDER BY archived_at DESC"
@@ -293,10 +308,10 @@ class SQLHandler:
         cls.init_saved_backtests_db()
         copy_query = """
         INSERT INTO saved_backtests (
-            id, symbol, timeframe, broker, sl_val, sl_type, rr, be_trigger_r,
+            id, symbol, timeframe, strategy_type, broker, sl_val, sl_type, rr, be_trigger_r,
             net_pnl, win_rate, trades_cnt, profit_factor, max_drawdown, payload, created_at
         )
-        SELECT id, symbol, timeframe, broker, sl_val, sl_type, rr, be_trigger_r,
+        SELECT id, symbol, timeframe, COALESCE(strategy_type, 'wyckoff'), broker, sl_val, sl_type, rr, be_trigger_r,
                net_pnl, win_rate, trades_cnt, profit_factor, max_drawdown, payload, created_at
         FROM archived_saved_backtests
         WHERE id = %s
@@ -316,19 +331,21 @@ class SQLHandler:
     def save_backtest_run(cls, backtest_id: str, symbol: str, timeframe: str, broker: str,
                           sl_val: float, sl_type: str, rr: float, be_trigger_r: float,
                           net_pnl: float, win_rate: float, trades_cnt: int,
-                          profit_factor: float, max_drawdown: float, payload_dict: dict):
+                          profit_factor: float, max_drawdown: float, payload_dict: dict,
+                          strategy_type: str = "wyckoff"):
         """Asynchronously queues backtest run persistence to keep backtesting thread unblocked."""
         import json
         cls.init_saved_backtests_db()
         payload_bytes = json.dumps(payload_dict).encode('utf-8')
         query = """
         INSERT INTO saved_backtests (
-            id, symbol, timeframe, broker, sl_val, sl_type, rr, be_trigger_r,
+            id, symbol, timeframe, strategy_type, broker, sl_val, sl_type, rr, be_trigger_r,
             net_pnl, win_rate, trades_cnt, profit_factor, max_drawdown, payload, created_at
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
         ON DUPLICATE KEY UPDATE
             symbol = VALUES(symbol),
             timeframe = VALUES(timeframe),
+            strategy_type = VALUES(strategy_type),
             broker = VALUES(broker),
             sl_val = VALUES(sl_val),
             sl_type = VALUES(sl_type),
@@ -343,7 +360,7 @@ class SQLHandler:
             created_at = NOW()
         """
         params = (
-            backtest_id, symbol, timeframe, broker, sl_val, sl_type, rr,
+            backtest_id, symbol, timeframe, strategy_type, broker, sl_val, sl_type, rr,
             be_trigger_r, net_pnl, win_rate, trades_cnt, profit_factor,
             max_drawdown, payload_bytes
         )
@@ -352,11 +369,11 @@ class SQLHandler:
 
 
     @classmethod
-    def get_saved_backtests(cls, symbol: str = None, timeframe: str = None) -> list:
+    def get_saved_backtests(cls, symbol: str = None, timeframe: str = None, strategy_type: str = None) -> list:
         """Returns list of saved backtest summary metadata ordered by created_at DESC."""
         cls.init_saved_backtests_db()
         query = """
-        SELECT id, symbol, timeframe, broker, sl_val, sl_type, rr, be_trigger_r,
+        SELECT id, symbol, timeframe, COALESCE(strategy_type, 'wyckoff') AS strategy_type, broker, sl_val, sl_type, rr, be_trigger_r,
                net_pnl, win_rate, trades_cnt, profit_factor, max_drawdown, created_at
         FROM saved_backtests
         """
@@ -368,6 +385,9 @@ class SQLHandler:
         if timeframe:
             conditions.append("timeframe = %s")
             params.append(timeframe)
+        if strategy_type and strategy_type != 'all':
+            conditions.append("strategy_type = %s")
+            params.append(strategy_type)
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
         query += " ORDER BY created_at DESC"
@@ -387,7 +407,7 @@ class SQLHandler:
         """Fetches full saved backtest run payload by ID along with table columns."""
         import json
         cls.init_saved_backtests_db()
-        query = "SELECT id, symbol, timeframe, broker, sl_val, sl_type, rr, be_trigger_r, net_pnl, win_rate, trades_cnt, profit_factor, max_drawdown, payload FROM saved_backtests WHERE id = %s"
+        query = "SELECT id, symbol, timeframe, COALESCE(strategy_type, 'wyckoff') AS strategy_type, broker, sl_val, sl_type, rr, be_trigger_r, net_pnl, win_rate, trades_cnt, profit_factor, max_drawdown, payload FROM saved_backtests WHERE id = %s"
         try:
             rows = cls.execute_query(query, (backtest_id,))
             if rows and isinstance(rows, list) and len(rows) > 0:
@@ -405,6 +425,7 @@ class SQLHandler:
                 payload_dict['id'] = row.get('id')
                 payload_dict['symbol'] = row.get('symbol')
                 payload_dict['timeframe'] = row.get('timeframe')
+                payload_dict['strategy_type'] = row.get('strategy_type', 'wyckoff')
                 payload_dict['broker'] = row.get('broker')
                 payload_dict['sl_val'] = row.get('sl_val')
                 payload_dict['sl_type'] = row.get('sl_type')

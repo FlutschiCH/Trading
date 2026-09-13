@@ -10,8 +10,9 @@ def get_saved_backtests():
     """
     symbol = request.args.get('symbol')
     timeframe = request.args.get('timeframe')
+    strategy_type = request.args.get('strategy_type') or request.args.get('type')
     try:
-        results = SQLHandler.get_saved_backtests(symbol=symbol, timeframe=timeframe)
+        results = SQLHandler.get_saved_backtests(symbol=symbol, timeframe=timeframe, strategy_type=strategy_type)
         return jsonify({"status": "success", "data": results})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -64,12 +65,13 @@ def archive_all_saved_backtests():
 @backtest_routes.route('/backtest/archived', methods=['GET'])
 def get_archived_backtests():
     """
-    Returns list of archived (soft-deleted) backtests.
+    Returns list of archived backtest runs ordered by archive timestamp DESC.
     """
     symbol = request.args.get('symbol')
     timeframe = request.args.get('timeframe')
+    strategy_type = request.args.get('strategy_type') or request.args.get('type')
     try:
-        results = SQLHandler.get_archived_backtests(symbol=symbol, timeframe=timeframe)
+        results = SQLHandler.get_archived_backtests(symbol=symbol, timeframe=timeframe, strategy_type=strategy_type)
         return jsonify({"status": "success", "data": results})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500

@@ -6,6 +6,7 @@ export interface SavedRunSummary {
   id: string;
   symbol: string;
   timeframe: string;
+  strategy_type?: string;
   broker?: string;
   sl_val: number;
   sl_type?: string;
@@ -53,6 +54,13 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) return JSON.parse(saved).sbFilterSymbol ?? 'all';
+    } catch {}
+    return 'all';
+  });
+  const [sbFilterStrategyType, setSbFilterStrategyType] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) return JSON.parse(saved).sbFilterStrategyType ?? 'all';
     } catch {}
     return 'all';
   });
@@ -106,6 +114,7 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
         sbSortField,
         sbSortDir,
         sbFilterSymbol,
+        sbFilterStrategyType,
         sbFilterSlType,
         sbMaxDrawdown,
         sbMinNetPnl,
@@ -116,7 +125,7 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
     } catch (e) {
       console.error("Failed to save filters to localStorage", e);
     }
-  }, [sbSortField, sbSortDir, sbFilterSymbol, sbFilterSlType, sbMaxDrawdown, sbMinNetPnl, sbMinWinRate, sbMinTrades, sbMinProfitFactor]);
+  }, [sbSortField, sbSortDir, sbFilterSymbol, sbFilterStrategyType, sbFilterSlType, sbMaxDrawdown, sbMinNetPnl, sbMinWinRate, sbMinTrades, sbMinProfitFactor]);
 
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(50);
@@ -154,7 +163,7 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
   // Reset to page 1 whenever any filter or sorting changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [sbSortField, sbSortDir, sbFilterSymbol, sbFilterSlType, sbMaxDrawdown, sbMinNetPnl, sbMinWinRate, sbMinTrades, sbMinProfitFactor, pageSize, viewTab]);
+  }, [sbSortField, sbSortDir, sbFilterSymbol, sbFilterStrategyType, sbFilterSlType, sbMaxDrawdown, sbMinNetPnl, sbMinWinRate, sbMinTrades, sbMinProfitFactor, pageSize, viewTab]);
 
   const activeDisplayList = viewTab === 'active' ? savedBacktestsList : archivedBacktestsList;
 
@@ -162,6 +171,11 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
     return activeDisplayList
       .filter(item => {
         if (sbFilterSymbol !== 'all' && item.symbol !== sbFilterSymbol) return false;
+        if (sbFilterStrategyType !== 'all') {
+          const itemStrat = (item.strategy_type || 'wyckoff').toLowerCase();
+          const targetStrat = sbFilterStrategyType.toLowerCase();
+          if (itemStrat !== targetStrat) return false;
+        }
         if (sbFilterSlType !== 'all') {
           const itemType = (item.sl_type || 'pct').toLowerCase();
           const targetType = sbFilterSlType.toLowerCase();
@@ -430,6 +444,26 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
         }}>
           <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <label style={{ color: 'var(--app-text, #cbd5e1)', fontSize: '12px', fontWeight: 500 }}>Strategy:</label>
+              <select
+                value={sbFilterStrategyType}
+                onChange={(e) => setSbFilterStrategyType(e.target.value)}
+                style={{
+                  backgroundColor: 'var(--app-input-bg, #0f172a)',
+                  color: 'var(--app-input-text, #f8fafc)',
+                  border: '1px solid var(--app-input-border, #475569)',
+                  padding: '4px 8px',
+                  borderRadius: '4px',
+                  fontSize: '12px'
+                }}
+              >
+                <option value="all">All Strategies</option>
+                <option value="scalp">⚡ Scalp</option>
+                <option value="wyckoff">📊 Wyckoff</option>
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <label style={{ color: 'var(--app-text, #cbd5e1)', fontSize: '12px', fontWeight: 500 }}>Symbol:</label>
               <select
                 value={sbFilterSymbol}
@@ -573,6 +607,7 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
               <button
                 onClick={() => {
                   setSbFilterSymbol('all');
+                  setSbFilterStrategyType('all');
                   setSbFilterSlType('all');
                   setSbMaxDrawdown('');
                   setSbMinNetPnl('');
@@ -629,6 +664,7 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
                   <th style={{ padding: '10px', cursor: 'pointer' }} onClick={() => { setSbSortField(viewTab === 'archived' ? 'archived_at' : 'created_at'); setSbSortDir(prev => prev === 'desc' ? 'asc' : 'desc'); }}>
                     {viewTab === 'archived' ? 'Archived At' : 'Date'} {sbSortField === (viewTab === 'archived' ? 'archived_at' : 'created_at') ? (sbSortDir === 'desc' ? '▼' : '▲') : ''}
                   </th>
+                  <th style={{ padding: '10px' }}>Strategy</th>
                   <th style={{ padding: '10px', cursor: 'pointer' }} onClick={() => { setSbSortField('symbol'); setSbSortDir(prev => prev === 'desc' ? 'asc' : 'desc'); }}>Symbol {sbSortField === 'symbol' ? (sbSortDir === 'desc' ? '▼' : '▲') : ''}</th>
                   <th style={{ padding: '10px' }}>TF</th>
                   <th style={{ padding: '10px' }}>SL / RR / BE</th>
@@ -645,6 +681,19 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
                   <tr key={row.id} style={{ borderBottom: '1px solid var(--app-card-border, #1e293b)', color: 'var(--app-text, #f8fafc)' }}>
                     <td style={{ padding: '10px', color: 'var(--app-text-muted, #94a3b8)', fontSize: '11px' }}>
                       {viewTab === 'archived' ? (row.archived_at || row.created_at || 'N/A') : (row.created_at || 'N/A')}
+                    </td>
+                    <td style={{ padding: '10px' }}>
+                      <span style={{
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        backgroundColor: (row.strategy_type || 'wyckoff').toLowerCase() === 'scalp' ? 'rgba(234, 179, 8, 0.15)' : 'rgba(59, 130, 246, 0.15)',
+                        color: (row.strategy_type || 'wyckoff').toLowerCase() === 'scalp' ? '#eab308' : '#60a5fa',
+                        border: `1px solid ${(row.strategy_type || 'wyckoff').toLowerCase() === 'scalp' ? '#eab308' : '#3b82f6'}`
+                      }}>
+                        {(row.strategy_type || 'wyckoff').toLowerCase() === 'scalp' ? '⚡ Scalp' : '📊 Wyckoff'}
+                      </span>
                     </td>
                     <td style={{ padding: '10px', fontWeight: 600, color: '#38bdf8' }}>{row.symbol}</td>
                     <td style={{ padding: '10px' }}>{row.timeframe}</td>
