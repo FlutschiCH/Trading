@@ -64,6 +64,9 @@ def backtest_scalper():
             hard_stop_minutes=hard_stop_minutes
         )
 
+        summary = res.get('summary', {})
+        print(f"📊 [Scalper Backtest Result] Spikes Found: {summary.get('triggered_spikes_count', 0)} | Total Trades: {summary.get('total_trades', 0)} | Win Rate: {summary.get('win_rate', 0)}% | Net PnL: ${summary.get('net_profit', 0)} ({summary.get('pnl_pct', 0)}%)\n", flush=True)
+
         return jsonify(res), 200
     except Exception as e:
         print(f"❌ [Scalper Backtest Error] {e}", flush=True)

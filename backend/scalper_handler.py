@@ -501,6 +501,11 @@ class ScalperHandler:
         lot_mult = get_lot_size(symbol)
 
         total_candles = len(candles)
+        logPrint(f"🚀 [Scalper Backtest Start] {symbol} | Total Candles: {total_candles} | Multipliers -> ATR: {atr_multiplier}x, Vol: {vol_multiplier}x, Min Wick: {min_wick_ratio*100}%", category="Scalper", level="INFO")
+
+        max_observed_range_ratio = 0.0
+        max_observed_vol_ratio = 0.0
+
         for i in range(25, total_candles):
             if progress_callback and i % 500 == 0:
                 progress_callback(int((i / total_candles) * 100))
@@ -531,11 +536,13 @@ class ScalperHandler:
                         tr['is_be'] = True
                         is_be = True
                         sl_p = entry_p
+                        logPrint(f"🛡️ [Trade #{tr['id']}] Moved to Break-Even at {entry_p:.5f}", category="Scalper", level="INFO")
                     elif direction == 'SELL' and (entry_p - c_low) >= (3.0 * pip_size):
                         tr['sl_price'] = entry_p
                         tr['is_be'] = True
                         is_be = True
                         sl_p = entry_p
+                        logPrint(f"🛡️ [Trade #{tr['id']}] Moved to Break-Even at {entry_p:.5f}", category="Scalper", level="INFO")
 
                 # Check 50% impulse partial TP
                 if not partial_closed and tp_p is not None:
@@ -552,6 +559,7 @@ class ScalperHandler:
                         tr['realized_pnl'] = tr.get('realized_pnl', 0.0) + pnl_partial
                         tr['qty'] = round(qty - partial_qty, 2)
                         tr['partial_closed'] = True
+                        logPrint(f"🎯 [Trade #{tr['id']}] 50% Partial TP hit at {tp_p:.5f} | Realized: +${pnl_partial:.2f}", category="Scalper", level="INFO")
 
                 # Check Stop Loss
                 sl_hit = False
@@ -568,15 +576,17 @@ class ScalperHandler:
                     pnl_rem = (exit_price - entry_p) * (rem_qty * lot_mult) if direction == 'BUY' else (entry_p - exit_price) * (rem_qty * lot_mult)
                     total_pnl = tr.get('realized_pnl', 0.0) + pnl_rem
                     current_balance += pnl_rem
+                    reason_txt = 'Break-Even Hit' if is_be else 'Stop-Loss Hit'
                     tr.update({
                         'exit_time': c_time,
                         'exit_price': exit_price,
-                        'exit_reason': 'Break-Even Hit' if is_be else 'Stop-Loss Hit',
+                        'exit_reason': reason_txt,
                         'pnl': round(total_pnl, 2),
                         'return_pct': round((total_pnl / initial_balance) * 100, 2),
                         'is_winner': total_pnl > 0
                     })
                     completed_trades.append(tr)
+                    logPrint(f"🛑 [Trade #{tr['id']}] Closed ({reason_txt}) at {exit_price:.5f} | PnL: ${total_pnl:.2f}", category="Scalper", level="INFO")
                     continue
 
                 # Check Hard Time Stop (e.g. 8 minutes)
@@ -595,6 +605,7 @@ class ScalperHandler:
                         'is_winner': total_pnl > 0
                     })
                     completed_trades.append(tr)
+                    logPrint(f"⏰ [Trade #{tr['id']}] Hard Time Stop ({hard_stop_minutes}m) exit at {exit_price:.5f} | PnL: ${total_pnl:.2f}", category="Scalper", level="INFO")
                     continue
 
                 remaining_trades.append(tr)
@@ -604,6 +615,19 @@ class ScalperHandler:
             # 2. Evaluate for new exhaustion trigger
             atr_v = float(atr_series.iloc[i - 1]) if not np.isnan(atr_series.iloc[i - 1]) else 0.0
             vol_v = float(vol_series.iloc[i - 1]) if not np.isnan(vol_series.iloc[i - 1]) else 0.0
+
+            # Diagnostics on candle metrics
+            c_h = float(closed_candle.get('high', 0))
+            c_l = float(closed_candle.get('low', 0))
+            c_v = float(closed_candle.get('volume', closed_candle.get('tick_volume', 0)))
+            rng = c_h - c_l
+            r_ratio = (rng / atr_v) if atr_v > 0 else 0.0
+            v_ratio = (c_v / vol_v) if vol_v > 0 else 0.0
+
+            if r_ratio > max_observed_range_ratio:
+                max_observed_range_ratio = r_ratio
+            if v_ratio > max_observed_vol_ratio:
+                max_observed_vol_ratio = v_ratio
 
             exhaustion_info = ExhaustionDetector.evaluate_candle(
                 candle=closed_candle,
@@ -620,6 +644,7 @@ class ScalperHandler:
                 closed_candle['spike_type'] = exhaustion_info.get("spike_type")
                 closed_candle['retracement_50'] = exhaustion_info.get("retracement_50")
                 triggered_candles.append(dict(closed_candle))
+                logPrint(f"🔥 [Spike #{len(triggered_candles)}] Found {exhaustion_info.get('direction')} spike ({exhaustion_info.get('spike_type')}) at idx {i-1} | Range: {r_ratio:.2f}x ATR, Vol: {v_ratio:.2f}x SMA | Time: {closed_candle.get('time')}", category="Scalper", level="INFO")
 
             should_buy, should_sell, state = SignalEngine.process_step(
                 current_candle=curr_candle,
@@ -666,6 +691,9 @@ class ScalperHandler:
                         'realized_pnl': 0.0
                     }
                     active_trades.append(trade_obj)
+                    logPrint(f"🟢 [Trade #{trade_obj['id']} OPENED] {direction} @ {entry_price:.5f} | Lot: {trade_obj['qty']} | SL: {trade_obj['sl_price']:.5f} | TP (50%): {trade_obj['tp_price']:.5f}", category="Scalper", level="INFO")
+                else:
+                    logPrint(f"⚠️ [Trade Skipped] {direction} signal at {entry_price:.5f} failed risk check: {risk_res.get('reason')}", category="Scalper", level="WARNING")
 
         # Close any remaining open trades at final close price
         if active_trades and len(candles) > 0:
@@ -706,8 +734,27 @@ class ScalperHandler:
             "final_balance": round(current_balance, 2),
             "net_profit": round(net_profit, 2),
             "pnl_pct": round(pnl_pct, 2),
-            "triggered_spikes_count": len(triggered_candles)
+            "triggered_spikes_count": len(triggered_candles),
+            "max_observed_range_ratio": round(max_observed_range_ratio, 2),
+            "max_observed_vol_ratio": round(max_observed_vol_ratio, 2)
         }
+
+        # Detailed logging of findings (even if 0 found)
+        if len(triggered_candles) == 0:
+            logPrint(
+                f"ℹ️ [Scalper Backtest] 0 spikes found across {total_candles} candles. "
+                f"Peak Observed Range: {max_observed_range_ratio:.2f}x ATR (Req: >={atr_multiplier}x) | "
+                f"Peak Observed Volume: {max_observed_vol_ratio:.2f}x SMA (Req: >={vol_multiplier}x)",
+                category="Scalper",
+                level="INFO"
+            )
+        else:
+            logPrint(
+                f"✨ [Scalper Backtest Done] Spikes: {len(triggered_candles)} | Trades: {total_trades} | "
+                f"Win Rate: {win_rate:.1f}% | Net PnL: ${net_profit:.2f} ({pnl_pct:.2f}%)",
+                category="Scalper",
+                level="INFO"
+            )
 
         return {
             "status": "success",
