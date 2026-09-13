@@ -1895,32 +1895,27 @@ export default function TVChart({
         })
         .filter((m) => m !== null);
 
-      const validCandleTimes = new Set(activeCandles.flatMap(c => [c.time, Number(c.time)]));
-      const minCandleTime = activeCandles.length > 0 ? Number(activeCandles[0].time) : 0;
-      const maxCandleTime = activeCandles.length > 0 ? Number(activeCandles[activeCandles.length - 1].time) : Infinity;
+      const validCandleTimes = new Set(activeCandles.map(c => Number(c.time)).filter(t => !isNaN(t) && isFinite(t)));
 
       const allMarkers = [...entryMarkers, ...exitMarkers, ...openPositionMarkers, ...wyckoffMarkers]
         .filter((m) => {
           if (!m || m.time == null || m.time === '' || m.position == null || m.color == null || m.shape == null) return false;
           const t = Number(m.time);
-          return validCandleTimes.has(m.time) || validCandleTimes.has(t) || (t >= minCandleTime && t <= maxCandleTime + 86400);
+          return !isNaN(t) && isFinite(t) && validCandleTimes.has(t);
         })
-        .sort((a, b) => {
-          const timeA = typeof a.time === 'number' ? a.time : new Date(a.time).getTime();
-          const timeB = typeof b.time === 'number' ? b.time : new Date(b.time).getTime();
-          return timeA - timeB;
-        });
+        .map((m) => ({
+          time: Number(m.time),
+          position: m.position,
+          color: m.color,
+          shape: m.shape,
+          text: m.text || '',
+          size: m.size || 1
+        }))
+        .sort((a, b) => a.time - b.time);
 
       if (markersPluginRef.current) {
         try {
-          markersPluginRef.current.setMarkers(allMarkers.map(m => ({
-            time: m.time,
-            position: m.position,
-            color: m.color,
-            shape: m.shape,
-            text: m.text || '',
-            size: m.size || 1
-          })));
+          markersPluginRef.current.setMarkers(allMarkers);
         } catch (err) {
           console.warn('Failed to set markers on chart:', err);
         }
@@ -2010,12 +2005,18 @@ export default function TVChart({
       dynamicLineSeriesRef.current = [];
 
       if (chartSettings.showTrades) {
-        const realTrades = (visibleTrades || []).filter(
-          (t) => t.entryTimestamp && t.entryPrice && t.slPrice && t.tpPrice
-        );
-
-        const sortedTimes = activeCandles.map((c) => Number(c.time)).sort((a, b) => a - b);
+        const sortedTimes = activeCandles.map((c) => Number(c.time)).filter(t => !isNaN(t) && isFinite(t)).sort((a, b) => a - b);
         const SEGMENT_BARS = 3;
+
+        const realTrades = (visibleTrades || []).filter(
+          (t) => {
+            const entryTs = Number(t.entryTimestamp);
+            const entryP = Number(t.entryPrice);
+            const slP = Number(t.slPrice);
+            const tpP = Number(t.tpPrice);
+            return !isNaN(entryTs) && !isNaN(entryP) && !isNaN(slP) && !isNaN(tpP) && isFinite(entryP) && isFinite(slP) && isFinite(tpP);
+          }
+        );
 
         realTrades.forEach((trade) => {
           const entryTs = Number(trade.entryTimestamp);
@@ -2026,35 +2027,45 @@ export default function TVChart({
           const points = sortedTimes.slice(entryIdx, endIdx);
           if (points.length === 0) return;
 
-          const isProfit = trade.pnl >= 0;
+          const isProfit = (trade.pnl || 0) >= 0;
           if (actualFilter === 'wins' && !isProfit) return;
           if (actualFilter === 'losses' && isProfit) return;
 
-          const entryData = points.map((p) => ({ time: p, value: trade.entryPrice }));
-          const slData = points.map((p) => ({ time: p, value: trade.slPrice }));
-          const tpData = points.map((p) => ({ time: p, value: trade.tpPrice }));
+          const entryP = Number(trade.entryPrice);
+          const slP = Number(trade.slPrice);
+          const tpP = Number(trade.tpPrice);
+
+          const entryData = points.map((p) => ({ time: p, value: entryP })).filter(d => !isNaN(d.value) && isFinite(d.value));
+          const slData = points.map((p) => ({ time: p, value: slP })).filter(d => !isNaN(d.value) && isFinite(d.value));
+          const tpData = points.map((p) => ({ time: p, value: tpP })).filter(d => !isNaN(d.value) && isFinite(d.value));
 
           const addTradeLine = (data: any[], color: string, lineStyle: number = 0) => {
-            const lineSeries = chartRef.current.addSeries(LineSeries, {
-              color,
-              lineWidth: 2,
-              lineStyle,
-              lastValueVisible: false,
-              priceLineVisible: false,
-              crosshairMarkerVisible: false,
-            });
-            lineSeries.setData(data);
-            dynamicLineSeriesRef.current.push(lineSeries);
+            if (!data || data.length === 0 || !chartRef.current) return;
+            try {
+              const lineSeries = chartRef.current.addSeries(LineSeries, {
+                color,
+                lineWidth: 2,
+                lineStyle,
+                lastValueVisible: false,
+                priceLineVisible: false,
+                crosshairMarkerVisible: false,
+              });
+              lineSeries.setData(data);
+              dynamicLineSeriesRef.current.push(lineSeries);
+            } catch (err) {
+              console.warn('[TVChart] Failed to add trade level line:', err);
+            }
           };
 
           addTradeLine(entryData, '#3b82f6');
 
-          const hasOriginalSl = trade.originalSlPrice !== undefined && trade.originalSlPrice !== null && trade.originalSlPrice !== trade.slPrice;
+          const origSl = trade.originalSlPrice !== undefined && trade.originalSlPrice !== null ? Number(trade.originalSlPrice) : null;
+          const hasOriginalSl = origSl !== null && !isNaN(origSl) && isFinite(origSl) && origSl !== slP;
           if (hasOriginalSl) {
             // Draw BE stop loss line in yellow/orange
             addTradeLine(slData, '#fbbf24');
             // Draw original stop loss line in dashed red
-            const originalSlData = points.map((p) => ({ time: p, value: trade.originalSlPrice }));
+            const originalSlData = points.map((p) => ({ time: p, value: origSl })).filter(d => !isNaN(d.value) && isFinite(d.value));
             addTradeLine(originalSlData, '#ef4444', 1);
           } else {
             // Draw regular stop loss line in red
