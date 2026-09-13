@@ -444,6 +444,19 @@ export default function Backtester({
     localStorage.setItem('scalper_max_spread_pips', String(maxSpreadPips));
     localStorage.setItem('scalper_hard_stop_minutes', String(hardStopMinutes));
   }, [atrMultiplier, volMultiplier, minWickRatio, maxSpreadPips, hardStopMinutes]);
+  const [copied, setCopied] = React.useState(false);
+
+  const handleCopy = () => {
+    if (!backtestResults) return;
+    try {
+      navigator.clipboard.writeText(JSON.stringify(backtestResults, null, 2));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch (e) {
+      console.error("Failed to copy backtest results", e);
+    }
+  };
+
   const [isMobile, setIsMobile] = React.useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
   const [showDeployModal, setShowDeployModal] = React.useState(false);
 
