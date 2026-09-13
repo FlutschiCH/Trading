@@ -3667,6 +3667,9 @@ export default function Dashboard() {
                     currentSymbol={symbol}
                     currentTimeframe={timeframe}
                     candles={candles}
+                    onBacktestResults={(results) => {
+                      setBacktestResults(results);
+                    }}
                   />
                 </div>
 

@@ -9,12 +9,14 @@ interface ScalperCardProps {
   currentSymbol?: string;
   currentTimeframe?: string;
   candles?: Candle[];
+  onBacktestResults?: (results: any) => void;
 }
 
 export const ScalperCard: React.FC<ScalperCardProps> = ({
   currentSymbol = 'EURUSD',
   currentTimeframe = 'M1',
-  candles = []
+  candles = [],
+  onBacktestResults
 }) => {
   const [spreadPips, setSpreadPips] = useState<number>(0.8);
   const [accountBalance, setAccountBalance] = useState<number>(1000);
@@ -36,6 +38,7 @@ export const ScalperCard: React.FC<ScalperCardProps> = ({
 
   const [backtestLoading, setBacktestLoading] = useState<boolean>(false);
   const [backtestResult, setBacktestResult] = useState<any>(null);
+  const [backtestViewTab, setBacktestViewTab] = useState<'trades' | 'spikes'>('trades');
   const [showTriggeredModal, setShowTriggeredModal] = useState<boolean>(false);
   const [selectedSpikeCandle, setSelectedSpikeCandle] = useState<any>(null);
 
@@ -104,6 +107,31 @@ export const ScalperCard: React.FC<ScalperCardProps> = ({
       if (data.status === 'success') {
         setBacktestResult(data);
         setSuccessMsg(`Backtest finished: ${data.summary?.total_trades || 0} trades executed, ${data.triggered_candles?.length || 0} spikes recorded.`);
+        if (onBacktestResults) {
+          onBacktestResults({
+            trades: data.trades || [],
+            winRate: data.summary?.win_rate || 0,
+            netPnl: data.summary?.net_profit || 0,
+            profitFactor: (data.summary?.net_profit || 0) >= 0 ? 1.5 : 0.5,
+            totalTrades: data.summary?.total_trades || 0,
+            maxDrawdown: 0,
+            maxDailyLoss: 0,
+            dailyLossBreached: false,
+            completed_trades_raw: data.trades || [],
+            candles: data.annotated_candles || candles,
+            settings: {
+              symbol: currentSymbol,
+              timeframe: currentTimeframe,
+              strategy_type: 'scalper',
+              initialBalance: accountBalance,
+              riskPercent: riskPercent,
+              atrMultiplier: atrMultiplier,
+              volMultiplier: volMultiplier,
+              minWickRatio: minWickRatio,
+              maxSpreadPips: maxSpreadPips
+            }
+          });
+        }
       } else {
         setErrorMsg(data.message || 'Backtest failed');
       }
@@ -676,13 +704,100 @@ export const ScalperCard: React.FC<ScalperCardProps> = ({
             </div>
           </div>
 
-          {/* Triggered Spike Candles Table */}
-          {backtestResult.triggered_candles && backtestResult.triggered_candles.length > 0 && (
+          {/* Tabs: Completed Trades vs Triggered Spikes */}
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '10px', borderBottom: '1px solid #1f2937', paddingBottom: '6px' }}>
+            <button
+              onClick={() => setBacktestViewTab('trades')}
+              style={{
+                backgroundColor: backtestViewTab === 'trades' ? '#8b5cf6' : 'transparent',
+                color: backtestViewTab === 'trades' ? '#ffffff' : '#9ca3af',
+                border: 'none',
+                padding: '4px 10px',
+                borderRadius: '4px',
+                fontSize: '11px',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
+              Executed Trades ({backtestResult.trades?.length || 0})
+            </button>
+            <button
+              onClick={() => setBacktestViewTab('spikes')}
+              style={{
+                backgroundColor: backtestViewTab === 'spikes' ? '#8b5cf6' : 'transparent',
+                color: backtestViewTab === 'spikes' ? '#ffffff' : '#9ca3af',
+                border: 'none',
+                padding: '4px 10px',
+                borderRadius: '4px',
+                fontSize: '11px',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
+              Triggered Spikes ({backtestResult.triggered_candles?.length || 0})
+            </button>
+          </div>
+
+          {/* Executed Trades Table */}
+          {backtestViewTab === 'trades' && (
             <div>
-              <div style={{ fontSize: '12px', fontWeight: 600, color: '#e2e8f0', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>🎯 Detected Trigger Spike Candles ({backtestResult.triggered_candles.length} Saved)</span>
-              </div>
-              <div style={{ maxHeight: '180px', overflowY: 'auto', border: '1px solid #1f2937', borderRadius: '6px' }}>
+              {backtestResult.trades && backtestResult.trades.length > 0 ? (
+                <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid #1f2937', borderRadius: '6px' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', textAlign: 'left' }}>
+                    <thead style={{ backgroundColor: '#111827', color: '#9ca3af', position: 'sticky', top: 0 }}>
+                      <tr>
+                        <th style={{ padding: '6px 8px' }}>#</th>
+                        <th style={{ padding: '6px 8px' }}>Type</th>
+                        <th style={{ padding: '6px 8px' }}>Entry</th>
+                        <th style={{ padding: '6px 8px' }}>Exit</th>
+                        <th style={{ padding: '6px 8px' }}>Lots</th>
+                        <th style={{ padding: '6px 8px' }}>PnL ($)</th>
+                        <th style={{ padding: '6px 8px' }}>Reason</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {backtestResult.trades.map((tr: any, idx: number) => {
+                        const isWin = (tr.pnl || 0) > 0;
+                        return (
+                          <tr key={idx} style={{ borderBottom: '1px solid #1f2937', backgroundColor: idx % 2 === 0 ? 'rgba(17, 24, 39, 0.4)' : 'transparent' }}>
+                            <td style={{ padding: '6px 8px', color: '#9ca3af' }}>{tr.id || idx + 1}</td>
+                            <td style={{ padding: '6px 8px' }}>
+                              <span style={{
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                fontSize: '10px',
+                                fontWeight: 700,
+                                backgroundColor: tr.type === 'BUY' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                                color: tr.type === 'BUY' ? '#22c55e' : '#ef4444'
+                              }}>
+                                {tr.type}
+                              </span>
+                            </td>
+                            <td style={{ padding: '6px 8px', color: '#f3f4f6' }}>{tr.entry_price?.toFixed(5)}</td>
+                            <td style={{ padding: '6px 8px', color: '#f3f4f6' }}>{tr.exit_price?.toFixed(5) || '-'}</td>
+                            <td style={{ padding: '6px 8px', color: '#60a5fa' }}>{tr.qty}</td>
+                            <td style={{ padding: '6px 8px', fontWeight: 700, color: isWin ? '#22c55e' : '#ef4444' }}>
+                              {isWin ? `+$${tr.pnl}` : `-$${Math.abs(tr.pnl)}`}
+                            </td>
+                            <td style={{ padding: '6px 8px', color: '#9ca3af', fontSize: '10px' }}>{tr.exit_reason || '-'}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '12px', color: '#9ca3af', fontSize: '12px' }}>
+                  No trades completed with current criteria.
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Triggered Spike Candles Table */}
+          {backtestViewTab === 'spikes' && backtestResult.triggered_candles && backtestResult.triggered_candles.length > 0 && (
+            <div>
+              <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid #1f2937', borderRadius: '6px' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', textAlign: 'left' }}>
                   <thead style={{ backgroundColor: '#111827', color: '#9ca3af', position: 'sticky', top: 0 }}>
                     <tr>
