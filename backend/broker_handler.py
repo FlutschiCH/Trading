@@ -245,14 +245,30 @@ if __name__ == '__main__':
     print(f"Fetched {len(candles) if isinstance(candles, list) else 0} candles:")
     print(json.dumps(candles, indent=2, default=str)[:1000])
 
-    # 4. Fetch Symbols
-    print("\n4. Testing get_symbols()...")
-    symbols = BrokerHandler.get_symbols(broker_name=TEST_BROKER, account_id=TEST_ACCOUNT_ID)
-    if isinstance(symbols, dict) and 'symbols' in symbols:
-        print(f"Total symbols found: {len(symbols['symbols'])}. First 10: {symbols['symbols'][:10]}")
-    else:
-        print(symbols)
+    # 5. Optional Test Order Dispatch
+    # Example: python broker_handler.py trade [BUY/SELL] [VOLUME] [SL_PRICE] [TP_PRICE]
+    if len(sys.argv) > 1 and sys.argv[1].lower() in ('trade', 'order'):
+        test_side = sys.argv[2].upper() if len(sys.argv) > 2 else 'BUY'
+        test_vol = float(sys.argv[3]) if len(sys.argv) > 3 else 0.01
+        test_sl = float(sys.argv[4]) if len(sys.argv) > 4 else None
+        test_tp = float(sys.argv[5]) if len(sys.argv) > 5 else None
 
+        # If SL wasn't passed via CLI, derive strict SL from latest candle price (e.g. 1.0%)
+        if not test_sl and candles and isinstance(candles, list) and len(candles) > 0:
+            last_close = float(candles[-1]['close'])
+            sl_distance = last_close * 0.01
+            test_sl = round(last_close - sl_distance if test_side == 'BUY' else last_close + sl_distance, 5)
+            test_tp = round(last_close + (sl_distance * 2) if test_side == 'BUY' else last_close - (sl_distance * 2), 5)
+            print(f"Computed test SL ({test_sl}) and TP ({test_tp}) from last candle close ({last_close})")
 
-
-
+        print(f"\n5. Dispatching Test {test_side} Order on {TEST_BROKER} ({TEST_SYMBOL}) | Volume: {test_vol} | SL: {test_sl} | TP: {test_tp}...")
+        order_res = BrokerHandler.create_order(
+            broker_name=TEST_BROKER,
+            account_id=TEST_ACCOUNT_ID,
+            symbol=TEST_SYMBOL,
+            side=test_side,
+            volume=test_vol,
+            stop_loss=test_sl,
+            take_profit=test_tp
+        )
+        print(f"Order Result: {json.dumps(order_res, indent=2, default=str)}")
