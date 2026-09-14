@@ -332,8 +332,10 @@ class SQLHandler:
                           sl_val: float, sl_type: str, rr: float, be_trigger_r: float,
                           net_pnl: float, win_rate: float, trades_cnt: int,
                           profit_factor: float, max_drawdown: float, payload_dict: dict,
-                          strategy_type: str = "wyckoff"):
+                          strategy_type: str = "wyckoff", min_pnl: float = None):
         """Asynchronously queues backtest run persistence to keep backtesting thread unblocked."""
+        if min_pnl is not None and float(net_pnl) < float(min_pnl):
+            return
         import json
         cls.init_saved_backtests_db()
         payload_bytes = json.dumps(payload_dict).encode('utf-8')

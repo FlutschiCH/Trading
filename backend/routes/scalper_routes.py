@@ -111,7 +111,8 @@ def backtest_scalper():
                 profit_factor=1.0 if summary.get('net_profit', 0.0) >= 0 else 0.0,
                 max_drawdown=0.0,
                 payload_dict=payload_to_save,
-                strategy_type="scalp"
+                strategy_type="scalp",
+                min_pnl=float(payload.get('minSavePnl')) if payload.get('minSavePnl') is not None and str(payload.get('minSavePnl')).strip() != '' else None
             )
             print(f"💾 [Scalper DB] Saved scalp backtest run '{backtest_id_str}' to MySQL DB.", flush=True)
             res['saved_id'] = backtest_id_str

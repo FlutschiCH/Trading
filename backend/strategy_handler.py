@@ -293,7 +293,8 @@ class StrategyHandler:
         htf_candles: list = None,
         htf_ema_enabled: bool = False,
         htf_ema_period: int = 200,
-        htf_ema_timeframe: str = '4h'
+        htf_ema_timeframe: str = '4h',
+        min_save_pnl: float = None
     ) -> dict:
         """
         Runs the full Wyckoff structure analysis backtest in Python.
@@ -434,7 +435,8 @@ class StrategyHandler:
                     trades_cnt=sim_result["totalTrades"],
                     profit_factor=sim_result["profitFactor"],
                     max_drawdown=sim_result["maxDrawdown"],
-                    payload_dict=results_to_save
+                    payload_dict=results_to_save,
+                    min_pnl=min_save_pnl
                 )
                 from colorama import Fore, Style
                 print(f"{Fore.GREEN}[SQLHandler]{Style.RESET_ALL} Successfully saved backtest run '{backtest_id_str}' to MySQL DB.", flush=True)
@@ -515,7 +517,8 @@ class StrategyHandler:
         htf_ema_enabled: bool = False,
         htf_ema_period: int = 200,
         htf_ema_timeframe: str = '4h',
-        htf_ema_range_mode: bool = False
+        htf_ema_range_mode: bool = False,
+        min_save_pnl: float = None
     ) -> dict:
         """
         Runs Wyckoff parameter grid search optimization, fetching candles dynamically and executing simulations.
@@ -880,7 +883,8 @@ class StrategyHandler:
                     trades_cnt=sim_result["totalTrades"],
                     profit_factor=sim_result["profitFactor"],
                     max_drawdown=sim_result["maxDrawdown"],
-                    payload_dict=results_to_save
+                    payload_dict=results_to_save,
+                    min_pnl=min_save_pnl
                 )
                 print(f"[SQLHandler] Saved iteration [{idx+1}/{total_runs}] ({backtest_id_str}) to MySQL DB.", flush=True)
             except Exception as e:

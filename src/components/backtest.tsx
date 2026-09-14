@@ -632,6 +632,23 @@ export default function Backtester({
     }
   }, [htfEmaEnabled, htfEmaTimeframe, htfEmaPeriod, htfEmaRangeMode]);
 
+  // Minimum PnL to persist backtest run to database
+  const [minSavePnl, setMinSavePnl] = React.useState<string>(() => {
+    try {
+      return localStorage.getItem('wyckoff_min_save_pnl') || '';
+    } catch {
+      return '';
+    }
+  });
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('wyckoff_min_save_pnl', minSavePnl);
+    } catch (e) {
+      console.error(e);
+    }
+  }, [minSavePnl]);
+
   // New Rule Form State
   const [newRuleInd, setNewRuleInd] = React.useState('rsi');
   const [newRulePeriod, setNewRulePeriod] = React.useState('14');
@@ -836,6 +853,10 @@ export default function Backtester({
       setDailyFirstSignalsCount(String(loadedCount));
       const loadedRiskMult = detail.dailyFirstSignalsRiskMult ?? detail.daily_first_signals_risk_mult ?? '0.5';
       setDailyFirstSignalsRiskMult(String(loadedRiskMult));
+
+      if (detail.minSavePnl !== undefined) {
+        setMinSavePnl(detail.minSavePnl !== null ? String(detail.minSavePnl) : '');
+      }
     };
 
     window.addEventListener('wyckoff_settings_loaded', handleSettingsLoaded);
@@ -1063,6 +1084,12 @@ export default function Backtester({
         const loadedDailyRiskMult = String(s.dailyFirstSignalsRiskMult ?? s.daily_first_signals_risk_mult ?? '0.5');
         setDailyFirstSignalsRiskMult(loadedDailyRiskMult);
         replacements.dailyFirstSignalsRiskMult = loadedDailyRiskMult;
+
+        if (s.minSavePnl !== undefined) {
+          const val = s.minSavePnl !== null ? String(s.minSavePnl) : '';
+          setMinSavePnl(val);
+          replacements.minSavePnl = val;
+        }
 
         // 3. Indicators & Stages & Sessions
         if (s.enabledIndicators !== undefined) {
@@ -1296,6 +1323,7 @@ export default function Backtester({
         backtestFees,
         dailyRetryLimit,
         allowOppositeClose,
+        minSavePnl,
         enabledIndicators,
         hiddenStages,
         entryStabilityRule,
@@ -1868,6 +1896,7 @@ export default function Backtester({
                 htfEmaTimeframe,
                 htfEmaPeriod: parseInt(htfEmaPeriod) || 200,
                 htfEmaRangeMode: globalRangeMode && htfEmaRangeMode,
+                minSavePnl: minSavePnl.trim() !== '' ? parseFloat(minSavePnl) : undefined,
                 // Scalper specific parameters
                 atr_multiplier: atrMultiplier,
                 vol_multiplier: volMultiplier,
@@ -2711,6 +2740,29 @@ export default function Backtester({
                     step="1"
                     placeholder="0 = unlimited"
                   />
+                </div>
+
+                <div style={styles.formGroup}>
+                  <label style={{ color: '#94a3b8', fontSize: '10px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span>💾 MIN DB SAVE PNL ($)</span>
+                  </label>
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <span style={{ position: 'absolute', left: '10px', color: '#64748b', fontSize: '11px', fontWeight: 600 }}>$</span>
+                    <input
+                      type="number"
+                      value={minSavePnl}
+                      onChange={(e) => setMinSavePnl(e.target.value)}
+                      style={{
+                        ...styles.input,
+                        paddingLeft: '24px',
+                        backgroundColor: 'rgba(30, 41, 59, 0.8)',
+                        color: minSavePnl ? '#10b981' : '#cbd5e1',
+                        fontWeight: minSavePnl ? 700 : 500
+                      }}
+                      placeholder="e.g. 200 (optional)"
+                      step="10"
+                    />
+                  </div>
                 </div>
               </div>
 
