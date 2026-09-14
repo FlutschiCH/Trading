@@ -246,9 +246,9 @@ if __name__ == '__main__':
 
     # 4. Calculate strict trade parameters from latest signal
     from trading_handler import TradingHandler
-    from wyckoff_analyzer import WyckoffAnalyzer
+    from wyckoff_handler import WyckoffHandler
 
-    annotated = WyckoffAnalyzer.analyze(candles) if candles else []
+    annotated = WyckoffHandler.analyze_wyckoff_structure(candles) if candles else []
     last_signal_direction = "BUY"
     last_c = annotated[-1] if annotated else (candles[-1] if candles else {})
     if last_c.get("wyckoff_signal") and "upthrust" in str(last_c.get("wyckoff_signal")).lower():
