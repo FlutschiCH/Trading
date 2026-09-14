@@ -266,7 +266,7 @@ if __name__ == '__main__':
         sl_val=1.5,
         rr=2.0,
         size=0.01,
-        use_risk_sizing=False,
+        use_risk_sizing=True,
         risk_pct=1.0,
         balance=account_balance,
         lot_size=100000.0,
@@ -274,6 +274,7 @@ if __name__ == '__main__':
         precision=5,
         atr_val=atr_val
     )
+    trade_params["qty"] = round(trade_params["qty"], 2)
     print(f"\n4. Calculated Strict Trade Parameters (Signal: {last_signal_direction}):")
     print(json.dumps(trade_params, indent=2))
 
