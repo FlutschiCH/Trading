@@ -132,6 +132,8 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
   const [pageSize, setPageSize] = useState<number>(50);
 
   // Parameters info popup state
+  const [infoModalRun, setInfoModalRun] = useState<{ id: string; settings: any } | null>(null);
+  const [loadingInfo, setLoadingInfo] = useState(false);
   const [loadedArchivedOnce, setLoadedArchivedOnce] = useState(false);
 
   const fetchSavedBacktests = async () => {
