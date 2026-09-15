@@ -134,28 +134,66 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
   // Parameters info popup state
   const [infoModalRun, setInfoModalRun] = useState<{ id: string; settings: any } | null>(null);
   const [loadingInfo, setLoadingInfo] = useState(false);
+  const [fetchElapsedSeconds, setFetchElapsedSeconds] = useState<number>(0);
+  const [lastFetchDurationMs, setLastFetchDurationMs] = useState<number | null>(null);
 
   const fetchSavedBacktests = async () => {
     setLoadingSavedBacktests(true);
+    setFetchElapsedSeconds(0);
+    const startOverall = performance.now();
+    console.time('[SavedRuns] Total Fetch');
     try {
-      const [resActive, resArchived] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/backtest/saved`),
-        fetch(`${API_BASE_URL}/api/backtest/archived`)
+      console.time('[SavedRuns] Active Backtests Fetch');
+      const startActive = performance.now();
+      const resActivePromise = fetch(`${API_BASE_URL}/api/backtest/saved`).then(async res => {
+        const data = await res.json();
+        console.timeEnd('[SavedRuns] Active Backtests Fetch');
+        console.log(`[SavedRuns] Active runs response: ${(performance.now() - startActive).toFixed(1)}ms (${data?.data?.length || 0} items)`);
+        return data;
+      });
+
+      const startArchived = performance.now();
+      console.time('[SavedRuns] Archived Backtests Fetch');
+      const resArchivedPromise = fetch(`${API_BASE_URL}/api/backtest/archived`).then(async res => {
+        const data = await res.json();
+        console.timeEnd('[SavedRuns] Archived Backtests Fetch');
+        console.log(`[SavedRuns] Archived runs response: ${(performance.now() - startArchived).toFixed(1)}ms (${data?.data?.length || 0} items)`);
+        return data;
+      });
+
+      const [jsonActive, jsonArchived] = await Promise.all([
+        resActivePromise,
+        resArchivedPromise
       ]);
-      const jsonActive = await resActive.json();
-      const jsonArchived = await resArchived.json();
+
       if (jsonActive.status === 'success') {
         setSavedBacktestsList(jsonActive.data || []);
       }
       if (jsonArchived.status === 'success') {
         setArchivedBacktestsList(jsonArchived.data || []);
       }
+      const totalDuration = performance.now() - startOverall;
+      setLastFetchDurationMs(totalDuration);
+      console.timeEnd('[SavedRuns] Total Fetch');
+      console.log(`[SavedRuns] Completed all fetches in ${totalDuration.toFixed(1)}ms`);
     } catch (e) {
       console.error("Error fetching backtests:", e);
     } finally {
       setLoadingSavedBacktests(false);
     }
   };
+
+  // Live timer while loading is active
+  useEffect(() => {
+    let timer: any;
+    if (loadingSavedBacktests) {
+      const startTime = Date.now();
+      timer = setInterval(() => {
+        setFetchElapsedSeconds(Math.floor((Date.now() - startTime) / 100) / 10);
+      }, 100);
+    }
+    return () => clearInterval(timer);
+  }, [loadingSavedBacktests]);
 
   useEffect(() => {
     fetchSavedBacktests();
@@ -632,6 +670,11 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
 
             <span style={{ color: 'var(--app-text-muted, #94a3b8)', fontSize: '12px' }}>
               ({filteredAndSortedList.length} / {savedBacktestsList.length} runs)
+              {lastFetchDurationMs !== null && (
+                <span style={{ marginLeft: '6px', color: '#38bdf8', fontSize: '11px', fontFamily: 'monospace' }}>
+                  ({lastFetchDurationMs.toFixed(0)}ms)
+                </span>
+              )}
             </span>
           </div>
           <button
@@ -653,11 +696,20 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
         {/* Table Container */}
         <div style={{ padding: '12px 14px', overflowY: 'auto', overflowX: 'auto', WebkitOverflowScrolling: 'touch', flex: 1 }}>
           {loadingSavedBacktests ? (
-            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--app-text-muted, #94a3b8)' }}>Loading saved backtests from database...</div>
+            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--app-text-muted, #94a3b8)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+              <div>⏳ Loading saved backtests from database...</div>
+              <div style={{ fontSize: '12px', color: '#38bdf8', fontFamily: 'monospace' }}>Elapsed: {fetchElapsedSeconds.toFixed(1)}s</div>
+            </div>
           ) : savedBacktestsList.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--app-text-muted, #94a3b8)' }}>No saved backtests found in MySQL database. Run backtests to auto-save results!</div>
+            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--app-text-muted, #94a3b8)' }}>
+              No saved backtests found in MySQL database. Run backtests to auto-save results!
+              {lastFetchDurationMs !== null && <div style={{ fontSize: '11px', color: '#64748b', marginTop: '6px' }}>Fetched in {lastFetchDurationMs.toFixed(0)}ms</div>}
+            </div>
           ) : filteredAndSortedList.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--app-text-muted, #94a3b8)' }}>No runs match the selected filters.</div>
+            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--app-text-muted, #94a3b8)' }}>
+              No runs match the selected filters.
+              {lastFetchDurationMs !== null && <div style={{ fontSize: '11px', color: '#64748b', marginTop: '6px' }}>Fetched in {lastFetchDurationMs.toFixed(0)}ms</div>}
+            </div>
           ) : (
             <table style={{ width: '100%', minWidth: '850px', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
               <thead>
