@@ -149,10 +149,28 @@ def delete_all_backtest_jobs_endpoint():
 def resume_backtest_job(job_id):
     import subprocess
     import sys
+    import socket
     from sql_handler import SQLHandler
     job = SQLHandler.get_backtest_job(job_id)
     if not job:
         return jsonify({"status": "error", "message": "Job not found"}), 404
+
+    req_payload = request.get_json(silent=True) or {}
+    req_comp = (req_payload.get('computer_name') or request.args.get('computer_name') or '').strip().lower()
+    local_host = ''
+    try:
+        local_host = socket.gethostname().strip().lower()
+    except Exception:
+        pass
+
+    job_comp = (job.get('computer_name') or '').strip().lower()
+    if job_comp and (req_comp or local_host):
+        target_check = req_comp or local_host
+        if job_comp != target_check:
+            return jsonify({
+                "status": "ignored",
+                "message": f"Job belongs to machine '{job_comp}', cannot resume on '{target_check}'"
+            }), 400
 
     python_executable = sys.executable
     worker_script = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'backtest_worker.py')

@@ -158,11 +158,24 @@ def run_scalper_backtest_job(job_id: str, params: dict, candles: list, symbol: s
     return formatted_results
 
 def run_worker(job_id: str, is_resume: bool = False):
-    print(f"{Fore.CYAN}[BacktestWorker]{Style.RESET_ALL} Starting worker for job_id={job_id} (resume={is_resume})", flush=True)
+    import socket
+    local_machine = ""
+    try:
+        local_machine = socket.gethostname().strip().lower()
+    except Exception:
+        pass
+
+    print(f"{Fore.CYAN}[BacktestWorker]{Style.RESET_ALL} Starting worker on host '{local_machine}' for job_id={job_id} (resume={is_resume})", flush=True)
     job = SQLHandler.get_backtest_job(job_id)
     if not job:
         print(f"{Fore.YELLOW}[BacktestWorker]{Style.RESET_ALL} Job {job_id} not found in database.", flush=True)
         sys.exit(1)
+
+    job_host = (job.get('computer_name') or '').strip().lower()
+    # If job has an assigned computer_name, verify it matches this local machine before proceeding
+    if job_host and local_machine and job_host != local_machine:
+        print(f"{Fore.RED}[BacktestWorker Host Mismatch]{Style.RESET_ALL} Job {job_id} was created by '{job_host}', but this worker is running on '{local_machine}'. Aborting execution to prevent cross-machine execution.", flush=True)
+        sys.exit(0)
 
     params = job.get('params', {})
     job_type = job.get('type', 'single')
