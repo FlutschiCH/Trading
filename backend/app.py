@@ -40,9 +40,16 @@ def check_interrupted_backtests():
     try:
         import sys
         import subprocess
-        unfinished = SQLHandler.get_unfinished_backtest_jobs()
+        import socket
+        local_machine = ""
+        try:
+            local_machine = socket.gethostname().strip().lower()
+        except Exception:
+            pass
+
+        unfinished = SQLHandler.get_unfinished_backtest_jobs(computer_name=local_machine)
         if unfinished:
-            print(f"{Fore.YELLOW}[Reboot Recovery]{Style.RESET_ALL} Found {len(unfinished)} unfinished backtest jobs. Resuming background workers...", flush=True)
+            print(f"{Fore.YELLOW}[Reboot Recovery]{Style.RESET_ALL} Found {len(unfinished)} unfinished backtest jobs on host '{local_machine}'. Resuming background workers...", flush=True)
             python_executable = sys.executable
             worker_script = os.path.join(os.path.dirname(__file__), 'backtest_worker.py')
 
@@ -59,7 +66,7 @@ def check_interrupted_backtests():
                 except Exception:
                     pass
                 subprocess.Popen(cmd, creationflags=subprocess.CREATE_NEW_CONSOLE if os.name == 'nt' else 0)
-                print(f"{Fore.CYAN}[Reboot Recovery]{Style.RESET_ALL} Automatically resumed backtest worker for job_id={job_id}", flush=True)
+                print(f"{Fore.CYAN}[Reboot Recovery]{Style.RESET_ALL} Automatically resumed backtest worker on '{local_machine}' for job_id={job_id}", flush=True)
     except Exception as e:
         print(f"[Reboot Recovery] Error resuming unfinished jobs: {e}", flush=True)
 
