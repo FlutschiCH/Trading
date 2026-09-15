@@ -17,6 +17,7 @@ export interface SavedRunSummary {
   trades_cnt: number;
   profit_factor: number;
   max_drawdown?: number;
+  sessions?: any[];
   created_at: string;
   archived_at?: string;
 }
@@ -667,6 +668,7 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
                   <th style={{ padding: '10px' }}>Strategy</th>
                   <th style={{ padding: '10px', cursor: 'pointer' }} onClick={() => { setSbSortField('symbol'); setSbSortDir(prev => prev === 'desc' ? 'asc' : 'desc'); }}>Symbol {sbSortField === 'symbol' ? (sbSortDir === 'desc' ? '▼' : '▲') : ''}</th>
                   <th style={{ padding: '10px' }}>TF</th>
+                  <th style={{ padding: '10px' }}>Sessions</th>
                   <th style={{ padding: '10px' }}>SL / RR / BE</th>
                   <th style={{ padding: '10px', cursor: 'pointer' }} onClick={() => { setSbSortField('trades_cnt'); setSbSortDir(prev => prev === 'desc' ? 'asc' : 'desc'); }}>Trades {sbSortField === 'trades_cnt' ? (sbSortDir === 'desc' ? '▼' : '▲') : ''}</th>
                   <th style={{ padding: '10px', cursor: 'pointer' }} onClick={() => { setSbSortField('win_rate'); setSbSortDir(prev => prev === 'desc' ? 'asc' : 'desc'); }}>Win Rate {sbSortField === 'win_rate' ? (sbSortDir === 'desc' ? '▼' : '▲') : ''}</th>
@@ -697,6 +699,49 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
                     </td>
                     <td style={{ padding: '10px', fontWeight: 600, color: '#38bdf8' }}>{row.symbol}</td>
                     <td style={{ padding: '10px' }}>{row.timeframe}</td>
+                    <td style={{ padding: '10px' }}>
+                      {(() => {
+                        const activeSessions = (row.sessions || []).filter((s: any) => s && (s.active === true || s.active === 1 || s.active === 'true'));
+                        if (!activeSessions || activeSessions.length === 0) {
+                          return (
+                            <span style={{ fontSize: '11px', color: 'var(--app-text-muted, #94a3b8)', fontStyle: 'italic' }}>
+                              All Hours
+                            </span>
+                          );
+                        }
+                        return (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', maxWidth: '220px' }}>
+                            {activeSessions.map((s: any, idx: number) => {
+                              const sName = s.name || s.id || `S${idx + 1}`;
+                              const sTime = s.start && s.end ? `${s.start}-${s.end}` : '';
+                              return (
+                                <span
+                                  key={s.id || idx}
+                                  title={`${sName}: ${sTime}${s.weekdays ? ` (${s.weekdays.join(',')})` : ''}`}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '3px',
+                                    padding: '1px 5px',
+                                    borderRadius: '3px',
+                                    fontSize: '10px',
+                                    fontWeight: 500,
+                                    backgroundColor: 'rgba(14, 165, 233, 0.12)',
+                                    color: '#38bdf8',
+                                    border: '1px solid rgba(14, 165, 233, 0.3)',
+                                    whiteSpace: 'nowrap'
+                                  }}
+                                >
+                                  <span>🕒</span>
+                                  <span>{sName}</span>
+                                  {sTime && <span style={{ opacity: 0.75, fontSize: '9px' }}>({sTime})</span>}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
+                    </td>
                     <td style={{ padding: '10px', color: 'var(--app-text-muted, #cbd5e1)' }}>
                       SL: {row.sl_val}{row.sl_type ? (row.sl_type === 'pct' ? '%' : row.sl_type) : ''} | RR: 1:{row.rr} | BE: {row.be_trigger_r !== undefined && row.be_trigger_r > 0 ? `${row.be_trigger_r}R` : 'Off'}
                     </td>
@@ -970,12 +1015,37 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
                 <div style={{ color: 'var(--app-text-muted, #94a3b8)' }}>No parameter settings stored for this run.</div>
               ) : (
                 Object.entries(infoModalRun.settings).map(([key, val]) => (
-                  <div key={key} style={{ backgroundColor: 'var(--app-panel-header-bg, #1e293b)', padding: '10px 12px', borderRadius: '6px', border: '1px solid var(--app-card-border, #334155)' }}>
+                  <div key={key} style={{ backgroundColor: 'var(--app-panel-header-bg, #1e293b)', padding: '10px 12px', borderRadius: '6px', border: '1px solid var(--app-card-border, #334155)', gridColumn: key === 'sessions' ? '1 / -1' : undefined }}>
                     <div style={{ fontSize: '11px', color: 'var(--app-text-muted, #94a3b8)', textTransform: 'uppercase', fontWeight: 600, marginBottom: '2px' }}>
                       {key.replace(/_/g, ' ')}
                     </div>
                     <div style={{ color: '#38bdf8', fontWeight: 500, wordBreak: 'break-all' }}>
-                      {typeof val === 'object' ? JSON.stringify(val) : String(val)}
+                      {key === 'sessions' && Array.isArray(val) ? (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '4px' }}>
+                          {val.map((s: any, idx: number) => {
+                            const isActive = s && (s.active === true || s.active === 1 || s.active === 'true');
+                            return (
+                              <span
+                                key={s.id || idx}
+                                style={{
+                                  padding: '3px 8px',
+                                  borderRadius: '4px',
+                                  fontSize: '11px',
+                                  backgroundColor: isActive ? 'rgba(14, 165, 233, 0.2)' : 'rgba(148, 163, 184, 0.1)',
+                                  color: isActive ? '#38bdf8' : '#94a3b8',
+                                  border: `1px solid ${isActive ? 'rgba(14, 165, 233, 0.4)' : 'rgba(148, 163, 184, 0.2)'}`
+                                }}
+                              >
+                                {s.name || s.id || `Session ${idx + 1}`}: {s.start && s.end ? `${s.start} - ${s.end}` : 'N/A'} {isActive ? '✓' : '(off)'}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      ) : typeof val === 'object' ? (
+                        JSON.stringify(val)
+                      ) : (
+                        String(val)
+                      )}
                     </div>
                   </div>
                 ))

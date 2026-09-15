@@ -269,10 +269,12 @@ class SQLHandler:
     @classmethod
     def get_archived_backtests(cls, symbol: str = None, timeframe: str = None, strategy_type: str = None) -> list:
         """Returns list of archived backtest summary metadata ordered by archived_at DESC."""
+        import json
         cls.init_saved_backtests_db()
         query = """
         SELECT id, symbol, timeframe, COALESCE(strategy_type, 'wyckoff') AS strategy_type, broker, sl_val, sl_type, rr, be_trigger_r,
-               net_pnl, win_rate, trades_cnt, profit_factor, max_drawdown, created_at, archived_at
+               net_pnl, win_rate, trades_cnt, profit_factor, max_drawdown, created_at, archived_at,
+               JSON_UNQUOTE(JSON_EXTRACT(payload, '$.settings.sessions')) AS sessions_json
         FROM archived_saved_backtests
         """
         conditions = []
@@ -297,6 +299,16 @@ class SQLHandler:
                         row['created_at'] = str(row['created_at'])
                     if 'archived_at' in row and row['archived_at']:
                         row['archived_at'] = str(row['archived_at'])
+                    sessions_raw = row.pop('sessions_json', None)
+                    if sessions_raw and isinstance(sessions_raw, str):
+                        try:
+                            row['sessions'] = json.loads(sessions_raw)
+                        except Exception:
+                            row['sessions'] = []
+                    elif isinstance(sessions_raw, list):
+                        row['sessions'] = sessions_raw
+                    else:
+                        row['sessions'] = []
                 return rows
         except Exception as e:
             print(f"[SQLHandler] Error fetching archived backtests: {e}", flush=True)
@@ -373,10 +385,12 @@ class SQLHandler:
     @classmethod
     def get_saved_backtests(cls, symbol: str = None, timeframe: str = None, strategy_type: str = None) -> list:
         """Returns list of saved backtest summary metadata ordered by created_at DESC."""
+        import json
         cls.init_saved_backtests_db()
         query = """
         SELECT id, symbol, timeframe, COALESCE(strategy_type, 'wyckoff') AS strategy_type, broker, sl_val, sl_type, rr, be_trigger_r,
-               net_pnl, win_rate, trades_cnt, profit_factor, max_drawdown, created_at
+               net_pnl, win_rate, trades_cnt, profit_factor, max_drawdown, created_at,
+               JSON_UNQUOTE(JSON_EXTRACT(payload, '$.settings.sessions')) AS sessions_json
         FROM saved_backtests
         """
         conditions = []
@@ -399,6 +413,16 @@ class SQLHandler:
                 for row in rows:
                     if 'created_at' in row and row['created_at']:
                         row['created_at'] = str(row['created_at'])
+                    sessions_raw = row.pop('sessions_json', None)
+                    if sessions_raw and isinstance(sessions_raw, str):
+                        try:
+                            row['sessions'] = json.loads(sessions_raw)
+                        except Exception:
+                            row['sessions'] = []
+                    elif isinstance(sessions_raw, list):
+                        row['sessions'] = sessions_raw
+                    else:
+                        row['sessions'] = []
                 return rows
         except Exception as e:
             print(f"[SQLHandler] Error fetching saved backtests: {e}", flush=True)
