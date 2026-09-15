@@ -698,21 +698,25 @@ export default function Dashboard() {
       setEntryStabilityRule(settings.entryStabilityRule);
       localStorage.setItem('wyckoff_backtest_entry_stability_rule', settings.entryStabilityRule);
     }
-    if (settings.sessionsTimezone !== undefined) {
-      setSessionsTimezone(settings.sessionsTimezone);
-      localStorage.setItem('wyckoff_sessions_timezone', settings.sessionsTimezone);
+    const tz = settings.sessionsTimezone ?? settings.timezone;
+    if (tz !== undefined) {
+      setSessionsTimezone(tz);
+      localStorage.setItem('wyckoff_sessions_timezone', tz);
     }
-    if (settings.tradingSessions !== undefined) {
-      setTradingSessions(settings.tradingSessions);
-      localStorage.setItem('wyckoff_trading_sessions', JSON.stringify(settings.tradingSessions));
+    const sess = settings.tradingSessions ?? settings.sessions ?? settings.trading_sessions;
+    if (sess !== undefined) {
+      setTradingSessions(sess);
+      localStorage.setItem('wyckoff_trading_sessions', JSON.stringify(sess));
     }
-    if (settings.useGlobalClose !== undefined) {
-      setUseGlobalClose(settings.useGlobalClose);
-      localStorage.setItem('wyckoff_use_global_close', String(settings.useGlobalClose));
+    const ugc = settings.useGlobalClose ?? settings.use_global_close;
+    if (ugc !== undefined) {
+      setUseGlobalClose(Boolean(ugc));
+      localStorage.setItem('wyckoff_use_global_close', String(ugc));
     }
-    if (settings.globalCloseTime !== undefined) {
-      setGlobalCloseTime(settings.globalCloseTime);
-      localStorage.setItem('wyckoff_global_close_time', settings.globalCloseTime);
+    const gct = settings.globalCloseTime ?? settings.global_close_time;
+    if (gct !== undefined) {
+      setGlobalCloseTime(gct);
+      localStorage.setItem('wyckoff_global_close_time', gct);
     }
     if (settings.isOptimizeMode !== undefined) {
       setIsOptimizeMode(settings.isOptimizeMode);
@@ -1461,6 +1465,9 @@ export default function Dashboard() {
     setIsLiveFeed(false);
     if (payload.symbol) setSymbol(payload.symbol);
     if (payload.timeframe) setTimeframe(payload.timeframe);
+    if (payload.settings && Object.keys(payload.settings).length > 0) {
+      applyBacktestSettingsObject(payload.settings);
+    }
     const resultsObj = {
       trades: payload.trades || [],
       winRate: payload.win_rate ?? payload.winRate ?? 0,

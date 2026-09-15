@@ -1100,22 +1100,29 @@ export default function Backtester({
           setHiddenStages(s.hiddenStages);
           replacements.hiddenStages = s.hiddenStages;
         }
-        if (s.sessionsTimezone !== undefined) {
-          setSessionsTimezone(s.sessionsTimezone);
-          replacements.sessionsTimezone = s.sessionsTimezone;
+        const loadedTimezone = s.sessionsTimezone ?? s.timezone;
+        if (loadedTimezone !== undefined) {
+          setSessionsTimezone(loadedTimezone);
+          replacements.sessionsTimezone = loadedTimezone;
+          localStorage.setItem('wyckoff_sessions_timezone', loadedTimezone);
         }
-        if (s.tradingSessions !== undefined) {
-          setTradingSessions(s.tradingSessions);
-          replacements.tradingSessions = s.tradingSessions;
+        const loadedSessions = s.tradingSessions ?? s.sessions ?? s.trading_sessions;
+        if (loadedSessions !== undefined) {
+          setTradingSessions(loadedSessions);
+          replacements.tradingSessions = loadedSessions;
+          localStorage.setItem('wyckoff_trading_sessions', JSON.stringify(loadedSessions));
         }
-        if (s.useGlobalClose !== undefined) {
-          const val = Boolean(s.useGlobalClose);
+        if (s.useGlobalClose !== undefined || s.use_global_close !== undefined) {
+          const val = Boolean(s.useGlobalClose ?? s.use_global_close);
           setUseGlobalClose(val);
           replacements.useGlobalClose = val;
+          localStorage.setItem('wyckoff_use_global_close', String(val));
         }
-        if (s.globalCloseTime !== undefined) {
-          setGlobalCloseTime(s.globalCloseTime);
-          replacements.globalCloseTime = s.globalCloseTime;
+        if (s.globalCloseTime !== undefined || s.global_close_time !== undefined) {
+          const val = String(s.globalCloseTime ?? s.global_close_time);
+          setGlobalCloseTime(val);
+          replacements.globalCloseTime = val;
+          localStorage.setItem('wyckoff_global_close_time', val);
         }
 
         // 4. Indicator Confirmation Rules
@@ -1213,7 +1220,15 @@ export default function Backtester({
         console.log(`[SavedRun Load] Replaced state in WyckoffBacktester with:`, replacements);
 
         // Notify parent / subscribers of loaded settings
-        window.dispatchEvent(new CustomEvent('wyckoff_settings_loaded', { detail: { ...s, symbol: loadedSymbol, timeframe: loadedTimeframe } }));
+        window.dispatchEvent(new CustomEvent('wyckoff_settings_loaded', {
+          detail: {
+            ...s,
+            tradingSessions: loadedSessions,
+            sessionsTimezone: loadedTimezone,
+            symbol: loadedSymbol,
+            timeframe: loadedTimeframe
+          }
+        }));
 
         if (onLoadSavedPayload) {
           onLoadSavedPayload(fullPayload);
