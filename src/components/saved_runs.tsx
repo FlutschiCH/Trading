@@ -132,24 +132,16 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
   const [pageSize, setPageSize] = useState<number>(50);
 
   // Parameters info popup state
-  const [infoModalRun, setInfoModalRun] = useState<{ id: string; settings: any } | null>(null);
-  const [loadingInfo, setLoadingInfo] = useState(false);
+  const [loadedArchivedOnce, setLoadedArchivedOnce] = useState(false);
 
   const fetchSavedBacktests = async () => {
     setLoadingSavedBacktests(true);
     try {
-      const [resActive, resArchived] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/backtest/saved`),
-        fetch(`${API_BASE_URL}/api/backtest/archived`)
-      ]);
+      const resActive = await fetch(`${API_BASE_URL}/api/backtest/saved`);
       const jsonActive = await resActive.json();
-      const jsonArchived = await resArchived.json();
 
       if (jsonActive.status === 'success') {
         setSavedBacktestsList(jsonActive.data || []);
-      }
-      if (jsonArchived.status === 'success') {
-        setArchivedBacktestsList(jsonArchived.data || []);
       }
     } catch (e) {
       console.error("Error fetching backtests:", e);
@@ -158,9 +150,32 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
     }
   };
 
+  const fetchArchivedBacktests = async () => {
+    setLoadingSavedBacktests(true);
+    try {
+      const resArchived = await fetch(`${API_BASE_URL}/api/backtest/archived`);
+      const jsonArchived = await resArchived.json();
+      if (jsonArchived.status === 'success') {
+        setArchivedBacktestsList(jsonArchived.data || []);
+      }
+      setLoadedArchivedOnce(true);
+    } catch (e) {
+      console.error("Error fetching archived backtests:", e);
+    } finally {
+      setLoadingSavedBacktests(false);
+    }
+  };
+
   useEffect(() => {
     fetchSavedBacktests();
   }, []);
+
+  const handleTabChange = (tab: 'active' | 'archived') => {
+    setViewTab(tab);
+    if (tab === 'archived' && !loadedArchivedOnce) {
+      fetchArchivedBacktests();
+    }
+  };
 
   // Reset to page 1 whenever any filter or sorting changes
   useEffect(() => {
@@ -349,7 +364,7 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
             {/* Active vs Archive Tab Switcher */}
             <div style={{ display: 'flex', backgroundColor: 'var(--app-input-bg, #0f172a)', borderRadius: '6px', padding: '2px', border: '1px solid var(--app-card-border, #334155)' }}>
               <button
-                onClick={() => setViewTab('active')}
+                onClick={() => handleTabChange('active')}
                 style={{
                   padding: '3px 10px',
                   borderRadius: '4px',
@@ -364,7 +379,7 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
                 Active Runs ({savedBacktestsList.length})
               </button>
               <button
-                onClick={() => setViewTab('archived')}
+                onClick={() => handleTabChange('archived')}
                 style={{
                   padding: '3px 10px',
                   borderRadius: '4px',
@@ -376,7 +391,7 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
                   color: viewTab === 'archived' ? '#ffffff' : 'var(--app-text-muted, #94a3b8)'
                 }}
               >
-                📦 Archive ({archivedBacktestsList.length})
+                📦 Archive {loadedArchivedOnce ? `(${archivedBacktestsList.length})` : ''}
               </button>
             </div>
           </div>
