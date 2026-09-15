@@ -1134,12 +1134,11 @@ export default function Backtester({
           replacements.indicatorRules = s.indicator_rules;
         }
 
-        // 5. Optimization & Range Parameters
-        if (s.isOptimizeMode !== undefined) {
-          const val = Boolean(s.isOptimizeMode);
-          setIsOptimizeMode(val);
-          replacements.isOptimizeMode = val;
-        }
+        // 5. Optimization & Range Parameters (Always swap to single backtesting mode on saved run load)
+        setIsOptimizeMode(false);
+        replacements.isOptimizeMode = false;
+        localStorage.setItem('wyckoff_optimize_mode', 'false');
+
         if (s.globalRangeMode !== undefined) {
           const val = Boolean(s.globalRangeMode);
           setGlobalRangeMode(val);

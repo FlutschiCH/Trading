@@ -1463,10 +1463,14 @@ export default function Dashboard() {
   const handleLoadSavedPayload = (payload: any) => {
     if (!payload) return;
     setIsLiveFeed(false);
+    setIsOptimizeMode(false);
+    localStorage.setItem('wyckoff_optimize_mode', 'false');
     if (payload.symbol) setSymbol(payload.symbol);
     if (payload.timeframe) setTimeframe(payload.timeframe);
     if (payload.settings && Object.keys(payload.settings).length > 0) {
       applyBacktestSettingsObject(payload.settings);
+      setIsOptimizeMode(false);
+      localStorage.setItem('wyckoff_optimize_mode', 'false');
     }
     const resultsObj = {
       trades: payload.trades || [],
