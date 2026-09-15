@@ -422,6 +422,9 @@ def run_worker(job_id: str, is_resume: bool = False):
         # Check if this is a scalper backtest
         is_scalper = params.get('strategy_type') == 'scalper' or 'scalper' in str(params.get('strategy_name', '')).lower() or 'scalper' in str(params.get('name', '')).lower()
 
+        # Track execution duration for reporting
+        execution_start_time = time.time()
+
         if is_scalper:
             res = run_scalper_backtest_job(
                 job_id=job_id,
