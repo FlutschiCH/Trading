@@ -72,6 +72,13 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
     } catch {}
     return 'all';
   });
+  const [sbFilterSession, setSbFilterSession] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) return JSON.parse(saved).sbFilterSession ?? 'all';
+    } catch {}
+    return 'all';
+  });
   const [sbMaxDrawdown, setSbMaxDrawdown] = useState<string>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -117,6 +124,7 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
         sbFilterSymbol,
         sbFilterStrategyType,
         sbFilterSlType,
+        sbFilterSession,
         sbMaxDrawdown,
         sbMinNetPnl,
         sbMinWinRate,
@@ -126,7 +134,7 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
     } catch (e) {
       console.error("Failed to save filters to localStorage", e);
     }
-  }, [sbSortField, sbSortDir, sbFilterSymbol, sbFilterStrategyType, sbFilterSlType, sbMaxDrawdown, sbMinNetPnl, sbMinWinRate, sbMinTrades, sbMinProfitFactor]);
+  }, [sbSortField, sbSortDir, sbFilterSymbol, sbFilterStrategyType, sbFilterSlType, sbFilterSession, sbMaxDrawdown, sbMinNetPnl, sbMinWinRate, sbMinTrades, sbMinProfitFactor]);
 
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(50);
@@ -200,6 +208,12 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
           const targetType = sbFilterSlType.toLowerCase();
           if (itemType !== targetType) return false;
         }
+        if (sbFilterSession !== 'all') {
+          const activeSess = (item.sessions || []).filter((s: any) => s && (s.active === true || s.active === 1 || s.active === 'true'));
+          const hasSessions = activeSess.length > 0;
+          if (sbFilterSession === 'no_sessions' && hasSessions) return false;
+          if (sbFilterSession === 'with_sessions' && !hasSessions) return false;
+        }
         if (sbMaxDrawdown !== '' && item.max_drawdown !== undefined && item.max_drawdown !== null && item.max_drawdown > parseFloat(sbMaxDrawdown)) return false;
         if (sbMinNetPnl !== '' && item.net_pnl < parseFloat(sbMinNetPnl)) return false;
         if (sbMinWinRate !== '' && item.win_rate < parseFloat(sbMinWinRate)) return false;
@@ -217,7 +231,7 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
         }
         return sbSortDir === 'desc' ? valB - valA : valA - valB;
       });
-  }, [activeDisplayList, sbFilterSymbol, sbFilterSlType, sbMaxDrawdown, sbMinNetPnl, sbMinWinRate, sbMinTrades, sbMinProfitFactor, sbSortField, sbSortDir]);
+  }, [activeDisplayList, sbFilterSymbol, sbFilterStrategyType, sbFilterSlType, sbFilterSession, sbMaxDrawdown, sbMinNetPnl, sbMinWinRate, sbMinTrades, sbMinProfitFactor, sbSortField, sbSortDir]);
 
   const totalPages = pageSize === 0 ? 1 : Math.max(1, Math.ceil(filteredAndSortedList.length / pageSize));
   const safeCurrentPage = Math.min(currentPage, totalPages);
@@ -527,6 +541,26 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <label style={{ color: 'var(--app-text, #cbd5e1)', fontSize: '12px', fontWeight: 500 }}>Sessions:</label>
+              <select
+                value={sbFilterSession}
+                onChange={(e) => setSbFilterSession(e.target.value)}
+                style={{
+                  backgroundColor: 'var(--app-input-bg, #0f172a)',
+                  color: 'var(--app-input-text, #f8fafc)',
+                  border: '1px solid var(--app-input-border, #475569)',
+                  padding: '4px 8px',
+                  borderRadius: '4px',
+                  fontSize: '12px'
+                }}
+              >
+                <option value="all">All Runs</option>
+                <option value="no_sessions">No Sessions (24/7)</option>
+                <option value="with_sessions">With Sessions Only</option>
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <label style={{ color: 'var(--app-text, #cbd5e1)', fontSize: '12px', fontWeight: 500 }}>Max DD (%):</label>
               <input
                 type="number"
@@ -622,12 +656,13 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
               />
             </div>
 
-            {(sbFilterSymbol !== 'all' || sbFilterSlType !== 'all' || sbMaxDrawdown || sbMinNetPnl || sbMinWinRate || sbMinTrades || sbMinProfitFactor) && (
+            {(sbFilterSymbol !== 'all' || sbFilterSlType !== 'all' || sbFilterSession !== 'all' || sbMaxDrawdown || sbMinNetPnl || sbMinWinRate || sbMinTrades || sbMinProfitFactor) && (
               <button
                 onClick={() => {
                   setSbFilterSymbol('all');
                   setSbFilterStrategyType('all');
                   setSbFilterSlType('all');
+                  setSbFilterSession('all');
                   setSbMaxDrawdown('');
                   setSbMinNetPnl('');
                   setSbMinWinRate('');

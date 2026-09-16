@@ -649,6 +649,44 @@ export default function Backtester({
     }
   }, [minSavePnl]);
 
+  // Find Best Session Feature State
+  const [findBestSession, setFindBestSession] = React.useState<boolean>(() => {
+    try {
+      return localStorage.getItem('wyckoff_find_best_session') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const [minHourlyPnl, setMinHourlyPnl] = React.useState<string>(() => {
+    try {
+      return localStorage.getItem('wyckoff_min_hourly_pnl') || '0.0';
+    } catch {
+      return '0.0';
+    }
+  });
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('wyckoff_find_best_session', String(findBestSession));
+      localStorage.setItem('wyckoff_min_hourly_pnl', minHourlyPnl);
+    } catch (e) {
+      console.error(e);
+    }
+  }, [findBestSession, minHourlyPnl]);
+
+  // Auto-apply discovered winning sessions to session manager
+  React.useEffect(() => {
+    if (backtestResults?.discovered_sessions && Array.isArray(backtestResults.discovered_sessions) && backtestResults.discovered_sessions.length > 0) {
+      setTradingSessions(backtestResults.discovered_sessions);
+      try {
+        localStorage.setItem('wyckoff_trading_sessions', JSON.stringify(backtestResults.discovered_sessions));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }, [backtestResults]);
+
   // New Rule Form State
   const [newRuleInd, setNewRuleInd] = React.useState('rsi');
   const [newRulePeriod, setNewRulePeriod] = React.useState('14');
@@ -1911,6 +1949,8 @@ export default function Backtester({
                 htfEmaPeriod: parseInt(htfEmaPeriod) || 200,
                 htfEmaRangeMode: globalRangeMode && htfEmaRangeMode,
                 minSavePnl: minSavePnl.trim() !== '' ? parseFloat(minSavePnl) : undefined,
+                findBestSession,
+                minHourlyPnl: parseFloat(minHourlyPnl) || 0.0,
                 // Scalper specific parameters
                 atr_multiplier: atrMultiplier,
                 vol_multiplier: volMultiplier,
@@ -2137,6 +2177,41 @@ export default function Backtester({
               </span>
             </div>
 
+            {backtestResults?.discovered_sessions && (
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px',
+                padding: '8px 12px',
+                background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(56, 189, 248, 0.08) 100%)',
+                border: '1px solid rgba(16, 185, 129, 0.3)',
+                borderRadius: '8px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#34d399', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    ✨ BEST SESSIONS DISCOVERED ({backtestResults.discovered_sessions.length} active hours)
+                  </span>
+                  <span style={{ fontSize: '10px', color: '#94a3b8' }}>
+                    Applied to Session Manager
+                  </span>
+                </div>
+                {backtestResults?.baseline_summary && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: '#cbd5e1' }}>
+                    <span>
+                      24/7 Baseline: <strong style={{ color: (backtestResults.baseline_summary.net_profit ?? 0) >= 0 ? '#10b981' : '#f87171' }}>
+                        ${(backtestResults.baseline_summary.net_profit ?? 0).toFixed(2)}
+                      </strong> ({(backtestResults.baseline_summary.win_rate ?? 0).toFixed(1)}% WR)
+                    </span>
+                    <span style={{ color: '#64748b' }}>➔</span>
+                    <span>
+                      Filtered: <strong style={{ color: ((backtestResults?.netPnl ?? backtestResults?.summary?.net_profit ?? 0) >= 0) ? '#34d399' : '#f87171' }}>
+                        ${(backtestResults?.netPnl ?? backtestResults?.summary?.net_profit ?? 0).toFixed(2)}
+                      </strong> ({((backtestResults?.winRate ?? backtestResults?.summary?.win_rate ?? 0)).toFixed(1)}% WR)
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           </div>
           );
@@ -3000,6 +3075,90 @@ export default function Backtester({
         </CollapsibleCard>
 
         <CollapsibleCard title="Session" isCollapsed={collapsedSections.session} onToggle={() => toggleSection('session')}>
+          {/* Find Best Session Auto-Discovery Feature */}
+          <div style={{
+            backgroundColor: findBestSession ? 'rgba(56, 189, 248, 0.12)' : 'rgba(30, 41, 59, 0.5)',
+            border: findBestSession ? '1px solid #38bdf8' : '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: '8px',
+            padding: '10px 12px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
+            transition: 'all 0.2s'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <input
+                  type="checkbox"
+                  id="find_best_session_toggle"
+                  checked={findBestSession}
+                  onChange={(e) => setFindBestSession(e.target.checked)}
+                  style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                />
+                <label htmlFor="find_best_session_toggle" style={{
+                  color: findBestSession ? '#38bdf8' : '#f8fafc',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  letterSpacing: '0.3px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}>
+                  ✨ FIND BEST SESSION (AUTO-DISCOVERY)
+                </label>
+              </div>
+              {findBestSession && (
+                <span style={{
+                  fontSize: '9px',
+                  fontWeight: 700,
+                  backgroundColor: 'rgba(56, 189, 248, 0.25)',
+                  color: '#38bdf8',
+                  padding: '2px 6px',
+                  borderRadius: '10px'
+                }}>
+                  2-PASS RUN
+                </span>
+              )}
+            </div>
+
+            <span style={{ fontSize: '10px', color: '#94a3b8', lineHeight: 1.3 }}>
+              First tests 24/7 with no sessions, analyzes trade results by hour, filters out losing hours, and re-runs using only winning 1-hour sessions.
+            </span>
+
+            {findBestSession && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingTop: '6px',
+                borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+                gap: '8px'
+              }}>
+                <label style={{ fontSize: '10px', fontWeight: 600, color: '#cbd5e1' }}>
+                  Min Net PnL per Hour ($):
+                </label>
+                <input
+                  type="number"
+                  step="10"
+                  value={minHourlyPnl}
+                  onChange={(e) => setMinHourlyPnl(e.target.value)}
+                  style={{
+                    width: '85px',
+                    backgroundColor: '#1e293b',
+                    color: '#38bdf8',
+                    border: '1px solid #475569',
+                    borderRadius: '4px',
+                    padding: '4px 6px',
+                    fontSize: '11px',
+                    fontWeight: 700
+                  }}
+                  placeholder="0.0"
+                />
+              </div>
+            )}
+          </div>
+
           {/* Timezone Selector */}
           <div style={styles.formGroup}>
             <label style={{ color: '#9ca3af', fontSize: '11px' }}>Global Timezone</label>

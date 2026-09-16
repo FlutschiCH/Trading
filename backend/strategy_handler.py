@@ -294,7 +294,9 @@ class StrategyHandler:
         htf_ema_enabled: bool = False,
         htf_ema_period: int = 200,
         htf_ema_timeframe: str = '4h',
-        min_save_pnl: float = None
+        min_save_pnl: float = None,
+        find_best_session: bool = False,
+        min_hourly_pnl: float = 0.0
     ) -> dict:
         """
         Runs the full Wyckoff structure analysis backtest in Python.
@@ -327,6 +329,10 @@ class StrategyHandler:
         
         # 2. Run Trade Simulation (50% to 100% progress)
         from backtest_helpers import run_trade_simulation
+        sim_cb = (lambda p: progress_callback(50 + int(p / 4))) if (progress_callback and find_best_session) else progress_callback
+
+        pass1_sessions = [] if find_best_session else sessions
+
         sim_result = run_trade_simulation(
             annotated_data=annotated_data,
             symbol=symbol,
@@ -347,10 +353,10 @@ class StrategyHandler:
             date_from=date_from,
             date_to=date_to,
             timezone=timezone,
-            sessions=sessions,
+            sessions=pass1_sessions,
             use_global_close=use_global_close,
             global_close_time=global_close_time,
-            progress_callback=progress_callback,
+            progress_callback=sim_cb,
             entry_stability_rule=entry_stability_rule,
             session_config=session_config,
             daily_first_signals_mode=daily_first_signals_mode,
@@ -361,17 +367,20 @@ class StrategyHandler:
         
         from candle_sanitizer import sanitize_and_fill_candles
         annotated_data = sanitize_and_fill_candles(annotated_data)
-        
-        if progress_callback:
-            try:
-                progress_callback(100)
-            except Exception:
-                pass
+
+        from sql_handler import SQLHandler
+        ts_now = int(time.time())
+        baseline_summary = {
+            "netPnl": sim_result["netPnl"],
+            "winRate": sim_result["winRate"],
+            "profitFactor": sim_result["profitFactor"],
+            "totalTrades": sim_result["totalTrades"]
+        }
 
         try:
-            import os
-            results_to_save = {
-                "explainer": "Wyckoff Structure Analysis backtest.",
+            full_run_id = f"bt_{symbol.lower()}_{tf}_sl{sl_val}_rr{rr}_be{be_trigger_r}_full_{ts_now}" if find_best_session else f"bt_{symbol.lower()}_{tf}_sl{sl_val}_rr{rr}_be{be_trigger_r}_{ts_now}"
+            full_results_to_save = {
+                "explainer": "Wyckoff Structure Analysis backtest (Full / Baseline 24/7)" if find_best_session else "Wyckoff Structure Analysis backtest.",
                 "settings": {
                     "symbol": symbol,
                     "timeframe": tf,
@@ -393,7 +402,7 @@ class StrategyHandler:
                     "date_from": date_from,
                     "date_to": date_to,
                     "timezone": timezone,
-                    "sessions": sessions,
+                    "sessions": pass1_sessions,
                     "use_global_close": use_global_close,
                     "global_close_time": global_close_time,
                     "entry_stability_rule": entry_stability_rule,
@@ -416,38 +425,149 @@ class StrategyHandler:
                 "trades": sim_result["completed_trades_raw"]
             }
 
+            SQLHandler.save_backtest_run(
+                backtest_id=full_run_id,
+                symbol=symbol,
+                timeframe=tf,
+                broker=broker,
+                sl_val=sl_val,
+                sl_type=sl_type,
+                rr=rr,
+                be_trigger_r=be_trigger_r,
+                net_pnl=sim_result["netPnl"],
+                win_rate=sim_result["winRate"],
+                trades_cnt=sim_result["totalTrades"],
+                profit_factor=sim_result["profitFactor"],
+                max_drawdown=sim_result["maxDrawdown"],
+                payload_dict=full_results_to_save,
+                min_pnl=min_save_pnl
+            )
+            print(f"{Fore.GREEN}[SQLHandler]{Style.RESET_ALL} Successfully saved baseline backtest run '{full_run_id}' to MySQL DB.", flush=True)
+        except Exception as sql_err:
+            print(f"{Fore.RED}[SQLHandler]{Style.RESET_ALL} Failed saving baseline backtest run: {sql_err}", flush=True)
 
-            # Auto-persist single backtest run to MySQL database
-            try:
-                from sql_handler import SQLHandler
-                backtest_id_str = f"bt_{symbol.lower()}_{tf}_sl{sl_val}_rr{rr}_be{be_trigger_r}_{int(time.time())}"
-                SQLHandler.save_backtest_run(
-                    backtest_id=backtest_id_str,
+        discovered_sessions = []
+        hourly_breakdown = {}
+
+        # Pass 2: If Find Best Session is active, discover winning hours and re-run simulation
+        if find_best_session:
+            completed_trades = sim_result.get("completed_trades_raw", [])
+            discovered_sessions, hourly_breakdown = StrategyHandler.filter_best_sessions_from_trades(
+                trades=completed_trades,
+                timezone_str=timezone,
+                min_hourly_pnl=min_hourly_pnl
+            )
+            print(f"{Fore.CYAN}[FindBestSession]{Style.RESET_ALL} Discovered {len(discovered_sessions)} profitable 1-hour sessions (Min PnL > ${min_hourly_pnl:.2f}) from {len(completed_trades)} baseline trades.", flush=True)
+
+            if discovered_sessions:
+                pass2_cb = (lambda p: progress_callback(75 + int(p / 4))) if progress_callback else None
+                sim_result = run_trade_simulation(
+                    annotated_data=annotated_data,
                     symbol=symbol,
-                    timeframe=tf,
-                    broker=broker,
                     sl_val=sl_val,
                     sl_type=sl_type,
                     rr=rr,
+                    size=size,
+                    initial_balance=initial_balance,
+                    use_risk_sizing=use_risk_sizing,
+                    risk_pct=risk_pct,
+                    use_break_even=use_break_even,
                     be_trigger_r=be_trigger_r,
-                    net_pnl=sim_result["netPnl"],
-                    win_rate=sim_result["winRate"],
-                    trades_cnt=sim_result["totalTrades"],
-                    profit_factor=sim_result["profitFactor"],
-                    max_drawdown=sim_result["maxDrawdown"],
-                    payload_dict=results_to_save,
-                    min_pnl=min_save_pnl
+                    be_offset_mode=be_offset_mode,
+                    fees_percent=fees_percent,
+                    daily_retry_limit=daily_retry_limit,
+                    allow_opposite_close=allow_opposite_close,
+                    check_cancelled=check_cancelled,
+                    date_from=date_from,
+                    date_to=date_to,
+                    timezone=timezone,
+                    sessions=discovered_sessions,
+                    use_global_close=use_global_close,
+                    global_close_time=global_close_time,
+                    progress_callback=pass2_cb,
+                    entry_stability_rule=entry_stability_rule,
+                    session_config=session_config,
+                    daily_first_signals_mode=daily_first_signals_mode,
+                    daily_first_signals_count=daily_first_signals_count,
+                    daily_first_signals_risk_mult=daily_first_signals_risk_mult,
+                    candles_1m=candles_1m
                 )
-                from colorama import Fore, Style
-                print(f"{Fore.GREEN}[SQLHandler]{Style.RESET_ALL} Successfully saved backtest run '{backtest_id_str}' to MySQL DB.", flush=True)
-            except Exception as sql_err:
-                from colorama import Fore, Style
-                print(f"{Fore.RED}[SQLHandler]{Style.RESET_ALL} Failed auto-persisting single backtest run: {sql_err}", flush=True)
-        except Exception as e:
-            from colorama import Fore, Style
-            print(f"{Fore.RED}[StrategyHandler]{Style.RESET_ALL} Failed to process backtest results: {e}", flush=True)
 
+                # Persist Pass 2 (Session-Optimized) Run to MySQL DB
+                try:
+                    session_run_id = f"bt_{symbol.lower()}_{tf}_sl{sl_val}_rr{rr}_be{be_trigger_r}_session_{ts_now}"
+                    session_results_to_save = {
+                        "explainer": "Wyckoff Structure Analysis backtest (Session-Optimized)",
+                        "settings": {
+                            "symbol": symbol,
+                            "timeframe": tf,
+                            "broker": broker,
+                            "sl_val": sl_val,
+                            "sl_type": sl_type,
+                            "rr": rr,
+                            "size": size,
+                            "initial_balance": initial_balance,
+                            "use_risk_sizing": use_risk_sizing,
+                            "risk_pct": risk_pct,
+                            "use_break_even": use_break_even,
+                            "be_trigger_r": be_trigger_r,
+                            "be_offset_mode": be_offset_mode,
+                            "lookback_window": lookback_window,
+                            "fees_percent": fees_percent,
+                            "daily_retry_limit": daily_retry_limit,
+                            "allow_opposite_close": allow_opposite_close,
+                            "date_from": date_from,
+                            "date_to": date_to,
+                            "timezone": timezone,
+                            "sessions": discovered_sessions,
+                            "use_global_close": use_global_close,
+                            "global_close_time": global_close_time,
+                            "entry_stability_rule": entry_stability_rule,
+                            "indicator_rules": indicator_rules,
+                            "htf_ema_enabled": htf_ema_enabled,
+                            "htf_ema_period": htf_ema_period,
+                            "htf_ema_timeframe": htf_ema_timeframe,
+                            "limit": len(annotated_data)
+                        },
+                        "metrics": {
+                            "winRate": sim_result["winRate"],
+                            "netPnl": sim_result["netPnl"],
+                            "profitFactor": sim_result["profitFactor"],
+                            "totalTrades": sim_result["totalTrades"],
+                            "maxDrawdown": sim_result["maxDrawdown"],
+                            "maxDailyLoss": sim_result["maxDailyLoss"],
+                            "dailyLossBreached": sim_result["dailyLossBreached"],
+                            "candleCount": len(annotated_data)
+                        },
+                        "trades": sim_result["completed_trades_raw"]
+                    }
 
+                    SQLHandler.save_backtest_run(
+                        backtest_id=session_run_id,
+                        symbol=symbol,
+                        timeframe=tf,
+                        broker=broker,
+                        sl_val=sl_val,
+                        sl_type=sl_type,
+                        rr=rr,
+                        be_trigger_r=be_trigger_r,
+                        net_pnl=sim_result["netPnl"],
+                        win_rate=sim_result["winRate"],
+                        trades_cnt=sim_result["totalTrades"],
+                        profit_factor=sim_result["profitFactor"],
+                        max_drawdown=sim_result["maxDrawdown"],
+                        payload_dict=session_results_to_save,
+                        min_pnl=min_save_pnl
+                    )
+                    print(f"{Fore.GREEN}[SQLHandler]{Style.RESET_ALL} Successfully saved session-optimized backtest run '{session_run_id}' to MySQL DB.", flush=True)
+                except Exception as sql_err:
+                    print(f"{Fore.RED}[SQLHandler]{Style.RESET_ALL} Failed saving session-optimized backtest run: {sql_err}", flush=True)
+
+        if progress_callback:
+            try:
+                progress_callback(100)
+            except Exception:
+                pass
 
         return {
             "trades": sim_result["trades"],
@@ -463,6 +583,9 @@ class StrategyHandler:
             "weeklyBreakdown": sim_result["weeklyBreakdown"],
             "dateFrom": sim_result.get("dateFrom"),
             "dateTo": sim_result.get("dateTo"),
+            "discovered_sessions": discovered_sessions,
+            "hourly_breakdown": hourly_breakdown,
+            "baseline_summary": baseline_summary if find_best_session else None,
             "fvgs": []
         }
 
@@ -518,7 +641,9 @@ class StrategyHandler:
         htf_ema_period: int = 200,
         htf_ema_timeframe: str = '4h',
         htf_ema_range_mode: bool = False,
-        min_save_pnl: float = None
+        min_save_pnl: float = None,
+        find_best_session: bool = False,
+        min_hourly_pnl: float = 0.0
     ) -> dict:
         """
         Runs Wyckoff parameter grid search optimization, fetching candles dynamically and executing simulations.
@@ -937,5 +1062,38 @@ class StrategyHandler:
             "totalExecutionTimeSec": round(total_duration, 2)
         }
 
+    @staticmethod
+    def filter_best_sessions_from_trades(trades: list, timezone_str: str = 'Local', min_hourly_pnl: float = 0.0) -> tuple:
+        """
+        Groups trades by entry hour in specified timezone, filters hours with total PnL > min_hourly_pnl
+        (and at least 1 trade), and generates 1-hour session objects for all 7 weekdays.
+        Returns (discovered_sessions, hourly_stats).
+        """
+        from backtest_helpers import get_candle_datetime
+        hourly_stats = {h: {"count": 0, "wins": 0, "pnl": 0.0} for h in range(24)}
+        for tr in trades:
+            ts = tr.get('entryTimestamp') or tr.get('entry_time') or tr.get('entry_timestamp')
+            if not ts:
+                continue
+            dt = get_candle_datetime(float(ts), timezone_str)
+            h = dt.hour
+            pnl = float(tr.get('pnl', 0.0))
+            hourly_stats[h]["count"] += 1
+            hourly_stats[h]["pnl"] += pnl
+            if tr.get('outcome') == 'WIN' or pnl >= 0:
+                hourly_stats[h]["wins"] += 1
 
+        discovered_sessions = []
+        for h in range(24):
+            stat = hourly_stats[h]
+            if stat["count"] > 0 and stat["pnl"] > min_hourly_pnl:
+                discovered_sessions.append({
+                    "id": f"sess_h{h:02d}",
+                    "name": f"Hour {h:02d}:00-{h:02d}:59",
+                    "start": f"{h:02d}:00",
+                    "end": f"{h:02d}:59",
+                    "weekdays": [1, 2, 3, 4, 5, 6, 7],
+                    "active": True
+                })
 
+        return discovered_sessions, hourly_stats

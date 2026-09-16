@@ -484,7 +484,9 @@ def run_worker(job_id: str, is_resume: bool = False):
                 htf_ema_enabled=htf_ema_enabled,
                 htf_ema_period=htf_ema_period,
                 htf_ema_timeframe=htf_ema_timeframe,
-                min_save_pnl=float(params.get('minSavePnl')) if params.get('minSavePnl') is not None and str(params.get('minSavePnl')).strip() != '' else None
+                min_save_pnl=float(params.get('minSavePnl')) if params.get('minSavePnl') is not None and str(params.get('minSavePnl')).strip() != '' else None,
+                find_best_session=bool(params.get('findBestSession', False)),
+                min_hourly_pnl=float(params.get('minHourlyPnl', 0.0))
             )
 
             total_elapsed = round(time.time() - execution_start_time, 2)
@@ -549,7 +551,9 @@ def run_worker(job_id: str, is_resume: bool = False):
                 htf_ema_period=htf_ema_period,
                 htf_ema_timeframe=htf_ema_timeframe,
                 htf_ema_range_mode=htf_ema_range_mode,
-                min_save_pnl=float(params.get('minSavePnl')) if params.get('minSavePnl') is not None and str(params.get('minSavePnl')).strip() != '' else None
+                min_save_pnl=float(params.get('minSavePnl')) if params.get('minSavePnl') is not None and str(params.get('minSavePnl')).strip() != '' else None,
+                find_best_session=bool(params.get('findBestSession', False)),
+                min_hourly_pnl=float(params.get('minHourlyPnl', 0.0))
             )
 
             total_elapsed = round(time.time() - execution_start_time, 2)
