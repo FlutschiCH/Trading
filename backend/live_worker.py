@@ -150,8 +150,28 @@ class LiveWorker:
 
     def _evaluate_signals(self, annotated_candles: list, strategy: dict) -> tuple:
         """
-        Replicates the entry logic state machine to get the state at the last completed candle.
+        =============================================================================
+        EVALUATE SIGNALS & STATE MACHINE REPLAY
+        =============================================================================
+        Replays the Wyckoff / Strategy state machine sequentially over historical 
+        annotated candles up to the most recently closed candle (index -2).
+
+        Why replay history?
+        - Multi-bar patterns (Spring confirmation, Upthrust confirmation, consecutive 
+          accumulation/distribution bars, stability rules) depend on prior candle state.
+        - By replaying over the active cache, the state machine reaches the exact,
+          deterministic state of the live market at the close of candle[-2].
+
+        Why stop at `annotated_candles[:-1]`?
+        - `annotated_candles[-1]` is the active, currently-forming live bar (incomplete).
+        - `annotated_candles[-2]` is the latest fully closed & verified candle.
+        - Trading decisions are strictly executed on confirmed bar closes to prevent repaint.
+
+        Returns:
+            tuple: (should_buy: bool, should_sell: bool, state_info: dict)
+        =============================================================================
         """
+        # 1. Extract execution rules, session filters, and cutoff parameters from strategy
         entry_stability_rule = strategy.get("entryStabilityRule", "default")
         timezone_str = strategy.get("timezone", "Local")
         sessions = strategy.get("sessions", [])
@@ -161,9 +181,11 @@ class LiveWorker:
         use_entry_cutoff = strategy.get("useEntryCutoff", False)
         entry_cutoff_time = strategy.get("entryCutoffTime", "")
 
-        state_dict = {}
-        daily_signals_count = {}
-        for c in annotated_candles[:-1]:  # Stop at index -2 (the last completed candle)
+        # 2. Sequential state replay over historical completed bars
+        state_dict = {}             # Tracks sequential Wyckoff state (stages, pending springs, ages)
+        daily_signals_count = {}    # Tracks signals taken per day for daily-limit throttles
+        
+        for c in annotated_candles[:-1]:  # Iterates through confirmed closed candles, terminating at index -2
             should_buy, should_sell, state_dict = StrategyHandler.evaluate_candle_signal(
                 c=c,
                 state=state_dict,
@@ -178,19 +200,22 @@ class LiveWorker:
                 entry_cutoff_time=entry_cutoff_time
             )
 
+        # 3. Extract final state metrics from the latest completed candle evaluation
         accum_consec_bars = state_dict.get('accum_consec_bars', 0)
         dist_consec_bars = state_dict.get('dist_consec_bars', 0)
-        pending_buy = state_dict.get('pending_buy', False)
-        pending_sell = state_dict.get('pending_sell', False)
-        spring_high = state_dict.get('spring_high', None)
-        upthrust_low = state_dict.get('upthrust_low', None)
-        pending_buy_age = state_dict.get('pending_buy_age', 0)
-        pending_sell_age = state_dict.get('pending_sell_age', 0)
+        pending_buy = state_dict.get('pending_buy', False)        # True if a Spring is awaiting confirmation breakout
+        pending_sell = state_dict.get('pending_sell', False)      # True if an Upthrust is awaiting confirmation breakdown
+        spring_high = state_dict.get('spring_high', None)         # Price level the close must exceed for BUY
+        upthrust_low = state_dict.get('upthrust_low', None)       # Price level the close must drop below for SELL
+        pending_buy_age = state_dict.get('pending_buy_age', 0)    # Number of bars elapsed since Spring was identified
+        pending_sell_age = state_dict.get('pending_sell_age', 0)  # Number of bars elapsed since Upthrust was identified
 
+        # 4. Determine Wyckoff stage and consecutive trend bars for UI telemetry
         last_c = annotated_candles[-2] if len(annotated_candles) >= 2 else {}
         final_stage = last_c.get('wyckoff_stage', 'TRANSITION')
         final_consec = accum_consec_bars if final_stage == "ACCUMULATION" else (dist_consec_bars if final_stage == "DISTRIBUTION" else 0)
 
+        # 5. Formulate human-readable status message for frontend monitoring cards
         status_message = "Waiting for setup..."
         if pending_buy:
             status_message = f"Spring detected. Waiting for confirmation/stability. Close must cross above high {spring_high:.5f} (Age: {pending_buy_age}/15)."
@@ -199,10 +224,12 @@ class LiveWorker:
         else:
             status_message = f"Market in {final_stage} stage. Monitoring for Spring/Upthrust."
 
+        # 6. Check global session schedule allowance
         allowed, msg = LiveStrategyHandler.is_trading_allowed(self.strategy_id)
         if not allowed:
             status_message = f"Outside trading hours: {msg}"
 
+        # 7. Package complete real-time strategy state snapshot for DB storage and API broadcast
         state_info = {
             "stage": final_stage,
             "consec_bars": final_consec,
@@ -218,6 +245,7 @@ class LiveWorker:
             "trades": self.trades_cache
         }
 
+        # Return boolean trade trigger flags for candle[-2] alongside telemetry payload
         return should_buy, should_sell, state_info
 
     def execute_trades(self, strategy: dict, should_buy: bool, should_sell: bool, last_candle: dict):
