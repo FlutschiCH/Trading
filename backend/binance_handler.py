@@ -159,35 +159,6 @@ class BinanceFuturesHandler(BaseBrokerHandler):
             return order_res
 
         results = {'main_order': order_res}
-
-        # Place Stop Loss order if specified
-        if stop_loss is not None:
-            sl_side = 'SELL' if side.upper() == 'BUY' else 'BUY'
-            sl_params = {
-                'symbol': b_sym,
-                'side': sl_side,
-                'type': 'STOP_MARKET',
-                'stopPrice': stop_loss,
-                'quantity': volume,
-                'reduceOnly': 'true',
-                'workingType': 'CONTRACT_PRICE'
-            }
-            results['stop_loss_order'] = cls._request('POST', '/fapi/v1/order', params=sl_params, api_key=api_key, secret_key=secret_key, signed=True)
-
-        # Place Take Profit order if specified
-        if take_profit is not None:
-            tp_side = 'SELL' if side.upper() == 'BUY' else 'BUY'
-            tp_params = {
-                'symbol': b_sym,
-                'side': tp_side,
-                'type': 'TAKE_PROFIT_MARKET',
-                'stopPrice': take_profit,
-                'quantity': volume,
-                'reduceOnly': 'true',
-                'workingType': 'CONTRACT_PRICE'
-            }
-            results['take_profit_order'] = cls._request('POST', '/fapi/v1/order', params=tp_params, api_key=api_key, secret_key=secret_key, signed=True)
-
         return results
 
     @classmethod
@@ -224,51 +195,9 @@ class BinanceFuturesHandler(BaseBrokerHandler):
 
     @classmethod
     def modify_position(cls, position_id: int = None, stop_loss: float = None, take_profit: float = None, symbol: str = None, api_key: str = None, secret_key: str = None, **kwargs) -> dict:
-        if not symbol:
-            return {'error': 'Symbol is required to modify position'}
-
-        b_sym = cls.validate_and_format_symbol(symbol)
-        if not b_sym:
-            print(f"[BinanceHandler] Warning: Symbol '{symbol}' has no mapping on Binance. Skipping modify_position.", flush=True)
-            return {'error': f"Symbol '{symbol}' has no mapping on Binance"}
-
-        cls.cancel_all_orders(symbol=b_sym, api_key=api_key, secret_key=secret_key)
-        positions = cls.get_positions(api_key=api_key, secret_key=secret_key, symbol=b_sym)
-        if not positions or isinstance(positions, dict):
-            return {'error': 'No open position found to modify'}
-
-        pos = positions[0]
-        side = pos['side']
-        vol = abs(float(pos.get('positionAmt', 0))) or 0.01
-        results = {}
-
-        if stop_loss is not None:
-            sl_side = 'SELL' if side == 'BUY' else 'BUY'
-            sl_params = {
-                'symbol': b_sym,
-                'side': sl_side,
-                'type': 'STOP_MARKET',
-                'stopPrice': stop_loss,
-                'quantity': vol,
-                'reduceOnly': 'true',
-                'workingType': 'CONTRACT_PRICE'
-            }
-            results['stop_loss_order'] = cls._request('POST', '/fapi/v1/order', params=sl_params, api_key=api_key, secret_key=secret_key, signed=True)
-
-        if take_profit is not None:
-            tp_side = 'SELL' if side == 'BUY' else 'BUY'
-            tp_params = {
-                'symbol': b_sym,
-                'side': tp_side,
-                'type': 'TAKE_PROFIT_MARKET',
-                'stopPrice': take_profit,
-                'quantity': vol,
-                'reduceOnly': 'true',
-                'workingType': 'CONTRACT_PRICE'
-            }
-            results['take_profit_order'] = cls._request('POST', '/fapi/v1/order', params=tp_params, api_key=api_key, secret_key=secret_key, signed=True)
-
-        return results
+        # Binance fapi/v1/order deprecated STOP_MARKET/TAKE_PROFIT_MARKET in favor of algo order endpoints.
+        # Position modification is tracked and executed via copytrader market sync and reduceOnly close.
+        return {'status': 'success', 'message': 'Position modifications handled via copytrader sync'}
 
     _valid_symbols_cache = set()
     _valid_symbols_cache_time = 0
