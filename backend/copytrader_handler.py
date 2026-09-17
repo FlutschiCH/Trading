@@ -494,7 +494,39 @@ class CopytraderHandler:
         symbol: str = ''
     ) -> float:
         mode_lower = str(mode or 'direct').strip().lower()
-        if mode_lower in ('percent', 'risk_pct', 'pct', '%'):
+        if mode_lower in ('fixed_amount', 'amount', '$', 'fixed_dollar', 'dollar'):
+            loss_amount = multiplier if multiplier > 0 else 50.0
+            if entry_price > 0 and sl > 0 and abs(entry_price - sl) > 1e-6:
+                try:
+                    from backtest_helpers import get_pip_size, get_lot_size
+                    from symbol_mapping_handler import SymbolMappingHandler
+                    from trading_handler import TradingHandler
+
+                    mapped_symbol = SymbolMappingHandler.map_to_broker(symbol, slave_account) if slave_account else symbol
+                    pip_size = get_pip_size(mapped_symbol or symbol, entry_price)
+                    lot_size = get_lot_size(mapped_symbol or symbol)
+
+                    trade_params = TradingHandler.calculate_trade_parameters(
+                        symbol=mapped_symbol or symbol,
+                        entry_price=entry_price,
+                        direction=direction,
+                        sl_type='amount',
+                        sl_val=loss_amount,
+                        rr=2.0,
+                        size=0.01,
+                        use_risk_sizing=False,
+                        risk_pct=1.0,
+                        balance=10000.0,
+                        lot_size=lot_size,
+                        pip_size=pip_size,
+                        precision=5
+                    )
+                    calc_qty = round(float(trade_params.get("qty", 0.01)), 2)
+                    return max(0.01, calc_qty)
+                except Exception as calc_err:
+                    print(f"[Copytrader] Fixed $ amount sizing error ({calc_err}), falling back to direct lots: {master_lots}", flush=True)
+            return max(0.01, master_lots)
+        elif mode_lower in ('percent', 'risk_pct', 'pct', '%'):
             pct_val = multiplier if multiplier > 0 else 1.0
             if entry_price > 0 and sl > 0 and abs(entry_price - sl) > 1e-6:
                 try:

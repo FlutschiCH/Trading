@@ -9,7 +9,7 @@ import DebugComponentBadge from './debug_component_badge';
 interface SlaveAccount {
   account_id: string;
   broker: string;
-  mode: 'direct' | 'multiplier' | 'divider' | 'percent';
+  mode: 'direct' | 'multiplier' | 'divider' | 'percent' | 'fixed_amount';
   multiplier: number;
   status: 'active' | 'paused';
 }
@@ -421,7 +421,7 @@ export const Copytrader: React.FC = () => {
                     onChange={(e) => handleSlaveChange(idx, 'mode', e.target.value as any)}
                     style={{
                       flex: '0 0 auto',
-                      width: '125px',
+                      width: '135px',
                       backgroundColor: '#0f172a',
                       border: '1px solid #334155',
                       borderRadius: '4px',
@@ -435,16 +435,17 @@ export const Copytrader: React.FC = () => {
                     <option value="multiplier">Multiplier (×)</option>
                     <option value="divider">Divider (÷)</option>
                     <option value="percent">Risk (% SL)</option>
+                    <option value="fixed_amount">Fixed $ Loss</option>
                   </select>
 
-                  {(slave.mode === 'multiplier' || slave.mode === 'divider' || slave.mode === 'percent') && (
+                  {(slave.mode === 'multiplier' || slave.mode === 'divider' || slave.mode === 'percent' || slave.mode === 'fixed_amount') && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px', width: '85px' }}>
                       <span style={{ fontSize: '11px', color: '#94a3b8' }}>
-                        {slave.mode === 'divider' ? '÷' : slave.mode === 'percent' ? '%' : 'x'}
+                        {slave.mode === 'divider' ? '÷' : slave.mode === 'percent' ? '%' : slave.mode === 'fixed_amount' ? '$' : 'x'}
                       </span>
                       <input
                         type="number"
-                        step={slave.mode === 'percent' ? '0.25' : '0.1'}
+                        step={slave.mode === 'percent' ? '0.25' : slave.mode === 'fixed_amount' ? '5' : '0.1'}
                         min="0.01"
                         value={slave.multiplier}
                         onChange={(e) => handleSlaveChange(idx, 'multiplier', parseFloat(e.target.value) || 1.0)}
