@@ -136,15 +136,20 @@ def log_request_timing(response):
             elapsed = time.time() - g.start_time
             method = request.method if request else 'UNKNOWN'
             path = request.path if request else ''
+            status_code = response.status_code if response else 200
+
             if '/live-strategy/worker-heartbeat' in path:
                 return response
 
             if method == 'OPTIONS' and elapsed < 0.2:
                 return response
 
-            now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            print(f"[{now_str}] {method} {path} - {elapsed:.4f}s", flush=True)
             response.headers['X-Response-Time'] = f"{elapsed:.4f}s"
+
+            # Only log requests that are NOT successful/redirects (>= 400 status codes)
+            if status_code < 200 or status_code >= 400:
+                now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                print(f"[{now_str}] {method} {path} [{status_code}] - {elapsed:.4f}s", flush=True)
     except Exception:
         pass
     return response
