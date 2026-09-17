@@ -133,6 +133,94 @@ class BinanceFuturesHandler(BaseBrokerHandler):
                 })
         return positions
 
+    _symbol_rules_cache = {}
+    _valid_symbols_cache_time = 0
+
+    @classmethod
+    def _get_symbol_rules(cls, symbol: str) -> dict:
+        now = time.time()
+        if not cls._symbol_rules_cache or (now - cls._valid_symbols_cache_time >= 3600):
+            try:
+                res = cls._request('GET', '/fapi/v1/exchangeInfo')
+                if isinstance(res, dict) and not res.get('error'):
+                    rules = {}
+                    for s in res.get('symbols', []):
+                        sym_name = s.get('symbol', '').upper()
+                        tick_size = 0.01
+                        step_size = 0.001
+                        for f in s.get('filters', []):
+                            if f.get('filterType') == 'PRICE_FILTER':
+                                tick_size = float(f.get('tickSize', 0.01))
+                            elif f.get('filterType') == 'LOT_SIZE':
+                                step_size = float(f.get('stepSize', 0.001))
+                        rules[sym_name] = {
+                            'status': s.get('status'),
+                            'tickSize': tick_size,
+                            'stepSize': step_size,
+                            'pricePrecision': int(s.get('pricePrecision', 2)),
+                            'quantityPrecision': int(s.get('quantityPrecision', 3))
+                        }
+                    if rules:
+                        cls._symbol_rules_cache = rules
+                        cls._valid_symbols_cache_time = now
+            except Exception:
+                pass
+        return cls._symbol_rules_cache.get(symbol.upper(), {})
+
+    @classmethod
+    def _format_price(cls, symbol: str, price: float) -> float:
+        rules = cls._get_symbol_rules(symbol)
+        tick = rules.get('tickSize', 0.1)
+        if tick > 0:
+            decimals = 0
+            tick_str = str(tick).rstrip('0')
+            if '.' in tick_str:
+                decimals = len(tick_str.split('.')[1])
+            return round(round(price / tick) * tick, decimals)
+        prec = rules.get('pricePrecision', 2)
+        return round(float(price), prec)
+
+    @classmethod
+    def _format_quantity(cls, symbol: str, qty: float) -> float:
+        rules = cls._get_symbol_rules(symbol)
+        step = rules.get('stepSize', 0.001)
+        if step > 0:
+            decimals = 0
+            step_str = str(step).rstrip('0')
+            if '.' in step_str:
+                decimals = len(step_str.split('.')[1])
+            return round(round(qty / step) * step, decimals)
+        prec = rules.get('quantityPrecision', 3)
+        return round(float(qty), prec)
+
+    @classmethod
+    def _place_reduce_only_limit(cls, symbol: str, side: str, price: float, volume: float, api_key: str = None, secret_key: str = None) -> dict:
+        if not price or float(price) <= 0:
+            return {'status': 'skipped', 'message': 'Invalid price'}
+        
+        b_sym = cls.validate_and_format_symbol(symbol)
+        if not b_sym:
+            return {'error': f"Symbol '{symbol}' has no mapping on Binance"}
+
+        # Format volume according to exchange step size
+        formatted_qty = cls._format_quantity(b_sym, float(volume))
+        if formatted_qty <= 0:
+            formatted_qty = cls._get_symbol_rules(b_sym).get('stepSize', 0.001)
+
+        formatted_price = cls._format_price(b_sym, price)
+
+        params = {
+            'symbol': b_sym,
+            'side': side.upper(),
+            'type': 'LIMIT',
+            'price': formatted_price,
+            'quantity': formatted_qty,
+            'reduceOnly': 'true',
+            'timeInForce': 'GTC'
+        }
+        res = cls._request('POST', '/fapi/v1/order', params=params, api_key=api_key, secret_key=secret_key, signed=True)
+        return res
+
     @classmethod
     def create_order(cls, symbol: str, side: str, volume: float, price: float = None, order_type: str = 'MARKET', stop_loss: float = None, take_profit: float = None, api_key: str = None, secret_key: str = None, **kwargs) -> dict:
         b_sym = cls.validate_and_format_symbol(symbol)
@@ -159,6 +247,29 @@ class BinanceFuturesHandler(BaseBrokerHandler):
             return order_res
 
         results = {'main_order': order_res}
+
+        # Sync SL / TP as opposite-side reduceOnly LIMIT orders
+        opposite_side = 'SELL' if side.upper() == 'BUY' else 'BUY'
+        if stop_loss is not None and float(stop_loss) > 0:
+            results['stop_loss_order'] = cls._place_reduce_only_limit(
+                symbol=b_sym,
+                side=opposite_side,
+                price=stop_loss,
+                volume=volume,
+                api_key=api_key,
+                secret_key=secret_key
+            )
+
+        if take_profit is not None and float(take_profit) > 0:
+            results['take_profit_order'] = cls._place_reduce_only_limit(
+                symbol=b_sym,
+                side=opposite_side,
+                price=take_profit,
+                volume=volume,
+                api_key=api_key,
+                secret_key=secret_key
+            )
+
         return results
 
     @classmethod
@@ -170,6 +281,9 @@ class BinanceFuturesHandler(BaseBrokerHandler):
         if not b_sym:
             print(f"[BinanceHandler] Warning: Symbol '{symbol}' has no mapping on Binance. Skipping close_position.", flush=True)
             return {'error': f"Symbol '{symbol}' has no mapping on Binance"}
+
+        # Cancel any pending open SL/TP reduceOnly limit orders
+        cls.cancel_all_orders(symbol=b_sym, api_key=api_key, secret_key=secret_key)
 
         if not side:
             positions = cls.get_positions(api_key=api_key, secret_key=secret_key, symbol=b_sym)
@@ -195,9 +309,51 @@ class BinanceFuturesHandler(BaseBrokerHandler):
 
     @classmethod
     def modify_position(cls, position_id: int = None, stop_loss: float = None, take_profit: float = None, symbol: str = None, api_key: str = None, secret_key: str = None, **kwargs) -> dict:
-        # Binance fapi/v1/order deprecated STOP_MARKET/TAKE_PROFIT_MARKET in favor of algo order endpoints.
-        # Position modification is tracked and executed via copytrader market sync and reduceOnly close.
-        return {'status': 'success', 'message': 'Position modifications handled via copytrader sync'}
+        if not symbol:
+            return {'error': 'Symbol is required to modify position'}
+
+        b_sym = cls.validate_and_format_symbol(symbol)
+        if not b_sym:
+            return {'error': f"Symbol '{symbol}' has no mapping on Binance"}
+
+        positions = cls.get_positions(api_key=api_key, secret_key=secret_key, symbol=b_sym)
+        if not positions or isinstance(positions, dict):
+            return {'error': 'No open position found to modify'}
+
+        pos = positions[0]
+        pos_amt = float(pos.get('positionAmt', 0))
+        if pos_amt == 0:
+            return {'error': f'No open position amount for {b_sym}'}
+
+        pos_side = 'BUY' if pos_amt > 0 else 'SELL'
+        opposite_side = 'SELL' if pos_side == 'BUY' else 'BUY'
+        volume = abs(pos_amt)
+
+        # Clear existing open reduceOnly limit orders before placing updated ones
+        cls.cancel_all_orders(symbol=b_sym, api_key=api_key, secret_key=secret_key)
+
+        results = {'status': 'success'}
+        if stop_loss is not None and float(stop_loss) > 0:
+            results['stop_loss_order'] = cls._place_reduce_only_limit(
+                symbol=b_sym,
+                side=opposite_side,
+                price=stop_loss,
+                volume=volume,
+                api_key=api_key,
+                secret_key=secret_key
+            )
+
+        if take_profit is not None and float(take_profit) > 0:
+            results['take_profit_order'] = cls._place_reduce_only_limit(
+                symbol=b_sym,
+                side=opposite_side,
+                price=take_profit,
+                volume=volume,
+                api_key=api_key,
+                secret_key=secret_key
+            )
+
+        return results
 
     _valid_symbols_cache = set()
     _valid_symbols_cache_time = 0
