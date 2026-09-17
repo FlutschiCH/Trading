@@ -85,6 +85,22 @@ def internal_worker_update():
 
     return jsonify({"status": "success"})
 
+@strategy_routes.route('/backtest/active-jobs', methods=['GET'])
+def get_active_backtest_jobs_endpoint():
+    """
+    Returns all currently active/running backtest jobs for a specific computer (or all).
+    """
+    computer_name = request.args.get('computer_name')
+    from sql_handler import SQLHandler
+    jobs = SQLHandler.get_unfinished_backtest_jobs(computer_name=computer_name)
+    enriched_jobs = []
+    for j in jobs:
+        j_id = str(j.get('job_id', ''))
+        if j_id in _in_memory_job_cache:
+            j.update(_in_memory_job_cache[j_id])
+        enriched_jobs.append(j)
+    return jsonify({"status": "success", "jobs": enriched_jobs})
+
 @strategy_routes.route('/backtest/active-job', methods=['GET'])
 def get_active_backtest_job_endpoint():
     """

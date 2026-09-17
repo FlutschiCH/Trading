@@ -675,6 +675,32 @@ export default function Backtester({
     }
   }, [findBestSession, minHourlyPnl]);
 
+  // Active Backtests running on machine
+  const [runningBacktestJobs, setRunningBacktestJobs] = React.useState<any[]>([]);
+
+  React.useEffect(() => {
+    let isSubscribed = true;
+    const fetchActiveJobs = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/backtest/active-jobs`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (isSubscribed && data.status === 'success' && Array.isArray(data.jobs)) {
+          setRunningBacktestJobs(data.jobs);
+        }
+      } catch (err) {
+        // Silently catch polling error
+      }
+    };
+
+    fetchActiveJobs();
+    const interval = setInterval(fetchActiveJobs, 2500);
+    return () => {
+      isSubscribed = false;
+      clearInterval(interval);
+    };
+  }, []);
+
   // Auto-apply discovered winning sessions to session manager
   React.useEffect(() => {
     if (backtestResults?.discovered_sessions && Array.isArray(backtestResults.discovered_sessions) && backtestResults.discovered_sessions.length > 0) {
@@ -1969,85 +1995,29 @@ export default function Backtester({
               alignItems: 'center',
               justifyContent: 'center',
               gap: '6px',
-              background: loadingBacktest 
-                ? 'rgba(30, 41, 59, 0.8)' 
-                : 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+              background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
               color: '#ffffff',
-              border: loadingBacktest ? '1px solid rgba(59, 130, 246, 0.4)' : '1px solid rgba(255, 255, 255, 0.2)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
               padding: '7px 15px',
               borderRadius: '8px',
-              cursor: loadingBacktest ? 'not-allowed' : 'pointer',
+              cursor: 'pointer',
               fontWeight: 600,
               fontSize: '11px',
               letterSpacing: '0.3px',
-              boxShadow: loadingBacktest ? 'none' : '0 4px 14px rgba(37, 99, 235, 0.4)',
+              boxShadow: '0 4px 14px rgba(37, 99, 235, 0.4)',
               transition: 'all 0.2s',
-              opacity: loadingBacktest ? 0.9 : 1
             }}
             onMouseOver={(e) => {
-              if (!loadingBacktest) {
-                e.currentTarget.style.background = 'linear-gradient(135deg, #60a5fa 0%, #2563eb 100%)';
-                e.currentTarget.style.transform = 'translateY(-1px)';
-              }
+              e.currentTarget.style.background = 'linear-gradient(135deg, #60a5fa 0%, #2563eb 100%)';
+              e.currentTarget.style.transform = 'translateY(-1px)';
             }}
             onMouseOut={(e) => {
-              if (!loadingBacktest) {
-                e.currentTarget.style.background = 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)';
-                e.currentTarget.style.transform = 'translateY(0)';
-              }
+              e.currentTarget.style.background = 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)';
+              e.currentTarget.style.transform = 'translateY(0)';
             }}
           >
-            {loadingBacktest ? (() => {
-              const etaSec = backtestRunInfo?.etaSeconds;
-              const formatETA = (sec?: number) => {
-                if (sec === undefined || sec === null || sec <= 0) return '';
-                if (sec < 60) return `~${sec}s left`;
-                const m = Math.floor(sec / 60);
-                const s = sec % 60;
-                return `~${m}m ${s}s left`;
-              };
-              const etaStr = formatETA(etaSec);
-              const etaPart = etaStr ? ` | ${etaStr}` : '';
-
-              if (backtestRunInfo && backtestRunInfo.total > 1) {
-                return `⏳ Run ${backtestRunInfo.current}/${backtestRunInfo.total} (${backtestProgress}%${etaPart})`;
-              }
-              return `⏳ Running ${backtestProgress}%${etaPart}...`;
-            })() : (
-              '🔄 Run Backtest'
-            )}
+            🚀 Run Backtest
           </button>
-          {loadingBacktest && (
-            <button
-              onClick={onCancelBacktest}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '4px',
-                background: 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)',
-                color: '#ffffff',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
-                padding: '7px 11px',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontWeight: 600,
-                fontSize: '11px',
-                boxShadow: '0 4px 12px rgba(239, 68, 68, 0.35)',
-                transition: 'all 0.2s',
-              }}
-              onMouseOver={(e) => {
-                e.currentTarget.style.background = 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)';
-                e.currentTarget.style.transform = 'translateY(-1px)';
-              }}
-              onMouseOut={(e) => {
-                e.currentTarget.style.background = 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)';
-                e.currentTarget.style.transform = 'translateY(0)';
-              }}
-            >
-              🛑 Stop
-            </button>
-          )}
 
           {!isReadOnly && !isOptimizeMode && (
             <button
@@ -2088,6 +2058,110 @@ export default function Backtester({
           )}
           </div>
         </div>
+
+        {/* Running Backtests Banner (Active on this Machine) */}
+        {runningBacktestJobs.length > 0 && (
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
+            backgroundColor: 'rgba(15, 23, 42, 0.85)',
+            border: '1px solid rgba(59, 130, 246, 0.3)',
+            borderRadius: '8px',
+            padding: '10px 12px',
+            marginBottom: '10px',
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: '#60a5fa', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                ⚡ Active Running Backtests ({runningBacktestJobs.length})
+              </span>
+              <span style={{ fontSize: '10px', color: '#94a3b8' }}>
+                Machine: <strong style={{ color: '#cbd5e1' }}>{runningBacktestJobs[0]?.computer_name || 'Local'}</strong>
+              </span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {runningBacktestJobs.map((job: any) => {
+                const p = job.params || {};
+                const sym = p.symbol || p.symbols?.[0] || 'Unknown';
+                const tf = p.timeframe || p.timeframes?.[0] || '15m';
+                const prog = Math.round(job.progress ?? 0);
+                const step = job.step_info || 'Running...';
+                const isOpt = job.type === 'optimize';
+                const eta = job.estimated_seconds_remaining;
+                const etaText = eta ? (eta < 60 ? `~${eta}s left` : `~${Math.floor(eta / 60)}m ${eta % 60}s left`) : '';
+
+                return (
+                  <div key={job.job_id} style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    backgroundColor: 'rgba(30, 41, 59, 0.6)',
+                    border: '1px solid rgba(255, 255, 255, 0.05)',
+                    borderRadius: '6px',
+                    padding: '6px 10px',
+                    fontSize: '11px',
+                    gap: '10px',
+                    flexWrap: 'wrap'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{
+                        backgroundColor: isOpt ? 'rgba(168, 85, 247, 0.2)' : 'rgba(59, 130, 246, 0.2)',
+                        color: isOpt ? '#c084fc' : '#60a5fa',
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        fontWeight: 700,
+                        fontSize: '10px'
+                      }}>
+                        {isOpt ? 'OPTIMIZE' : 'SINGLE'}
+                      </span>
+                      <strong style={{ color: '#f1f5f9' }}>{sym} ({tf})</strong>
+                      <span style={{ color: '#94a3b8', fontSize: '10px' }}>{step}</span>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div style={{ width: '70px', height: '6px', backgroundColor: 'rgba(255, 255, 255, 0.1)', borderRadius: '3px', overflow: 'hidden' }}>
+                          <div style={{ width: `${Math.min(100, Math.max(0, prog))}%`, height: '100%', backgroundColor: '#3b82f6', transition: 'width 0.3s ease' }} />
+                        </div>
+                        <span style={{ color: '#cbd5e1', fontWeight: 600, fontSize: '10px', minWidth: '32px' }}>{prog}%</span>
+                        {etaText && <span style={{ color: '#94a3b8', fontSize: '10px' }}>({etaText})</span>}
+                      </div>
+
+                      <button
+                        onClick={async () => {
+                          try {
+                            await fetch(`${API_BASE_URL}/api/backtest/cancel`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ backtestId: job.job_id })
+                            });
+                            setRunningBacktestJobs(prev => prev.filter(j => j.job_id !== job.job_id));
+                          } catch (e) {
+                            console.error("Cancel failed", e);
+                          }
+                        }}
+                        style={{
+                          backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                          color: '#f87171',
+                          border: '1px solid rgba(239, 68, 68, 0.4)',
+                          borderRadius: '4px',
+                          padding: '2px 8px',
+                          fontSize: '10px',
+                          fontWeight: 600,
+                          cursor: 'pointer'
+                        }}
+                        title="Stop this worker process"
+                      >
+                        🛑 Cancel
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {backtestResults && (() => {
           const formatDateExact = (val: any) => {
