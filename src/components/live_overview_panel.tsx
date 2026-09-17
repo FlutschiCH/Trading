@@ -24,6 +24,8 @@ interface LiveStrategy {
   sessions: any[];
   useGlobalClose: boolean;
   globalCloseTime: string;
+  useEntryCutoff?: boolean;
+  entryCutoffTime?: string;
   entryStabilityRule: string;
   broker: string;
   account_id?: string;

@@ -19,7 +19,9 @@ class StrategyHandler:
         daily_first_signals_mode: str = 'disabled',
         daily_first_signals_count: int = 0,
         daily_first_signals_risk_mult: float = 0.5,
-        daily_signals_count: dict = None
+        daily_signals_count: dict = None,
+        use_entry_cutoff: bool = False,
+        entry_cutoff_time: str = ''
     ) -> tuple:
         """
         Pure signal detection logic shared between Backtesting and Live Trading.
@@ -137,6 +139,18 @@ class StrategyHandler:
         if not in_session:
             should_buy = False
             should_sell = False
+
+        # Entry Cutoff filtering (Don't enter after XY time)
+        if use_entry_cutoff and entry_cutoff_time and len(entry_cutoff_time.strip()) == 5:
+            try:
+                ch, cm = map(int, entry_cutoff_time.strip().split(":"))
+                from datetime import time as dttime
+                cutoff_t = dttime(ch, cm)
+                if dt_curr.time() >= cutoff_t:
+                    should_buy = False
+                    should_sell = False
+            except Exception:
+                pass
 
         # Date range filtering
         if date_from is not None and candle_time < int(date_from):
@@ -280,6 +294,8 @@ class StrategyHandler:
         sessions: list = None,
         use_global_close: bool = False,
         global_close_time: str = '',
+        use_entry_cutoff: bool = False,
+        entry_cutoff_time: str = '',
         progress_callback = None,
         entry_stability_rule: str = 'default',
         broker: str = 'metatrader',
@@ -356,6 +372,8 @@ class StrategyHandler:
             sessions=pass1_sessions,
             use_global_close=use_global_close,
             global_close_time=global_close_time,
+            use_entry_cutoff=use_entry_cutoff,
+            entry_cutoff_time=entry_cutoff_time,
             progress_callback=sim_cb,
             entry_stability_rule=entry_stability_rule,
             session_config=session_config,
@@ -405,6 +423,8 @@ class StrategyHandler:
                     "sessions": pass1_sessions,
                     "use_global_close": use_global_close,
                     "global_close_time": global_close_time,
+                    "use_entry_cutoff": use_entry_cutoff,
+                    "entry_cutoff_time": entry_cutoff_time,
                     "entry_stability_rule": entry_stability_rule,
                     "indicator_rules": indicator_rules,
                     "htf_ema_enabled": htf_ema_enabled,
@@ -484,6 +504,8 @@ class StrategyHandler:
                     sessions=discovered_sessions,
                     use_global_close=use_global_close,
                     global_close_time=global_close_time,
+                    use_entry_cutoff=use_entry_cutoff,
+                    entry_cutoff_time=entry_cutoff_time,
                     progress_callback=pass2_cb,
                     entry_stability_rule=entry_stability_rule,
                     session_config=session_config,
@@ -522,6 +544,8 @@ class StrategyHandler:
                             "sessions": discovered_sessions,
                             "use_global_close": use_global_close,
                             "global_close_time": global_close_time,
+                            "use_entry_cutoff": use_entry_cutoff,
+                            "entry_cutoff_time": entry_cutoff_time,
                             "entry_stability_rule": entry_stability_rule,
                             "indicator_rules": indicator_rules,
                             "htf_ema_enabled": htf_ema_enabled,
@@ -615,6 +639,8 @@ class StrategyHandler:
         sessions: list = None,
         use_global_close: bool = False,
         global_close_time: str = '',
+        use_entry_cutoff: bool = False,
+        entry_cutoff_time: str = '',
         progress_callback = None,
         entry_stability_rule: str = 'default',
         candle_source: str = 'metatrader',
@@ -928,6 +954,8 @@ class StrategyHandler:
                 sessions=sessions,
                 use_global_close=use_global_close,
                 global_close_time=global_close_time,
+                use_entry_cutoff=use_entry_cutoff,
+                entry_cutoff_time=entry_cutoff_time,
                 progress_callback=None,
                 entry_stability_rule=entry_stability_rule,
                 daily_first_signals_mode=daily_first_signals_mode,
@@ -976,6 +1004,8 @@ class StrategyHandler:
                     "sessions": sessions,
                     "use_global_close": use_global_close,
                     "global_close_time": global_close_time,
+                    "use_entry_cutoff": use_entry_cutoff,
+                    "entry_cutoff_time": entry_cutoff_time,
                     "entry_stability_rule": entry_stability_rule,
                     "htf_ema_enabled": htf_on,
                     "htf_ema_period": htf_per,

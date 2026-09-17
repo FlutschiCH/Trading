@@ -43,6 +43,8 @@ def save_strategy():
         "sessions": payload.get("sessions", []),
         "useGlobalClose": bool(payload.get("useGlobalClose", False)),
         "globalCloseTime": payload.get("globalCloseTime", ""),
+        "useEntryCutoff": bool(payload.get("useEntryCutoff", False)),
+        "entryCutoffTime": payload.get("entryCutoffTime", ""),
         "entryStabilityRule": payload.get("entryStabilityRule", "default"),
         "broker": payload.get("broker", "metatrader"),
         "target_computer": payload.get("target_computer", "All"),

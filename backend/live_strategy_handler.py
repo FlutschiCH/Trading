@@ -37,6 +37,8 @@ class LiveStrategyHandler:
                 sessions TEXT,
                 useGlobalClose TINYINT(1) DEFAULT 0,
                 globalCloseTime VARCHAR(32) DEFAULT '',
+                useEntryCutoff TINYINT(1) DEFAULT 0,
+                entryCutoffTime VARCHAR(32) DEFAULT '',
                 entryStabilityRule VARCHAR(64) DEFAULT 'default',
                 broker VARCHAR(64) DEFAULT 'metatrader',
                 account_id VARCHAR(128) DEFAULT '',
@@ -83,6 +85,8 @@ class LiveStrategyHandler:
                 sessions TEXT,
                 useGlobalClose INTEGER DEFAULT 0,
                 globalCloseTime TEXT DEFAULT '',
+                useEntryCutoff INTEGER DEFAULT 0,
+                entryCutoffTime TEXT DEFAULT '',
                 entryStabilityRule TEXT DEFAULT 'default',
                 broker TEXT DEFAULT 'metatrader',
                 account_id TEXT DEFAULT '',
@@ -165,12 +169,13 @@ class LiveStrategyHandler:
         INSERT INTO live_strategies (
             id, name, symbol, status, timeframe, slVal, slType, rr, size, 
             useRiskSizing, riskPct, useBreakEven, beTriggerR, allowOppositeClose, lookbackWindow, deployedAt,
-            timezone, sessions, useGlobalClose, globalCloseTime, entryStabilityRule, broker, account_id, target_computer,
+            timezone, sessions, useGlobalClose, globalCloseTime, useEntryCutoff, entryCutoffTime, entryStabilityRule, broker, account_id, target_computer,
             dateRangeOption, customFrom, customTo, candleLimit,
             dailyFirstSignalsMode, dailyFirstSignalsCount, dailyFirstSignalsRiskMult
         ) VALUES (
             %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+            %s, %s, %s, %s,
             %s, %s, %s
         ) ON DUPLICATE KEY UPDATE 
             name=VALUES(name),
@@ -192,6 +197,8 @@ class LiveStrategyHandler:
             sessions=VALUES(sessions),
             useGlobalClose=VALUES(useGlobalClose),
             globalCloseTime=VALUES(globalCloseTime),
+            useEntryCutoff=VALUES(useEntryCutoff),
+            entryCutoffTime=VALUES(entryCutoffTime),
             entryStabilityRule=VALUES(entryStabilityRule),
             broker=VALUES(broker),
             account_id=VALUES(account_id),
@@ -233,6 +240,8 @@ class LiveStrategyHandler:
             json.dumps(strategy.get("sessions", [])),
             1 if strategy.get("useGlobalClose", False) else 0,
             strategy.get("globalCloseTime", ""),
+            1 if strategy.get("useEntryCutoff", False) else 0,
+            strategy.get("entryCutoffTime", ""),
             strategy.get("entryStabilityRule", "default"),
             strategy.get("broker", "metatrader"),
             acc_id,
@@ -362,6 +371,8 @@ class LiveStrategyHandler:
             "sessions": sessions_list,
             "useGlobalClose": bool(row.get("useGlobalClose", False)),
             "globalCloseTime": row.get("globalCloseTime", "") or "",
+            "useEntryCutoff": bool(row.get("useEntryCutoff", False)),
+            "entryCutoffTime": row.get("entryCutoffTime", "") or "",
             "entryStabilityRule": row.get("entryStabilityRule", "default") or "default",
             "broker": row.get("broker", "metatrader") or "metatrader",
             "account_id": row.get("account_id") or "",
@@ -444,6 +455,18 @@ class LiveStrategyHandler:
                     
         if not in_session:
             return False, f"Trade rejected: Outside configured trading sessions ({timezone_str} timezone)."
+
+        # Check entry cutoff time
+        use_entry_cutoff = strategy.get("useEntryCutoff", False)
+        entry_cutoff_time = strategy.get("entryCutoffTime", "")
+        if use_entry_cutoff and entry_cutoff_time and len(entry_cutoff_time.strip()) == 5:
+            try:
+                ch, cm = map(int, entry_cutoff_time.strip().split(":"))
+                from datetime import time as dttime
+                if time_val >= dttime(ch, cm):
+                    return False, f"Trade rejected: Past entry cutoff time ({entry_cutoff_time})."
+            except Exception:
+                pass
             
         return True, ""
 

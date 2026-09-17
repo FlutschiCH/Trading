@@ -547,6 +547,8 @@ export default function Dashboard() {
   });
   const [useGlobalClose, setUseGlobalClose] = useState<boolean>(() => localStorage.getItem('wyckoff_use_global_close') === 'true');
   const [globalCloseTime, setGlobalCloseTime] = useState<string>(() => localStorage.getItem('wyckoff_global_close_time') || '21:50');
+  const [useEntryCutoff, setUseEntryCutoff] = useState<boolean>(() => localStorage.getItem('wyckoff_use_entry_cutoff') === 'true');
+  const [entryCutoffTime, setEntryCutoffTime] = useState<string>(() => localStorage.getItem('wyckoff_entry_cutoff_time') || '18:00');
 
   const [panelOrder, setPanelOrder] = useState<string[]>(() => {
     try {
@@ -610,6 +612,8 @@ export default function Dashboard() {
       tradingSessions,
       useGlobalClose,
       globalCloseTime,
+      useEntryCutoff,
+      entryCutoffTime,
       globalRangeMode: localStorage.getItem('wyckoff_backtester_global_range_mode') === 'true',
       rrRangeMode: localStorage.getItem('wyckoff_backtester_rr_range_mode') === 'true',
       rrStart: rrStart || localStorage.getItem('wyckoff_backtester_rr_start'),
@@ -716,6 +720,16 @@ export default function Dashboard() {
     if (gct !== undefined) {
       setGlobalCloseTime(gct);
       localStorage.setItem('wyckoff_global_close_time', gct);
+    }
+    const uec = settings.useEntryCutoff ?? settings.use_entry_cutoff;
+    if (uec !== undefined) {
+      setUseEntryCutoff(Boolean(uec));
+      localStorage.setItem('wyckoff_use_entry_cutoff', String(uec));
+    }
+    const ect = settings.entryCutoffTime ?? settings.entry_cutoff_time;
+    if (ect !== undefined) {
+      setEntryCutoffTime(ect);
+      localStorage.setItem('wyckoff_entry_cutoff_time', ect);
     }
     if (settings.isOptimizeMode !== undefined) {
       setIsOptimizeMode(settings.isOptimizeMode);
@@ -1231,6 +1245,8 @@ export default function Dashboard() {
           sessions: tradingSessions,
           useGlobalClose,
           globalCloseTime,
+          useEntryCutoff,
+          entryCutoffTime,
           entryStabilityRule,
           ...bounds,
           ...(rangeParams || {})
@@ -1375,6 +1391,8 @@ export default function Dashboard() {
           sessions: tradingSessions,
           useGlobalClose,
           globalCloseTime,
+          useEntryCutoff,
+          entryCutoffTime,
           entryStabilityRule,
           ...bounds,
           ...(rangeParams || {})
@@ -1542,6 +1560,8 @@ export default function Dashboard() {
         sessions: tradingSessions,
         useGlobalClose,
         globalCloseTime,
+        useEntryCutoff,
+        entryCutoffTime,
         entryStabilityRule,
         broker: targetBroker,
         target_computer: targetComputer,
@@ -1684,6 +1704,14 @@ export default function Dashboard() {
   useEffect(() => {
     localStorage.setItem('wyckoff_global_close_time', globalCloseTime);
   }, [globalCloseTime]);
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_use_entry_cutoff', useEntryCutoff.toString());
+  }, [useEntryCutoff]);
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_entry_cutoff_time', entryCutoffTime);
+  }, [entryCutoffTime]);
 
   // Fetch symbols and timeframes metadata dynamically based on selected candleSource
   useEffect(() => {
@@ -2835,6 +2863,10 @@ export default function Dashboard() {
                         setUseGlobalClose={setUseGlobalClose}
                         globalCloseTime={globalCloseTime}
                         setGlobalCloseTime={setGlobalCloseTime}
+                        useEntryCutoff={useEntryCutoff}
+                        setUseEntryCutoff={setUseEntryCutoff}
+                        entryCutoffTime={entryCutoffTime}
+                        setEntryCutoffTime={setEntryCutoffTime}
                         hiddenStages={hiddenStages}
                         setHiddenStages={setHiddenStages}
                         isOptimizeMode={isOptimizeMode}
@@ -3373,6 +3405,10 @@ export default function Dashboard() {
                               setUseGlobalClose={setUseGlobalClose}
                               globalCloseTime={globalCloseTime}
                               setGlobalCloseTime={setGlobalCloseTime}
+                              useEntryCutoff={useEntryCutoff}
+                              setUseEntryCutoff={setUseEntryCutoff}
+                              entryCutoffTime={entryCutoffTime}
+                              setEntryCutoffTime={setEntryCutoffTime}
                               hiddenStages={hiddenStages}
                               setHiddenStages={setHiddenStages}
 

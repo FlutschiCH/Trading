@@ -132,6 +132,8 @@ def run_trade_simulation(
     sessions: list = None,
     use_global_close: bool = False,
     global_close_time: str = '',
+    use_entry_cutoff: bool = False,
+    entry_cutoff_time: str = '',
     progress_callback = None,
     entry_stability_rule: str = 'default',
     session_config: dict = None,
@@ -360,7 +362,9 @@ def run_trade_simulation(
             daily_first_signals_mode=daily_first_signals_mode,
             daily_first_signals_count=daily_first_signals_count,
             daily_first_signals_risk_mult=daily_first_signals_risk_mult,
-            daily_signals_count=daily_signals_count
+            daily_signals_count=daily_signals_count,
+            use_entry_cutoff=use_entry_cutoff,
+            entry_cutoff_time=entry_cutoff_time
         )
         accum_consec_bars = state_dict['accum_consec_bars']
         dist_consec_bars = state_dict['dist_consec_bars']

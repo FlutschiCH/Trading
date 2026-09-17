@@ -158,6 +158,8 @@ class LiveWorker:
         daily_mode = strategy.get("dailyFirstSignalsMode", "disabled")
         daily_count = int(strategy.get("dailyFirstSignalsCount", 1))
         daily_risk_mult = float(strategy.get("dailyFirstSignalsRiskMult", 0.5))
+        use_entry_cutoff = strategy.get("useEntryCutoff", False)
+        entry_cutoff_time = strategy.get("entryCutoffTime", "")
 
         state_dict = {}
         daily_signals_count = {}
@@ -171,7 +173,9 @@ class LiveWorker:
                 daily_first_signals_mode=daily_mode,
                 daily_first_signals_count=daily_count,
                 daily_first_signals_risk_mult=daily_risk_mult,
-                daily_signals_count=daily_signals_count
+                daily_signals_count=daily_signals_count,
+                use_entry_cutoff=use_entry_cutoff,
+                entry_cutoff_time=entry_cutoff_time
             )
 
         accum_consec_bars = state_dict.get('accum_consec_bars', 0)
@@ -668,6 +672,8 @@ class LiveWorker:
                             sessions=strategy.get("sessions", []),
                             use_global_close=strategy.get("useGlobalClose", False),
                             global_close_time=strategy.get("globalCloseTime", ""),
+                            use_entry_cutoff=strategy.get("useEntryCutoff", False),
+                            entry_cutoff_time=strategy.get("entryCutoffTime", ""),
                             entry_stability_rule=strategy.get("entryStabilityRule", "default"),
                             broker=broker_name,
                             daily_first_signals_mode=strategy.get("dailyFirstSignalsMode", "disabled"),

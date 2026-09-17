@@ -198,6 +198,10 @@ interface WyckoffBacktesterProps {
   setUseGlobalClose: (val: boolean) => void;
   globalCloseTime: string;
   setGlobalCloseTime: (val: string) => void;
+  useEntryCutoff?: boolean;
+  setUseEntryCutoff?: (val: boolean) => void;
+  entryCutoffTime?: string;
+  setEntryCutoffTime?: (val: string) => void;
   entryStabilityRule: string;
   setEntryStabilityRule: (val: string) => void;
   // Multi-symbol and multi-timeframe props
@@ -369,6 +373,10 @@ export default function Backtester({
   setUseGlobalClose,
   globalCloseTime,
   setGlobalCloseTime,
+  useEntryCutoff = false,
+  setUseEntryCutoff,
+  entryCutoffTime = '',
+  setEntryCutoffTime,
   entryStabilityRule,
   setEntryStabilityRule,
   hiddenStages = [],
@@ -1188,6 +1196,18 @@ export default function Backtester({
           replacements.globalCloseTime = val;
           localStorage.setItem('wyckoff_global_close_time', val);
         }
+        if (s.useEntryCutoff !== undefined || s.use_entry_cutoff !== undefined) {
+          const val = Boolean(s.useEntryCutoff ?? s.use_entry_cutoff);
+          if (setUseEntryCutoff) setUseEntryCutoff(val);
+          replacements.useEntryCutoff = val;
+          localStorage.setItem('wyckoff_use_entry_cutoff', String(val));
+        }
+        if (s.entryCutoffTime !== undefined || s.entry_cutoff_time !== undefined) {
+          const val = String(s.entryCutoffTime ?? s.entry_cutoff_time);
+          if (setEntryCutoffTime) setEntryCutoffTime(val);
+          replacements.entryCutoffTime = val;
+          localStorage.setItem('wyckoff_entry_cutoff_time', val);
+        }
 
         // 4. Indicator Confirmation Rules
         if (s.indicatorRules && Array.isArray(s.indicatorRules)) {
@@ -1409,6 +1429,8 @@ export default function Backtester({
         tradingSessions,
         useGlobalClose,
         globalCloseTime,
+        useEntryCutoff,
+        entryCutoffTime,
         globalRangeMode,
         rrRangeMode,
         rrStart: activeRRStart,
@@ -1493,6 +1515,8 @@ export default function Backtester({
         if (s.tradingSessions !== undefined) setTradingSessions(s.tradingSessions);
         if (s.useGlobalClose !== undefined) setUseGlobalClose(s.useGlobalClose);
         if (s.globalCloseTime !== undefined) setGlobalCloseTime(s.globalCloseTime);
+        if (s.useEntryCutoff !== undefined && setUseEntryCutoff) setUseEntryCutoff(s.useEntryCutoff);
+        if (s.entryCutoffTime !== undefined && setEntryCutoffTime) setEntryCutoffTime(s.entryCutoffTime);
         if (s.isOptimizeMode !== undefined) setIsOptimizeMode(s.isOptimizeMode);
         if (s.rrStart !== undefined) setRRStart(s.rrStart);
         if (s.rrEnd !== undefined) setRREnd(s.rrEnd);
@@ -1974,7 +1998,10 @@ export default function Backtester({
                 htfEmaRangeMode: globalRangeMode && htfEmaRangeMode,
                 minSavePnl: minSavePnl.trim() !== '' ? parseFloat(minSavePnl) : undefined,
                 findBestSession,
-                minHourlyPnl: parseFloat(minHourlyPnl) || 0.0,
+                useGlobalClose,
+                globalCloseTime,
+                useEntryCutoff,
+                entryCutoffTime,
                 // Scalper specific parameters
                 atr_multiplier: atrMultiplier,
                 vol_multiplier: volMultiplier,
@@ -3256,6 +3283,28 @@ export default function Backtester({
                 placeholder="e.g. 21:50"
                 value={globalCloseTime}
                 onChange={(e) => setGlobalCloseTime(e.target.value)}
+                style={styles.input}
+              />
+            )}
+          </div>
+
+          {/* Entry Cutoff Time */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label style={{ color: '#cbd5e1', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={useEntryCutoff}
+                onChange={(e) => setUseEntryCutoff && setUseEntryCutoff(e.target.checked)}
+                style={{ cursor: 'pointer' }}
+              />
+              Don't enter after (Cutoff):
+            </label>
+            {useEntryCutoff && (
+              <input
+                type="text"
+                placeholder="e.g. 18:00"
+                value={entryCutoffTime}
+                onChange={(e) => setEntryCutoffTime && setEntryCutoffTime(e.target.value)}
                 style={styles.input}
               />
             )}
