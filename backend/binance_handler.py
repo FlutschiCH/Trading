@@ -194,7 +194,7 @@ class BinanceFuturesHandler(BaseBrokerHandler):
         return round(float(qty), prec)
 
     @classmethod
-    def _place_reduce_only_limit(cls, symbol: str, side: str, price: float, volume: float, api_key: str = None, secret_key: str = None) -> dict:
+    def _place_reduce_only_limit(cls, symbol: str, side: str, price: float, volume: float, is_stop: bool = False, api_key: str = None, secret_key: str = None) -> dict:
         if not price or float(price) <= 0:
             return {'status': 'skipped', 'message': 'Invalid price'}
         
@@ -209,7 +209,22 @@ class BinanceFuturesHandler(BaseBrokerHandler):
 
         formatted_price = cls._format_price(b_sym, price)
 
-        params = {
+        # 1. First attempt: Conditional STOP/TAKE_PROFIT market exit if applicable
+        if is_stop:
+            order_type = 'STOP_MARKET'
+            stop_params = {
+                'symbol': b_sym,
+                'side': side.upper(),
+                'type': order_type,
+                'stopPrice': formatted_price,
+                'closePosition': 'true'
+            }
+            res = cls._request('POST', '/fapi/v1/order', params=stop_params, api_key=api_key, secret_key=secret_key, signed=True)
+            if not isinstance(res, dict) or ('error' not in res and 'code' not in res):
+                return res
+
+        # 2. Fallback / Take Profit: reduceOnly LIMIT order
+        limit_params = {
             'symbol': b_sym,
             'side': side.upper(),
             'type': 'LIMIT',
@@ -218,7 +233,7 @@ class BinanceFuturesHandler(BaseBrokerHandler):
             'reduceOnly': 'true',
             'timeInForce': 'GTC'
         }
-        res = cls._request('POST', '/fapi/v1/order', params=params, api_key=api_key, secret_key=secret_key, signed=True)
+        res = cls._request('POST', '/fapi/v1/order', params=limit_params, api_key=api_key, secret_key=secret_key, signed=True)
         return res
 
     @classmethod
@@ -256,6 +271,7 @@ class BinanceFuturesHandler(BaseBrokerHandler):
                 side=opposite_side,
                 price=stop_loss,
                 volume=volume,
+                is_stop=True,
                 api_key=api_key,
                 secret_key=secret_key
             )
@@ -266,6 +282,7 @@ class BinanceFuturesHandler(BaseBrokerHandler):
                 side=opposite_side,
                 price=take_profit,
                 volume=volume,
+                is_stop=False,
                 api_key=api_key,
                 secret_key=secret_key
             )
@@ -339,6 +356,7 @@ class BinanceFuturesHandler(BaseBrokerHandler):
                 side=opposite_side,
                 price=stop_loss,
                 volume=volume,
+                is_stop=True,
                 api_key=api_key,
                 secret_key=secret_key
             )
@@ -349,6 +367,7 @@ class BinanceFuturesHandler(BaseBrokerHandler):
                 side=opposite_side,
                 price=take_profit,
                 volume=volume,
+                is_stop=False,
                 api_key=api_key,
                 secret_key=secret_key
             )
