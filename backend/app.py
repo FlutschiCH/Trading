@@ -128,11 +128,6 @@ from datetime import datetime
 @app.before_request
 def start_timer():
     g.start_time = time.time()
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
-    method = request.method if request else 'UNKNOWN'
-    path = request.path if request else ''
-    if method != 'OPTIONS' and '/live-strategy/worker-heartbeat' not in path:
-        print(f"📥 [Flask Inbound] [{now_str}] {method} {path}", flush=True)
 
 @app.after_request
 def log_request_timing(response):
@@ -144,15 +139,11 @@ def log_request_timing(response):
             if '/live-strategy/worker-heartbeat' in path:
                 return response
 
-            if method == 'OPTIONS':
-                if elapsed > 0.2:
-                    logPrint(f"⏱️ [API SLOW] {method} {path} took {elapsed:.4f}s", category="Flask API", level="WARNING")
+            if method == 'OPTIONS' and elapsed < 0.2:
                 return response
 
-            if elapsed > 0.1:
-                logPrint(f"⏱️ [API SLOW] {method} {path} took {elapsed:.4f}s", category="Flask API", level="WARNING")
-            else:
-                logPrint(f"⚡ [API] {method} {path} took {elapsed:.4f}s", category="Flask API", level="DEBUG")
+            now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            print(f"[{now_str}] {method} {path} - {elapsed:.4f}s", flush=True)
             response.headers['X-Response-Time'] = f"{elapsed:.4f}s"
     except Exception:
         pass
@@ -181,19 +172,8 @@ from logger_handler import logPrint
 
 class CustomWSGILogger:
     def write(self, msg):
-        if msg:
-            m = msg.strip()
-            if m:
-                if '/live-strategy/worker-heartbeat' in m:
-                    return
-                if '"OPTIONS ' in m:
-                    try:
-                        dur = float(m.split()[-1])
-                        if dur < 0.2:
-                            return
-                    except Exception:
-                        return
-                logPrint(m, category="Flask API", level="INFO")
+        # Suppressed redundant default WSGI access logs in favor of one-line timing log
+        pass
 
 if __name__ == '__main__':
     try:
