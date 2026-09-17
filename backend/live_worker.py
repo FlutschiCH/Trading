@@ -296,6 +296,7 @@ class LiveWorker:
                 entry_price = float(last_candle["close"])
                 pip_size = get_pip_size(target_broker_symbol, entry_price)
                 lot_size = get_lot_size(target_broker_symbol)
+                atr_val = float(last_candle.get("atr") or 0.0)
 
                 params = TradingHandler.calculate_trade_parameters(
                     symbol=target_broker_symbol,
@@ -310,7 +311,8 @@ class LiveWorker:
                     balance=balance,
                     lot_size=lot_size,
                     pip_size=pip_size,
-                    precision=5
+                    precision=5,
+                    atr_val=atr_val
                 )
 
                 print(f"{Fore.GREEN}[LiveWorker Trade]{Style.RESET_ALL} Triggering {direction} order on {target_acc_id} ({target_broker_symbol}). Params: {params}", flush=True)
@@ -695,7 +697,12 @@ class LiveWorker:
                         if len(sorted_times) > 5000:
                             sorted_times = sorted_times[-5000:]
                         full_history = [merge_map[t] for t in sorted_times]
-                        self.candles_cache = WyckoffHandler.analyze_wyckoff_structure(full_history, lookback=lookback)
+                        analysis_res = StrategyHandler.analyze_market_data(
+                            bars_list=full_history,
+                            lookback=lookback,
+                            indicator_rules=strategy.get("indicatorRules") or strategy.get("indicator_rules")
+                        )
+                        self.candles_cache = list(analysis_res.get('data', []))
 
                 if not self.candles_cache or len(self.candles_cache) < lookback + 10:
                     self.send_update_or_heartbeat(state_info={
