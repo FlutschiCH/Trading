@@ -158,8 +158,8 @@ interface WyckoffBacktesterProps {
   backtestFees: string;
   setBacktestFees: (val: string) => void;
   backtestResults: any;
-  backtestTab: 'trades' | 'equity' | 'weekly' | 'monthly' | 'hourly' | 'favourites';
-  setBacktestTab: (val: 'trades' | 'equity' | 'weekly' | 'monthly' | 'hourly' | 'favourites') => void;
+  backtestTab: 'trades' | 'equity' | 'weekly' | 'monthly' | 'hourly' | 'favourites' | 'comparison';
+  setBacktestTab: (val: 'trades' | 'equity' | 'weekly' | 'monthly' | 'hourly' | 'favourites' | 'comparison') => void;
   tradeFilter: 'all' | 'wins' | 'losses';
   setTradeFilter: (val: 'all' | 'wins' | 'losses') => void;
   selectedTrade: any;
@@ -721,6 +721,122 @@ export default function Backtester({
       }
     }
   }, [backtestResults]);
+
+  // Backtest Run History & Comparison
+  const [backtestHistory, setBacktestHistory] = React.useState<any[]>(() => {
+    try {
+      const saved = localStorage.getItem('wyckoff_backtest_run_history');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [selectedHistoryCompareId, setSelectedHistoryCompareId] = React.useState<string | null>(null);
+
+  const lastRecordedRunRef = React.useRef<string | null>(null);
+
+  React.useEffect(() => {
+    if (!backtestResults) return;
+    const trades = backtestResults.trades || [];
+    const netPnl = backtestResults.netPnl ?? backtestResults.summary?.net_profit ?? 0;
+    const winRate = backtestResults.winRate ?? backtestResults.summary?.win_rate ?? 0;
+    const totalTrades = backtestResults.totalTrades ?? backtestResults.summary?.total_trades ?? trades.length;
+    const maxDrawdown = backtestResults.maxDrawdown ?? backtestResults.summary?.max_drawdown ?? 0;
+    const profitFactor = backtestResults.profitFactor ?? backtestResults.summary?.profit_factor ?? 0;
+
+    // Build signature to prevent duplicate saving
+    const runSig = `${symbol}_${timeframe}_${trades.length}_${netPnl.toFixed(2)}_${winRate.toFixed(2)}_${backtestResults.dateFrom || ''}_${backtestResults.dateTo || ''}`;
+    if (lastRecordedRunRef.current === runSig) return;
+    lastRecordedRunRef.current = runSig;
+
+    const snapshot = {
+      id: Date.now().toString(),
+      timestamp: new Date().toISOString(),
+      symbol,
+      timeframe,
+      broker,
+      strategyType,
+      settings: {
+        slVal: backtestSL,
+        slType: backtestSLType,
+        rr: backtestRR,
+        size: backtestSize,
+        useRiskSizing,
+        riskPct: backtestRiskPct,
+        useBreakEven,
+        beTriggerR: backtestBE,
+        beOffsetMode,
+        lookbackWindow,
+        feesPercent: backtestFees,
+        dailyRetryLimit,
+        allowOppositeClose,
+        useGlobalClose,
+        globalCloseTime,
+        useEntryCutoff,
+        entryCutoffTime,
+        dateRangeOption,
+        customFrom,
+        customTo,
+        candleLimit
+      },
+      results: {
+        totalTrades,
+        winRate,
+        netPnl,
+        profitFactor,
+        maxDrawdown,
+        maxDailyLoss: backtestResults.maxDailyLoss ?? backtestResults.summary?.max_daily_loss ?? 0,
+        tradesCount: trades.length,
+        trades: trades.slice(0, 100) // Keep recent trades lightweight
+      }
+    };
+
+    setBacktestHistory(prev => {
+      const updated = [snapshot, ...prev.filter(h => h.id !== snapshot.id)].slice(0, 30);
+      try {
+        localStorage.setItem('wyckoff_backtest_run_history', JSON.stringify(updated));
+      } catch (err) {
+        // Handle quota if payload is large
+        try {
+          const minimal = updated.map(u => ({ ...u, results: { ...u.results, trades: [] } }));
+          localStorage.setItem('wyckoff_backtest_run_history', JSON.stringify(minimal));
+        } catch {}
+      }
+      return updated;
+    });
+  }, [backtestResults, symbol, timeframe, broker, strategyType, backtestSL, backtestSLType, backtestRR, backtestSize, useRiskSizing, backtestRiskPct, useBreakEven, backtestBE, beOffsetMode, lookbackWindow, backtestFees, dailyRetryLimit, allowOppositeClose, useGlobalClose, globalCloseTime, useEntryCutoff, entryCutoffTime, dateRangeOption, customFrom, customTo, candleLimit]);
+
+  const handleClearHistory = () => {
+    if (window.confirm("Clear all recorded backtest run history?")) {
+      setBacktestHistory([]);
+      setSelectedHistoryCompareId(null);
+      localStorage.removeItem('wyckoff_backtest_run_history');
+    }
+  };
+
+  const handleRestoreHistoryRun = (entry: any) => {
+    if (!entry || !entry.settings) return;
+    const s = entry.settings;
+    if (s.slVal !== undefined) setBacktestSL(String(s.slVal));
+    if (s.slType !== undefined) setBacktestSLType(s.slType);
+    if (s.rr !== undefined) setBacktestRR(String(s.rr));
+    if (s.size !== undefined) setBacktestSize(String(s.size));
+    if (s.useRiskSizing !== undefined) setUseRiskSizing(Boolean(s.useRiskSizing));
+    if (s.riskPct !== undefined) setBacktestRiskPct(String(s.riskPct));
+    if (s.useBreakEven !== undefined) setUseBreakEven(Boolean(s.useBreakEven));
+    if (s.beTriggerR !== undefined) setBacktestBE(String(s.beTriggerR));
+    if (s.beOffsetMode !== undefined && setBeOffsetMode) setBeOffsetMode(s.beOffsetMode);
+    if (s.lookbackWindow !== undefined) setLookbackWindow(String(s.lookbackWindow));
+    if (s.feesPercent !== undefined) setBacktestFees(String(s.feesPercent));
+    if (s.dailyRetryLimit !== undefined) setDailyRetryLimit(String(s.dailyRetryLimit));
+    if (s.allowOppositeClose !== undefined) setAllowOppositeClose(Boolean(s.allowOppositeClose));
+    if (s.useGlobalClose !== undefined) setUseGlobalClose(Boolean(s.useGlobalClose));
+    if (s.globalCloseTime !== undefined) setGlobalCloseTime(String(s.globalCloseTime));
+    if (s.useEntryCutoff !== undefined && setUseEntryCutoff) setUseEntryCutoff(Boolean(s.useEntryCutoff));
+    if (s.entryCutoffTime !== undefined && setEntryCutoffTime) setEntryCutoffTime(String(s.entryCutoffTime));
+    if (entry.symbol && onSymbolChange) onSymbolChange(entry.symbol);
+    if (entry.timeframe && onTimeframeChange) onTimeframeChange(entry.timeframe);
+  };
 
   // New Rule Form State
   const [newRuleInd, setNewRuleInd] = React.useState('rsi');
@@ -2235,45 +2351,87 @@ export default function Backtester({
                   {broker.toUpperCase()} • {symbol} • {timeframe}
                 </span>
               </div>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(3, 1fr)',
-              gap: '8px',
-              backgroundColor: 'rgba(15, 23, 42, 0.75)',
-              padding: '10px',
-              borderRadius: '8px',
-              border: '1px solid rgba(255, 255, 255, 0.06)'
-            }}>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '6px', background: 'rgba(30, 41, 59, 0.4)', borderRadius: '6px', border: '1px solid rgba(255, 255, 255, 0.04)' }}>
-                <span style={{ color: '#94a3b8', fontSize: '10px', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.4px' }}>Trades</span>
-                <span style={{ color: '#ffffff', fontSize: '13px', fontWeight: 700, marginTop: '2px' }}>{backtestResults?.totalTrades ?? backtestResults?.summary?.total_trades ?? 0}</span>
-              </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '6px', background: 'rgba(30, 41, 59, 0.4)', borderRadius: '6px', border: '1px solid rgba(255, 255, 255, 0.04)' }}>
-              <span style={{ color: '#94a3b8', fontSize: '10px', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.4px' }}>Win Rate</span>
-              <span style={{ color: ((backtestResults?.winRate ?? backtestResults?.summary?.win_rate ?? 0) >= 50) ? '#10b981' : '#f87171', fontSize: '13px', fontWeight: 700, marginTop: '2px' }}>
-                {(backtestResults?.winRate ?? backtestResults?.summary?.win_rate ?? 0).toFixed(1)}%
-              </span>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '6px', background: 'rgba(30, 41, 59, 0.4)', borderRadius: '6px', border: '1px solid rgba(255, 255, 255, 0.04)' }}>
-              <span style={{ color: '#94a3b8', fontSize: '10px', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.4px' }}>Net Profit</span>
-              <span style={{ color: ((backtestResults?.netPnl ?? backtestResults?.summary?.net_profit ?? 0) >= 0) ? '#10b981' : '#f87171', fontSize: '13px', fontWeight: 700, marginTop: '2px' }}>
-                ${(backtestResults?.netPnl ?? backtestResults?.summary?.net_profit ?? 0).toFixed(2)}
-              </span>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '6px', background: 'rgba(30, 41, 59, 0.4)', borderRadius: '6px', border: '1px solid rgba(255, 255, 255, 0.04)' }}>
-              <span style={{ color: '#94a3b8', fontSize: '10px', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.4px' }}>Prof. Fact</span>
-              <span style={{ color: '#ffffff', fontSize: '13px', fontWeight: 700, marginTop: '2px' }}>{(backtestResults?.profitFactor ?? backtestResults?.summary?.profit_factor ?? 0).toFixed(2)}</span>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '6px', background: 'rgba(30, 41, 59, 0.4)', borderRadius: '6px', border: '1px solid rgba(255, 255, 255, 0.04)' }}>
-              <span style={{ color: '#94a3b8', fontSize: '10px', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.4px' }}>Max DD</span>
-              <span style={{ color: '#ffffff', fontSize: '13px', fontWeight: 700, marginTop: '2px' }}>{(backtestResults?.maxDrawdown ?? backtestResults?.summary?.max_drawdown ?? 0).toFixed(2)}%</span>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '6px', background: 'rgba(30, 41, 59, 0.4)', borderRadius: '6px', border: '1px solid rgba(255, 255, 255, 0.04)' }}>
-              <span style={{ color: '#94a3b8', fontSize: '10px', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.4px' }}>Daily Loss</span>
-              <span style={{ color: ((backtestResults?.maxDailyLoss ?? backtestResults?.summary?.max_daily_loss ?? 0) >= 5.0) ? '#f87171' : '#ffffff', fontSize: '13px', fontWeight: 700, marginTop: '2px' }}>
-                {(backtestResults?.maxDailyLoss ?? backtestResults?.summary?.max_daily_loss ?? 0).toFixed(2)}%
-              </span>
-            </div>
+            {(() => {
+              const previousRun = backtestHistory.length > 1 ? backtestHistory[1] : null;
+              const prevResults = previousRun?.results;
+              const currNetPnl = backtestResults?.netPnl ?? backtestResults?.summary?.net_profit ?? 0;
+              const prevNetPnl = prevResults?.netPnl;
+              const currWinRate = backtestResults?.winRate ?? backtestResults?.summary?.win_rate ?? 0;
+              const prevWinRate = prevResults?.winRate;
+              const currTrades = backtestResults?.totalTrades ?? backtestResults?.summary?.total_trades ?? 0;
+              const prevTrades = prevResults?.totalTrades;
+              const currMaxDD = backtestResults?.maxDrawdown ?? backtestResults?.summary?.max_drawdown ?? 0;
+              const prevMaxDD = prevResults?.maxDrawdown;
+
+              const renderDelta = (curr: number, prev: number | undefined, isCurrency: boolean = false, isPct: boolean = false, reverseGood: boolean = false) => {
+                if (prev === undefined || prev === null) return null;
+                const diff = curr - prev;
+                if (Math.abs(diff) < 0.001) return <span style={{ fontSize: '9px', color: '#64748b' }}>(=)</span>;
+                const isPositive = diff > 0;
+                const isGood = reverseGood ? !isPositive : isPositive;
+                const color = isGood ? '#10b981' : '#ef4444';
+                const sign = isPositive ? '+' : '';
+                const diffFormatted = isCurrency ? `${sign}$${diff.toFixed(2)}` : (isPct ? `${sign}${diff.toFixed(1)}%` : `${sign}${diff}`);
+                return (
+                  <span style={{ fontSize: '9px', color, fontWeight: 700, marginLeft: '3px' }}>
+                    ({diffFormatted})
+                  </span>
+                );
+              };
+
+              return (
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(3, 1fr)',
+                  gap: '8px',
+                  backgroundColor: 'rgba(15, 23, 42, 0.75)',
+                  padding: '10px',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(255, 255, 255, 0.06)'
+                }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '6px', background: 'rgba(30, 41, 59, 0.4)', borderRadius: '6px', border: '1px solid rgba(255, 255, 255, 0.04)' }}>
+                    <span style={{ color: '#94a3b8', fontSize: '10px', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.4px' }}>Trades</span>
+                    <span style={{ color: '#ffffff', fontSize: '13px', fontWeight: 700, marginTop: '2px', display: 'flex', alignItems: 'center' }}>
+                      {currTrades}
+                      {renderDelta(currTrades, prevTrades)}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '6px', background: 'rgba(30, 41, 59, 0.4)', borderRadius: '6px', border: '1px solid rgba(255, 255, 255, 0.04)' }}>
+                    <span style={{ color: '#94a3b8', fontSize: '10px', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.4px' }}>Win Rate</span>
+                    <span style={{ color: currWinRate >= 50 ? '#10b981' : '#f87171', fontSize: '13px', fontWeight: 700, marginTop: '2px', display: 'flex', alignItems: 'center' }}>
+                      {currWinRate.toFixed(1)}%
+                      {renderDelta(currWinRate, prevWinRate, false, true)}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '6px', background: 'rgba(30, 41, 59, 0.4)', borderRadius: '6px', border: '1px solid rgba(255, 255, 255, 0.04)' }}>
+                    <span style={{ color: '#94a3b8', fontSize: '10px', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.4px' }}>Net Profit</span>
+                    <span style={{ color: currNetPnl >= 0 ? '#10b981' : '#f87171', fontSize: '13px', fontWeight: 700, marginTop: '2px', display: 'flex', alignItems: 'center' }}>
+                      ${currNetPnl.toFixed(2)}
+                      {renderDelta(currNetPnl, prevNetPnl, true)}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '6px', background: 'rgba(30, 41, 59, 0.4)', borderRadius: '6px', border: '1px solid rgba(255, 255, 255, 0.04)' }}>
+                    <span style={{ color: '#94a3b8', fontSize: '10px', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.4px' }}>Prof. Fact</span>
+                    <span style={{ color: '#ffffff', fontSize: '13px', fontWeight: 700, marginTop: '2px' }}>
+                      {(backtestResults?.profitFactor ?? backtestResults?.summary?.profit_factor ?? 0).toFixed(2)}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '6px', background: 'rgba(30, 41, 59, 0.4)', borderRadius: '6px', border: '1px solid rgba(255, 255, 255, 0.04)' }}>
+                    <span style={{ color: '#94a3b8', fontSize: '10px', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.4px' }}>Max DD</span>
+                    <span style={{ color: '#ffffff', fontSize: '13px', fontWeight: 700, marginTop: '2px', display: 'flex', alignItems: 'center' }}>
+                      {currMaxDD.toFixed(2)}%
+                      {renderDelta(currMaxDD, prevMaxDD, false, true, true)}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '6px', background: 'rgba(30, 41, 59, 0.4)', borderRadius: '6px', border: '1px solid rgba(255, 255, 255, 0.04)' }}>
+                    <span style={{ color: '#94a3b8', fontSize: '10px', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.4px' }}>Daily Loss</span>
+                    <span style={{ color: ((backtestResults?.maxDailyLoss ?? backtestResults?.summary?.max_daily_loss ?? 0) >= 5.0) ? '#f87171' : '#ffffff', fontSize: '13px', fontWeight: 700, marginTop: '2px' }}>
+                      {(backtestResults?.maxDailyLoss ?? backtestResults?.summary?.max_daily_loss ?? 0).toFixed(2)}%
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
 
             {backtestResults?.discovered_sessions && (
               <div style={{
@@ -2310,7 +2468,6 @@ export default function Backtester({
                 )}
               </div>
             )}
-          </div>
           </div>
           );
         })()}
@@ -4381,6 +4538,24 @@ export default function Backtester({
               >
                 ⭐ Favourites ({favouriteCandles.length})
               </button>
+              <button
+                onClick={() => setBacktestTab('comparison')}
+                style={{
+                  background: backtestTab === 'comparison' ? 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)' : 'transparent',
+                  border: 'none',
+                  color: backtestTab === 'comparison' ? '#ffffff' : '#94a3b8',
+                  fontWeight: 600,
+                  fontSize: '11px',
+                  cursor: 'pointer',
+                  borderRadius: '6px',
+                  padding: '5px 10px',
+                  boxShadow: backtestTab === 'comparison' ? '0 2px 8px rgba(139, 92, 246, 0.3)' : 'none',
+                  transition: 'all 0.2s',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                🕒 Run History & Diff ({backtestHistory.length})
+              </button>
             </div>
 
             {backtestTab === 'equity' && backtestResults && (
@@ -4738,6 +4913,206 @@ export default function Backtester({
                   </div>
                 );
               })}
+              {backtestTab === 'comparison' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(30, 41, 59, 0.7)', padding: '8px 12px', borderRadius: '6px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                    <div>
+                      <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#f8fafc' }}>
+                        🕒 Backtest Run History ({backtestHistory.length} saved)
+                      </span>
+                      <p style={{ margin: '2px 0 0 0', fontSize: '10px', color: '#94a3b8' }}>
+                        Every backtest run is saved automatically to local storage with parameters & metrics.
+                      </p>
+                    </div>
+                    {backtestHistory.length > 0 && (
+                      <button
+                        onClick={handleClearHistory}
+                        style={{
+                          background: 'rgba(239, 68, 68, 0.15)',
+                          border: '1px solid rgba(239, 68, 68, 0.3)',
+                          color: '#f87171',
+                          padding: '3px 8px',
+                          borderRadius: '4px',
+                          fontSize: '10px',
+                          fontWeight: 600,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        🗑️ Clear History
+                      </button>
+                    )}
+                  </div>
+
+                  {backtestHistory.length === 0 ? (
+                    <div style={{ padding: '24px', textAlign: 'center', color: '#64748b', fontSize: '11px', border: '1px dashed rgba(255, 255, 255, 0.1)', borderRadius: '6px' }}>
+                      No backtest history recorded yet. Run a backtest to start tracking versions and diffs!
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {backtestHistory.map((item: any, idx: number) => {
+                        const isCurrent = idx === 0;
+                        const isCompared = selectedHistoryCompareId === item.id;
+                        const res = item.results || {};
+                        const setts = item.settings || {};
+                        const dateStr = new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                        const isProfit = (res.netPnl ?? 0) >= 0;
+
+                        return (
+                          <div
+                            key={item.id}
+                            style={{
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '6px',
+                              padding: '10px',
+                              borderRadius: '6px',
+                              backgroundColor: isCurrent ? 'rgba(59, 130, 246, 0.08)' : (isCompared ? 'rgba(139, 92, 246, 0.12)' : 'rgba(30, 41, 59, 0.4)'),
+                              border: isCurrent ? '1px solid rgba(59, 130, 246, 0.4)' : (isCompared ? '1px solid rgba(139, 92, 246, 0.5)' : '1px solid rgba(255, 255, 255, 0.05)'),
+                            }}
+                          >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{
+                                  padding: '2px 6px',
+                                  borderRadius: '4px',
+                                  fontSize: '9px',
+                                  fontWeight: 'bold',
+                                  backgroundColor: isCurrent ? 'rgba(59, 130, 246, 0.2)' : 'rgba(148, 163, 184, 0.2)',
+                                  color: isCurrent ? '#60a5fa' : '#94a3b8'
+                                }}>
+                                  {isCurrent ? '⚡ LATEST RUN' : `#${idx + 1}`}
+                                </span>
+                                <strong style={{ color: '#f8fafc', fontSize: '11px' }}>
+                                  {item.symbol} ({item.timeframe})
+                                </strong>
+                                <span style={{ color: '#64748b', fontSize: '10px' }}>
+                                  {dateStr}
+                                </span>
+                              </div>
+
+                              <div style={{ display: 'flex', gap: '6px' }}>
+                                <button
+                                  onClick={() => setSelectedHistoryCompareId(isCompared ? null : item.id)}
+                                  style={{
+                                    background: isCompared ? '#8b5cf6' : 'rgba(139, 92, 246, 0.15)',
+                                    border: '1px solid rgba(139, 92, 246, 0.3)',
+                                    color: isCompared ? '#ffffff' : '#c084fc',
+                                    padding: '2px 8px',
+                                    borderRadius: '4px',
+                                    fontSize: '10px',
+                                    fontWeight: 600,
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  {isCompared ? 'Hide Diff' : '🔍 Compare'}
+                                </button>
+                                <button
+                                  onClick={() => handleRestoreHistoryRun(item)}
+                                  style={{
+                                    background: 'rgba(59, 130, 246, 0.15)',
+                                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                                    color: '#60a5fa',
+                                    padding: '2px 8px',
+                                    borderRadius: '4px',
+                                    fontSize: '10px',
+                                    fontWeight: 600,
+                                    cursor: 'pointer'
+                                  }}
+                                  title="Load these settings into backtester"
+                                >
+                                  📥 Load Settings
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Performance row */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', fontSize: '10px', backgroundColor: 'rgba(15, 23, 42, 0.6)', padding: '6px 8px', borderRadius: '4px' }}>
+                              <div>
+                                <span style={{ color: '#94a3b8' }}>Net PnL: </span>
+                                <strong style={{ color: isProfit ? '#10b981' : '#f87171' }}>
+                                  {isProfit ? '+' : ''}${Number(res.netPnl ?? 0).toFixed(2)}
+                                </strong>
+                              </div>
+                              <div>
+                                <span style={{ color: '#94a3b8' }}>Win Rate: </span>
+                                <strong style={{ color: (res.winRate ?? 0) >= 50 ? '#10b981' : '#f87171' }}>
+                                  {Number(res.winRate ?? 0).toFixed(1)}%
+                                </strong>
+                              </div>
+                              <div>
+                                <span style={{ color: '#94a3b8' }}>Trades: </span>
+                                <strong style={{ color: '#cbd5e1' }}>{res.totalTrades ?? 0}</strong>
+                              </div>
+                              <div>
+                                <span style={{ color: '#94a3b8' }}>Max DD: </span>
+                                <strong style={{ color: '#cbd5e1' }}>{Number(res.maxDrawdown ?? 0).toFixed(2)}%</strong>
+                              </div>
+                            </div>
+
+                            {/* Settings badges */}
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', fontSize: '9px', color: '#94a3b8' }}>
+                              <span style={{ backgroundColor: '#1e293b', padding: '1px 5px', borderRadius: '3px' }}>SL: {setts.slVal} ({setts.slType})</span>
+                              <span style={{ backgroundColor: '#1e293b', padding: '1px 5px', borderRadius: '3px' }}>RR: {setts.rr}</span>
+                              <span style={{ backgroundColor: '#1e293b', padding: '1px 5px', borderRadius: '3px' }}>BE: {setts.useBreakEven ? `${setts.beTriggerR}R` : 'Off'}</span>
+                              <span style={{ backgroundColor: '#1e293b', padding: '1px 5px', borderRadius: '3px' }}>Lookback: {setts.lookbackWindow}</span>
+                              {setts.useGlobalClose && <span style={{ backgroundColor: '#1e293b', padding: '1px 5px', borderRadius: '3px', color: '#38bdf8' }}>Close@{setts.globalCloseTime}</span>}
+                              {setts.useEntryCutoff && <span style={{ backgroundColor: '#1e293b', padding: '1px 5px', borderRadius: '3px', color: '#a78bfa' }}>Cutoff@{setts.entryCutoffTime}</span>}
+                            </div>
+
+                            {/* Diff breakdown if selected */}
+                            {isCompared && backtestHistory[0] && (
+                              <div style={{
+                                marginTop: '4px',
+                                padding: '8px',
+                                backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                                border: '1px dashed rgba(139, 92, 246, 0.4)',
+                                borderRadius: '4px',
+                                fontSize: '10px'
+                              }}>
+                                <span style={{ fontWeight: 'bold', color: '#c084fc', display: 'block', marginBottom: '4px' }}>
+                                  ⚖️ Diff against Latest Run:
+                                </span>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px' }}>
+                                  <div>
+                                    <span style={{ color: '#94a3b8' }}>PnL Delta: </span>
+                                    {(() => {
+                                      const delta = (backtestHistory[0].results?.netPnl ?? 0) - (res.netPnl ?? 0);
+                                      const isPos = delta >= 0;
+                                      return <strong style={{ color: isPos ? '#10b981' : '#ef4444' }}>{isPos ? '+' : ''}${delta.toFixed(2)}</strong>;
+                                    })()}
+                                  </div>
+                                  <div>
+                                    <span style={{ color: '#94a3b8' }}>WR Delta: </span>
+                                    {(() => {
+                                      const delta = (backtestHistory[0].results?.winRate ?? 0) - (res.winRate ?? 0);
+                                      const isPos = delta >= 0;
+                                      return <strong style={{ color: isPos ? '#10b981' : '#ef4444' }}>{isPos ? '+' : ''}{delta.toFixed(1)}%</strong>;
+                                    })()}
+                                  </div>
+                                  <div>
+                                    <span style={{ color: '#94a3b8' }}>Trade Count Delta: </span>
+                                    {(() => {
+                                      const delta = (backtestHistory[0].results?.totalTrades ?? 0) - (res.totalTrades ?? 0);
+                                      return <strong style={{ color: '#cbd5e1' }}>{delta >= 0 ? `+${delta}` : delta}</strong>;
+                                    })()}
+                                  </div>
+                                  <div>
+                                    <span style={{ color: '#94a3b8' }}>Max DD Delta: </span>
+                                    {(() => {
+                                      const delta = (backtestHistory[0].results?.maxDrawdown ?? 0) - (res.maxDrawdown ?? 0);
+                                      return <strong style={{ color: delta <= 0 ? '#10b981' : '#ef4444' }}>{delta >= 0 ? `+${delta.toFixed(2)}%` : `${delta.toFixed(2)}%`}</strong>;
+                                    })()}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             </>
           )}

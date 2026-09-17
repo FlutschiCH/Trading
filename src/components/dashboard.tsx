@@ -501,7 +501,7 @@ export default function Dashboard() {
       setExecutingModalOrder(false);
     }
   };
-  const [backtestTab, setBacktestTab] = useState<'trades' | 'equity' | 'weekly' | 'monthly' | 'hourly' | 'favourites'>('trades');
+  const [backtestTab, setBacktestTab] = useState<'trades' | 'equity' | 'weekly' | 'monthly' | 'hourly' | 'favourites' | 'comparison'>('trades');
   const [tradeFilter, setTradeFilter] = useState<'all' | 'wins' | 'losses'>('all');
   const [selectedCandle, setSelectedCandle] = useState<Candle | null>(null);
   const [favouriteCandles, setFavouriteCandles] = useState<any[]>([]);
