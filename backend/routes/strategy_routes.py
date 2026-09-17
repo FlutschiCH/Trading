@@ -98,7 +98,8 @@ def get_active_backtest_jobs_endpoint():
         j_id = str(j.get('job_id', ''))
         if j_id in _in_memory_job_cache:
             j.update(_in_memory_job_cache[j_id])
-        enriched_jobs.append(j)
+        if j.get('status') in ('queued', 'running', 'interrupted'):
+            enriched_jobs.append(j)
     return jsonify({"status": "success", "jobs": enriched_jobs})
 
 @strategy_routes.route('/backtest/active-job', methods=['GET'])

@@ -694,7 +694,8 @@ export default function Backtester({
         if (!res.ok) return;
         const data = await res.json();
         if (isSubscribed && data.status === 'success' && Array.isArray(data.jobs)) {
-          setRunningBacktestJobs(data.jobs);
+          const activeOnly = data.jobs.filter((j: any) => j && ['running', 'queued', 'interrupted'].includes(j.status));
+          setRunningBacktestJobs(activeOnly);
         }
       } catch (err) {
         // Silently catch polling error
