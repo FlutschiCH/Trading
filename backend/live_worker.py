@@ -171,15 +171,25 @@ class LiveWorker:
             tuple: (should_buy: bool, should_sell: bool, state_info: dict)
         =============================================================================
         """
-        # 1. Extract execution rules, session filters, and cutoff parameters from strategy
+        # 1. Extract execution rules, session filters, and cutoff parameters strictly from strategy
+        if not strategy or not isinstance(strategy, dict):
+            raise ValueError(f"CRITICAL: Strategy config passed to _evaluate_signals is invalid or None for {self.strategy_id}.")
+
+        if not annotated_candles or len(annotated_candles) < 2:
+            raise ValueError(f"CRITICAL: Insufficient candle history in _evaluate_signals for {self.strategy_id} (count: {len(annotated_candles) if annotated_candles else 0}).")
+
         entry_stability_rule = strategy.get("entryStabilityRule", "default")
         timezone_str = strategy.get("timezone", "Local")
-        sessions = strategy.get("sessions", [])
+        sessions = strategy.get("sessions") or []
         daily_mode = strategy.get("dailyFirstSignalsMode", "disabled")
-        daily_count = int(strategy.get("dailyFirstSignalsCount", 1))
-        daily_risk_mult = float(strategy.get("dailyFirstSignalsRiskMult", 0.5))
-        use_entry_cutoff = strategy.get("useEntryCutoff", False)
+        daily_count = int(strategy["dailyFirstSignalsCount"]) if strategy.get("dailyFirstSignalsCount") is not None else 1
+        daily_risk_mult = float(strategy["dailyFirstSignalsRiskMult"]) if strategy.get("dailyFirstSignalsRiskMult") is not None else 0.5
+        use_entry_cutoff = bool(strategy.get("useEntryCutoff", False))
         entry_cutoff_time = strategy.get("entryCutoffTime", "")
+
+        # Strict validation: if cutoff is enabled, ensure entryCutoffTime was provided
+        if use_entry_cutoff and not entry_cutoff_time:
+            raise ValueError(f"CRITICAL: Strategy {self.strategy_id} has useEntryCutoff=True but missing entryCutoffTime.")
 
         # 2. Sequential state replay over historical completed bars
         state_dict = {}             # Tracks sequential Wyckoff state (stages, pending springs, ages)
