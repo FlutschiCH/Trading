@@ -495,7 +495,7 @@ class CopytraderHandler:
     ) -> float:
         mode_lower = str(mode or 'direct').strip().lower()
         if mode_lower in ('fixed_amount', 'amount', '$', 'fixed_dollar', 'dollar'):
-            loss_amount = multiplier if multiplier > 0 else 50.0
+            dollar_risk = multiplier if multiplier > 0 else 50.0
             if entry_price > 0 and sl > 0 and abs(entry_price - sl) > 1e-6:
                 try:
                     from backtest_helpers import get_pip_size, get_lot_size
@@ -510,13 +510,13 @@ class CopytraderHandler:
                         symbol=mapped_symbol or symbol,
                         entry_price=entry_price,
                         direction=direction,
-                        sl_type='amount',
-                        sl_val=loss_amount,
+                        sl_type='price',
+                        sl_val=abs(entry_price - sl),
                         rr=2.0,
                         size=0.01,
-                        use_risk_sizing=False,
-                        risk_pct=1.0,
-                        balance=10000.0,
+                        use_risk_sizing=True,
+                        risk_pct=100.0,
+                        balance=dollar_risk,
                         lot_size=lot_size,
                         pip_size=pip_size,
                         precision=5
