@@ -17,7 +17,7 @@ except ImportError:
     print("Error: mysql-connector-python is required.", flush=True)
 
 # Load env variables from backend/.env
-load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
+load_dotenv(os.path.join(os.path.dirname(__file__), '.env'), override=True)
 
 DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = int(os.getenv("DB_PORT", "3306"))

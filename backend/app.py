@@ -6,7 +6,7 @@ import os
 from dotenv import load_dotenv
 
 # Load environment variables
-load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), '.env'), override=True)
 
 # Ensure the backend directory is in python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
