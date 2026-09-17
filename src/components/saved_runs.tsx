@@ -827,12 +827,18 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
                       SL: {row.sl_val}{row.sl_type ? (row.sl_type === 'pct' ? '%' : row.sl_type) : ''} | RR: 1:{row.rr} | BE: {row.be_trigger_r !== undefined && row.be_trigger_r > 0 ? `${row.be_trigger_r}R` : 'Off'}
                     </td>
                     <td style={{ padding: '10px' }}>{row.trades_cnt}</td>
-                    <td style={{ padding: '10px', color: row.win_rate >= 50 ? '#4ade80' : '#f87171' }}>{row.win_rate ? row.win_rate.toFixed(1) : 0}%</td>
+                    <td style={{ padding: '10px', color: 'var(--app-text, #f8fafc)' }}>{row.win_rate ? row.win_rate.toFixed(1) : 0}%</td>
                     <td style={{ padding: '10px', fontWeight: 600, color: row.net_pnl >= 0 ? '#4ade80' : '#f87171' }}>
                       {row.net_pnl >= 0 ? `+$${row.net_pnl.toFixed(2)}` : `-$${Math.abs(row.net_pnl).toFixed(2)}`}
                     </td>
                     <td style={{ padding: '10px' }}>{row.profit_factor ? row.profit_factor.toFixed(2) : '0.00'}</td>
-                    <td style={{ padding: '10px', color: '#f87171' }}>{row.max_drawdown !== undefined && row.max_drawdown !== null ? `${Number(row.max_drawdown).toFixed(2)}%` : '0.00%'}</td>
+                    <td style={{
+                      padding: '10px',
+                      fontWeight: 600,
+                      color: (row.max_drawdown !== undefined && row.max_drawdown !== null && Number(row.max_drawdown) < 4) ? '#4ade80' : '#f87171'
+                    }}>
+                      {row.max_drawdown !== undefined && row.max_drawdown !== null ? `${Number(row.max_drawdown).toFixed(2)}%` : '0.00%'}
+                    </td>
                     <td style={{ padding: '10px', textAlign: 'right' }}>
                       <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
                         <button
