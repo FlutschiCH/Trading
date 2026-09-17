@@ -482,10 +482,65 @@ class CopytraderHandler:
         return False
 
     @staticmethod
-    def _calculate_lots(master_lots: float, mode: str, multiplier: float) -> float:
-        if mode == "multiplier":
+    def _calculate_lots(
+        master_lots: float,
+        mode: str,
+        multiplier: float,
+        entry_price: float = 0.0,
+        sl: float = 0.0,
+        direction: str = 'BUY',
+        slave_account: str = None,
+        slave_broker: str = 'metatrader',
+        symbol: str = ''
+    ) -> float:
+        mode_lower = str(mode or 'direct').strip().lower()
+        if mode_lower in ('percent', 'risk_pct', 'pct', '%'):
+            pct_val = multiplier if multiplier > 0 else 1.0
+            if entry_price > 0 and sl > 0 and abs(entry_price - sl) > 1e-6:
+                try:
+                    from broker_handler import BrokerHandler
+                    from trading_handler import TradingHandler
+                    from backtest_helpers import get_pip_size, get_lot_size
+                    from symbol_mapping_handler import SymbolMappingHandler
+
+                    mapped_symbol = SymbolMappingHandler.map_to_broker(symbol, slave_account) if slave_account else symbol
+                    pip_size = get_pip_size(mapped_symbol or symbol, entry_price)
+                    lot_size = get_lot_size(mapped_symbol or symbol)
+
+                    # Retrieve live slave account balance
+                    acct_info = BrokerHandler.get_account_info(broker_name=slave_broker, account_id=slave_account)
+                    balance = 10000.0
+                    if acct_info:
+                        if "data" in acct_info and isinstance(acct_info["data"], dict):
+                            balance = float(acct_info["data"].get("balance") or balance)
+                        elif isinstance(acct_info, dict):
+                            balance = float(acct_info.get("balance") or balance)
+
+                    trade_params = TradingHandler.calculate_trade_parameters(
+                        symbol=mapped_symbol or symbol,
+                        entry_price=entry_price,
+                        direction=direction,
+                        sl_type='price',
+                        sl_val=abs(entry_price - sl),
+                        rr=2.0,
+                        size=0.01,
+                        use_risk_sizing=True,
+                        risk_pct=pct_val,
+                        balance=balance,
+                        lot_size=lot_size,
+                        pip_size=pip_size,
+                        precision=5
+                    )
+                    calc_qty = round(float(trade_params.get("qty", 0.01)), 2)
+                    return max(0.01, calc_qty)
+                except Exception as calc_err:
+                    print(f"[Copytrader] Risk percentage sizing error ({calc_err}), falling back to direct lots: {master_lots}", flush=True)
+            # Fallback if SL is not provided on master order: scale master lots by percentage / 100
+            lots = round(master_lots * (pct_val / 100.0), 2)
+            return max(0.01, lots)
+        elif mode_lower == "multiplier":
             lots = round(master_lots * multiplier, 2)
-        elif mode == "divider":
+        elif mode_lower == "divider":
             div_val = multiplier if multiplier > 0 else 1.0
             lots = round(master_lots / div_val, 2)
         else:
@@ -582,9 +637,20 @@ class CopytraderHandler:
                                             CopytraderHandler._modify_position(slave_broker, slave_acc, s_ticket, m_sym, sl, tp)
                                 else:
                                     # Position missing on slave -> OPEN IT!
-                                    slave_lots = CopytraderHandler._calculate_lots(m_lots, mode, multiplier)
-                                    print(f"🚀 [Copytrader Sync] Master has {m_side} {m_lots} {m_sym} -> Not on slave {slave_acc} ({slave_broker}) -> Opening {m_side} {slave_lots} {m_sym}", flush=True)
-                                    logPrint(f"[Copytrader] 🚀 Opening trade on slave {slave_acc} ({slave_broker}): {m_side} {slave_lots} {m_sym}")
+                                    m_open_price = float(m_pos.get("open_price") or m_pos.get("price") or m_pos.get("entry_price") or 0.0)
+                                    slave_lots = CopytraderHandler._calculate_lots(
+                                        master_lots=m_lots,
+                                        mode=mode,
+                                        multiplier=multiplier,
+                                        entry_price=m_open_price,
+                                        sl=sl,
+                                        direction=m_side,
+                                        slave_account=slave_acc,
+                                        slave_broker=slave_broker,
+                                        symbol=m_sym
+                                    )
+                                    print(f"🚀 [Copytrader Sync] Master has {m_side} {m_lots} {m_sym} -> Not on slave {slave_acc} ({slave_broker}) -> Opening {m_side} {slave_lots} {m_sym} (Mode: {mode})", flush=True)
+                                    logPrint(f"[Copytrader] 🚀 Opening trade on slave {slave_acc} ({slave_broker}): {m_side} {slave_lots} {m_sym} (Mode: {mode})")
                                     
                                     res = CopytraderHandler._execute_order(
                                         broker=slave_broker,
