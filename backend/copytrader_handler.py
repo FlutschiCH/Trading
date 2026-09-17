@@ -376,7 +376,7 @@ class CopytraderHandler:
     @staticmethod
     def _execute_order(broker: str, account_id: str, symbol: str, action: str, lots: float, sl: float = 0.0, tp: float = 0.0, comment: str = ""):
         from broker_handler import BrokerHandler
-        return BrokerHandler.create_order(broker_name=broker, account_id=account_id, symbol=symbol, side=action, volume=lots, stop_loss=sl, take_profit=tp, comment=comment)
+        return BrokerHandler.create_order(broker_name=broker, account_id=account_id, symbol=symbol, side=action, volume=lots, stop_loss=sl, take_profit=tp, comment=comment, allow_no_sl=True)
 
     @staticmethod
     def _close_position(broker: str, account_id: str, ticket: str, symbol: str = "", lots: float = 0.0):

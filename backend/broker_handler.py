@@ -118,8 +118,10 @@ class BrokerHandler:
     @classmethod
     def create_order(cls, broker_name: str = None, account_id: str = None, symbol: str = None, **kwargs):
         stop_loss = kwargs.get('stop_loss')
-        if stop_loss is None or float(stop_loss) <= 0:
-            return {'status': 'error', 'message': f"Order rejected: Stop loss is required and must be > 0 (received: {stop_loss})"}
+        allow_no_sl = kwargs.get('allow_no_sl', False)
+        # Check if stop loss is required or if allow_no_sl is passed (e.g., from copytrader when master has no SL)
+        if not allow_no_sl and (stop_loss is None or float(stop_loss) < 0):
+            return {'status': 'error', 'message': f"Order rejected: Stop loss is required (received: {stop_loss})"}
         handler = cls.get_handler(broker_name, account_id)
         if not handler:
             raise ValueError("pls select account first")
