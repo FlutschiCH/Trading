@@ -829,21 +829,7 @@ export default function Dashboard() {
     }
   };
 
-  // Load settings when symbol or timeframe changes
-  useEffect(() => {
-    fetch(`${API_BASE_URL}/api/backtest-settings/load`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ symbol, timeframe })
-    })
-      .then(res => res.json())
-      .then(res => {
-        if (res.status === 'success' && res.settings && Object.keys(res.settings).length > 0) {
-          applyBacktestSettingsObject(res.settings);
-        }
-      })
-      .catch(err => console.error("Error loading backtest settings:", err));
-  }, [symbol, timeframe]);
+  // Auto-loading from backend removed to preserve local storage settings across symbol/timeframe changes.
 
   // Live strategy states
   const [liveStrategy, setLiveStrategy] = useState<any>(null);
