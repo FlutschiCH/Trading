@@ -52,13 +52,25 @@ export const BacktestAnalyzerCard: React.FC<BacktestAnalyzerCardProps> = ({
           setLoading(false);
           return;
         }
+        const sym = currentSymbol || currentBacktestResults.symbol || currentBacktestResults.settings?.symbol;
+        const tf = currentTimeframe || currentBacktestResults.timeframe || currentBacktestResults.settings?.timeframe;
+        const rawTrades = currentBacktestResults.trades || currentBacktestResults.completed_trades_raw || [];
+        const metrics = currentBacktestResults.metrics || {
+          totalTrades: currentBacktestResults.totalTrades ?? currentBacktestResults.summary?.total_trades ?? rawTrades.length,
+          winRate: currentBacktestResults.winRate ?? currentBacktestResults.summary?.win_rate ?? 0,
+          netPnl: currentBacktestResults.netPnl ?? currentBacktestResults.summary?.net_profit ?? 0,
+          profitFactor: currentBacktestResults.profitFactor ?? currentBacktestResults.summary?.profit_factor ?? 0,
+          maxDrawdown: currentBacktestResults.maxDrawdown ?? currentBacktestResults.summary?.max_drawdown ?? 0
+        };
+
         bodyPayload = {
           payload: {
-            symbol: currentSymbol || currentBacktestResults.settings?.symbol,
-            timeframe: currentTimeframe || currentBacktestResults.settings?.timeframe,
+            symbol: sym,
+            timeframe: tf,
+            broker: currentBacktestResults.broker || currentBacktestResults.settings?.broker || 'metatrader',
             settings: currentBacktestResults.settings || {},
-            metrics: currentBacktestResults.metrics || {},
-            trades: currentBacktestResults.completed_trades_raw || currentBacktestResults.trades || []
+            metrics: metrics,
+            trades: rawTrades
           }
         };
       } else {
@@ -149,7 +161,11 @@ export const BacktestAnalyzerCard: React.FC<BacktestAnalyzerCardProps> = ({
                 maxWidth: '220px'
               }}
             >
-              <option value="current">Current In-Memory Backtest</option>
+              <option value="current">
+                {currentBacktestResults
+                  ? `⚡ Active: ${currentSymbol || currentBacktestResults.symbol || 'Run'} (${currentTimeframe || currentBacktestResults.timeframe || ''}) - ${currentBacktestResults.trades?.length || currentBacktestResults.totalTrades || 0}T | $${(currentBacktestResults.netPnl ?? currentBacktestResults.summary?.net_profit ?? 0).toFixed(2)}`
+                  : '⚡ Current In-Memory Backtest (None)'}
+              </option>
               {savedRuns.map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.symbol} ({r.timeframe}) - {r.trades_cnt}T | ${r.net_pnl} | {r.win_rate}% WR
@@ -157,6 +173,28 @@ export const BacktestAnalyzerCard: React.FC<BacktestAnalyzerCardProps> = ({
               ))}
             </select>
           </div>
+
+          {currentBacktestResults && selectedRunId !== 'current' && (
+            <button
+              onClick={() => setSelectedRunId('current')}
+              title="Select current active backtest from memory"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                border: '1px solid rgba(59, 130, 246, 0.4)',
+                borderRadius: '6px',
+                color: '#60a5fa',
+                padding: '4px 8px',
+                fontSize: '11px',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
+              <span>⚡ Use Active Run</span>
+            </button>
+          )}
 
           <button
             onClick={() => setShowSavedRunsModal(true)}
