@@ -939,7 +939,9 @@ class StrategyHandler:
             if len(recent_durations) > 10:
                 recent_durations.pop(0)
 
-            print(f"[Optimization] [{idx+1}/{total_runs}] ({pct}%) Testing {s} ({tf}) | SL:{sl}{sl_type} RR:1:{rr} BE:{be_str} -> {pnl_str} | WR: {win_rate:.1f}% | Trades: {trades_cnt} | PF: {pf:.2f} ({run_duration:.2f}s | {eta_str})", flush=True)
+            # Only print log if Net PnL is greater than or equal to min_save_pnl (if min_save_pnl is configured)
+            if min_save_pnl is None or pnl >= float(min_save_pnl):
+                print(f"[Optimization] [{idx+1}/{total_runs}] ({pct}%) Testing {s} ({tf}) | SL:{sl}{sl_type} RR:1:{rr} BE:{be_str} -> {pnl_str} | WR: {win_rate:.1f}% | Trades: {trades_cnt} | PF: {pf:.2f} ({run_duration:.2f}s | {eta_str})", flush=True)
 
 
             # Save detailed combo results
