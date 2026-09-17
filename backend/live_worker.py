@@ -232,6 +232,11 @@ class LiveWorker:
         strat_acc_id = strategy.get("account_id")
         base_symbol = SymbolMappingHandler.map_to_main(symbol, strat_acc_id)
 
+        allowed, reason = LiveStrategyHandler.is_trading_allowed(strategy_id)
+        if not allowed:
+            print(f"{Fore.YELLOW}[LiveWorker Entry Guard]{Style.RESET_ALL} Skipping live order execution for {symbol}: {reason}", flush=True)
+            return
+
         # Check for daily first signal risk multiplier or skip
         risk_mult = float(last_candle.get('risk_multiplier', 1.0))
         effective_risk_pct = float(strategy["riskPct"]) * risk_mult
@@ -579,6 +584,8 @@ class LiveWorker:
                     strat_tz = strategy.get("timezone", "Local")
                     strat_use_gc = strategy.get("useGlobalClose", False)
                     strat_gc_time = strategy.get("globalCloseTime", "")
+                    strat_use_cutoff = strategy.get("useEntryCutoff", False)
+                    strat_cutoff_time = strategy.get("entryCutoffTime", "")
                     strat_sessions = strategy.get("sessions") or []
                     strat_targets = strategy.get("targets") or []
                     strat_daily_mode = strategy.get("dailyFirstSignalsMode", "disabled") or "disabled"
@@ -600,7 +607,7 @@ class LiveWorker:
                     print(f"  {Fore.WHITE}• SL & RR Config    :{Style.RESET_ALL} SL={strat_sl_val} ({strat_sl_type}) | RR={strat_rr} | BE={strat_use_be} (Trigger: {strat_be_trigger}R, Mode: {strat_be_mode})", flush=True)
                     print(f"  {Fore.WHITE}• Execution Rules   :{Style.RESET_ALL} Stability='{strat_rule}' | AllowOppositeClose={strat_allow_opp}", flush=True)
                     print(f"  {Fore.WHITE}• Daily First Sig.  :{Style.RESET_ALL} {Fore.MAGENTA}{daily_signals_str}{Style.RESET_ALL}", flush=True)
-                    print(f"  {Fore.WHITE}• Sessions & Close  :{Style.RESET_ALL} TZ={strat_tz} | Sessions=[{sessions_str}] | GlobalClose={strat_use_gc} ({strat_gc_time or 'None'})", flush=True)
+                    print(f"  {Fore.WHITE}• Sessions & Close  :{Style.RESET_ALL} TZ={strat_tz} | Sessions=[{sessions_str}] | GlobalClose={strat_use_gc} ({strat_gc_time or 'None'}) | EntryCutoff={strat_use_cutoff} ({strat_cutoff_time or 'None'})", flush=True)
                     print(f"{Fore.CYAN}{Style.BRIGHT}{'='*60}\n{Style.RESET_ALL}", flush=True)
 
                 symbol = strategy["symbol"]
