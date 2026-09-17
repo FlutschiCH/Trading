@@ -51,8 +51,6 @@ export const PositionsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const reqGen = getCurrentGeneration();
     const { signal, cleanup } = createManagedAbortSignal();
 
-    console.log(`[PositionsStore] Fetching positions -> Account: ${accId} | Broker: ${broker} (Gen: ${reqGen})`);
-
     isFetchingRef.current = true;
     setLoadingPositions(true);
 
@@ -68,7 +66,6 @@ export const PositionsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       if (response.ok) {
         const data = await response.json();
         if (signal.aborted || getCurrentGeneration() !== reqGen) return;
-        console.log('[PositionsStore] /api/broker/positions response:', data);
         if (data.status === 'success' && Array.isArray(data.data)) {
           const normalized: Position[] = data.data.map((p: any, idx: number) => {
             const rawSide = p.side || p.trade_side || p.type || '';
@@ -102,7 +99,7 @@ export const PositionsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         }
       } else {
         const errText = await response.text();
-        console.log('[PositionsStore] /api/broker/positions non-OK response:', response.status, errText);
+        console.warn('[PositionsStore] /api/broker/positions non-OK response:', response.status, errText);
       }
     } catch (e: any) {
       if (e.name !== 'AbortError') {

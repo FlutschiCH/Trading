@@ -1971,8 +1971,6 @@ export default function Backtester({
             onClick={() => {
               const targetSymbol = effectiveSymbols[0] || symbol;
               const targetTimeframe = effectiveTimeframes[0] || timeframe;
-              console.log(`[Wyckoff Backtester] Run Backtest clicked (Combos: ${totalRunCombinations}). Symbol: "${targetSymbol}", Effective Symbols:`, effectiveSymbols, "Timeframe:", targetTimeframe);
-              console.time("Backtest execution duration");
               const rangeParams = {
                 strategy_type: strategyType,
                 strategy_name: strategyType === 'scalper' ? 'M1 Scalper' : 'Wyckoff VSA',

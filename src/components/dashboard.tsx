@@ -1210,7 +1210,6 @@ export default function Dashboard() {
       const bounds = calculateDateBounds(dateRangeOption, customFrom, customTo);
       const reqSymbol = rangeParams?.symbol || symbol;
       const reqTimeframe = rangeParams?.timeframe || timeframe;
-      console.log(`[Dashboard runBacktest] Submitting single backtest request. Symbol: "${reqSymbol}", Timeframe: "${reqTimeframe}", Source: "${candleSource}"`, { rangeParams, bounds });
 
       const response = await fetch(`${API_BASE_URL}/api/backtest`, {
         method: 'POST',
@@ -1851,7 +1850,6 @@ export default function Dashboard() {
     const broker = overrideBroker || activeAccBroker;
     const reqGen = getCurrentGeneration();
     const { signal, cleanup } = createManagedAbortSignal();
-    console.log(`[Dashboard] Fetching account info -> Account: ${accId} | Broker: ${broker} (Gen: ${reqGen})`);
     try {
       const response = await fetch(`${API_BASE_URL}/api/broker/account`, {
         method: 'POST',
