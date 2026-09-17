@@ -460,17 +460,32 @@ class MetaTraderHandler(BaseBrokerHandler):
 
         from symbol_mapping_handler import SymbolMappingHandler
         acc_id_str = str(acc_id) if acc_id else ""
-        mapped_symbol = SymbolMappingHandler.map_to_broker(symbol, acc_id_str)
+        mapped_symbol = SymbolMappingHandler.map_to_broker(symbol, acc_id_str) or symbol
 
         symbols = mt5_inst.symbols_get()
         matched_symbol = mapped_symbol
         if symbols:
             symbol_names = [s.name for s in symbols]
             if mapped_symbol not in symbol_names:
+                # 1. Exact case-insensitive match
                 for s in symbol_names:
-                    if mapped_symbol.upper() in s.upper():
+                    if s.upper() == mapped_symbol.upper():
                         matched_symbol = s
                         break
+                else:
+                    # 2. Base crypto/forex root match (e.g., BTCUSD vs BTCUSDT vs btcusd.raw)
+                    clean_target = mapped_symbol.upper().replace('USDT', '').replace('USD', '')
+                    for s in symbol_names:
+                        clean_s = s.upper().replace('USDT', '').replace('USD', '')
+                        if clean_target and clean_target == clean_s:
+                            matched_symbol = s
+                            break
+                    else:
+                        # 3. Substring match
+                        for s in symbol_names:
+                            if mapped_symbol.upper() in s.upper() or s.upper() in mapped_symbol.upper():
+                                matched_symbol = s
+                                break
                         
         mt5_inst.symbol_select(matched_symbol, True)
         
