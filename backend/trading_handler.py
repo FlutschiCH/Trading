@@ -62,12 +62,15 @@ class TradingHandler:
             raise ValueError(f"Invalid direction: '{direction}'")
 
         # 3. Calculate position size (trade_qty)
-        trade_qty = size
         if use_risk_sizing:
-            if lot_size <= 0:
-                raise ValueError("lot_size must be greater than 0 for risk sizing")
-            risk_amount = balance * (risk_pct / 100.0)
-            trade_qty = risk_amount / (sl_distance * lot_size)
+            trade_qty = TradingHandler.calculate_lot_size(
+                balance=balance,
+                risk_pct=risk_pct,
+                sl_distance=sl_distance,
+                lot_size=lot_size
+            )
+        else:
+            trade_qty = size
 
         return {
             "entry_price": entry_price,
@@ -76,3 +79,32 @@ class TradingHandler:
             "qty": trade_qty,
             "sl_distance": sl_distance
         }
+
+    @staticmethod
+    def calculate_lot_size(
+        balance: float,
+        risk_pct: float = None,
+        risk_amount: float = None,
+        sl_distance: float = 0.0,
+        lot_size: float = 1.0,
+        min_lot: float = 0.01
+    ) -> float:
+        """
+        Single central function to calculate lot size from risk and SL distance.
+        Accepts either risk_pct (% of balance) or direct risk_amount ($ value).
+        """
+        if sl_distance <= 0:
+            raise ValueError(f"sl_distance must be > 0 (got {sl_distance})")
+        if lot_size <= 0:
+            raise ValueError(f"lot_size must be > 0 (got {lot_size})")
+
+        if risk_amount is None or float(risk_amount) <= 0:
+            if risk_pct is None or float(risk_pct) <= 0:
+                raise ValueError("Either risk_amount ($) or risk_pct (%) must be provided and > 0")
+            risk_amount = float(balance) * (float(risk_pct) / 100.0)
+        else:
+            risk_amount = float(risk_amount)
+
+        raw_qty = risk_amount / (float(sl_distance) * float(lot_size))
+        return max(min_lot, round(raw_qty, 2))
+

@@ -498,31 +498,20 @@ class CopytraderHandler:
             dollar_risk = multiplier if multiplier > 0 else 50.0
             if entry_price > 0 and sl > 0 and abs(entry_price - sl) > 1e-6:
                 try:
-                    from backtest_helpers import get_pip_size, get_lot_size
+                    from backtest_helpers import get_lot_size
                     from symbol_mapping_handler import SymbolMappingHandler
                     from trading_handler import TradingHandler
 
                     mapped_symbol = SymbolMappingHandler.map_to_broker(symbol, slave_account) if slave_account else symbol
-                    pip_size = get_pip_size(mapped_symbol or symbol, entry_price)
                     lot_size = get_lot_size(mapped_symbol or symbol)
+                    sl_dist = abs(entry_price - sl)
 
-                    trade_params = TradingHandler.calculate_trade_parameters(
-                        symbol=mapped_symbol or symbol,
-                        entry_price=entry_price,
-                        direction=direction,
-                        sl_type='price',
-                        sl_val=abs(entry_price - sl),
-                        rr=2.0,
-                        size=0.01,
-                        use_risk_sizing=True,
-                        risk_pct=100.0,
-                        balance=dollar_risk,
-                        lot_size=lot_size,
-                        pip_size=pip_size,
-                        precision=5
+                    return TradingHandler.calculate_lot_size(
+                        balance=10000.0,
+                        risk_amount=dollar_risk,
+                        sl_distance=sl_dist,
+                        lot_size=lot_size
                     )
-                    calc_qty = round(float(trade_params.get("qty", 0.01)), 2)
-                    return max(0.01, calc_qty)
                 except Exception as calc_err:
                     print(f"[Copytrader] Fixed $ amount sizing error ({calc_err}), falling back to direct lots: {master_lots}", flush=True)
             return max(0.01, master_lots)
@@ -531,13 +520,13 @@ class CopytraderHandler:
             if entry_price > 0 and sl > 0 and abs(entry_price - sl) > 1e-6:
                 try:
                     from broker_handler import BrokerHandler
-                    from trading_handler import TradingHandler
-                    from backtest_helpers import get_pip_size, get_lot_size
+                    from backtest_helpers import get_lot_size
                     from symbol_mapping_handler import SymbolMappingHandler
+                    from trading_handler import TradingHandler
 
                     mapped_symbol = SymbolMappingHandler.map_to_broker(symbol, slave_account) if slave_account else symbol
-                    pip_size = get_pip_size(mapped_symbol or symbol, entry_price)
                     lot_size = get_lot_size(mapped_symbol or symbol)
+                    sl_dist = abs(entry_price - sl)
 
                     # Retrieve live slave account balance
                     acct_info = BrokerHandler.get_account_info(broker_name=slave_broker, account_id=slave_account)
@@ -548,23 +537,12 @@ class CopytraderHandler:
                         elif isinstance(acct_info, dict):
                             balance = float(acct_info.get("balance") or balance)
 
-                    trade_params = TradingHandler.calculate_trade_parameters(
-                        symbol=mapped_symbol or symbol,
-                        entry_price=entry_price,
-                        direction=direction,
-                        sl_type='price',
-                        sl_val=abs(entry_price - sl),
-                        rr=2.0,
-                        size=0.01,
-                        use_risk_sizing=True,
-                        risk_pct=pct_val,
+                    return TradingHandler.calculate_lot_size(
                         balance=balance,
-                        lot_size=lot_size,
-                        pip_size=pip_size,
-                        precision=5
+                        risk_pct=pct_val,
+                        sl_distance=sl_dist,
+                        lot_size=lot_size
                     )
-                    calc_qty = round(float(trade_params.get("qty", 0.01)), 2)
-                    return max(0.01, calc_qty)
                 except Exception as calc_err:
                     print(f"[Copytrader] Risk percentage sizing error ({calc_err}), falling back to direct lots: {master_lots}", flush=True)
             # Fallback if SL is not provided on master order: scale master lots by percentage / 100
