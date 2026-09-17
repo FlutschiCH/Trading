@@ -732,6 +732,7 @@ export default function Backtester({
     }
   });
   const [selectedHistoryCompareId, setSelectedHistoryCompareId] = React.useState<string | null>(null);
+  const [viewingHistoryDetails, setViewingHistoryDetails] = React.useState<any | null>(null);
 
   const lastRecordedRunRef = React.useRef<string | null>(null);
 
@@ -4992,6 +4993,22 @@ export default function Backtester({
 
                               <div style={{ display: 'flex', gap: '6px' }}>
                                 <button
+                                  onClick={() => setViewingHistoryDetails(item)}
+                                  style={{
+                                    background: 'rgba(56, 189, 248, 0.15)',
+                                    border: '1px solid rgba(56, 189, 248, 0.3)',
+                                    color: '#38bdf8',
+                                    padding: '2px 8px',
+                                    borderRadius: '4px',
+                                    fontSize: '10px',
+                                    fontWeight: 600,
+                                    cursor: 'pointer'
+                                  }}
+                                  title="View complete settings and trades overlay"
+                                >
+                                  ⚙️ Settings & Info
+                                </button>
+                                <button
                                   onClick={() => setSelectedHistoryCompareId(isCompared ? null : item.id)}
                                   style={{
                                     background: isCompared ? '#8b5cf6' : 'rgba(139, 92, 246, 0.15)',
@@ -5020,7 +5037,7 @@ export default function Backtester({
                                   }}
                                   title="Load these settings into backtester"
                                 >
-                                  📥 Load Settings
+                                  📥 Load
                                 </button>
                               </div>
                             </div>
@@ -5367,6 +5384,199 @@ export default function Backtester({
             onClose={() => setShowSavedBacktestsModal(false)}
             onLoadSavedBacktest={handleLoadSavedBacktest}
           />
+        )}
+
+        {/* Past Run Settings & JSON Overlay Modal */}
+        {viewingHistoryDetails && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            pointerEvents: 'all',
+            padding: '16px'
+          }}>
+            <div style={{
+              backgroundColor: 'var(--app-card-bg, #0f172a)',
+              border: '1px solid var(--app-card-border, #1e293b)',
+              borderRadius: '12px',
+              width: '100%',
+              maxWidth: '620px',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              padding: '20px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
+              position: 'relative'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <h3 style={{ margin: 0, color: '#f8fafc', fontSize: '15px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    ⚙️ Past Backtest Run Settings
+                  </h3>
+                  <span style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px', display: 'block' }}>
+                    Run on <strong style={{ color: '#38bdf8' }}>{viewingHistoryDetails.symbol} ({viewingHistoryDetails.timeframe})</strong> at {new Date(viewingHistoryDetails.timestamp).toLocaleString()}
+                  </span>
+                </div>
+                <button
+                  onClick={() => setViewingHistoryDetails(null)}
+                  style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '18px', fontWeight: 'bold' }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Performance Header Summary */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(4, 1fr)',
+                gap: '8px',
+                backgroundColor: 'rgba(30, 41, 59, 0.6)',
+                padding: '10px 12px',
+                borderRadius: '8px',
+                border: '1px solid rgba(255, 255, 255, 0.05)',
+                textAlign: 'center'
+              }}>
+                <div>
+                  <span style={{ fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase', display: 'block' }}>Net Profit</span>
+                  <strong style={{ fontSize: '13px', color: (viewingHistoryDetails.results?.netPnl ?? 0) >= 0 ? '#10b981' : '#ef4444' }}>
+                    ${Number(viewingHistoryDetails.results?.netPnl ?? 0).toFixed(2)}
+                  </strong>
+                </div>
+                <div>
+                  <span style={{ fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase', display: 'block' }}>Win Rate</span>
+                  <strong style={{ fontSize: '13px', color: (viewingHistoryDetails.results?.winRate ?? 0) >= 50 ? '#10b981' : '#ef4444' }}>
+                    {Number(viewingHistoryDetails.results?.winRate ?? 0).toFixed(1)}%
+                  </strong>
+                </div>
+                <div>
+                  <span style={{ fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase', display: 'block' }}>Total Trades</span>
+                  <strong style={{ fontSize: '13px', color: '#f8fafc' }}>
+                    {viewingHistoryDetails.results?.totalTrades ?? 0}
+                  </strong>
+                </div>
+                <div>
+                  <span style={{ fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase', display: 'block' }}>Max Drawdown</span>
+                  <strong style={{ fontSize: '13px', color: '#f8fafc' }}>
+                    {Number(viewingHistoryDetails.results?.maxDrawdown ?? 0).toFixed(2)}%
+                  </strong>
+                </div>
+              </div>
+
+              {/* Structured Settings Grid */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#cbd5e1' }}>
+                  📋 Strategy & Execution Parameters
+                </span>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, 1fr)',
+                  gap: '8px',
+                  backgroundColor: 'rgba(15, 23, 42, 0.8)',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  border: '1px solid #1e293b',
+                  fontSize: '11px'
+                }}>
+                  <div><span style={{ color: '#94a3b8' }}>Stop Loss:</span> <strong style={{ color: '#f8fafc' }}>{viewingHistoryDetails.settings?.slVal} ({viewingHistoryDetails.settings?.slType})</strong></div>
+                  <div><span style={{ color: '#94a3b8' }}>Risk:Reward:</span> <strong style={{ color: '#f8fafc' }}>{viewingHistoryDetails.settings?.rr}</strong></div>
+                  <div><span style={{ color: '#94a3b8' }}>Position Size:</span> <strong style={{ color: '#f8fafc' }}>{viewingHistoryDetails.settings?.useRiskSizing ? `${viewingHistoryDetails.settings?.riskPct}% Risk` : `${viewingHistoryDetails.settings?.size} Lots`}</strong></div>
+                  <div><span style={{ color: '#94a3b8' }}>Break-Even:</span> <strong style={{ color: '#f8fafc' }}>{viewingHistoryDetails.settings?.useBreakEven ? `Active (${viewingHistoryDetails.settings?.beTriggerR}R, ${viewingHistoryDetails.settings?.beOffsetMode})` : 'Disabled'}</strong></div>
+                  <div><span style={{ color: '#94a3b8' }}>Lookback Window:</span> <strong style={{ color: '#f8fafc' }}>{viewingHistoryDetails.settings?.lookbackWindow} bars</strong></div>
+                  <div><span style={{ color: '#94a3b8' }}>Fees:</span> <strong style={{ color: '#f8fafc' }}>{viewingHistoryDetails.settings?.feesPercent}%</strong></div>
+                  <div><span style={{ color: '#94a3b8' }}>Global Daily Close:</span> <strong style={{ color: viewingHistoryDetails.settings?.useGlobalClose ? '#38bdf8' : '#94a3b8' }}>{viewingHistoryDetails.settings?.useGlobalClose ? `Yes (${viewingHistoryDetails.settings?.globalCloseTime})` : 'Disabled'}</strong></div>
+                  <div><span style={{ color: '#94a3b8' }}>Entry Cutoff:</span> <strong style={{ color: viewingHistoryDetails.settings?.useEntryCutoff ? '#a78bfa' : '#94a3b8' }}>{viewingHistoryDetails.settings?.useEntryCutoff ? `Yes (${viewingHistoryDetails.settings?.entryCutoffTime})` : 'Disabled'}</strong></div>
+                  <div><span style={{ color: '#94a3b8' }}>Opposite Close:</span> <strong style={{ color: '#f8fafc' }}>{viewingHistoryDetails.settings?.allowOppositeClose ? 'Allowed' : 'Disabled'}</strong></div>
+                  <div><span style={{ color: '#94a3b8' }}>Daily Retry Limit:</span> <strong style={{ color: '#f8fafc' }}>{viewingHistoryDetails.settings?.dailyRetryLimit || '0'}</strong></div>
+                  <div style={{ gridColumn: '1 / -1' }}><span style={{ color: '#94a3b8' }}>Date Range:</span> <strong style={{ color: '#f8fafc' }}>{viewingHistoryDetails.settings?.dateRangeOption || 'Default'} {viewingHistoryDetails.settings?.customFrom ? `(${viewingHistoryDetails.settings?.customFrom} to ${viewingHistoryDetails.settings?.customTo})` : ''}</strong></div>
+                </div>
+              </div>
+
+              {/* Raw JSON viewer */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#94a3b8' }}>Raw Snapshot JSON</span>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(JSON.stringify(viewingHistoryDetails, null, 2));
+                      alert("Copied full test run JSON to clipboard!");
+                    }}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      color: '#cbd5e1',
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                      fontSize: '10px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    📋 Copy JSON
+                  </button>
+                </div>
+                <pre style={{
+                  margin: 0,
+                  padding: '10px',
+                  backgroundColor: '#020617',
+                  border: '1px solid #1e293b',
+                  borderRadius: '6px',
+                  color: '#38bdf8',
+                  fontSize: '10px',
+                  fontFamily: 'monospace',
+                  maxHeight: '140px',
+                  overflowY: 'auto'
+                }}>
+                  {JSON.stringify(viewingHistoryDetails, null, 2)}
+                </pre>
+              </div>
+
+              {/* Actions Footer */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', borderTop: '1px solid #1e293b', paddingTop: '12px' }}>
+                <button
+                  onClick={() => setViewingHistoryDetails(null)}
+                  style={{
+                    backgroundColor: 'transparent',
+                    border: '1px solid #334155',
+                    color: '#94a3b8',
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '11px'
+                  }}
+                >
+                  Close
+                </button>
+                <button
+                  onClick={() => {
+                    handleRestoreHistoryRun(viewingHistoryDetails);
+                    setViewingHistoryDetails(null);
+                    alert("Settings loaded into backtester!");
+                  }}
+                  style={{
+                    backgroundColor: '#2563eb',
+                    border: 'none',
+                    color: '#ffffff',
+                    padding: '6px 14px',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '11px',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  📥 Load Settings to Backtester
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
     </div>
