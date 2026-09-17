@@ -758,40 +758,68 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
                         if (!activeSessions || activeSessions.length === 0) {
                           return (
                             <span style={{ fontSize: '11px', color: 'var(--app-text-muted, #94a3b8)', fontStyle: 'italic' }}>
-                              All Hours
+                              24/7
                             </span>
                           );
                         }
+                        const fullTooltip = activeSessions
+                          .map((s: any, idx: number) => {
+                            const sName = s.name || s.id || `S${idx + 1}`;
+                            const sTime = s.start && s.end ? `${s.start}-${s.end}` : '';
+                            return `${sName}${sTime ? ` (${sTime})` : ''}${s.weekdays ? ` [${s.weekdays.join(',')}]` : ''}`;
+                          })
+                          .join('\n');
+
+                        if (activeSessions.length === 1) {
+                          const s = activeSessions[0];
+                          const sName = s.name || s.id || 'Session';
+                          const sTime = s.start && s.end ? `${s.start}-${s.end}` : '';
+                          return (
+                            <span
+                              title={fullTooltip}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px',
+                                padding: '1px 5px',
+                                borderRadius: '3px',
+                                fontSize: '10px',
+                                fontWeight: 500,
+                                backgroundColor: 'rgba(14, 165, 233, 0.12)',
+                                color: '#38bdf8',
+                                border: '1px solid rgba(14, 165, 233, 0.3)',
+                                whiteSpace: 'nowrap',
+                                cursor: 'help'
+                              }}
+                            >
+                              <span>🕒</span>
+                              <span>{sName}</span>
+                              {sTime && <span style={{ opacity: 0.75, fontSize: '9px' }}>({sTime})</span>}
+                            </span>
+                          );
+                        }
+
                         return (
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', maxWidth: '220px' }}>
-                            {activeSessions.map((s: any, idx: number) => {
-                              const sName = s.name || s.id || `S${idx + 1}`;
-                              const sTime = s.start && s.end ? `${s.start}-${s.end}` : '';
-                              return (
-                                <span
-                                  key={s.id || idx}
-                                  title={`${sName}: ${sTime}${s.weekdays ? ` (${s.weekdays.join(',')})` : ''}`}
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '3px',
-                                    padding: '1px 5px',
-                                    borderRadius: '3px',
-                                    fontSize: '10px',
-                                    fontWeight: 500,
-                                    backgroundColor: 'rgba(14, 165, 233, 0.12)',
-                                    color: '#38bdf8',
-                                    border: '1px solid rgba(14, 165, 233, 0.3)',
-                                    whiteSpace: 'nowrap'
-                                  }}
-                                >
-                                  <span>🕒</span>
-                                  <span>{sName}</span>
-                                  {sTime && <span style={{ opacity: 0.75, fontSize: '9px' }}>({sTime})</span>}
-                                </span>
-                              );
-                            })}
-                          </div>
+                          <span
+                            title={fullTooltip}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '1px 6px',
+                              borderRadius: '3px',
+                              fontSize: '10px',
+                              fontWeight: 500,
+                              backgroundColor: 'rgba(14, 165, 233, 0.12)',
+                              color: '#38bdf8',
+                              border: '1px solid rgba(14, 165, 233, 0.3)',
+                              whiteSpace: 'nowrap',
+                              cursor: 'help'
+                            }}
+                          >
+                            <span>🕒</span>
+                            <span>{activeSessions.length} Sessions</span>
+                          </span>
                         );
                       })()}
                     </td>
