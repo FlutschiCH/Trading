@@ -554,13 +554,25 @@ class LiveWorker:
                     print(f"{Fore.YELLOW}[LiveWorker]{Style.RESET_ALL} Strategy {self.strategy_id} is no longer active (status='{strategy.get('status')}'). Exiting worker...", flush=True)
                     break
 
+                # =========================================================================
+                # ONE-TIME STARTUP INITIALIZATION (first_run lifecycle)
+                # =========================================================================
+                # This block executes exclusively on the very first loop iteration.
+                # It performs:
+                # 1. Flip guard flag (`first_run = False`) so subsequent 5s cycles skip this.
+                # 2. Console window branding (updates Windows CMD title bar with strategy name/symbol/tf).
+                # 3. Strategy configuration parsing (extracts all risk, session, sizing, and rule settings).
+                # 4. Formatted ASCII startup summary output for live operator observability.
+                # =========================================================================
                 if first_run:
                     first_run = False
+                    
+                    # 1. Extract strategy identity & market details
                     strat_name = strategy.get("name") or "Unnamed Strategy"
                     strat_sym = strategy.get("symbol", "UNKNOWN")
                     strat_tf = strategy.get("timeframe", "UNKNOWN")
 
-                    # Set Windows console window title
+                    # 2. Update Windows console title for easier window tracking in multi-process setups
                     if sys.platform == "win32":
                         try:
                             import ctypes
@@ -568,6 +580,7 @@ class LiveWorker:
                         except Exception:
                             pass
 
+                    # 3. Extract broker connection, sizing, and risk parameters
                     strat_broker = strategy.get("broker", "metatrader")
                     strat_lookback = strategy.get("lookbackWindow", 20)
                     strat_sl_val = strategy.get("slVal", 1.0)
@@ -576,11 +589,15 @@ class LiveWorker:
                     strat_size = strategy.get("size", 1.0)
                     strat_risk_sizing = strategy.get("useRiskSizing", True)
                     strat_risk_pct = strategy.get("riskPct", 1.0)
+                    
+                    # 4. Extract trade management rules (Break-Even, Stability, Direction flipping)
                     strat_use_be = strategy.get("useBreakEven", False)
                     strat_be_trigger = strategy.get("beTriggerR", 1.0)
                     strat_be_mode = strategy.get("beOffsetMode", "half_r")
                     strat_rule = strategy.get("entryStabilityRule", "default")
                     strat_allow_opp = strategy.get("allowOppositeClose", True)
+                    
+                    # 5. Extract session schedules, timezones, and end-of-day cutoffs
                     strat_tz = strategy.get("timezone", "Local")
                     strat_use_gc = strategy.get("useGlobalClose", False)
                     strat_gc_time = strategy.get("globalCloseTime", "")
@@ -588,14 +605,18 @@ class LiveWorker:
                     strat_cutoff_time = strategy.get("entryCutoffTime", "")
                     strat_sessions = strategy.get("sessions") or []
                     strat_targets = strategy.get("targets") or []
+                    
+                    # 6. Extract daily signal throttle limits & multi-account targets
                     strat_daily_mode = strategy.get("dailyFirstSignalsMode", "disabled") or "disabled"
                     strat_daily_count = int(strategy.get("dailyFirstSignalsCount", 1))
                     strat_daily_mult = float(strategy.get("dailyFirstSignalsRiskMult", 0.5))
 
+                    # 7. Format string representations for logging
                     targets_str = ", ".join([f"{t.get('broker', 'metatrader')}:{t.get('account_id', 'default')}" for t in strat_targets]) if strat_targets else f"{strat_broker}:{strategy.get('account_id', 'default')}"
                     sessions_str = ", ".join([f"{s.get('id', 'sess')}({s.get('start')}-{s.get('end')})" for s in strat_sessions]) if strat_sessions else "24/7 (No restrictions)"
                     daily_signals_str = f"{strat_daily_mode.upper()} (Count: {strat_daily_count}, Risk: {int(strat_daily_mult * 100)}%)" if strat_daily_mode != 'disabled' else "Disabled (Take all signals)"
 
+                    # 8. Print formatted ASCII initialization banner
                     print(f"\n{Fore.CYAN}{Style.BRIGHT}{'='*60}", flush=True)
                     print(f"{Fore.CYAN}{Style.BRIGHT}  🚀 LIVE STRATEGY WORKER INITIALIZED", flush=True)
                     print(f"{Fore.CYAN}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}", flush=True)
