@@ -636,7 +636,7 @@ class LiveWorker:
                             pass
 
                     # 3. Extract broker connection, sizing, and risk parameters strictly from strategy
-                    strat_broker = strategy.get("broker") or "metatrader"
+                    strat_broker = strategy.get("broker")
                     strat_lookback = strategy["lookbackWindow"]
                     strat_sl_val = strategy["slVal"]
                     strat_sl_type = strategy["slType"]
@@ -686,6 +686,11 @@ class LiveWorker:
                     print(f"  {Fore.WHITE}• Sessions & Close  :{Style.RESET_ALL} TZ={strat_tz} | Sessions=[{sessions_str}] | GlobalClose={strat_use_gc} ({strat_gc_time or 'None'}) | EntryCutoff={strat_use_cutoff} ({strat_cutoff_time or 'None'})", flush=True)
                     print(f"{Fore.CYAN}{Style.BRIGHT}{'='*60}\n{Style.RESET_ALL}", flush=True)
 
+                # =========================================================================
+                # 1. MARKET ADAPTER & SYMBOL RESOLUTION
+                # =========================================================================
+                # Resolve broker connection adapter and map standard market symbol to
+                # broker-specific ticker conventions (e.g., BTCUSD -> BTCUSD.m or BTCUSDT).
                 symbol = strategy["symbol"]
                 timeframe = strategy["timeframe"]
                 lookback = strategy["lookbackWindow"]
@@ -697,6 +702,7 @@ class LiveWorker:
                 custom_to = strategy.get("customTo") or ""
                 limit = strategy.get("candleLimit", 5000)
 
+                # Determine target account identifier for broker-specific symbol mappings
                 strat_acc_id = strategy.get("account_id")
                 if not strat_acc_id and strategy.get("targets"):
                     targets = strategy.get("targets")
@@ -705,7 +711,7 @@ class LiveWorker:
 
                 strat_broker_symbol = SymbolMappingHandler.map_to_broker(symbol, strat_acc_id)
 
-                # If broker is Binance and symbol is unmapped/unrecognized, warn and skip calling API
+                # Pre-check Binance mapping requirements to prevent failing API queries
                 if broker_name == 'binance' and not SymbolMappingHandler.has_mapping(symbol, strat_acc_id) and not getattr(handler, 'validate_and_format_symbol', lambda s: None)(strat_broker_symbol):
                     print(f"{Fore.YELLOW}[LiveWorker Warning]{Style.RESET_ALL} Symbol '{symbol}' has no mapping configured for Binance account '{strat_acc_id or 'default'}'. Please configure symbol mapping in settings.", flush=True)
                     self.send_update_or_heartbeat(state_info={
@@ -716,9 +722,12 @@ class LiveWorker:
                     time.sleep(5)
                     continue
 
+                # =========================================================================
+                # 2. CANDLE DATA SYNC (WARM-UP vs INCREMENTAL UPDATE)
+                # =========================================================================
                 curr_config = (symbol, strat_broker_symbol, timeframe, lookback, broker_name, opt, custom_from, custom_to, limit)
                 if self.cache_config_fingerprint != curr_config or not self.candles_cache:
-                    # Initial / Warm-up Fetch
+                    # Initial / Warm-up Fetch: pull full historical bars and initialize strategy indicators
                     self.cache_config_fingerprint = curr_config
                     date_from, date_to = calculate_date_bounds(opt, custom_from, custom_to)
                     print(f"{Fore.CYAN}[LiveWorker Warmup]{Style.RESET_ALL} Fetching historical candles for {strat_broker_symbol} ({timeframe}) from {broker_name}...", flush=True)
@@ -770,7 +779,7 @@ class LiveWorker:
                         print(f"{Fore.RED}[LiveWorker Warmup Error]{Style.RESET_ALL} Failed to fetch warm-up candles.", flush=True)
                         self.candles_cache = []
                 else:
-                    # Incremental candle fetch
+                    # Incremental fetch: retrieve only the latest 10 candles and merge with local history
                     new_candles = handler.fetch_candles(
                         symbol=strat_broker_symbol,
                         timeframe=timeframe,
@@ -793,6 +802,9 @@ class LiveWorker:
                         )
                         self.candles_cache = list(analysis_res.get('data', []))
 
+                # =========================================================================
+                # 3. SIGNAL EVALUATION & EXECUTION PIPELINE
+                # =========================================================================
                 if not self.candles_cache or len(self.candles_cache) < lookback + 10:
                     self.send_update_or_heartbeat(state_info={
                         "stage": "UNKNOWN",
@@ -805,9 +817,11 @@ class LiveWorker:
                     state_info["candles"] = recent_candles
                     self.send_update_or_heartbeat(state_info=state_info)
 
+                    # Inspect the last fully closed candle (index -2; index -1 is currently forming)
                     last_completed_candle = self.candles_cache[-2]
                     candle_time = int(last_completed_candle["time"])
 
+                    # Ensure trade trigger executes only once per closed bar timestamp
                     if self.last_processed_candle_time != candle_time:
                         self.last_processed_candle_time = candle_time
                         if should_buy or should_sell:
@@ -845,6 +859,7 @@ class LiveWorker:
                             except Exception as push_err:
                                 print(f"[LiveWorker Error] Failed to send web push: {push_err}", flush=True)
 
+                            # Dispatch live order creation to broker accounts
                             self.execute_trades(strategy, should_buy, should_sell, last_completed_candle)
 
                             new_trade = {
