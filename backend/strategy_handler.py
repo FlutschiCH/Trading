@@ -643,7 +643,10 @@ class StrategyHandler:
         htf_ema_range_mode: bool = False,
         min_save_pnl: float = None,
         find_best_session: bool = False,
-        min_hourly_pnl: float = 0.0
+        min_hourly_pnl: float = 0.0,
+        start_index: int = 0,
+        initial_results: list = None,
+        checkpoint_callback = None
     ) -> dict:
         """
         Runs Wyckoff parameter grid search optimization, fetching candles dynamically and executing simulations.
@@ -749,12 +752,18 @@ class StrategyHandler:
 
         analysis_cache = {}
         candles_1m_cache = {}
-        results = []
+        results = list(initial_results) if initial_results else []
         total_runs = len(matrix)
+
+        if start_index > 0:
+            print(f"[Optimization] Resuming optimization matrix from checkpoint run [{start_index + 1}/{total_runs}] ({len(results)} previous results restored)...", flush=True)
 
         recent_durations = []
 
         for idx, combo in enumerate(matrix):
+            if idx < start_index:
+                continue
+
             try:
                 import gevent
                 gevent.sleep(0)
@@ -1042,6 +1051,12 @@ class StrategyHandler:
                 "dailyLossBreached": sim_result["dailyLossBreached"],
                 "executionTimeSec": round(run_duration, 3)
             })
+
+            if checkpoint_callback:
+                try:
+                    checkpoint_callback(idx + 1, results)
+                except Exception as cp_err:
+                    pass
 
         if progress_callback:
             progress_callback(100)

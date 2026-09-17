@@ -227,16 +227,28 @@ def run_worker(job_id: str, is_resume: bool = False):
     else:
         est_time_str = f"{est_sec // 3600}h {(est_sec % 3600) // 60}m {est_sec % 60}s"
 
+    checkpoint_idx = int(job.get('checkpoint_index') or 0)
+    initial_res = []
+    if job.get('results'):
+        raw_res = job.get('results')
+        if isinstance(raw_res, list):
+            initial_res = raw_res
+        elif isinstance(raw_res, dict) and 'results' in raw_res:
+            initial_res = raw_res.get('results', [])
+
+    if checkpoint_idx > 0:
+        print(f"{Fore.GREEN}[BacktestWorker Checkpoint]{Style.RESET_ALL} Resuming job {job_id} from checkpoint run #{checkpoint_idx + 1} ({len(initial_res)} completed results restored)", flush=True)
+
     symbols_str = ", ".join(symbols)
     tf_str = ", ".join(timeframes)
     print(f"{Fore.CYAN}[BacktestWorker Target]{Style.RESET_ALL} Symbols ({len(symbols)}): [{symbols_str}] | Timeframes ({len(timeframes)}): [{tf_str}] | Type: '{job_type}'", flush=True)
     print(f"{Fore.CYAN}[BacktestWorker Plan]{Style.RESET_ALL} Total Combos: {total_jobs} | Estimated Runtime (~10s/job): {est_time_str}", flush=True)
-    SQLHandler.update_backtest_job_progress(job_id, status='running', progress=5.0, step_info='Fetching candles from broker...')
+    SQLHandler.update_backtest_job_progress(job_id, status='running', progress=float(job.get('progress') or 5.0), step_info='Resuming optimization matrix...' if checkpoint_idx > 0 else 'Fetching candles from broker...')
 
     def handle_exit_signal(sig=None, frame=None):
-        print(f"\n{Fore.YELLOW}[BacktestWorker]{Style.RESET_ALL} Worker window closed/terminated for job {job_id}. Updating status to cancelled...", flush=True)
+        print(f"\n{Fore.YELLOW}[BacktestWorker]{Style.RESET_ALL} Worker process interrupted for job {job_id}. Preserving checkpoint...", flush=True)
         try:
-            SQLHandler.update_backtest_job_progress(job_id, status='cancelled', step_info='Worker window closed by user (X clicked)')
+            SQLHandler.update_backtest_job_progress(job_id, status='interrupted', step_info='Worker process interrupted')
         except Exception:
             pass
         sys.exit(0)
@@ -260,10 +272,9 @@ def run_worker(job_id: str, is_resume: bool = False):
 
             def win_ctrl_handler(ctrl_type):
                 # 0: CTRL_C_EVENT, 1: CTRL_BREAK_EVENT, 2: CTRL_CLOSE_EVENT, 5: CTRL_LOGOFF_EVENT, 6: CTRL_SHUTDOWN_EVENT
-                print(f"\n{Fore.YELLOW}[BacktestWorker]{Style.RESET_ALL} Received console signal {ctrl_type} (X closed). Cancelling & deleting job {job_id}...", flush=True)
+                print(f"\n{Fore.YELLOW}[BacktestWorker]{Style.RESET_ALL} Received console signal {ctrl_type} (X closed). Preserving checkpoint for job {job_id}...", flush=True)
                 try:
-                    SQLHandler.update_backtest_job_progress(job_id, status='cancelled', step_info='Worker window closed by user (X clicked)')
-                    SQLHandler.delete_backtest_job(job_id)
+                    SQLHandler.update_backtest_job_progress(job_id, status='interrupted', step_info='Worker window closed by user')
                 except Exception as ex:
                     print(f"Error handling console close: {ex}", flush=True)
                 return True
@@ -286,10 +297,9 @@ def run_worker(job_id: str, is_resume: bool = False):
 
     worker_start_time = time.time()
 
-    def send_local_update(progress: float = None, status: str = None, step_info: str = None, results: dict = None, est_sec: int = None):
+    def send_local_update(progress: float = None, status: str = None, step_info: str = None, results: dict = None, est_sec: int = None, checkpoint_index: int = None, checkpoint_data: dict = None):
         nonlocal http_failed
         elapsed_total = time.time() - worker_start_time
-        print(f"\n{Fore.CYAN}[BacktestWorker Update]{Style.RESET_ALL} [T+{elapsed_total:.2f}s] Job {job_id}: status={status}, progress={progress}%", flush=True)
         # Always update MySQL database directly first for ultimate reliability
         try:
             SQLHandler.update_backtest_job_progress(
@@ -297,7 +307,10 @@ def run_worker(job_id: str, is_resume: bool = False):
                 status=status if status else 'running',
                 progress=float(progress) if progress is not None else 0.0,
                 step_info=step_info if step_info else '',
-                results=results
+                checkpoint_index=checkpoint_index,
+                checkpoint_data=checkpoint_data,
+                results=results,
+                estimated_seconds_remaining=est_sec
             )
         except Exception as db_err:
             print(f"[BacktestWorker Update Warning] Direct DB update failed: {db_err}", flush=True)
@@ -553,7 +566,17 @@ def run_worker(job_id: str, is_resume: bool = False):
                 htf_ema_range_mode=htf_ema_range_mode,
                 min_save_pnl=float(params.get('minSavePnl')) if params.get('minSavePnl') is not None and str(params.get('minSavePnl')).strip() != '' else None,
                 find_best_session=bool(params.get('findBestSession', False)),
-                min_hourly_pnl=float(params.get('minHourlyPnl', 0.0))
+                min_hourly_pnl=float(params.get('minHourlyPnl', 0.0)),
+                start_index=checkpoint_idx,
+                initial_results=initial_res,
+                checkpoint_callback=lambda curr_idx, partial_results: send_local_update(
+                    progress=round((curr_idx / total_jobs) * 100.0, 1) if total_jobs > 0 else 0.0,
+                    status='running',
+                    step_info=f"Optimization matrix [{curr_idx}/{total_jobs}]",
+                    checkpoint_index=curr_idx,
+                    checkpoint_data={"total_jobs": total_jobs, "last_index": curr_idx},
+                    results={"status": "running", "results": partial_results}
+                )
             )
 
             total_elapsed = round(time.time() - execution_start_time, 2)
