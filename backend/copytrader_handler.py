@@ -698,3 +698,75 @@ class CopytraderHandler:
                 logPrint(f"[Copytrader Sync Exception]: {e}")
             
             time.sleep(1.0)
+
+
+if __name__ == "__main__":
+    print("=" * 60)
+    print("[Copytrader Debug Runner] Initializing one-pass diagnostic test")
+    print("=" * 60)
+
+    try:
+        CopytraderHandler.init_db()
+        print("[OK] Copytrader DB initialized successfully.")
+    except Exception as e:
+        print(f"[ERROR] Failed to initialize DB: {e}")
+
+    configs = CopytraderHandler.get_all_configs()
+    print(f"[INFO] Found {len(configs)} total configurations in DB.")
+
+    active_configs = [c for c in configs if str(c.get("status", "")).lower() in ("active", "enabled", "true")]
+    print(f"[INFO] Active configurations count: {len(active_configs)}")
+
+    for idx, cfg in enumerate(active_configs, 1):
+        print(f"\n--- [Config #{idx}: {cfg.get('name')}] ---")
+        master_broker = str(cfg.get("master_broker", "metatrader")).lower()
+        master_acc = str(cfg.get("master_account", ""))
+        print(f"Master: {master_broker.upper()} Account: '{master_acc}'")
+        
+        m_pos = CopytraderHandler._get_account_positions(master_acc, master_broker) or []
+        print(f"   Master Positions ({len(m_pos)}):")
+        for p in m_pos:
+            print(f"     -> Symbol: {p.get('symbol')} | Side: {p.get('side') or p.get('trade_side')} | Vol: {p.get('volume') or p.get('positionAmt')} | Open: {p.get('open_price') or p.get('price')} | SL: {p.get('sl')} | TP: {p.get('tp')}")
+
+        slaves = cfg.get("slaves", [])
+        print(f"Configured Slaves ({len(slaves)}):")
+        for s_idx, slave in enumerate(slaves, 1):
+            if not slave.get("is_active", True) and slave.get("status") == "paused":
+                print(f"   [{s_idx}] Slave (INACTIVE/PAUSED): {slave.get('account_id')}")
+                continue
+
+            s_broker = str(slave.get("broker", "metatrader")).lower()
+            s_acc = str(slave.get("account_id", ""))
+            mode = str(slave.get("mode", "direct")).lower()
+            multiplier = float(slave.get("multiplier", 1.0))
+            print(f"   [{s_idx}] Slave: {s_broker.upper()} Account: '{s_acc}' | Mode: {mode} | Multiplier/Val: {multiplier}")
+            
+            s_pos = CopytraderHandler._get_account_positions(s_acc, s_broker) or []
+            print(f"       Slave Positions ({len(s_pos)}):")
+            for sp in s_pos:
+                print(f"         -> Symbol: {sp.get('symbol')} | Side: {sp.get('side') or sp.get('trade_side')} | Vol: {sp.get('volume') or sp.get('positionAmt')} | ID: {sp.get('position_id') or sp.get('ticket')}")
+
+            # Test lot calculation against current master positions
+            for p in m_pos:
+                m_sym = str(p.get("symbol", ""))
+                m_lots = float(p.get("volume") or abs(float(p.get("positionAmt", 0))) or 0)
+                m_side = str(p.get("trade_side") or p.get("side") or "").strip().upper()
+                m_open = float(p.get("open_price") or p.get("price") or p.get("entry_price") or 0.0)
+                sl = float(p.get("sl") or p.get("stop_loss") or 0.0)
+                
+                calculated_lots = CopytraderHandler._calculate_lots(
+                    master_lots=m_lots,
+                    mode=mode,
+                    multiplier=multiplier,
+                    entry_price=m_open,
+                    sl=sl,
+                    direction=m_side,
+                    slave_account=s_acc,
+                    slave_broker=s_broker,
+                    symbol=m_sym
+                )
+                print(f"       [Sizing Test] Master {m_side} {m_lots} {m_sym} (SL={sl}, Entry={m_open}) => Slave Sized Lots: {calculated_lots}")
+
+    print("\n" + "=" * 60)
+    print("[COMPLETE] Diagnostic scan complete.")
+    print("=" * 60)
