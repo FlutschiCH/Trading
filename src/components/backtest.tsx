@@ -1944,9 +1944,7 @@ export default function Backtester({
           </button>
 
           <button
-            disabled={loadingBacktest}
             onClick={() => {
-              if (loadingBacktest) return;
               const targetSymbol = effectiveSymbols[0] || symbol;
               const targetTimeframe = effectiveTimeframes[0] || timeframe;
               console.log(`[Wyckoff Backtester] Run Backtest clicked (Combos: ${totalRunCombinations}). Symbol: "${targetSymbol}", Effective Symbols:`, effectiveSymbols, "Timeframe:", targetTimeframe);

@@ -1185,12 +1185,6 @@ export default function Dashboard() {
       alert("Action disabled in read-only mode.");
       return;
     }
-    if (!symbol) return;
-
-    if (backtestAbortControllerRef.current) {
-      backtestAbortControllerRef.current.abort();
-    }
-
     const controller = new AbortController();
     backtestAbortControllerRef.current = controller;
     const backtestId = Date.now().toString();
@@ -1326,12 +1320,6 @@ export default function Dashboard() {
       alert("Action disabled in read-only mode.");
       return;
     }
-    if (!symbol) return;
-
-    if (backtestAbortControllerRef.current) {
-      backtestAbortControllerRef.current.abort();
-    }
-
     const controller = new AbortController();
     backtestAbortControllerRef.current = controller;
     const backtestId = Date.now().toString();
