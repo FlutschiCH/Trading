@@ -19,7 +19,6 @@ import { CandleCollectorPanel } from './candle_collector_panel';
 import { CandleDetailsCard } from './candle_details_card';
 import SymbolMappingCard from './symbol_mapping_card';
 import Copytrader from './copytrader';
-import TradeAnalyzerCard from './trade_analyzer_card';
 import BacktestAnalyzerCard from './backtest_analyzer_card';
 import ScalperCard from './scalper';
 import LogPanel from './log_panel';
@@ -3055,7 +3054,6 @@ export default function Dashboard() {
                       currentTimeframe={timeframe}
                       onLoadSavedBacktest={handleLoadSavedBacktestById}
                     />
-                    <TradeAnalyzerCard />
                   </div>
                 ) : mobileTab === 'collector' ? (
                   <div style={{ width: '100%' }}>
@@ -3665,11 +3663,6 @@ export default function Dashboard() {
                     currentTimeframe={timeframe}
                     onLoadSavedBacktest={handleLoadSavedBacktestById}
                   />
-                </div>
-
-                {/* Trade Analyzer Card */}
-                <div style={{ marginTop: '24px' }}>
-                  <TradeAnalyzerCard />
                 </div>
 
                 {/* M1/M5 Liquidity Void & Reversal Scalper Card */}
