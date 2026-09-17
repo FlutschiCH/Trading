@@ -58,6 +58,13 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
     } catch {}
     return 'all';
   });
+  const [sbFilterTimeframe, setSbFilterTimeframe] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) return JSON.parse(saved).sbFilterTimeframe ?? 'all';
+    } catch {}
+    return 'all';
+  });
   const [sbFilterStrategyType, setSbFilterStrategyType] = useState<string>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -122,6 +129,7 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
         sbSortField,
         sbSortDir,
         sbFilterSymbol,
+        sbFilterTimeframe,
         sbFilterStrategyType,
         sbFilterSlType,
         sbFilterSession,
@@ -134,7 +142,7 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
     } catch (e) {
       console.error("Failed to save filters to localStorage", e);
     }
-  }, [sbSortField, sbSortDir, sbFilterSymbol, sbFilterStrategyType, sbFilterSlType, sbFilterSession, sbMaxDrawdown, sbMinNetPnl, sbMinWinRate, sbMinTrades, sbMinProfitFactor]);
+  }, [sbSortField, sbSortDir, sbFilterSymbol, sbFilterTimeframe, sbFilterStrategyType, sbFilterSlType, sbFilterSession, sbMaxDrawdown, sbMinNetPnl, sbMinWinRate, sbMinTrades, sbMinProfitFactor]);
 
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(50);
@@ -190,7 +198,7 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
   // Reset to page 1 whenever any filter or sorting changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [sbSortField, sbSortDir, sbFilterSymbol, sbFilterStrategyType, sbFilterSlType, sbMaxDrawdown, sbMinNetPnl, sbMinWinRate, sbMinTrades, sbMinProfitFactor, pageSize, viewTab]);
+  }, [sbSortField, sbSortDir, sbFilterSymbol, sbFilterTimeframe, sbFilterStrategyType, sbFilterSlType, sbFilterSession, sbMaxDrawdown, sbMinNetPnl, sbMinWinRate, sbMinTrades, sbMinProfitFactor, pageSize, viewTab]);
 
   const activeDisplayList = viewTab === 'active' ? savedBacktestsList : archivedBacktestsList;
 
@@ -198,6 +206,7 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
     return activeDisplayList
       .filter(item => {
         if (sbFilterSymbol !== 'all' && item.symbol !== sbFilterSymbol) return false;
+        if (sbFilterTimeframe !== 'all' && item.timeframe !== sbFilterTimeframe) return false;
         if (sbFilterStrategyType !== 'all') {
           const itemStrat = (item.strategy_type || 'wyckoff').toLowerCase();
           const targetStrat = sbFilterStrategyType.toLowerCase();
@@ -231,7 +240,7 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
         }
         return sbSortDir === 'desc' ? valB - valA : valA - valB;
       });
-  }, [activeDisplayList, sbFilterSymbol, sbFilterStrategyType, sbFilterSlType, sbFilterSession, sbMaxDrawdown, sbMinNetPnl, sbMinWinRate, sbMinTrades, sbMinProfitFactor, sbSortField, sbSortDir]);
+  }, [activeDisplayList, sbFilterSymbol, sbFilterTimeframe, sbFilterStrategyType, sbFilterSlType, sbFilterSession, sbMaxDrawdown, sbMinNetPnl, sbMinWinRate, sbMinTrades, sbMinProfitFactor, sbSortField, sbSortDir]);
 
   const totalPages = pageSize === 0 ? 1 : Math.max(1, Math.ceil(filteredAndSortedList.length / pageSize));
   const safeCurrentPage = Math.min(currentPage, totalPages);
@@ -518,6 +527,27 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <label style={{ color: 'var(--app-text, #cbd5e1)', fontSize: '12px', fontWeight: 500 }}>TF:</label>
+              <select
+                value={sbFilterTimeframe}
+                onChange={(e) => setSbFilterTimeframe(e.target.value)}
+                style={{
+                  backgroundColor: 'var(--app-input-bg, #0f172a)',
+                  color: 'var(--app-input-text, #f8fafc)',
+                  border: '1px solid var(--app-input-border, #475569)',
+                  padding: '4px 8px',
+                  borderRadius: '4px',
+                  fontSize: '12px'
+                }}
+              >
+                <option value="all">All Timeframes</option>
+                {Array.from(new Set(savedBacktestsList.map(item => item.timeframe).filter(Boolean))).map(tf => (
+                  <option key={tf} value={tf}>{tf}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <label style={{ color: 'var(--app-text, #cbd5e1)', fontSize: '12px', fontWeight: 500 }}>SL Mode:</label>
               <select
                 value={sbFilterSlType}
@@ -599,7 +629,7 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <label style={{ color: 'var(--app-text, #cbd5e1)', fontSize: '12px', fontWeight: 500 }}>Min Win%:</label>
+              <label style={{ color: 'var(--app-text, #cbd5e1)', fontSize: '12px', fontWeight: 500 }}>Min Win (%):</label>
               <input
                 type="number"
                 placeholder="e.g. 50"
@@ -656,10 +686,11 @@ export default function SavedRuns({ onClose, onLoadSavedBacktest, onAnalyzeBackt
               />
             </div>
 
-            {(sbFilterSymbol !== 'all' || sbFilterSlType !== 'all' || sbFilterSession !== 'all' || sbMaxDrawdown || sbMinNetPnl || sbMinWinRate || sbMinTrades || sbMinProfitFactor) && (
+            {(sbFilterSymbol !== 'all' || sbFilterTimeframe !== 'all' || sbFilterStrategyType !== 'all' || sbFilterSlType !== 'all' || sbFilterSession !== 'all' || sbMaxDrawdown || sbMinNetPnl || sbMinWinRate || sbMinTrades || sbMinProfitFactor) && (
               <button
                 onClick={() => {
                   setSbFilterSymbol('all');
+                  setSbFilterTimeframe('all');
                   setSbFilterStrategyType('all');
                   setSbFilterSlType('all');
                   setSbFilterSession('all');
