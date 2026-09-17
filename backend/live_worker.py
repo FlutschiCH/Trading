@@ -555,22 +555,77 @@ class LiveWorker:
                     break
 
                 # =========================================================================
+                # STRICT CONFIGURATION VALIDATION (NO SILENT FALLBACKS)
+                # =========================================================================
+                # Live trading requires strict parameter integrity. If any required
+                # configuration field is missing, None, or invalid, we abort immediately.
+                # =========================================================================
+                required_fields = ["symbol", "timeframe", "lookbackWindow", "slVal", "slType", "rr"]
+                missing_fields = [f for f in required_fields if strategy.get(f) is None]
+
+                # Validate sizing configuration
+                use_risk_sizing = strategy.get("useRiskSizing")
+                if use_risk_sizing is None:
+                    missing_fields.append("useRiskSizing")
+                elif use_risk_sizing and strategy.get("riskPct") is None:
+                    missing_fields.append("riskPct")
+                elif not use_risk_sizing and strategy.get("size") is None:
+                    missing_fields.append("size")
+
+                # Validate Break-Even configuration if enabled
+                if strategy.get("useBreakEven"):
+                    if strategy.get("beTriggerR") is None:
+                        missing_fields.append("beTriggerR")
+                    if strategy.get("beOffsetMode") is None:
+                        missing_fields.append("beOffsetMode")
+
+                # Validate Global Close and Entry Cutoff if enabled
+                if strategy.get("useGlobalClose") and not strategy.get("globalCloseTime"):
+                    missing_fields.append("globalCloseTime")
+                if strategy.get("useEntryCutoff") and not strategy.get("entryCutoffTime"):
+                    missing_fields.append("entryCutoffTime")
+
+                if missing_fields:
+                    err_msg = f"CRITICAL: Strategy {self.strategy_id} is missing mandatory configuration fields: {', '.join(missing_fields)}. Aborting live execution without fallback."
+                    print(f"\n{Fore.RED}{Style.BRIGHT}{'='*70}", flush=True)
+                    print(f"{Fore.RED}{Style.BRIGHT}  ❌ LIVE STRATEGY INTEGRITY ERROR: ABORTING", flush=True)
+                    print(f"{Fore.RED}{Style.BRIGHT}{'='*70}{Style.RESET_ALL}", flush=True)
+                    print(f"  {Fore.YELLOW}{err_msg}{Style.RESET_ALL}\n", flush=True)
+                    
+                    try:
+                        from discord_handler import send_discord_message
+                        send_discord_message(f"🚨 **Live Worker Aborted!**\nStrategy `{self.strategy_id}` missing required fields: `{missing_fields}`")
+                    except Exception:
+                        pass
+                    
+                    self.send_update_or_heartbeat(
+                        state_info={
+                            "stage": "ABORTED",
+                            "status_message": err_msg,
+                            "last_checked": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        },
+                        status_msg="error"
+                    )
+                    self._release_instance_lock()
+                    sys.exit(1)
+
+                # =========================================================================
                 # ONE-TIME STARTUP INITIALIZATION (first_run lifecycle)
                 # =========================================================================
                 # This block executes exclusively on the very first loop iteration.
                 # It performs:
                 # 1. Flip guard flag (`first_run = False`) so subsequent 5s cycles skip this.
                 # 2. Console window branding (updates Windows CMD title bar with strategy name/symbol/tf).
-                # 3. Strategy configuration parsing (extracts all risk, session, sizing, and rule settings).
+                # 3. Strategy configuration parsing (extracts exact parameters without silent defaults).
                 # 4. Formatted ASCII startup summary output for live operator observability.
                 # =========================================================================
                 if first_run:
                     first_run = False
                     
                     # 1. Extract strategy identity & market details
-                    strat_name = strategy.get("name") or "Unnamed Strategy"
-                    strat_sym = strategy.get("symbol", "UNKNOWN")
-                    strat_tf = strategy.get("timeframe", "UNKNOWN")
+                    strat_name = strategy.get("name", f"Strategy {self.strategy_id}")
+                    strat_sym = strategy["symbol"]
+                    strat_tf = strategy["timeframe"]
 
                     # 2. Update Windows console title for easier window tracking in multi-process setups
                     if sys.platform == "win32":
@@ -580,20 +635,20 @@ class LiveWorker:
                         except Exception:
                             pass
 
-                    # 3. Extract broker connection, sizing, and risk parameters
-                    strat_broker = strategy.get("broker", "metatrader")
-                    strat_lookback = strategy.get("lookbackWindow", 20)
-                    strat_sl_val = strategy.get("slVal", 1.0)
-                    strat_sl_type = strategy.get("slType", "price")
-                    strat_rr = strategy.get("rr", 2.0)
-                    strat_size = strategy.get("size", 1.0)
-                    strat_risk_sizing = strategy.get("useRiskSizing", True)
-                    strat_risk_pct = strategy.get("riskPct", 1.0)
+                    # 3. Extract broker connection, sizing, and risk parameters strictly from strategy
+                    strat_broker = strategy.get("broker") or "metatrader"
+                    strat_lookback = strategy["lookbackWindow"]
+                    strat_sl_val = strategy["slVal"]
+                    strat_sl_type = strategy["slType"]
+                    strat_rr = strategy["rr"]
+                    strat_risk_sizing = strategy["useRiskSizing"]
+                    strat_size = strategy.get("size")
+                    strat_risk_pct = strategy.get("riskPct")
                     
                     # 4. Extract trade management rules (Break-Even, Stability, Direction flipping)
                     strat_use_be = strategy.get("useBreakEven", False)
-                    strat_be_trigger = strategy.get("beTriggerR", 1.0)
-                    strat_be_mode = strategy.get("beOffsetMode", "half_r")
+                    strat_be_trigger = strategy.get("beTriggerR")
+                    strat_be_mode = strategy.get("beOffsetMode")
                     strat_rule = strategy.get("entryStabilityRule", "default")
                     strat_allow_opp = strategy.get("allowOppositeClose", True)
                     
