@@ -138,7 +138,8 @@ def run_trade_simulation(
     daily_first_signals_mode: str = 'disabled',
     daily_first_signals_count: int = 0,
     daily_first_signals_risk_mult: float = 0.5,
-    candles_1m: list = None
+    candles_1m: list = None,
+    verbose: bool = True
 ) -> dict:
     """
     Simulates the Wyckoff strategy trade executions on the annotated candle list.
@@ -189,7 +190,8 @@ def run_trade_simulation(
         t_start_str = str(first_c.get('time'))
         t_end_str = str(last_c.get('time'))
 
-    print(f"\n{Fore.CYAN}[Trade Simulation]{Style.RESET_ALL} Starting simulation for {symbol} on {total_candles} candles | Range: {t_start_str} -> {t_end_str} | PipSize: {pip_size} | LotMultiplier: {lot_size} | Precision: {precision}", flush=True)
+    if verbose:
+        print(f"\n{Fore.CYAN}[Trade Simulation]{Style.RESET_ALL} Starting simulation for {symbol} on {total_candles} candles | Range: {t_start_str} -> {t_end_str} | PipSize: {pip_size} | LotMultiplier: {lot_size} | Precision: {precision}", flush=True)
 
     # If candles_1m is available, prepare binary search index of timestamps for fast O(log N) lookup
     import bisect
@@ -197,7 +199,8 @@ def run_trade_simulation(
     has_1m = bool(candles_1m and len(candles_1m) > 0)
     if has_1m:
         candles_1m_times = [int(cm.get('time', 0)) for cm in candles_1m]
-        print(f"{Fore.GREEN}[Trade Simulation MTF]{Style.RESET_ALL} 1m Intrabar resolution enabled ({len(candles_1m)} 1m candles available).", flush=True)
+        if verbose:
+            print(f"{Fore.GREEN}[Trade Simulation MTF]{Style.RESET_ALL} 1m Intrabar resolution enabled ({len(candles_1m)} 1m candles available).", flush=True)
 
     def resolve_trade_on_1m(trade: dict) -> dict:
         """
@@ -325,7 +328,8 @@ def run_trade_simulation(
                 elapsed_sim = max(0.001, time.time() - start_sim_time)
                 rate_sim = (i + 1) / elapsed_sim
                 rem_sim = max(0, int((total_candles - (i + 1)) / rate_sim)) if rate_sim > 0 else 0
-                print(f"\r{Fore.CYAN}[Trade Simulation Progress]{Style.RESET_ALL} |{Fore.GREEN}{bar}{Style.RESET_ALL}| {percent}% ({i+1}/{total_candles}) [{elapsed_sim:.1f}s | ~{int(rate_sim)} c/s | Rem: {rem_sim}s]", end="" if percent < 100 and i < total_candles - 1 else "\n", flush=True)
+                if verbose:
+                    print(f"\r{Fore.CYAN}[Trade Simulation Progress]{Style.RESET_ALL} |{Fore.GREEN}{bar}{Style.RESET_ALL}| {percent}% ({i+1}/{total_candles}) [{elapsed_sim:.1f}s | ~{int(rate_sim)} c/s | Rem: {rem_sim}s]", end="" if percent < 100 and i < total_candles - 1 else "\n", flush=True)
                 if progress_callback:
                     try:
                         progress_callback(50 + int(percent / 2))
@@ -786,10 +790,12 @@ def run_trade_simulation(
         be_str = f"be{be_trigger_r}" if use_break_even else "be_off"
         clean_sym = str(symbol).replace('/', '_').replace('.', '_').lower()
         from colorama import Fore, Style
-        print(f"{Fore.GREEN}[Trade Simulation]{Style.RESET_ALL} Successfully processed {len(completed_trades)} backtest trades for {symbol} (Saved to MySQL DB)", flush=True)
+        if verbose:
+            print(f"{Fore.GREEN}[Trade Simulation]{Style.RESET_ALL} Successfully processed {len(completed_trades)} backtest trades for {symbol} (Saved to MySQL DB)", flush=True)
     except Exception as bt_err:
         from colorama import Fore, Style
-        print(f"{Fore.YELLOW}[Trade Simulation]{Style.RESET_ALL} Warning processing trades log: {bt_err}", flush=True)
+        if verbose:
+            print(f"{Fore.YELLOW}[Trade Simulation]{Style.RESET_ALL} Warning processing trades log: {bt_err}", flush=True)
 
     return {
         "trades": reversed_trades,

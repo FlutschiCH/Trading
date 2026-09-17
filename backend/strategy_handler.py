@@ -804,7 +804,7 @@ class StrategyHandler:
 
                 eta_str = f"Rem: {rem_formatted} | Est Total: {tot_formatted} (~{avg_duration:.1f}s/run)"
 
-            print(f"[Optimization] [{idx+1}/{total_runs}] ({pct}%) [Elapsed: {elapsed_str} | {eta_str}] Testing {s} ({tf}) | SL: {sl}{sl_type} | RR: 1:{rr} | BE: {be_str}...", flush=True)
+            # Remove spammy start print in favor of a single comprehensive completion line
 
 
 
@@ -855,10 +855,7 @@ class StrategyHandler:
                         print(f"[Optimization] Warning: Failed to fetch HTF candles for {s} {htf_tf}: {e_htf}", flush=True)
                         htf_candles_opt = None
 
-                from colorama import Fore, Style
-                candles_1m_enabled = tf.lower() not in ('1m', '1min')
-                htf_str = f" | HTF EMA: {htf_tf} {htf_per} EMA" if htf_on else ""
-                print(f"\n{Fore.CYAN}[Backtest]{Style.RESET_ALL} Starting Wyckoff Structure Analysis backtest for {s} on {len(candles)} candles (1m Intrabar: {'Enabled' if candles_1m_enabled else 'Off'}{htf_str})...", flush=True)
+                # Start Wyckoff Structure Analysis backtest
                 analysis = StrategyHandler.analyze_market_data(
                     candles,
                     lookback=lookback_window,
@@ -927,7 +924,8 @@ class StrategyHandler:
                 daily_first_signals_mode=daily_first_signals_mode,
                 daily_first_signals_count=daily_first_signals_count,
                 daily_first_signals_risk_mult=daily_first_signals_risk_mult,
-                candles_1m=candles_1m_opt
+                candles_1m=candles_1m_opt,
+                verbose=False
             )
 
             run_duration = time.time() - run_start_time
@@ -936,11 +934,12 @@ class StrategyHandler:
             trades_cnt = sim_result["totalTrades"]
             pf = sim_result["profitFactor"]
             pnl_str = f"+${pnl:.2f}" if pnl >= 0 else f"-${abs(pnl):.2f}"
-            print(f"[Optimization] [{idx+1}/{total_runs}] -> Result ({run_duration:.2f}s): Net PnL: {pnl_str} | Win Rate: {win_rate:.1f}% | Trades: {trades_cnt} | PF: {pf:.2f}", flush=True)
 
             recent_durations.append(run_duration)
             if len(recent_durations) > 10:
                 recent_durations.pop(0)
+
+            print(f"[Optimization] [{idx+1}/{total_runs}] ({pct}%) Testing {s} ({tf}) | SL:{sl}{sl_type} RR:1:{rr} BE:{be_str} -> {pnl_str} | WR: {win_rate:.1f}% | Trades: {trades_cnt} | PF: {pf:.2f} ({run_duration:.2f}s | {eta_str})", flush=True)
 
 
             # Save detailed combo results
@@ -1011,7 +1010,8 @@ class StrategyHandler:
                     payload_dict=results_to_save,
                     min_pnl=min_save_pnl
                 )
-                print(f"[SQLHandler] Saved iteration [{idx+1}/{total_runs}] ({backtest_id_str}) to MySQL DB.", flush=True)
+                # Saved to MySQL DB (logging suppressed for batch performance)
+                pass
             except Exception as e:
                 print(f"[SQLHandler] Failed auto-persisting backtest run to MySQL DB for {s} {tf}: {e}", flush=True)
 
