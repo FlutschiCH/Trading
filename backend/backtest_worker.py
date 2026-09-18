@@ -461,47 +461,18 @@ def run_worker(job_id: str, is_resume: bool = False):
             )
         elif job_type == 'single':
             print(f"{Fore.CYAN}[BacktestWorker]{Style.RESET_ALL} Running single backtest for job {job_id}...", flush=True)
+            strat_obj = params.get('strategy') if isinstance(params.get('strategy'), dict) else params
             res = StrategyHandler.run_backtest(
                 candles=candles,
                 symbol=symbol,
-                sl_val=float(params.get('slVal', 1.0)),
-                sl_type=params.get('slType', 'pct'),
-                rr=float(params.get('rr', 2.0)),
-                size=float(params.get('size', 1.0)),
-                initial_balance=float(params.get('initialBalance', 10000.0)),
-                use_risk_sizing=bool(params.get('useRiskSizing', False)),
-                risk_pct=float(params.get('riskPct', 1.0)),
-                use_break_even=bool(params.get('useBreakEven', False)),
-                be_trigger_r=float(params.get('beTriggerR', 1.0)),
-                be_offset_mode=params.get('beOffsetMode', 'half_r'),
-                lookback_window=int(params.get('lookbackWindow', 20)),
-                fees_percent=float(params.get('feesPercent', 0.0)),
-                daily_retry_limit=int(params.get('dailyRetryLimit', 0)),
-                allow_opposite_close=bool(params.get('allowOppositeClose', True)),
+                strategy=strat_obj,
+                broker=candle_source,
                 date_from=date_from,
                 date_to=date_to,
-                timezone=params.get('timezone', 'Local'),
-                sessions=params.get('sessions', []),
-                use_global_close=bool(params.get('useGlobalClose', False)),
-                global_close_time=params.get('globalCloseTime', ''),
-                use_entry_cutoff=bool(params.get('useEntryCutoff', False)),
-                entry_cutoff_time=params.get('entryCutoffTime', ''),
-                progress_callback=progress_cb,
-                entry_stability_rule=params.get('entryStabilityRule', 'default'),
-                broker=candle_source,
                 timeframe=timeframe,
-                indicator_rules=params.get('indicatorRules', params.get('indicator_rules', [])),
-                daily_first_signals_mode=params.get('dailyFirstSignalsMode', 'disabled'),
-                daily_first_signals_count=int(params.get('dailyFirstSignalsCount', 0)),
-                daily_first_signals_risk_mult=float(params.get('dailyFirstSignalsRiskMult', 0.5)),
                 candles_1m=candles_1m,
                 htf_candles=htf_candles,
-                htf_ema_enabled=htf_ema_enabled,
-                htf_ema_period=htf_ema_period,
-                htf_ema_timeframe=htf_ema_timeframe,
-                min_save_pnl=float(params.get('minSavePnl')) if params.get('minSavePnl') is not None and str(params.get('minSavePnl')).strip() != '' else None,
-                find_best_session=bool(params.get('findBestSession', False)),
-                min_hourly_pnl=float(params.get('minHourlyPnl', 0.0))
+                progress_callback=progress_cb
             )
 
             total_elapsed = round(time.time() - execution_start_time, 2)

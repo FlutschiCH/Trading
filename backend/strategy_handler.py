@@ -439,6 +439,13 @@ class StrategyHandler:
             if htf_ema_enabled is None: htf_ema_enabled = bool(strategy.get('htfEmaEnabled', strategy.get('htf_ema_enabled', False)))
             if htf_ema_period is None: htf_ema_period = int(strategy.get('htfEmaPeriod', strategy.get('htf_ema_period', 200))) if (strategy.get('htfEmaPeriod') is not None or strategy.get('htf_ema_period') is not None) else 200
             if htf_ema_timeframe is None: htf_ema_timeframe = strategy.get('htfEmaTimeframe', strategy.get('htf_ema_timeframe', '4h'))
+            if min_save_pnl is None and strategy.get('minSavePnl') is not None and str(strategy.get('minSavePnl')).strip() != '':
+                try:
+                    min_save_pnl = float(strategy.get('minSavePnl'))
+                except (ValueError, TypeError):
+                    min_save_pnl = None
+            if find_best_session is None: find_best_session = bool(strategy.get('findBestSession', False))
+            if min_hourly_pnl is None: min_hourly_pnl = float(strategy.get('minHourlyPnl', 0.0))
 
         # Fallback defaults
         sl_val = sl_val if sl_val is not None else 1.0

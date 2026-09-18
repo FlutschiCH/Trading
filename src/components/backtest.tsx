@@ -736,6 +736,55 @@ export default function Backtester({
 
   const lastRecordedRunRef = React.useRef<string | null>(null);
 
+  const buildStrategyObject = (targetSymbol?: string, targetTimeframe?: string) => {
+    return {
+      strategy_type: strategyType,
+      strategy_name: strategyType === 'scalper' ? 'M1 Scalper' : 'Wyckoff VSA',
+      symbol: targetSymbol || symbol,
+      timeframe: targetTimeframe || timeframe,
+      slVal: parseFloat(backtestSL) || 1.0,
+      slType: backtestSLType,
+      rr: parseFloat(backtestRR) || 2.0,
+      size: parseFloat(backtestSize) || 1.0,
+      initialBalance: parseFloat(backtestBalance) || 10000.0,
+      useRiskSizing,
+      riskPct: parseFloat(backtestRiskPct) || 1.0,
+      useBreakEven,
+      beTriggerR: parseFloat(backtestBE) || 1.0,
+      beOffsetMode,
+      lookbackWindow: parseInt(lookbackWindow) || 20,
+      feesPercent: parseFloat(backtestFees) || 0.0,
+      dailyRetryLimit: parseInt(dailyRetryLimit) || 0,
+      allowOppositeClose,
+      timezone: sessionsTimezone,
+      sessions: tradingSessions,
+      useGlobalClose,
+      globalCloseTime,
+      useEntryCutoff,
+      entryCutoffTime,
+      entryStabilityRule,
+      indicatorRules: indicatorRules.filter((r: any) => r.enabled !== false),
+      dailyFirstSignalsMode,
+      dailyFirstSignalsCount: parseInt(dailyFirstSignalsCount) || 0,
+      dailyFirstSignalsRiskMult: parseFloat(dailyFirstSignalsRiskMult) || 0.5,
+      htfEmaEnabled,
+      htfEmaTimeframe,
+      htfEmaPeriod: parseInt(htfEmaPeriod) || 200,
+      minSavePnl: minSavePnl.trim() !== '' ? parseFloat(minSavePnl) : undefined,
+      findBestSession,
+      dateRangeOption,
+      customFrom,
+      customTo,
+      candleLimit,
+      // Scalper specific parameters
+      atr_multiplier: atrMultiplier,
+      vol_multiplier: volMultiplier,
+      min_wick_ratio: minWickRatio / 100.0,
+      max_spread_pips: maxSpreadPips,
+      hard_stop_minutes: hardStopMinutes
+    };
+  };
+
   React.useEffect(() => {
     if (!backtestResults) return;
     const trades = backtestResults.trades || [];
@@ -2089,11 +2138,10 @@ export default function Backtester({
             onClick={() => {
               const targetSymbol = effectiveSymbols[0] || symbol;
               const targetTimeframe = effectiveTimeframes[0] || timeframe;
+              const currentStrategy = buildStrategyObject(targetSymbol, targetTimeframe);
               const rangeParams = {
-                strategy_type: strategyType,
-                strategy_name: strategyType === 'scalper' ? 'M1 Scalper' : 'Wyckoff VSA',
-                symbol: targetSymbol,
-                timeframe: targetTimeframe,
+                ...currentStrategy,
+                strategy: currentStrategy,
                 slRangeMode,
                 slStart: parseFloat(slStart) || 0.0,
                 slEnd: parseFloat(slEnd) || 0.0,
@@ -2104,26 +2152,7 @@ export default function Backtester({
                 beStep: parseFloat(beStep) || 1.0,
                 symbols: effectiveSymbols,
                 timeframes: effectiveTimeframes,
-                indicatorRules: indicatorRules.filter((r: any) => r.enabled !== false),
-                dailyFirstSignalsMode,
-                dailyFirstSignalsCount: parseInt(dailyFirstSignalsCount) || 0,
-                dailyFirstSignalsRiskMult: parseFloat(dailyFirstSignalsRiskMult) || 0.5,
-                htfEmaEnabled,
-                htfEmaTimeframe,
-                htfEmaPeriod: parseInt(htfEmaPeriod) || 200,
-                htfEmaRangeMode: globalRangeMode && htfEmaRangeMode,
-                minSavePnl: minSavePnl.trim() !== '' ? parseFloat(minSavePnl) : undefined,
-                findBestSession,
-                useGlobalClose,
-                globalCloseTime,
-                useEntryCutoff,
-                entryCutoffTime,
-                // Scalper specific parameters
-                atr_multiplier: atrMultiplier,
-                vol_multiplier: volMultiplier,
-                min_wick_ratio: minWickRatio / 100.0,
-                max_spread_pips: maxSpreadPips,
-                hard_stop_minutes: hardStopMinutes
+                htfEmaRangeMode: globalRangeMode && htfEmaRangeMode
               };
               if (totalRunCombinations > 1 || isOptimizeMode) {
                 onRunOptimization(rangeParams);
