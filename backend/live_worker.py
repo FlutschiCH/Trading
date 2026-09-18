@@ -725,6 +725,19 @@ class LiveWorker:
                     print(f"{Fore.CYAN}{Style.BRIGHT}{'='*60}\n{Style.RESET_ALL}", flush=True)
 
                 # =========================================================================
+                # 0. EARLY TRADING ALLOWANCE CHECK (CPU & API OPTIMIZATION)
+                # =========================================================================
+                allowed, reason = LiveStrategyHandler.is_trading_allowed(self.strategy_id)
+                if not allowed:
+                    self.send_update_or_heartbeat(state_info={
+                        "stage": "INACTIVE",
+                        "status_message": f"Outside trading hours: {reason}",
+                        "last_checked": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    })
+                    time.sleep(5)
+                    continue
+
+                # =========================================================================
                 # 1. MARKET ADAPTER & SYMBOL RESOLUTION
                 # =========================================================================
                 # Resolve broker connection adapter and map standard market symbol to
