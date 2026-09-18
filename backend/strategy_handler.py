@@ -32,6 +32,9 @@ class StrategyHandler:
         if daily_signals_count is None:
             daily_signals_count = {}
 
+    @staticmethod
+    def _evaluate_wyckoff_signal(c: dict, state: dict, entry_stability_rule: str) -> tuple:
+        """Evaluates Wyckoff state, pending triggers, and returns (should_buy, should_sell)."""
         wyckoff_sig = c.get('wyckoff_signal')
         stage = c.get('wyckoff_stage', 'TRANSITION')
 
@@ -55,7 +58,7 @@ class StrategyHandler:
         else:
             dist_consec_bars = 0
 
-        # Increment age and enforce a max age for pending setups (15 candles)
+        # Enforce max age for pending setups (15 candles)
         if pending_buy:
             pending_buy_age += 1
             if pending_buy_age > 15:
@@ -95,7 +98,6 @@ class StrategyHandler:
 
             confirmation_ok = True
             if entry_stability_rule in ('confirmation', 'both'):
-                # Confirmation rule requires a SUBSEQUENT candle closing above Spring High
                 if is_new_spring:
                     confirmation_ok = False
                 else:
@@ -130,37 +132,98 @@ class StrategyHandler:
             if wyckoff_sig == "Spring detected" or stage == "ACCUMULATION":
                 pending_sell = False
 
-        # Session filtering
-        candle_time = int(c.get('time', 0))
-        from backtest_helpers import get_candle_datetime, is_datetime_in_sessions
-        dt_curr = get_candle_datetime(candle_time, timezone)
+        state.update({
+            'accum_consec_bars': accum_consec_bars,
+            'dist_consec_bars': dist_consec_bars,
+            'pending_buy': pending_buy,
+            'pending_sell': pending_sell,
+            'spring_high': spring_high,
+            'upthrust_low': upthrust_low,
+            'pending_buy_age': pending_buy_age,
+            'pending_sell_age': pending_sell_age
+        })
 
+        return should_buy, should_sell
+
+    @staticmethod
+    def _apply_session_filter(dt_curr, sessions: list) -> bool:
+        """Returns True if current datetime is within trading sessions."""
+        from backtest_helpers import is_datetime_in_sessions
         in_session, _ = is_datetime_in_sessions(dt_curr, sessions)
-        if not in_session:
-            should_buy = False
-            should_sell = False
+        return in_session
 
-        # Entry Cutoff filtering (Don't enter after XY time)
+    @staticmethod
+    def _apply_entry_cutoff_filter(dt_curr, use_entry_cutoff: bool, entry_cutoff_time: str) -> bool:
+        """Returns True if trade entry should be blocked due to cutoff time."""
         if use_entry_cutoff and entry_cutoff_time and len(entry_cutoff_time.strip()) == 5:
             try:
                 ch, cm = map(int, entry_cutoff_time.strip().split(":"))
                 from datetime import time as dttime
                 cutoff_t = dttime(ch, cm)
                 if dt_curr.time() >= cutoff_t:
-                    should_buy = False
-                    should_sell = False
+                    return True
             except Exception:
                 pass
+        return False
 
-        # Date range filtering
+    @staticmethod
+    def _apply_date_range_filter(candle_time: int, date_from: float, date_to: float) -> bool:
+        """Returns True if candle time is within allowed date range."""
         if date_from is not None and candle_time < int(date_from):
-            should_buy = False
-            should_sell = False
+            return False
         if date_to is not None and candle_time > int(date_to):
+            return False
+        return True
+
+    @staticmethod
+    def evaluate_candle_signal(
+        c: dict,
+        state: dict,
+        entry_stability_rule: str = 'default',
+        timezone: str = 'Local',
+        sessions: list = None,
+        date_from: float = None,
+        date_to: float = None,
+        daily_retry_limit: int = 0,
+        daily_trades_count: dict = None,
+        daily_first_signals_mode: str = 'disabled',
+        daily_first_signals_count: int = 0,
+        daily_first_signals_risk_mult: float = 0.5,
+        daily_signals_count: dict = None,
+        use_entry_cutoff: bool = False,
+        entry_cutoff_time: str = ''
+    ) -> tuple:
+        """
+        Pure signal detection logic shared between Backtesting and Live Trading.
+        Updates state dictionary in-place and returns (should_buy, should_sell, state).
+        """
+        if daily_trades_count is None:
+            daily_trades_count = {}
+        if daily_signals_count is None:
+            daily_signals_count = {}
+
+        # 1. Wyckoff Signal Evaluation
+        should_buy, should_sell = StrategyHandler._evaluate_wyckoff_signal(c, state, entry_stability_rule)
+
+        # 2. Session & Time Filtering
+        candle_time = int(c.get('time', 0))
+        from backtest_helpers import get_candle_datetime
+        dt_curr = get_candle_datetime(candle_time, timezone)
+
+        if not StrategyHandler._apply_session_filter(dt_curr, sessions):
             should_buy = False
             should_sell = False
 
-        # Daily retry limit (using candle date)
+        if StrategyHandler._apply_entry_cutoff_filter(dt_curr, use_entry_cutoff, entry_cutoff_time):
+            should_buy = False
+            should_sell = False
+
+        # 3. Date Range Filtering
+        if not StrategyHandler._apply_date_range_filter(candle_time, date_from, date_to):
+            should_buy = False
+            should_sell = False
+
+        # 4. Daily Retry Limit
         try:
             date_str = dt_curr.strftime('%Y-%m-%d')
         except Exception:
@@ -170,13 +233,13 @@ class StrategyHandler:
             should_buy = False
             should_sell = False
 
-        # Indicator confirmation layer check
+        # 5. Indicator Confirmation Layer
         if c.get('indicator_buy_valid') is False:
             should_buy = False
         if c.get('indicator_sell_valid') is False:
             should_sell = False
 
-        # HTF EMA Trend Filter (Longs require Close > HTF EMA; Shorts require Close < HTF EMA)
+        # 6. HTF EMA Trend Filter
         if c.get('htf_ema_enabled'):
             htf_ema_val = c.get('htf_ema')
             if htf_ema_val is not None and not pd.isna(htf_ema_val):
@@ -186,7 +249,7 @@ class StrategyHandler:
                 if close_price >= float(htf_ema_val):
                     should_sell = False
 
-        # Daily Initial Signals (First X of Day: Skip or Reduced Risk based on candle-time midnight)
+        # 7. Daily Initial Signals (Skip or Reduced Risk)
         if should_buy or should_sell:
             daily_signals_count[date_str] = daily_signals_count.get(date_str, 0) + 1
             curr_signal_idx = daily_signals_count[date_str]
@@ -205,17 +268,6 @@ class StrategyHandler:
             else:
                 c['signal_action'] = 'normal'
                 c['risk_multiplier'] = 1.0
-
-        state.update({
-            'accum_consec_bars': accum_consec_bars,
-            'dist_consec_bars': dist_consec_bars,
-            'pending_buy': pending_buy,
-            'pending_sell': pending_sell,
-            'spring_high': spring_high,
-            'upthrust_low': upthrust_low,
-            'pending_buy_age': pending_buy_age,
-            'pending_sell_age': pending_sell_age
-        })
 
         return should_buy, should_sell, state
 
