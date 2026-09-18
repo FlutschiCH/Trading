@@ -761,8 +761,16 @@ class LiveWorker:
                 curr_config = (symbol, strat_broker_symbol, timeframe, lookback, broker_name, opt, custom_from, custom_to, limit)
                 if self.cache_config_fingerprint != curr_config or not self.candles_cache:
                     self.cache_config_fingerprint = curr_config
+                    # Compute historical start and end timestamps based on user date range options
                     date_from, date_to = calculate_date_bounds(opt, custom_from, custom_to)
                     print(f"{Fore.CYAN}[LiveWorker Warmup]{Style.RESET_ALL} Fetching historical candles for {strat_broker_symbol} ({timeframe}) from {broker_name}...", flush=True)
+                    # Fetch historical OHLCV candle data from the active broker handler
+                    # Parameters:
+                    # - symbol: mapped broker symbol identifier
+                    # - timeframe: chart period / candle interval (e.g., '1m', '5m', '1h')
+                    # - limit: max number of candles to retrieve if date bounds are open
+                    # - date_from / date_to: ISO/formatted datetime bounds for the query
+                    # - login / account_id: broker account credentials context
                     candles = handler.fetch_candles(
                         symbol=strat_broker_symbol,
                         timeframe=timeframe,
