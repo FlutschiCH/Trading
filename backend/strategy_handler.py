@@ -146,33 +146,88 @@ class StrategyHandler:
         return should_buy, should_sell
 
     @staticmethod
-    def _apply_session_filter(dt_curr, sessions: list) -> bool:
-        """Returns True if current datetime is within trading sessions."""
+    def _is_session_allowed(dt_curr, sessions: list) -> bool:
+        """Returns True if current datetime is within allowed trading sessions."""
+        if not sessions:
+            return True
         from backtest_helpers import is_datetime_in_sessions
         in_session, _ = is_datetime_in_sessions(dt_curr, sessions)
         return in_session
 
     @staticmethod
-    def _apply_entry_cutoff_filter(dt_curr, use_entry_cutoff: bool, entry_cutoff_time: str) -> bool:
-        """Returns True if trade entry should be blocked due to cutoff time."""
+    def _is_entry_cutoff_allowed(dt_curr, use_entry_cutoff: bool, entry_cutoff_time: str) -> bool:
+        """Returns True if trade entry is allowed (cutoff time not reached)."""
         if use_entry_cutoff and entry_cutoff_time and len(entry_cutoff_time.strip()) == 5:
             try:
                 ch, cm = map(int, entry_cutoff_time.strip().split(":"))
                 from datetime import time as dttime
                 cutoff_t = dttime(ch, cm)
                 if dt_curr.time() >= cutoff_t:
-                    return True
+                    return False
             except Exception:
                 pass
-        return False
+        return True
 
     @staticmethod
-    def _apply_date_range_filter(candle_time: int, date_from: float, date_to: float) -> bool:
+    def _is_date_range_allowed(candle_time: int, date_from: float, date_to: float) -> bool:
         """Returns True if candle time is within allowed date range."""
         if date_from is not None and candle_time < int(date_from):
             return False
         if date_to is not None and candle_time > int(date_to):
             return False
+        return True
+
+    @staticmethod
+    def _is_daily_retry_allowed(date_str: str, daily_retry_limit: int, daily_trades_count: dict) -> bool:
+        """Returns True if daily trade retry count has not exceeded limit."""
+        if daily_retry_limit > 0 and daily_trades_count.get(date_str, 0) >= daily_retry_limit:
+            return False
+        return True
+
+    @staticmethod
+    def _is_trade_allowed(
+        c: dict,
+        dt_curr,
+        candle_time: int,
+        date_str: str,
+        side: str,
+        sessions: list = None,
+        date_from: float = None,
+        date_to: float = None,
+        use_entry_cutoff: bool = False,
+        entry_cutoff_time: str = '',
+        daily_retry_limit: int = 0,
+        daily_trades_count: dict = None
+    ) -> bool:
+        """Determines if a trade entry (BUY or SELL) is allowed by session, cutoff, date range, daily retry, indicator, and HTF rules."""
+        if not StrategyHandler._is_session_allowed(dt_curr, sessions):
+            return False
+
+        if not StrategyHandler._is_entry_cutoff_allowed(dt_curr, use_entry_cutoff, entry_cutoff_time):
+            return False
+
+        if not StrategyHandler._is_date_range_allowed(candle_time, date_from, date_to):
+            return False
+
+        if not StrategyHandler._is_daily_retry_allowed(date_str, daily_retry_limit, daily_trades_count or {}):
+            return False
+
+        # Indicator confirmation layer check
+        if side == 'BUY' and c.get('indicator_buy_valid') is False:
+            return False
+        if side == 'SELL' and c.get('indicator_sell_valid') is False:
+            return False
+
+        # HTF EMA Trend Filter
+        if c.get('htf_ema_enabled'):
+            htf_ema_val = c.get('htf_ema')
+            if htf_ema_val is not None and not pd.isna(htf_ema_val):
+                close_price = float(c.get('close', 0))
+                if side == 'BUY' and close_price <= float(htf_ema_val):
+                    return False
+                if side == 'SELL' and close_price >= float(htf_ema_val):
+                    return False
+
         return True
 
     @staticmethod
@@ -202,54 +257,36 @@ class StrategyHandler:
         if daily_signals_count is None:
             daily_signals_count = {}
 
-        # 1. Wyckoff Signal Evaluation
+        # 1. Wyckoff Signal Detection
         should_buy, should_sell = StrategyHandler._evaluate_wyckoff_signal(c, state, entry_stability_rule)
 
-        # 2. Session & Time Filtering
+        # 2. Timing & Datetime context
         candle_time = int(c.get('time', 0))
         from backtest_helpers import get_candle_datetime
         dt_curr = get_candle_datetime(candle_time, timezone)
-
-        if not StrategyHandler._apply_session_filter(dt_curr, sessions):
-            should_buy = False
-            should_sell = False
-
-        if StrategyHandler._apply_entry_cutoff_filter(dt_curr, use_entry_cutoff, entry_cutoff_time):
-            should_buy = False
-            should_sell = False
-
-        # 3. Date Range Filtering
-        if not StrategyHandler._apply_date_range_filter(candle_time, date_from, date_to):
-            should_buy = False
-            should_sell = False
-
-        # 4. Daily Retry Limit
         try:
             date_str = dt_curr.strftime('%Y-%m-%d')
         except Exception:
             date_str = 'unknown'
 
-        if daily_retry_limit > 0 and daily_trades_count.get(date_str, 0) >= daily_retry_limit:
+        # 3. Check if trades are allowed by timing, session, date range, indicator, and HTF rules
+        if should_buy and not StrategyHandler._is_trade_allowed(
+            c, dt_curr, candle_time, date_str, 'BUY',
+            sessions=sessions, date_from=date_from, date_to=date_to,
+            use_entry_cutoff=use_entry_cutoff, entry_cutoff_time=entry_cutoff_time,
+            daily_retry_limit=daily_retry_limit, daily_trades_count=daily_trades_count
+        ):
             should_buy = False
+
+        if should_sell and not StrategyHandler._is_trade_allowed(
+            c, dt_curr, candle_time, date_str, 'SELL',
+            sessions=sessions, date_from=date_from, date_to=date_to,
+            use_entry_cutoff=use_entry_cutoff, entry_cutoff_time=entry_cutoff_time,
+            daily_retry_limit=daily_retry_limit, daily_trades_count=daily_trades_count
+        ):
             should_sell = False
 
-        # 5. Indicator Confirmation Layer
-        if c.get('indicator_buy_valid') is False:
-            should_buy = False
-        if c.get('indicator_sell_valid') is False:
-            should_sell = False
-
-        # 6. HTF EMA Trend Filter
-        if c.get('htf_ema_enabled'):
-            htf_ema_val = c.get('htf_ema')
-            if htf_ema_val is not None and not pd.isna(htf_ema_val):
-                close_price = float(c.get('close', 0))
-                if close_price <= float(htf_ema_val):
-                    should_buy = False
-                if close_price >= float(htf_ema_val):
-                    should_sell = False
-
-        # 7. Daily Initial Signals (Skip or Reduced Risk)
+        # 4. Daily Initial Signals (Skip or Reduced Risk)
         if should_buy or should_sell:
             daily_signals_count[date_str] = daily_signals_count.get(date_str, 0) + 1
             curr_signal_idx = daily_signals_count[date_str]
