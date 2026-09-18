@@ -598,7 +598,7 @@ class LiveWorker:
                 # Live trading requires strict parameter integrity. If any required
                 # configuration field is missing, None, or invalid, we abort immediately.
                 # =========================================================================
-                required_fields = ["symbol", "timeframe", "lookbackWindow", "slVal", "slType", "rr"]
+                                required_fields = ["symbol", "timeframe", "lookbackWindow", "slVal", "slType", "rr", "broker"]
                 missing_fields = [f for f in required_fields if strategy.get(f) is None]
 
                 # Validate sizing configuration
@@ -650,22 +650,14 @@ class LiveWorker:
                 # =========================================================================
                 # ONE-TIME STARTUP INITIALIZATION (first_run lifecycle)
                 # =========================================================================
-                # This block executes exclusively on the very first loop iteration.
-                # It performs:
-                # 1. Flip guard flag (`first_run = False`) so subsequent 5s cycles skip this.
-                # 2. Console window branding (updates Windows CMD title bar with strategy name/symbol/tf).
-                # 3. Strategy configuration parsing (extracts exact parameters without silent defaults).
-                # 4. Formatted ASCII startup summary output for live operator observability.
-                # =========================================================================
                 if first_run:
                     first_run = False
                     
-                    # 1. Extract strategy identity & market details
-                    strat_name = strategy.get("name", f"Strategy {self.strategy_id}")
+                    # Extract strategy identity & market details
+                    strat_name = strategy.get("name") or f"Strategy {self.strategy_id}"
                     strat_sym = strategy["symbol"]
                     strat_tf = strategy["timeframe"]
 
-                    # 2. Update Windows console title for easier window tracking in multi-process setups
                     if sys.platform == "win32":
                         try:
                             import ctypes
@@ -673,8 +665,7 @@ class LiveWorker:
                         except Exception:
                             pass
 
-                    # 3. Extract broker connection, sizing, and risk parameters strictly from strategy
-                    strat_broker = strategy.get("broker")
+                    strat_broker = strategy["broker"]
                     strat_lookback = strategy["lookbackWindow"]
                     strat_sl_val = strategy["slVal"]
                     strat_sl_type = strategy["slType"]
@@ -683,33 +674,28 @@ class LiveWorker:
                     strat_size = strategy.get("size")
                     strat_risk_pct = strategy.get("riskPct")
                     
-                    # 4. Extract trade management rules (Break-Even, Stability, Direction flipping)
-                    strat_use_be = strategy.get("useBreakEven", False)
+                    strat_use_be = strategy.get("useBreakEven")
                     strat_be_trigger = strategy.get("beTriggerR")
                     strat_be_mode = strategy.get("beOffsetMode")
-                    strat_rule = strategy.get("entryStabilityRule", "default")
-                    strat_allow_opp = strategy.get("allowOppositeClose", True)
+                    strat_rule = strategy.get("entryStabilityRule")
+                    strat_allow_opp = strategy.get("allowOppositeClose")
                     
-                    # 5. Extract session schedules, timezones, and end-of-day cutoffs
-                    strat_tz = strategy.get("timezone", "Local")
-                    strat_use_gc = strategy.get("useGlobalClose", False)
-                    strat_gc_time = strategy.get("globalCloseTime", "")
-                    strat_use_cutoff = strategy.get("useEntryCutoff", False)
-                    strat_cutoff_time = strategy.get("entryCutoffTime", "")
+                    strat_tz = strategy.get("timezone")
+                    strat_use_gc = strategy.get("useGlobalClose")
+                    strat_gc_time = strategy.get("globalCloseTime")
+                    strat_use_cutoff = strategy.get("useEntryCutoff")
+                    strat_cutoff_time = strategy.get("entryCutoffTime")
                     strat_sessions = strategy.get("sessions") or []
                     strat_targets = strategy.get("targets") or []
                     
-                    # 6. Extract daily signal throttle limits & multi-account targets
-                    strat_daily_mode = strategy.get("dailyFirstSignalsMode", "disabled") or "disabled"
-                    strat_daily_count = int(strategy.get("dailyFirstSignalsCount", 1))
-                    strat_daily_mult = float(strategy.get("dailyFirstSignalsRiskMult", 0.5))
+                    strat_daily_mode = strategy.get("dailyFirstSignalsMode")
+                    strat_daily_count = strategy.get("dailyFirstSignalsCount")
+                    strat_daily_mult = strategy.get("dailyFirstSignalsRiskMult")
 
-                    # 7. Format string representations for logging
-                    targets_str = ", ".join([f"{t.get('broker', 'metatrader')}:{t.get('account_id', 'default')}" for t in strat_targets]) if strat_targets else f"{strat_broker}:{strategy.get('account_id', 'default')}"
-                    sessions_str = ", ".join([f"{s.get('id', 'sess')}({s.get('start')}-{s.get('end')})" for s in strat_sessions]) if strat_sessions else "24/7 (No restrictions)"
-                    daily_signals_str = f"{strat_daily_mode.upper()} (Count: {strat_daily_count}, Risk: {int(strat_daily_mult * 100)}%)" if strat_daily_mode != 'disabled' else "Disabled (Take all signals)"
+                    targets_str = ", ".join([f"{t.get('broker')}:{t.get('account_id')}" for t in strat_targets]) if strat_targets else f"{strat_broker}:{strategy.get('account_id')}"
+                    sessions_str = ", ".join([f"{s.get('id')}({s.get('start')}-{s.get('end')})" for s in strat_sessions]) if strat_sessions else "24/7 (No restrictions)"
+                    daily_signals_str = f"{str(strat_daily_mode).upper()} (Count: {strat_daily_count}, Risk: {strat_daily_mult})" if strat_daily_mode and strat_daily_mode != 'disabled' else "Disabled (Take all signals)"
 
-                    # 8. Print formatted ASCII initialization banner
                     print(f"\n{Fore.CYAN}{Style.BRIGHT}{'='*60}", flush=True)
                     print(f"{Fore.CYAN}{Style.BRIGHT}  🚀 LIVE STRATEGY WORKER INITIALIZED", flush=True)
                     print(f"{Fore.CYAN}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}", flush=True)
@@ -721,7 +707,7 @@ class LiveWorker:
                     print(f"  {Fore.WHITE}• SL & RR Config    :{Style.RESET_ALL} SL={strat_sl_val} ({strat_sl_type}) | RR={strat_rr} | BE={strat_use_be} (Trigger: {strat_be_trigger}R, Mode: {strat_be_mode})", flush=True)
                     print(f"  {Fore.WHITE}• Execution Rules   :{Style.RESET_ALL} Stability='{strat_rule}' | AllowOppositeClose={strat_allow_opp}", flush=True)
                     print(f"  {Fore.WHITE}• Daily First Sig.  :{Style.RESET_ALL} {Fore.MAGENTA}{daily_signals_str}{Style.RESET_ALL}", flush=True)
-                    print(f"  {Fore.WHITE}• Sessions & Close  :{Style.RESET_ALL} TZ={strat_tz} | Sessions=[{sessions_str}] | GlobalClose={strat_use_gc} ({strat_gc_time or 'None'}) | EntryCutoff={strat_use_cutoff} ({strat_cutoff_time or 'None'})", flush=True)
+                    print(f"  {Fore.WHITE}• Sessions & Close  :{Style.RESET_ALL} TZ={strat_tz} | Sessions=[{sessions_str}] | GlobalClose={strat_use_gc} ({strat_gc_time}) | EntryCutoff={strat_use_cutoff} ({strat_cutoff_time})", flush=True)
                     print(f"{Fore.CYAN}{Style.BRIGHT}{'='*60}\n{Style.RESET_ALL}", flush=True)
 
                 # =========================================================================
@@ -740,20 +726,17 @@ class LiveWorker:
                 # =========================================================================
                 # 1. MARKET ADAPTER & SYMBOL RESOLUTION
                 # =========================================================================
-                # Resolve broker connection adapter and map standard market symbol to
-                # broker-specific ticker conventions (e.g., BTCUSD -> BTCUSD.m or BTCUSDT).
                 symbol = strategy["symbol"]
                 timeframe = strategy["timeframe"]
                 lookback = strategy["lookbackWindow"]
-                broker_name = strategy.get("broker", "metatrader")
+                broker_name = strategy["broker"]
                 handler = BrokerHandler.get_handler(broker_name)
 
                 opt = strategy.get("dateRangeOption", "last_candles")
-                custom_from = strategy.get("customFrom") or ""
-                custom_to = strategy.get("customTo") or ""
+                custom_from = strategy.get("customFrom", "")
+                custom_to = strategy.get("customTo", "")
                 limit = strategy.get("candleLimit", 5000)
 
-                # Determine target account identifier for broker-specific symbol mappings
                 strat_acc_id = strategy.get("account_id")
                 if not strat_acc_id and strategy.get("targets"):
                     targets = strategy.get("targets")
@@ -762,9 +745,8 @@ class LiveWorker:
 
                 strat_broker_symbol = SymbolMappingHandler.map_to_broker(symbol, strat_acc_id)
 
-                # Pre-check Binance mapping requirements to prevent failing API queries
                 if broker_name == 'binance' and not SymbolMappingHandler.has_mapping(symbol, strat_acc_id) and not getattr(handler, 'validate_and_format_symbol', lambda s: None)(strat_broker_symbol):
-                    print(f"{Fore.YELLOW}[LiveWorker Warning]{Style.RESET_ALL} Symbol '{symbol}' has no mapping configured for Binance account '{strat_acc_id or 'default'}'. Please configure symbol mapping in settings.", flush=True)
+                    print(f"{Fore.YELLOW}[LiveWorker Warning]{Style.RESET_ALL} Symbol '{symbol}' has no mapping configured for Binance account '{strat_acc_id}'. Please configure symbol mapping in settings.", flush=True)
                     self.send_update_or_heartbeat(state_info={
                         "stage": "UNKNOWN",
                         "status_message": f"Symbol '{symbol}' has no mapping configured for Binance. Please configure symbol mapping in settings.",
@@ -778,7 +760,6 @@ class LiveWorker:
                 # =========================================================================
                 curr_config = (symbol, strat_broker_symbol, timeframe, lookback, broker_name, opt, custom_from, custom_to, limit)
                 if self.cache_config_fingerprint != curr_config or not self.candles_cache:
-                    # Initial / Warm-up Fetch: pull full historical bars and initialize strategy indicators
                     self.cache_config_fingerprint = curr_config
                     date_from, date_to = calculate_date_bounds(opt, custom_from, custom_to)
                     print(f"{Fore.CYAN}[LiveWorker Warmup]{Style.RESET_ALL} Fetching historical candles for {strat_broker_symbol} ({timeframe}) from {broker_name}...", flush=True)
@@ -799,29 +780,29 @@ class LiveWorker:
                             sl_val=strategy["slVal"],
                             sl_type=strategy["slType"],
                             rr=strategy["rr"],
-                            size=strategy["size"],
-                            initial_balance=strategy.get("initialBalance", 10000.0),
+                            size=strategy.get("size"),
+                            initial_balance=strategy.get("initialBalance"),
                             use_risk_sizing=strategy["useRiskSizing"],
-                            risk_pct=strategy["riskPct"],
-                            use_break_even=strategy.get("useBreakEven", False),
-                            be_trigger_r=strategy.get("beTriggerR", 1.0),
+                            risk_pct=strategy.get("riskPct"),
+                            use_break_even=strategy.get("useBreakEven"),
+                            be_trigger_r=strategy.get("beTriggerR"),
                             lookback_window=lookback,
                             fees_percent=0.0,
                             daily_retry_limit=0,
-                            allow_opposite_close=True,
+                            allow_opposite_close=strategy.get("allowOppositeClose"),
                             date_from=date_from,
                             date_to=date_to,
-                            timezone=strategy.get("timezone", "Local"),
-                            sessions=strategy.get("sessions", []),
-                            use_global_close=strategy.get("useGlobalClose", False),
-                            global_close_time=strategy.get("globalCloseTime", ""),
-                            use_entry_cutoff=strategy.get("useEntryCutoff", False),
-                            entry_cutoff_time=strategy.get("entryCutoffTime", ""),
-                            entry_stability_rule=strategy.get("entryStabilityRule", "default"),
+                            timezone=strategy.get("timezone"),
+                            sessions=strategy.get("sessions"),
+                            use_global_close=strategy.get("useGlobalClose"),
+                            global_close_time=strategy.get("globalCloseTime"),
+                            use_entry_cutoff=strategy.get("useEntryCutoff"),
+                            entry_cutoff_time=strategy.get("entryCutoffTime"),
+                            entry_stability_rule=strategy.get("entryStabilityRule"),
                             broker=broker_name,
-                            daily_first_signals_mode=strategy.get("dailyFirstSignalsMode", "disabled"),
-                            daily_first_signals_count=int(strategy.get("dailyFirstSignalsCount", 1)),
-                            daily_first_signals_risk_mult=float(strategy.get("dailyFirstSignalsRiskMult", 0.5))
+                            daily_first_signals_mode=strategy.get("dailyFirstSignalsMode"),
+                            daily_first_signals_count=strategy.get("dailyFirstSignalsCount"),
+                            daily_first_signals_risk_mult=strategy.get("dailyFirstSignalsRiskMult")
                         )
                         self.candles_cache = backtest_res.get("candles", [])
                         self.trades_cache = backtest_res.get("trades", [])
