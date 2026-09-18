@@ -360,52 +360,119 @@ class StrategyHandler:
 
     @staticmethod
     def run_backtest(
-        candles: list,
-        symbol: str,
-        sl_val: float,
-        sl_type: str,
-        rr: float,
-        size: float,
-        initial_balance: float,
-        use_risk_sizing: bool,
-        risk_pct: float,
-        use_break_even: bool,
-        be_trigger_r: float,
-        be_offset_mode: str = 'half_r',
-        lookback_window: int = 20,
-        fees_percent: float = 0.0,
-        daily_retry_limit: int = 0,
-        allow_opposite_close: bool = True,
+        candles: list = None,
+        symbol: str = None,
+        strategy: dict = None,
+        sl_val: float = None,
+        sl_type: str = None,
+        rr: float = None,
+        size: float = None,
+        initial_balance: float = None,
+        use_risk_sizing: bool = None,
+        risk_pct: float = None,
+        use_break_even: bool = None,
+        be_trigger_r: float = None,
+        be_offset_mode: str = None,
+        lookback_window: int = None,
+        fees_percent: float = None,
+        daily_retry_limit: int = None,
+        allow_opposite_close: bool = None,
         check_cancelled = None,
         date_from: float = None,
         date_to: float = None,
-        timezone: str = 'Local',
+        timezone: str = None,
         sessions: list = None,
-        use_global_close: bool = False,
-        global_close_time: str = '',
-        use_entry_cutoff: bool = False,
-        entry_cutoff_time: str = '',
+        use_global_close: bool = None,
+        global_close_time: str = None,
+        use_entry_cutoff: bool = None,
+        entry_cutoff_time: str = None,
         progress_callback = None,
-        entry_stability_rule: str = 'default',
-        broker: str = 'metatrader',
+        entry_stability_rule: str = None,
+        broker: str = None,
         session_config: dict = None,
-        timeframe: str = '5m',
+        timeframe: str = None,
         indicator_rules: list = None,
-        daily_first_signals_mode: str = 'disabled',
-        daily_first_signals_count: int = 0,
-        daily_first_signals_risk_mult: float = 0.5,
+        daily_first_signals_mode: str = None,
+        daily_first_signals_count: int = None,
+        daily_first_signals_risk_mult: float = None,
         candles_1m: list = None,
         htf_candles: list = None,
-        htf_ema_enabled: bool = False,
-        htf_ema_period: int = 200,
-        htf_ema_timeframe: str = '4h',
+        htf_ema_enabled: bool = None,
+        htf_ema_period: int = None,
+        htf_ema_timeframe: str = None,
         min_save_pnl: float = None,
-        find_best_session: bool = False,
-        min_hourly_pnl: float = 0.0
+        find_best_session: bool = None,
+        min_hourly_pnl: float = None
     ) -> dict:
         """
         Runs the full Wyckoff structure analysis backtest in Python.
+        Accepts either an explicit parameter list or a unified `strategy` dictionary.
         """
+        # Resolve fields from strategy dict if supplied
+        if strategy:
+            if symbol is None: symbol = strategy.get('symbol', '')
+            if sl_val is None: sl_val = float(strategy.get('slVal', 1.0))
+            if sl_type is None: sl_type = strategy.get('slType', 'pct')
+            if rr is None: rr = float(strategy.get('rr', 2.0))
+            if size is None: size = float(strategy.get('size', 1.0)) if strategy.get('size') is not None else 1.0
+            if initial_balance is None: initial_balance = float(strategy.get('initialBalance', 10000.0)) if strategy.get('initialBalance') is not None else 10000.0
+            if use_risk_sizing is None: use_risk_sizing = bool(strategy.get('useRiskSizing', False))
+            if risk_pct is None: risk_pct = float(strategy.get('riskPct', 1.0)) if strategy.get('riskPct') is not None else 1.0
+            if use_break_even is None: use_break_even = bool(strategy.get('useBreakEven', False))
+            if be_trigger_r is None: be_trigger_r = float(strategy.get('beTriggerR', 1.0)) if strategy.get('beTriggerR') is not None else 1.0
+            if be_offset_mode is None: be_offset_mode = strategy.get('beOffsetMode', 'half_r')
+            if lookback_window is None: lookback_window = int(strategy.get('lookbackWindow', strategy.get('lookback', 20))) if (strategy.get('lookbackWindow') is not None or strategy.get('lookback') is not None) else 20
+            if fees_percent is None: fees_percent = float(strategy.get('feesPercent', 0.0)) if strategy.get('feesPercent') is not None else 0.0
+            if daily_retry_limit is None: daily_retry_limit = int(strategy.get('dailyRetryLimit', 0)) if strategy.get('dailyRetryLimit') is not None else 0
+            if allow_opposite_close is None: allow_opposite_close = bool(strategy.get('allowOppositeClose', True)) if strategy.get('allowOppositeClose') is not None else True
+            if timezone is None: timezone = strategy.get('timezone', 'Local')
+            if sessions is None: sessions = strategy.get('sessions', [])
+            if use_global_close is None: use_global_close = bool(strategy.get('useGlobalClose', False))
+            if global_close_time is None: global_close_time = strategy.get('globalCloseTime', '')
+            if use_entry_cutoff is None: use_entry_cutoff = bool(strategy.get('useEntryCutoff', False))
+            if entry_cutoff_time is None: entry_cutoff_time = strategy.get('entryCutoffTime', '')
+            if entry_stability_rule is None: entry_stability_rule = strategy.get('entryStabilityRule', 'default')
+            if daily_first_signals_mode is None: daily_first_signals_mode = strategy.get('dailyFirstSignalsMode', 'disabled')
+            if daily_first_signals_count is None: daily_first_signals_count = int(strategy.get('dailyFirstSignalsCount', 0)) if strategy.get('dailyFirstSignalsCount') is not None else 0
+            if daily_first_signals_risk_mult is None: daily_first_signals_risk_mult = float(strategy.get('dailyFirstSignalsRiskMult', 0.5)) if strategy.get('dailyFirstSignalsRiskMult') is not None else 0.5
+            if indicator_rules is None: indicator_rules = strategy.get('indicatorRules', strategy.get('indicator_rules', []))
+            if htf_ema_enabled is None: htf_ema_enabled = bool(strategy.get('htfEmaEnabled', strategy.get('htf_ema_enabled', False)))
+            if htf_ema_period is None: htf_ema_period = int(strategy.get('htfEmaPeriod', strategy.get('htf_ema_period', 200))) if (strategy.get('htfEmaPeriod') is not None or strategy.get('htf_ema_period') is not None) else 200
+            if htf_ema_timeframe is None: htf_ema_timeframe = strategy.get('htfEmaTimeframe', strategy.get('htf_ema_timeframe', '4h'))
+
+        # Fallback defaults
+        sl_val = sl_val if sl_val is not None else 1.0
+        sl_type = sl_type if sl_type is not None else 'pct'
+        rr = rr if rr is not None else 2.0
+        size = size if size is not None else 1.0
+        initial_balance = initial_balance if initial_balance is not None else 10000.0
+        use_risk_sizing = bool(use_risk_sizing) if use_risk_sizing is not None else False
+        risk_pct = risk_pct if risk_pct is not None else 1.0
+        use_break_even = bool(use_break_even) if use_break_even is not None else False
+        be_trigger_r = be_trigger_r if be_trigger_r is not None else 1.0
+        be_offset_mode = be_offset_mode if be_offset_mode is not None else 'half_r'
+        lookback_window = lookback_window if lookback_window is not None else 20
+        fees_percent = fees_percent if fees_percent is not None else 0.0
+        daily_retry_limit = daily_retry_limit if daily_retry_limit is not None else 0
+        allow_opposite_close = allow_opposite_close if allow_opposite_close is not None else True
+        timezone = timezone if timezone is not None else 'Local'
+        sessions = sessions if sessions is not None else []
+        use_global_close = bool(use_global_close) if use_global_close is not None else False
+        global_close_time = global_close_time if global_close_time is not None else ''
+        use_entry_cutoff = bool(use_entry_cutoff) if use_entry_cutoff is not None else False
+        entry_cutoff_time = entry_cutoff_time if entry_cutoff_time is not None else ''
+        entry_stability_rule = entry_stability_rule if entry_stability_rule is not None else 'default'
+        broker = broker if broker is not None else 'metatrader'
+        timeframe = timeframe if timeframe is not None else '5m'
+        indicator_rules = indicator_rules if indicator_rules is not None else []
+        daily_first_signals_mode = daily_first_signals_mode if daily_first_signals_mode is not None else 'disabled'
+        daily_first_signals_count = daily_first_signals_count if daily_first_signals_count is not None else 0
+        daily_first_signals_risk_mult = daily_first_signals_risk_mult if daily_first_signals_risk_mult is not None else 0.5
+        htf_ema_enabled = bool(htf_ema_enabled) if htf_ema_enabled is not None else False
+        htf_ema_period = htf_ema_period if htf_ema_period is not None else 200
+        htf_ema_timeframe = htf_ema_timeframe if htf_ema_timeframe is not None else '4h'
+        find_best_session = bool(find_best_session) if find_best_session is not None else False
+        min_hourly_pnl = min_hourly_pnl if min_hourly_pnl is not None else 0.0
         tf = timeframe
         from colorama import Fore, Style
         htf_str = f" | HTF EMA: {htf_ema_timeframe} {htf_ema_period} EMA" if htf_ema_enabled else ""
