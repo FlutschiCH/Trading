@@ -403,12 +403,17 @@ class LiveStrategyHandler:
             return False
 
     @staticmethod
-    def is_trading_allowed(strategy_id: str) -> tuple:
+    def is_trading_allowed(strategy_or_id) -> tuple:
         """
-        Checks if trading is currently allowed for the strategy based on its active sessions.
+        Checks if trading is currently allowed for the strategy based on its active sessions and cutoff time.
+        Accepts either a strategy dictionary or strategy ID string.
         Returns (is_allowed, error_message).
         """
-        strategy = LiveStrategyHandler.get_strategy(strategy_id)
+        if isinstance(strategy_or_id, dict):
+            strategy = strategy_or_id
+        else:
+            strategy = LiveStrategyHandler.get_strategy(strategy_or_id)
+
         if not strategy or strategy.get("status") != "active":
             return True, ""
             

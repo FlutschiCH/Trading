@@ -234,8 +234,8 @@ class LiveWorker:
         else:
             status_message = f"Market in {final_stage} stage. Monitoring for Spring/Upthrust."
 
-        # 6. Check global session schedule allowance
-        allowed, msg = LiveStrategyHandler.is_trading_allowed(self.strategy_id)
+        # 6. Check strategy session schedule allowance
+        allowed, msg = LiveStrategyHandler.is_trading_allowed(strategy)
         if not allowed:
             status_message = f"Outside trading hours: {msg}"
 
@@ -270,7 +270,7 @@ class LiveWorker:
         strat_acc_id = strategy.get("account_id")
         base_symbol = SymbolMappingHandler.map_to_main(symbol, strat_acc_id)
 
-        allowed, reason = LiveStrategyHandler.is_trading_allowed(strategy_id)
+        allowed, reason = LiveStrategyHandler.is_trading_allowed(strategy)
         if not allowed:
             print(f"{Fore.YELLOW}[LiveWorker Entry Guard]{Style.RESET_ALL} Skipping live order execution for {symbol}: {reason}", flush=True)
             return
@@ -605,7 +605,7 @@ class LiveWorker:
                 # Live trading requires strict parameter integrity. If any required
                 # configuration field is missing, None, or invalid, we abort immediately.
                 # =========================================================================
-                                required_fields = ["symbol", "timeframe", "lookbackWindow", "slVal", "slType", "rr", "broker"]
+                required_fields = ["symbol", "timeframe", "lookbackWindow", "slVal", "slType", "rr", "broker"]
                 missing_fields = [f for f in required_fields if strategy.get(f) is None]
 
                 # Validate sizing configuration
@@ -720,7 +720,7 @@ class LiveWorker:
                 # =========================================================================
                 # 0. EARLY TRADING ALLOWANCE CHECK (CPU & API OPTIMIZATION)
                 # =========================================================================
-                allowed, reason = LiveStrategyHandler.is_trading_allowed(self.strategy_id)
+                allowed, reason = LiveStrategyHandler.is_trading_allowed(strategy)
                 if not allowed:
                     self.send_update_or_heartbeat(state_info={
                         "stage": "INACTIVE",
