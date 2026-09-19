@@ -349,22 +349,25 @@ def run_trade_simulation(
             'pending_buy_age': pending_buy_age,
             'pending_sell_age': pending_sell_age
         }
+        strategy_config = {
+            'entry_stability_rule': entry_stability_rule,
+            'timezone': timezone,
+            'sessions': sessions,
+            'date_from': date_from,
+            'date_to': date_to,
+            'daily_retry_limit': daily_retry_limit,
+            'daily_first_signals_mode': daily_first_signals_mode,
+            'daily_first_signals_count': daily_first_signals_count,
+            'daily_first_signals_risk_mult': daily_first_signals_risk_mult,
+            'use_entry_cutoff': use_entry_cutoff,
+            'entry_cutoff_time': entry_cutoff_time
+        }
         should_buy, should_sell, state_dict = StrategyHandler.single_candle_signal(
             c=c,
             state=state_dict,
-            entry_stability_rule=entry_stability_rule,
-            timezone=timezone,
-            sessions=sessions,
-            date_from=date_from,
-            date_to=date_to,
-            daily_retry_limit=daily_retry_limit,
+            strategy=strategy_config,
             daily_trades_count=daily_trades_count,
-            daily_first_signals_mode=daily_first_signals_mode,
-            daily_first_signals_count=daily_first_signals_count,
-            daily_first_signals_risk_mult=daily_first_signals_risk_mult,
-            daily_signals_count=daily_signals_count,
-            use_entry_cutoff=use_entry_cutoff,
-            entry_cutoff_time=entry_cutoff_time
+            daily_signals_count=daily_signals_count
         )
         accum_consec_bars = state_dict['accum_consec_bars']
         dist_consec_bars = state_dict['dist_consec_bars']

@@ -751,19 +751,9 @@ class StrategyHandler:
     def single_candle_signal(
         c: dict,
         state: dict,
-        entry_stability_rule: str = 'default',
-        timezone: str = 'Local',
-        sessions: list = None,
-        date_from: float = None,
-        date_to: float = None,
-        daily_retry_limit: int = 0,
+        strategy: dict,
         daily_trades_count: dict = None,
-        daily_first_signals_mode: str = 'disabled',
-        daily_first_signals_count: int = 0,
-        daily_first_signals_risk_mult: float = 0.5,
-        daily_signals_count: dict = None,
-        use_entry_cutoff: bool = False,
-        entry_cutoff_time: str = ''
+        daily_signals_count: dict = None
     ) -> tuple:
         """
         Pure signal detection logic shared between Backtesting and Live Trading.
@@ -773,6 +763,18 @@ class StrategyHandler:
             daily_trades_count = {}
         if daily_signals_count is None:
             daily_signals_count = {}
+
+        entry_stability_rule = strategy.get("entryStabilityRule", "default")
+        timezone = strategy.get("timezone", "Local")
+        sessions = strategy.get("sessions") or []
+        date_from = strategy.get("date_from") or strategy.get("dateFrom")
+        date_to = strategy.get("date_to") or strategy.get("dateTo")
+        daily_retry_limit = int(strategy.get("dailyRetryLimit", 0))
+        daily_first_signals_mode = strategy.get("dailyFirstSignalsMode", "disabled")
+        daily_first_signals_count = int(strategy.get("dailyFirstSignalsCount", 1))
+        daily_first_signals_risk_mult = float(strategy.get("dailyFirstSignalsRiskMult", 0.5))
+        use_entry_cutoff = bool(strategy.get("useEntryCutoff", False))
+        entry_cutoff_time = strategy.get("entryCutoffTime", "")
 
         # 1. Structural Wyckoff Setup Detection
         possible_buy, possible_sell = StrategyHandler._evaluate_wyckoff_setup(c, state, entry_stability_rule)
@@ -1002,15 +1004,8 @@ class StrategyHandler:
             buy, sell, state_dict = StrategyHandler.single_candle_signal(
                 c=c,
                 state=state_dict,
-                entry_stability_rule=entry_stability_rule,
-                timezone=timezone_str,
-                sessions=sessions,
-                daily_first_signals_mode=daily_mode,
-                daily_first_signals_count=daily_count,
-                daily_first_signals_risk_mult=daily_risk_mult,
-                daily_signals_count=daily_signals_count,
-                use_entry_cutoff=use_entry_cutoff,
-                entry_cutoff_time=entry_cutoff_time
+                strategy=strategy,
+                daily_signals_count=daily_signals_count
             )
 
         # Extract final state telemetry
