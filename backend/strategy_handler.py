@@ -870,6 +870,116 @@ class StrategyHandler:
         return {"status": "success", "data": wyckoff_candles, "fvgs": []}
 
     @staticmethod
+    def evaluate_signal(
+        candles: list,
+        strategy_or_params,
+        htf_candles: list = None,
+        progress_callback = None,
+        is_live: bool = False
+    ) -> tuple:
+        """
+        Unified market analysis and signal evaluation pipeline for both Live and Backtest.
+        Takes candlestick data and strategy settings, runs Wyckoff/Indicator analysis,
+        replays the state machine over closed bars, and returns:
+            (should_buy: bool, should_sell: bool, state_info: dict, annotated_candles: list)
+        """
+        if not candles or len(candles) < 2:
+            return False, False, {"stage": "UNKNOWN", "status_message": "Insufficient candle history"}, []
+
+        strategy = StrategyHandler.get_strategy_settings(strategy_or_params, strict=False)
+        lookback = int(strategy.get("lookbackWindow", 20))
+        indicator_rules = strategy.get("indicatorRules") or []
+        htf_ema_enabled = bool(strategy.get("htfEmaEnabled", False))
+        htf_ema_period = int(strategy.get("htfEmaPeriod", 200))
+        entry_stability_rule = strategy.get("entryStabilityRule", "default")
+        timezone_str = strategy.get("timezone", "Local")
+        sessions = strategy.get("sessions") or []
+        daily_mode = strategy.get("dailyFirstSignalsMode", "disabled")
+        daily_count = int(strategy.get("dailyFirstSignalsCount", 1))
+        daily_risk_mult = float(strategy.get("dailyFirstSignalsRiskMult", 0.5))
+        use_entry_cutoff = bool(strategy.get("useEntryCutoff", False))
+        entry_cutoff_time = strategy.get("entryCutoffTime", "")
+
+        # 1. Annotate candle series (Wyckoff + Indicators + HTF EMA)
+        analysis = StrategyHandler.analyze_market_data(
+            bars_list=candles,
+            lookback=lookback,
+            progress_callback=progress_callback,
+            indicator_rules=indicator_rules,
+            htf_candles=htf_candles,
+            htf_ema_enabled=htf_ema_enabled,
+            htf_ema_period=htf_ema_period
+        )
+        annotated_candles = analysis.get("data", [])
+        if not annotated_candles or len(annotated_candles) < 2:
+            return False, False, {"stage": "UNKNOWN", "status_message": "Analysis returned empty dataset"}, []
+
+        # 2. Sequential state machine evaluation
+        # In live mode, evaluate closed candles up to index -2 (index -1 is active forming bar)
+        eval_slice = annotated_candles[:-1] if is_live else annotated_candles
+        state_dict = {}
+        daily_signals_count = {}
+        should_buy = False
+        should_sell = False
+
+        for c in eval_slice:
+            should_buy, should_sell, state_dict = StrategyHandler.evaluate_candle_signal(
+                c=c,
+                state=state_dict,
+                entry_stability_rule=entry_stability_rule,
+                timezone=timezone_str,
+                sessions=sessions,
+                daily_first_signals_mode=daily_mode,
+                daily_first_signals_count=daily_count,
+                daily_first_signals_risk_mult=daily_risk_mult,
+                daily_signals_count=daily_signals_count,
+                use_entry_cutoff=use_entry_cutoff,
+                entry_cutoff_time=entry_cutoff_time
+            )
+
+        # 3. Extract final state telemetry
+        accum_consec_bars = state_dict.get('accum_consec_bars', 0)
+        dist_consec_bars = state_dict.get('dist_consec_bars', 0)
+        pending_buy = state_dict.get('pending_buy', False)
+        pending_sell = state_dict.get('pending_sell', False)
+        spring_high = state_dict.get('spring_high', None)
+        upthrust_low = state_dict.get('upthrust_low', None)
+        pending_buy_age = state_dict.get('pending_buy_age', 0)
+        pending_sell_age = state_dict.get('pending_sell_age', 0)
+
+        last_c = eval_slice[-1] if eval_slice else {}
+        final_stage = last_c.get('wyckoff_stage', 'TRANSITION')
+        final_consec = accum_consec_bars if final_stage == "ACCUMULATION" else (dist_consec_bars if final_stage == "DISTRIBUTION" else 0)
+
+        status_message = "Waiting for setup..."
+        if pending_buy:
+            status_message = f"Spring detected. Waiting for confirmation/stability. Close must cross above high {spring_high:.5f} (Age: {pending_buy_age}/15)."
+        elif pending_sell:
+            status_message = f"Upthrust detected. Waiting for confirmation/stability. Close must cross below low {upthrust_low:.5f} (Age: {pending_sell_age}/15)."
+        else:
+            status_message = f"Market in {final_stage} stage. Monitoring for Spring/Upthrust."
+
+        from datetime import datetime
+        last_c_time = last_c.get('time')
+        last_c_time_str = datetime.fromtimestamp(last_c_time).strftime("%Y-%m-%d %H:%M:%S") if last_c_time else None
+
+        state_info = {
+            "stage": final_stage,
+            "consec_bars": final_consec,
+            "pending_buy": pending_buy,
+            "pending_sell": pending_sell,
+            "spring_high": spring_high,
+            "upthrust_low": upthrust_low,
+            "pending_buy_age": pending_buy_age,
+            "pending_sell_age": pending_sell_age,
+            "status_message": status_message,
+            "last_candle_time": last_c_time_str,
+            "last_checked": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+
+        return should_buy, should_sell, state_info, annotated_candles
+
+    @staticmethod
     def get_strategy_settings(strategy_or_params, strict: bool = False) -> dict:
         """
         Fetches, validates, and normalizes strategy settings in 1 single pass.
