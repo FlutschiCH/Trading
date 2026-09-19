@@ -568,6 +568,64 @@ class LiveWorker:
             except Exception as ex:
                 print(f"[LiveWorker] Console handler note: {ex}", flush=True)
 
+    def _initialize_startup_session(self, strategy: dict):
+        """Prints startup banner and configures console window title for the active strategy session."""
+        strat_name = strategy.get("name") or f"Strategy {self.strategy_id}"
+        strat_sym = strategy["symbol"]
+        strat_tf = strategy["timeframe"]
+
+        if sys.platform == "win32":
+            try:
+                import ctypes
+                ctypes.windll.kernel32.SetConsoleTitleW(f"Live Strategy: {strat_name} | {strat_sym} [{strat_tf}]")
+            except Exception:
+                pass
+
+        strat_broker = strategy["broker"]
+        strat_lookback = strategy["lookbackWindow"]
+        strat_sl_val = strategy["slVal"]
+        strat_sl_type = strategy["slType"]
+        strat_rr = strategy["rr"]
+        strat_risk_sizing = strategy["useRiskSizing"]
+        strat_size = strategy.get("size")
+        strat_risk_pct = strategy.get("riskPct")
+        
+        strat_use_be = strategy.get("useBreakEven")
+        strat_be_trigger = strategy.get("beTriggerR")
+        strat_be_mode = strategy.get("beOffsetMode")
+        strat_rule = strategy.get("entryStabilityRule")
+        strat_allow_opp = strategy.get("allowOppositeClose")
+        
+        strat_tz = strategy.get("timezone")
+        strat_use_gc = strategy.get("useGlobalClose")
+        strat_gc_time = strategy.get("globalCloseTime")
+        strat_use_cutoff = strategy.get("useEntryCutoff")
+        strat_cutoff_time = strategy.get("entryCutoffTime")
+        strat_sessions = strategy.get("sessions") or []
+        strat_targets = strategy.get("targets") or []
+        
+        strat_daily_mode = strategy.get("dailyFirstSignalsMode")
+        strat_daily_count = strategy.get("dailyFirstSignalsCount")
+        strat_daily_mult = strategy.get("dailyFirstSignalsRiskMult")
+
+        targets_str = ", ".join([f"{t.get('broker')}:{t.get('account_id')}" for t in strat_targets]) if strat_targets else f"{strat_broker}:{strategy.get('account_id')}"
+        sessions_str = ", ".join([f"{s.get('id')}({s.get('start')}-{s.get('end')})" for s in strat_sessions]) if strat_sessions else "24/7 (No restrictions)"
+        daily_signals_str = f"{str(strat_daily_mode).upper()} (Count: {strat_daily_count}, Risk: {strat_daily_mult})" if strat_daily_mode and strat_daily_mode != 'disabled' else "Disabled (Take all signals)"
+
+        print(f"\n{Fore.CYAN}{Style.BRIGHT}{'='*60}", flush=True)
+        print(f"{Fore.CYAN}{Style.BRIGHT}  🚀 LIVE STRATEGY WORKER INITIALIZED", flush=True)
+        print(f"{Fore.CYAN}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}", flush=True)
+        print(f"  {Fore.WHITE}• Strategy ID      :{Style.RESET_ALL} {Style.BRIGHT}{self.strategy_id}{Style.RESET_ALL} ({strat_name})", flush=True)
+        print(f"  {Fore.WHITE}• Market & Timeframe:{Style.RESET_ALL} {Fore.YELLOW}{strat_sym}{Style.RESET_ALL} @ {Fore.YELLOW}{strat_tf}{Style.RESET_ALL} (Lookback: {strat_lookback})", flush=True)
+        print(f"  {Fore.WHITE}• Primary Broker    :{Style.RESET_ALL} {strat_broker}", flush=True)
+        print(f"  {Fore.WHITE}• Target Accounts   :{Style.RESET_ALL} {Fore.GREEN}{targets_str}{Style.RESET_ALL}", flush=True)
+        print(f"  {Fore.WHITE}• Risk & Sizing     :{Style.RESET_ALL} RiskSizing={strat_risk_sizing} (Risk: {strat_risk_pct}%, Base Size: {strat_size})", flush=True)
+        print(f"  {Fore.WHITE}• SL & RR Config    :{Style.RESET_ALL} SL={strat_sl_val} ({strat_sl_type}) | RR={strat_rr} | BE={strat_use_be} (Trigger: {strat_be_trigger}R, Mode: {strat_be_mode})", flush=True)
+        print(f"  {Fore.WHITE}• Execution Rules   :{Style.RESET_ALL} Stability='{strat_rule}' | AllowOppositeClose={strat_allow_opp}", flush=True)
+        print(f"  {Fore.WHITE}• Daily First Sig.  :{Style.RESET_ALL} {Fore.MAGENTA}{daily_signals_str}{Style.RESET_ALL}", flush=True)
+        print(f"  {Fore.WHITE}• Sessions & Close  :{Style.RESET_ALL} TZ={strat_tz} | Sessions=[{sessions_str}] | GlobalClose={strat_use_gc} ({strat_gc_time}) | EntryCutoff={strat_use_cutoff} ({strat_cutoff_time})", flush=True)
+        print(f"{Fore.CYAN}{Style.BRIGHT}{'='*60}\n{Style.RESET_ALL}", flush=True)
+
     def run(self):
         print(f"{Fore.CYAN}[LiveWorker]{Style.RESET_ALL} Starting live strategy worker for Strategy ID: {Style.BRIGHT}{self.strategy_id}{Style.RESET_ALL} (PID: {os.getpid()})", flush=True)
         self._register_system_exit_handlers()
@@ -618,63 +676,7 @@ class LiveWorker:
                 # =========================================================================
                 if first_run:
                     first_run = False
-                    
-                    # Extract strategy identity & market details
-                    strat_name = strategy.get("name") or f"Strategy {self.strategy_id}"
-                    strat_sym = strategy["symbol"]
-                    strat_tf = strategy["timeframe"]
-
-                    if sys.platform == "win32":
-                        try:
-                            import ctypes
-                            ctypes.windll.kernel32.SetConsoleTitleW(f"Live Strategy: {strat_name} | {strat_sym} [{strat_tf}]")
-                        except Exception:
-                            pass
-
-                    strat_broker = strategy["broker"]
-                    strat_lookback = strategy["lookbackWindow"]
-                    strat_sl_val = strategy["slVal"]
-                    strat_sl_type = strategy["slType"]
-                    strat_rr = strategy["rr"]
-                    strat_risk_sizing = strategy["useRiskSizing"]
-                    strat_size = strategy.get("size")
-                    strat_risk_pct = strategy.get("riskPct")
-                    
-                    strat_use_be = strategy.get("useBreakEven")
-                    strat_be_trigger = strategy.get("beTriggerR")
-                    strat_be_mode = strategy.get("beOffsetMode")
-                    strat_rule = strategy.get("entryStabilityRule")
-                    strat_allow_opp = strategy.get("allowOppositeClose")
-                    
-                    strat_tz = strategy.get("timezone")
-                    strat_use_gc = strategy.get("useGlobalClose")
-                    strat_gc_time = strategy.get("globalCloseTime")
-                    strat_use_cutoff = strategy.get("useEntryCutoff")
-                    strat_cutoff_time = strategy.get("entryCutoffTime")
-                    strat_sessions = strategy.get("sessions") or []
-                    strat_targets = strategy.get("targets") or []
-                    
-                    strat_daily_mode = strategy.get("dailyFirstSignalsMode")
-                    strat_daily_count = strategy.get("dailyFirstSignalsCount")
-                    strat_daily_mult = strategy.get("dailyFirstSignalsRiskMult")
-
-                    targets_str = ", ".join([f"{t.get('broker')}:{t.get('account_id')}" for t in strat_targets]) if strat_targets else f"{strat_broker}:{strategy.get('account_id')}"
-                    sessions_str = ", ".join([f"{s.get('id')}({s.get('start')}-{s.get('end')})" for s in strat_sessions]) if strat_sessions else "24/7 (No restrictions)"
-                    daily_signals_str = f"{str(strat_daily_mode).upper()} (Count: {strat_daily_count}, Risk: {strat_daily_mult})" if strat_daily_mode and strat_daily_mode != 'disabled' else "Disabled (Take all signals)"
-
-                    print(f"\n{Fore.CYAN}{Style.BRIGHT}{'='*60}", flush=True)
-                    print(f"{Fore.CYAN}{Style.BRIGHT}  🚀 LIVE STRATEGY WORKER INITIALIZED", flush=True)
-                    print(f"{Fore.CYAN}{Style.BRIGHT}{'='*60}{Style.RESET_ALL}", flush=True)
-                    print(f"  {Fore.WHITE}• Strategy ID      :{Style.RESET_ALL} {Style.BRIGHT}{self.strategy_id}{Style.RESET_ALL} ({strat_name})", flush=True)
-                    print(f"  {Fore.WHITE}• Market & Timeframe:{Style.RESET_ALL} {Fore.YELLOW}{strat_sym}{Style.RESET_ALL} @ {Fore.YELLOW}{strat_tf}{Style.RESET_ALL} (Lookback: {strat_lookback})", flush=True)
-                    print(f"  {Fore.WHITE}• Primary Broker    :{Style.RESET_ALL} {strat_broker}", flush=True)
-                    print(f"  {Fore.WHITE}• Target Accounts   :{Style.RESET_ALL} {Fore.GREEN}{targets_str}{Style.RESET_ALL}", flush=True)
-                    print(f"  {Fore.WHITE}• Risk & Sizing     :{Style.RESET_ALL} RiskSizing={strat_risk_sizing} (Risk: {strat_risk_pct}%, Base Size: {strat_size})", flush=True)
-                    print(f"  {Fore.WHITE}• SL & RR Config    :{Style.RESET_ALL} SL={strat_sl_val} ({strat_sl_type}) | RR={strat_rr} | BE={strat_use_be} (Trigger: {strat_be_trigger}R, Mode: {strat_be_mode})", flush=True)
-                    print(f"  {Fore.WHITE}• Execution Rules   :{Style.RESET_ALL} Stability='{strat_rule}' | AllowOppositeClose={strat_allow_opp}", flush=True)
-                    print(f"  {Fore.WHITE}• Daily First Sig.  :{Style.RESET_ALL} {Fore.MAGENTA}{daily_signals_str}{Style.RESET_ALL}", flush=True)
-                    print(f"  {Fore.WHITE}• Sessions & Close  :{Style.RESET_ALL} TZ={strat_tz} | Sessions=[{sessions_str}] | GlobalClose={strat_use_gc} ({strat_gc_time}) | EntryCutoff={strat_use_cutoff} ({strat_cutoff_time})", flush=True)
-                    print(f"{Fore.CYAN}{Style.BRIGHT}{'='*60}\n{Style.RESET_ALL}", flush=True)
+                    self._initialize_startup_session(strategy)
 
                 # =========================================================================
                 # 1. MARKET ADAPTER & SYMBOL RESOLUTION
