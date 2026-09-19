@@ -2064,3 +2064,102 @@ class StrategyHandler:
                 })
 
         return discovered_sessions, hourly_stats
+
+
+if __name__ == "__main__":
+    import json
+    from colorama import Fore, Style, init
+    init(autoreset=True)
+
+    print(f"\n{Fore.CYAN}{Style.BRIGHT}{'='*70}")
+    print(f"  STRATEGY LOGIC COMPARISON: BACKTEST vs LIVE PIPELINES")
+    print(f"{'='*70}{Style.RESET_ALL}\n")
+
+    # 1. Fetch the first strategy from cache / database
+    strategies = StrategyHandler.get_all_strategies()
+    if not strategies:
+        print(f"{Fore.YELLOW}[Warning] No strategies found in DB. Creating sample strategy for comparison...{Style.RESET_ALL}")
+        sample_strat = {
+            "id": "compare-strat-test",
+            "name": "Comparison Test Strategy",
+            "symbol": "BTCUSD",
+            "timeframe": "15m",
+            "broker": "metatrader",
+            "lookbackWindow": 20,
+            "slVal": 1.0,
+            "slType": "pct",
+            "rr": 2.0,
+            "size": 1.0,
+            "useRiskSizing": False,
+            "useBreakEven": True,
+            "beTriggerR": 1.0,
+            "beOffsetMode": "half_r",
+            "allowOppositeClose": True
+        }
+    else:
+        sample_strat = strategies[0]
+
+    normalized_strat = StrategyHandler.get_strategy_settings(sample_strat, strict=False)
+    strat_id = normalized_strat.get("id") or "test_strat"
+    symbol = normalized_strat["symbol"]
+    timeframe = normalized_strat["timeframe"]
+    broker = normalized_strat["broker"]
+    lookback = normalized_strat["lookbackWindow"]
+
+    print(f"{Fore.WHITE}Target Strategy:{Style.RESET_ALL} ID='{strat_id}' | Name='{normalized_strat.get('name')}' | Symbol='{symbol}' | TF='{timeframe}' | Broker='{broker}'")
+
+    # 2. Fetch candles from broker for testing
+    resolved = StrategyHandler.resolve_broker_and_symbol(normalized_strat)
+    handler = resolved["handler"]
+    broker_sym = resolved["broker_symbol"]
+    acc_id = resolved["account_id"]
+
+    print(f"{Fore.CYAN}[Data]{Style.RESET_ALL} Fetching candles for '{broker_sym}' from broker '{resolved['broker_name']}'...")
+    candles = handler.fetch_candles(
+        symbol=broker_sym,
+        timeframe=timeframe,
+        limit=500,
+        login=acc_id,
+        account_id=acc_id
+    )
+
+    if not candles:
+        print(f"{Fore.RED}[Error] Could not fetch candles. Aborting comparison.{Style.RESET_ALL}")
+        sys.exit(1)
+
+    print(f"{Fore.GREEN}[Data]{Style.RESET_ALL} Retrieved {len(candles)} candles.")
+
+    # 3. Execute LIVE evaluation pipeline (StrategyHandler.evaluate_signal / LiveWorker)
+    print(f"\n{Fore.MAGENTA}{Style.BRIGHT}--- 1. LIVE WORKER EVALUATION ---{Style.RESET_ALL}")
+    buy_sig, sell_sig, live_state, annotated_candles = StrategyHandler.evaluate_signal(
+        candles=candles,
+        strategy_or_params=normalized_strat,
+        is_live=True
+    )
+    print(f"  * Buy Signal : {Fore.GREEN if buy_sig else Fore.WHITE}{buy_sig}{Style.RESET_ALL}")
+    print(f"  * Sell Signal: {Fore.RED if sell_sig else Fore.WHITE}{sell_sig}{Style.RESET_ALL}")
+    print(f"  * Stage      : {live_state.get('stage')}")
+    print(f"  * Status Msg : {live_state.get('status_message')}")
+    print(f"  * Structure  : Bias={live_state.get('bias')}, Phase={live_state.get('phase')}, Spring={live_state.get('spring_detected')}, UTAD={live_state.get('utad_detected')}")
+
+    # 4. Execute BACKTEST pipeline (StrategyHandler.run_backtest / backtest_worker)
+    print(f"\n{Fore.MAGENTA}{Style.BRIGHT}--- 2. BACKTEST WORKER EVALUATION ---{Style.RESET_ALL}")
+    bt_results = StrategyHandler.run_backtest(
+        candles=candles,
+        strategy=normalized_strat,
+        symbol=symbol,
+        broker=broker,
+        timeframe=timeframe
+    )
+    trades = bt_results.get("trades", [])
+    print(f"  * Total Trades Generated: {len(trades)}")
+    print(f"  * Net PnL               : ${bt_results.get('netPnl', 0.0):.2f}")
+    print(f"  * Win Rate              : {bt_results.get('winRate', 0.0):.1f}%")
+    print(f"  * Profit Factor         : {bt_results.get('profitFactor', 0.0)}")
+    if trades:
+        last_trade = trades[-1]
+        print(f"  * Last Backtest Trade   : Type={last_trade.get('type')}, Entry={last_trade.get('entryPrice')}, Exit={last_trade.get('exitPrice')}, Outcome={last_trade.get('outcome')}, PnL={last_trade.get('pnl')}")
+
+    print(f"\n{Fore.CYAN}{Style.BRIGHT}{'='*70}")
+    print(f"  LOGIC COMPARISON COMPLETED")
+    print(f"{'='*70}{Style.RESET_ALL}\n")
