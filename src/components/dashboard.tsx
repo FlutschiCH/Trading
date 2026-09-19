@@ -1205,13 +1205,14 @@ export default function Dashboard() {
         signal: controller.signal,
         body: JSON.stringify({
           account_id: getSelectedAccountId(),
-          broker: candleSource,
+          broker: activeAccount?.broker_type || activeAccount?.broker || candleSource || 'metatrader',
           timeframe: reqTimeframe,
           limit: candleLimit,
           symbol: reqSymbol,
           strategy: rangeParams?.strategy || {
             symbol: reqSymbol,
             timeframe: reqTimeframe,
+            broker: activeAccount?.broker_type || activeAccount?.broker || candleSource || 'metatrader',
             slVal: parseFloat(backtestSL) || 1.0,
             slType: backtestSLType,
             rr: parseFloat(backtestRR) || 2,
@@ -1371,7 +1372,7 @@ export default function Dashboard() {
         signal: controller.signal,
         body: JSON.stringify({
           account_id: getSelectedAccountId(),
-          broker: candleSource,
+          broker: activeAccount?.broker_type || activeAccount?.broker || candleSource || 'metatrader',
           timeframe: reqTimeframe,
           limit: candleLimit,
           symbol: reqSymbol,
