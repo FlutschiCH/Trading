@@ -945,6 +945,41 @@ class StrategyHandler:
         use_entry_cutoff = bool(strategy.get("useEntryCutoff", False))
         entry_cutoff_time = strategy.get("entryCutoffTime", "")
 
+        # Step 0: Early Datetime & Session Schedule Check (bypass expensive calculations if out of session/cutoff)
+        target_candle = candles[-2] if (is_live and len(candles) >= 2) else candles[-1]
+        candle_time = int(target_candle.get('time', 0))
+        from backtest_helpers import get_candle_datetime
+        dt_curr = get_candle_datetime(candle_time, timezone_str)
+        try:
+            date_str = dt_curr.strftime('%Y-%m-%d')
+        except Exception:
+            date_str = 'unknown'
+
+        if is_live and not StrategyHandler._is_timing_allowed(
+            dt_curr=dt_curr,
+            candle_time=candle_time,
+            date_str=date_str,
+            sessions=sessions,
+            use_entry_cutoff=use_entry_cutoff,
+            entry_cutoff_time=entry_cutoff_time
+        ):
+            from datetime import datetime
+            time_str = datetime.fromtimestamp(candle_time).strftime("%Y-%m-%d %H:%M:%S") if candle_time else None
+            state_info = {
+                "stage": "OUT_OF_SESSION",
+                "consec_bars": 0,
+                "pending_buy": False,
+                "pending_sell": False,
+                "spring_high": None,
+                "upthrust_low": None,
+                "pending_buy_age": 0,
+                "pending_sell_age": 0,
+                "status_message": f"Outside active trading sessions or past entry cutoff ({timezone_str}).",
+                "last_candle_time": time_str,
+                "last_checked": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            }
+            return False, False, state_info, candles
+
         # Step 1: Wyckoff
         annotated_candles = StrategyHandler.analyze_wyckoff_structure(candles, lookback=lookback, progress_callback=progress_callback)
         if not annotated_candles or len(annotated_candles) < 2:
