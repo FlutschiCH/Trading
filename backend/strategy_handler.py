@@ -1,11 +1,494 @@
+import os
 import pandas as pd
 import json
 import time
+import threading
 from indicator_handler import IndicatorHandler
 from trading_handler import TradingHandler
+from sql_handler import SQLHandler
 
 class StrategyHandler:
-  
+    _db_initialized = False
+    _strategies_cache = None  # {strategy_id: strategy_dict}
+    _lock = threading.RLock()
+
+    @classmethod
+    def init_db(cls):
+        with cls._lock:
+            if cls._db_initialized:
+                return
+
+            create_strategies_mysql = """
+            CREATE TABLE IF NOT EXISTS live_strategies (
+                id VARCHAR(64) PRIMARY KEY,
+                name VARCHAR(255) DEFAULT '',
+                symbol VARCHAR(64) NOT NULL,
+                status VARCHAR(32) DEFAULT 'stopped',
+                timeframe VARCHAR(32) DEFAULT '15m',
+                slVal DOUBLE DEFAULT 1.0,
+                slType VARCHAR(32) DEFAULT 'pct',
+                rr DOUBLE DEFAULT 2.0,
+                size DOUBLE DEFAULT 1.0,
+                useRiskSizing TINYINT(1) DEFAULT 0,
+                riskPct DOUBLE DEFAULT 1.0,
+                useBreakEven TINYINT(1) DEFAULT 0,
+                beTriggerR DOUBLE DEFAULT 1.0,
+                allowOppositeClose TINYINT(1) DEFAULT 1,
+                lookbackWindow INT DEFAULT 100,
+                deployedAt VARCHAR(64) DEFAULT '',
+                timezone VARCHAR(64) DEFAULT 'Local',
+                sessions TEXT,
+                useGlobalClose TINYINT(1) DEFAULT 0,
+                globalCloseTime VARCHAR(32) DEFAULT '',
+                useEntryCutoff TINYINT(1) DEFAULT 0,
+                entryCutoffTime VARCHAR(32) DEFAULT '',
+                entryStabilityRule VARCHAR(64) DEFAULT 'default',
+                broker VARCHAR(64) DEFAULT 'metatrader',
+                account_id VARCHAR(128) DEFAULT '',
+                target_computer VARCHAR(128) DEFAULT 'All',
+                dateRangeOption VARCHAR(64) DEFAULT 'last_candles',
+                customFrom VARCHAR(64) DEFAULT '',
+                customTo VARCHAR(64) DEFAULT '',
+                candleLimit INT DEFAULT 1000,
+                dailyFirstSignalsMode VARCHAR(64) DEFAULT 'disabled',
+                dailyFirstSignalsCount INT DEFAULT 1,
+                dailyFirstSignalsRiskMult DOUBLE DEFAULT 0.5,
+                live_state LONGTEXT
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+            """
+            create_targets_mysql = """
+            CREATE TABLE IF NOT EXISTS live_strategy_targets (
+                id VARCHAR(64) PRIMARY KEY,
+                strategy_id VARCHAR(64) NOT NULL,
+                broker VARCHAR(64) DEFAULT '',
+                account_id VARCHAR(128) DEFAULT '',
+                INDEX idx_strategy_id (strategy_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+            """
+
+            create_strategies_sqlite = """
+            CREATE TABLE IF NOT EXISTS live_strategies (
+                id TEXT PRIMARY KEY,
+                name TEXT DEFAULT '',
+                symbol TEXT NOT NULL,
+                status TEXT DEFAULT 'stopped',
+                timeframe TEXT DEFAULT '15m',
+                slVal REAL DEFAULT 1.0,
+                slType TEXT DEFAULT 'pct',
+                rr REAL DEFAULT 2.0,
+                size REAL DEFAULT 1.0,
+                useRiskSizing INTEGER DEFAULT 0,
+                riskPct REAL DEFAULT 1.0,
+                useBreakEven INTEGER DEFAULT 0,
+                beTriggerR REAL DEFAULT 1.0,
+                allowOppositeClose INTEGER DEFAULT 1,
+                lookbackWindow INTEGER DEFAULT 100,
+                deployedAt TEXT DEFAULT '',
+                timezone TEXT DEFAULT 'Local',
+                sessions TEXT,
+                useGlobalClose INTEGER DEFAULT 0,
+                globalCloseTime TEXT DEFAULT '',
+                useEntryCutoff INTEGER DEFAULT 0,
+                entryCutoffTime TEXT DEFAULT '',
+                entryStabilityRule TEXT DEFAULT 'default',
+                broker TEXT DEFAULT 'metatrader',
+                account_id TEXT DEFAULT '',
+                target_computer TEXT DEFAULT 'All',
+                dateRangeOption TEXT DEFAULT 'last_candles',
+                customFrom TEXT DEFAULT '',
+                customTo TEXT DEFAULT '',
+                candleLimit INTEGER DEFAULT 1000,
+                dailyFirstSignalsMode TEXT DEFAULT 'disabled',
+                dailyFirstSignalsCount INTEGER DEFAULT 1,
+                dailyFirstSignalsRiskMult REAL DEFAULT 0.5,
+                live_state TEXT
+            )
+            """
+            create_targets_sqlite = """
+            CREATE TABLE IF NOT EXISTS live_strategy_targets (
+                id TEXT PRIMARY KEY,
+                strategy_id TEXT NOT NULL,
+                broker TEXT DEFAULT '',
+                account_id TEXT DEFAULT ''
+            )
+            """
+
+            try:
+                SQLHandler.execute_query(create_strategies_mysql)
+                SQLHandler.execute_query(create_targets_mysql)
+            except Exception:
+                try:
+                    SQLHandler.execute_query(create_strategies_sqlite)
+                    SQLHandler.execute_query(create_targets_sqlite)
+                except Exception as e:
+                    print(f"Error initializing strategies DB: {e}", flush=True)
+
+            cls._db_initialized = True
+
+    @classmethod
+    def _ensure_cache_loaded(cls, force: bool = False):
+        with cls._lock:
+            if cls._strategies_cache is None or force:
+                cls.init_db()
+                try:
+                    results = SQLHandler.execute_query("SELECT * FROM live_strategies ORDER BY deployedAt DESC")
+                    targets_map = {}
+                    try:
+                        targets_rows = SQLHandler.execute_query("SELECT strategy_id, broker, account_id FROM live_strategy_targets")
+                        if isinstance(targets_rows, list):
+                            for r in targets_rows:
+                                s_id = r.get("strategy_id")
+                                if s_id:
+                                    if s_id not in targets_map:
+                                        targets_map[s_id] = []
+                                    targets_map[s_id].append({"broker": r.get("broker"), "account_id": r.get("account_id")})
+                    except Exception:
+                        pass
+
+                    new_cache = {}
+                    if isinstance(results, list):
+                        for row in results:
+                            strat = cls._row_to_dict(row)
+                            strat["targets"] = targets_map.get(strat["id"], [])
+                            new_cache[strat["id"]] = strat
+                    cls._strategies_cache = new_cache
+                except Exception as e:
+                    print(f"Error loading strategies cache from DB: {e}", flush=True)
+                    if cls._strategies_cache is None:
+                        cls._strategies_cache = {}
+
+    @classmethod
+    def save_strategy(cls, strategy: dict) -> bool:
+        """
+        Saves the strategy configuration to the SQL database using an upsert pattern
+        and updates the in-memory cache immediately.
+        """
+        cls.init_db()
+        if "id" not in strategy or not strategy["id"]:
+            import uuid
+            strategy["id"] = str(uuid.uuid4())
+
+        query = """
+        INSERT INTO live_strategies (
+            id, name, symbol, status, timeframe, slVal, slType, rr, size, 
+            useRiskSizing, riskPct, useBreakEven, beTriggerR, allowOppositeClose, lookbackWindow, deployedAt,
+            timezone, sessions, useGlobalClose, globalCloseTime, useEntryCutoff, entryCutoffTime, entryStabilityRule, broker, account_id, target_computer,
+            dateRangeOption, customFrom, customTo, candleLimit,
+            dailyFirstSignalsMode, dailyFirstSignalsCount, dailyFirstSignalsRiskMult
+        ) VALUES (
+            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+            %s, %s, %s, %s,
+            %s, %s, %s
+        ) ON DUPLICATE KEY UPDATE 
+            name=VALUES(name),
+            symbol=VALUES(symbol),
+            status=VALUES(status),
+            timeframe=VALUES(timeframe),
+            slVal=VALUES(slVal),
+            slType=VALUES(slType),
+            rr=VALUES(rr),
+            size=VALUES(size),
+            useRiskSizing=VALUES(useRiskSizing),
+            riskPct=VALUES(riskPct),
+            useBreakEven=VALUES(useBreakEven),
+            beTriggerR=VALUES(beTriggerR),
+            allowOppositeClose=VALUES(allowOppositeClose),
+            lookbackWindow=VALUES(lookbackWindow),
+            deployedAt=VALUES(deployedAt),
+            timezone=VALUES(timezone),
+            sessions=VALUES(sessions),
+            useGlobalClose=VALUES(useGlobalClose),
+            globalCloseTime=VALUES(globalCloseTime),
+            useEntryCutoff=VALUES(useEntryCutoff),
+            entryCutoffTime=VALUES(entryCutoffTime),
+            entryStabilityRule=VALUES(entryStabilityRule),
+            broker=VALUES(broker),
+            account_id=VALUES(account_id),
+            target_computer=VALUES(target_computer),
+            dateRangeOption=VALUES(dateRangeOption),
+            customFrom=VALUES(customFrom),
+            customTo=VALUES(customTo),
+            candleLimit=VALUES(candleLimit),
+            dailyFirstSignalsMode=VALUES(dailyFirstSignalsMode),
+            dailyFirstSignalsCount=VALUES(dailyFirstSignalsCount),
+            dailyFirstSignalsRiskMult=VALUES(dailyFirstSignalsRiskMult)
+        """
+        # Resolve currently active account if not provided
+        acc_id = strategy.get("account_id")
+        if not acc_id:
+            from account_handler import AccountHandler
+            active_acc = AccountHandler.get_active_account()
+            if active_acc:
+                acc_id = active_acc.get("account_id")
+
+        params = (
+            strategy["id"],
+            strategy.get("name", ""),
+            strategy["symbol"],
+            strategy["status"],
+            strategy["timeframe"],
+            strategy["slVal"],
+            strategy["slType"],
+            strategy["rr"],
+            strategy["size"],
+            1 if strategy.get("useRiskSizing") else 0,
+            strategy.get("riskPct", 1.0),
+            1 if strategy.get("useBreakEven") else 0,
+            strategy.get("beTriggerR", 1.0),
+            1 if strategy.get("allowOppositeClose", True) else 0,
+            strategy.get("lookbackWindow", 100),
+            strategy.get("deployedAt", str(int(time.time()))),
+            strategy.get("timezone", "Local"),
+            json.dumps(strategy.get("sessions", [])),
+            1 if strategy.get("useGlobalClose", False) else 0,
+            strategy.get("globalCloseTime", ""),
+            1 if strategy.get("useEntryCutoff", False) else 0,
+            strategy.get("entryCutoffTime", ""),
+            strategy.get("entryStabilityRule", "default"),
+            strategy.get("broker", "metatrader"),
+            acc_id,
+            strategy.get("target_computer", "All"),
+            strategy.get("dateRangeOption", "last_candles"),
+            strategy.get("customFrom", ""),
+            strategy.get("customTo", ""),
+            strategy.get("candleLimit", 1000),
+            strategy.get("dailyFirstSignalsMode", "disabled"),
+            int(strategy.get("dailyFirstSignalsCount", 1)),
+            float(strategy.get("dailyFirstSignalsRiskMult", 0.5))
+        )
+        try:
+            SQLHandler.execute_query(query, params)
+            
+            # Save strategy targets
+            SQLHandler.execute_query("DELETE FROM live_strategy_targets WHERE strategy_id = %s", (strategy["id"],))
+            
+            targets = strategy.get("targets", [])
+            if not targets and strategy.get("broker") and acc_id:
+                targets = [{"broker": strategy.get("broker"), "account_id": acc_id}]
+                
+            for t in targets:
+                import uuid
+                target_id = str(uuid.uuid4())
+                SQLHandler.execute_query(
+                    "INSERT INTO live_strategy_targets (id, strategy_id, broker, account_id) VALUES (%s, %s, %s, %s)",
+                    (target_id, strategy["id"], t.get("broker"), t.get("account_id"))
+                )
+            
+            # Update cache immediately
+            cls._ensure_cache_loaded()
+            with cls._lock:
+                strat_copy = dict(strategy)
+                strat_copy["account_id"] = acc_id
+                strat_copy["targets"] = targets
+                cls._strategies_cache[strategy["id"]] = strat_copy
+            return True
+        except Exception as e:
+            print(f"Failed to save strategy: {e}", flush=True)
+            return False
+
+    @classmethod
+    def get_strategy(cls, strategy_id: str = None) -> dict:
+        """
+        Gets strategy from in-memory cache without hitting DB.
+        """
+        cls._ensure_cache_loaded()
+        with cls._lock:
+            if strategy_id:
+                return dict(cls._strategies_cache[strategy_id]) if strategy_id in cls._strategies_cache else None
+
+            import socket
+            try:
+                comp_name = socket.gethostname().strip().lower()
+            except Exception:
+                comp_name = "unknown"
+
+            for s in cls._strategies_cache.values():
+                tgt = str(s.get("target_computer", "All")).strip().lower()
+                if tgt in ("all", comp_name):
+                    return dict(s)
+            return None
+
+    @classmethod
+    def get_all_strategies(cls) -> list:
+        """
+        Retrieves all strategies directly from in-memory cache.
+        """
+        cls._ensure_cache_loaded()
+        with cls._lock:
+            return [dict(s) for s in cls._strategies_cache.values()]
+
+    @classmethod
+    def delete_strategy(cls, strategy_id: str) -> bool:
+        """
+        Deletes a strategy by ID and evicts from in-memory cache.
+        """
+        cls.init_db()
+        try:
+            SQLHandler.execute_query("DELETE FROM live_strategy_targets WHERE strategy_id = %s", (strategy_id,))
+            SQLHandler.execute_query("DELETE FROM live_strategies WHERE id = %s", (strategy_id,))
+            cls._ensure_cache_loaded()
+            with cls._lock:
+                cls._strategies_cache.pop(strategy_id, None)
+            return True
+        except Exception as e:
+            print(f"Error deleting strategy {strategy_id}: {e}", flush=True)
+            return False
+
+    @staticmethod
+    def _row_to_dict(row: dict) -> dict:
+        sessions_raw = row.get("sessions")
+        sessions_list = []
+        if sessions_raw:
+            try:
+                sessions_list = json.loads(sessions_raw)
+            except Exception:
+                pass
+        
+        live_state_raw = row.get("live_state")
+        live_state_dict = {}
+        if live_state_raw:
+            try:
+                live_state_dict = json.loads(live_state_raw)
+            except Exception:
+                pass
+
+        return {
+            "id": row["id"],
+            "name": row.get("name", "") or "",
+            "symbol": row["symbol"],
+            "status": row["status"],
+            "timeframe": row["timeframe"],
+            "slVal": float(row["slVal"]),
+            "slType": row["slType"],
+            "rr": float(row["rr"]),
+            "size": float(row["size"]),
+            "useRiskSizing": bool(row["useRiskSizing"]),
+            "riskPct": float(row["riskPct"]),
+            "useBreakEven": bool(row["useBreakEven"]),
+            "beTriggerR": float(row["beTriggerR"]),
+            "allowOppositeClose": bool(row.get("allowOppositeClose", True)),
+            "lookbackWindow": int(row["lookbackWindow"]),
+            "deployedAt": row["deployedAt"],
+            "timezone": row.get("timezone", "Local") or "Local",
+            "sessions": sessions_list,
+            "useGlobalClose": bool(row.get("useGlobalClose", False)),
+            "globalCloseTime": row.get("globalCloseTime", "") or "",
+            "useEntryCutoff": bool(row.get("useEntryCutoff", False)),
+            "entryCutoffTime": row.get("entryCutoffTime", "") or "",
+            "entryStabilityRule": row.get("entryStabilityRule", "default") or "default",
+            "broker": row.get("broker", "metatrader") or "metatrader",
+            "account_id": row.get("account_id") or "",
+            "target_computer": row.get("target_computer", "All") or "All",
+            "dateRangeOption": row.get("dateRangeOption", "last_candles") or "last_candles",
+            "customFrom": row.get("customFrom") or "",
+            "customTo": row.get("customTo") or "",
+            "candleLimit": int(row.get("candleLimit", 1000) if row.get("candleLimit") is not None else 1000),
+            "dailyFirstSignalsMode": row.get("dailyFirstSignalsMode", "disabled") or "disabled",
+            "dailyFirstSignalsCount": int(row.get("dailyFirstSignalsCount", 1) if row.get("dailyFirstSignalsCount") is not None else 1),
+            "dailyFirstSignalsRiskMult": float(row.get("dailyFirstSignalsRiskMult", 0.5) if row.get("dailyFirstSignalsRiskMult") is not None else 0.5),
+            "live_state": live_state_dict
+        }
+
+    @staticmethod
+    def update_strategy_state(strategy_id: str, state: dict) -> bool:
+        """
+        Updates only the live_state column of a strategy.
+        """
+        StrategyHandler.init_db()
+        query = "UPDATE live_strategies SET live_state = %s WHERE id = %s"
+        try:
+            SQLHandler.execute_query(query, (json.dumps(state), strategy_id))
+            return True
+        except Exception as e:
+            print(f"Failed to update state for strategy {strategy_id}: {e}", flush=True)
+            return False
+
+    @staticmethod
+    def is_trading_allowed(strategy_or_id) -> tuple:
+        """
+        Checks if trading is currently allowed for the strategy based on its active sessions and cutoff time.
+        Accepts either a strategy dictionary or strategy ID string.
+        Returns (is_allowed, error_message).
+        """
+        if isinstance(strategy_or_id, dict):
+            strategy = strategy_or_id
+        else:
+            strategy = StrategyHandler.get_strategy(strategy_or_id)
+
+        if not strategy or strategy.get("status") != "active":
+            return True, ""
+            
+        sessions = [s for s in strategy.get("sessions", []) if s.get("active", True)]
+        if not sessions:
+            return True, ""
+            
+        timezone_str = strategy.get("timezone", "Local")
+        
+        import time
+        from datetime import datetime, timezone as pytimezone
+        ts = time.time()
+        if timezone_str == 'UTC':
+            dt_now = datetime.fromtimestamp(ts, tz=pytimezone.utc).replace(tzinfo=None)
+        else:
+            dt_now = datetime.fromtimestamp(ts)
+            
+        wd = dt_now.weekday() + 1
+        time_val = dt_now.time()
+        
+        in_session = False
+        for s in sessions:
+            weekdays = s.get("weekdays", [])
+            if wd not in weekdays:
+                continue
+            try:
+                sh, sm = map(int, s.get("start", "00:00").split(":"))
+                eh, em = map(int, s.get("end", "23:59").split(":"))
+            except ValueError:
+                continue
+            
+            from datetime import time as dttime
+            start_time = dttime(sh, sm)
+            end_time = dttime(eh, em)
+            
+            if start_time <= end_time:
+                if start_time <= time_val <= end_time:
+                    in_session = True
+                    break
+            else:
+                if time_val >= start_time or time_val <= end_time:
+                    in_session = True
+                    break
+                    
+        if not in_session:
+            return False, f"Trade rejected: Outside configured trading sessions ({timezone_str} timezone)."
+
+        # Check entry cutoff time
+        use_entry_cutoff = strategy.get("useEntryCutoff", False)
+        entry_cutoff_time = strategy.get("entryCutoffTime", "")
+        if use_entry_cutoff and entry_cutoff_time and len(entry_cutoff_time.strip()) == 5:
+            try:
+                ch, cm = map(int, entry_cutoff_time.strip().split(":"))
+                from datetime import time as dttime
+                if time_val >= dttime(ch, cm):
+                    return False, f"Trade rejected: Past entry cutoff time ({entry_cutoff_time})."
+            except Exception:
+                pass
+            
+        return True, ""
+
+    @staticmethod
+    def restore_active_strategies():
+        """
+        Called on startup to fetch active strategies from the database.
+        """
+        StrategyHandler.init_db()
+        strategy = StrategyHandler.get_strategy()
+        if strategy and strategy.get("status") == "active":
+            print(f"Startup Recovery: Active strategy {strategy['id']} for {strategy['symbol']} is ready in DB.", flush=True)
+        else:
+            print("Startup Recovery: No active strategy found in DB.", flush=True)
+
     @staticmethod
     def _evaluate_wyckoff_signal(c: dict, state: dict, entry_stability_rule: str) -> tuple:
         """Evaluates Wyckoff state, pending triggers, and returns (should_buy, should_sell)."""
@@ -333,13 +816,21 @@ class StrategyHandler:
         return {"status": "success", "data": wyckoff_candles, "fvgs": []}
 
     @staticmethod
-    def get_strategy_settings(strategy_or_params: dict, strict: bool = False) -> dict:
+    def get_strategy_settings(strategy_or_params, strict: bool = False) -> dict:
         """
         Fetches, validates, and normalizes strategy settings in 1 single pass.
+        Accepts either a strategy dictionary or a strategy ID string.
         Ensures strict parameter integrity when strict=True (e.g. for LiveWorker),
         and applies standardized defaults when strict=False (e.g. for BacktestWorker).
         """
-        raw = dict(strategy_or_params or {})
+        if isinstance(strategy_or_params, str):
+            strategy_obj = StrategyHandler.get_strategy(strategy_or_params)
+            if not strategy_obj:
+                raise ValueError(f"Strategy with ID '{strategy_or_params}' not found.")
+            raw = dict(strategy_obj)
+        else:
+            raw = dict(strategy_or_params or {})
+
         # If strategy is nested under 'strategy', unpack and merge it
         if isinstance(raw.get('strategy'), dict):
             nested = raw.pop('strategy')

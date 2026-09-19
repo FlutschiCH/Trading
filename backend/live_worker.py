@@ -31,7 +31,6 @@ if backend_dir not in sys.path:
     sys.path.insert(0, backend_dir)
 
 from sql_handler import SQLHandler
-from live_strategy_handler import LiveStrategyHandler
 from broker_handler import BrokerHandler
 from strategy_handler import StrategyHandler
 from wyckoff_handler import WyckoffHandler
@@ -578,7 +577,7 @@ class LiveWorker:
         # Main evaluation loop
         while self.running:
             try:
-                strategy = LiveStrategyHandler.get_strategy(self.strategy_id)
+                strategy = StrategyHandler.get_strategy(self.strategy_id)
                 if not strategy:
                     print(f"{Fore.YELLOW}[LiveWorker]{Style.RESET_ALL} Strategy {self.strategy_id} not found in database. Exiting...", flush=True)
                     break
