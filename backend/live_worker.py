@@ -234,12 +234,7 @@ class LiveWorker:
         else:
             status_message = f"Market in {final_stage} stage. Monitoring for Spring/Upthrust."
 
-        # 6. Check strategy session schedule allowance
-        allowed, msg = LiveStrategyHandler.is_trading_allowed(strategy)
-        if not allowed:
-            status_message = f"Outside trading hours: {msg}"
-
-        # 7. Package complete real-time strategy state snapshot for DB storage and API broadcast
+        # 6. Package complete real-time strategy state snapshot for DB storage and API broadcast
         state_info = {
             "stage": final_stage,
             "consec_bars": final_consec,
@@ -269,11 +264,6 @@ class LiveWorker:
 
         strat_acc_id = strategy.get("account_id")
         base_symbol = SymbolMappingHandler.map_to_main(symbol, strat_acc_id)
-
-        allowed, reason = LiveStrategyHandler.is_trading_allowed(strategy)
-        if not allowed:
-            print(f"{Fore.YELLOW}[LiveWorker Entry Guard]{Style.RESET_ALL} Skipping live order execution for {symbol}: {reason}", flush=True)
-            return
 
         # Check for daily first signal risk multiplier or skip
         risk_mult = float(last_candle.get('risk_multiplier', 1.0))
