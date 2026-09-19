@@ -6,11 +6,65 @@ import threading
 from indicator_handler import IndicatorHandler
 from trading_handler import TradingHandler
 from sql_handler import SQLHandler
+from broker_handler import BrokerHandler
+from symbol_mapping_handler import SymbolMappingHandler
 
 class StrategyHandler:
     _db_initialized = False
     _strategies_cache = None  # {strategy_id: strategy_dict}
     _lock = threading.RLock()
+
+    @staticmethod
+    def resolve_broker_and_symbol(strategy_or_params: dict) -> dict:
+        """
+        Resolves broker handler, account ID, and mapped broker-specific symbol in a unified way for both Live and Backtest.
+        Returns a dict: {
+            'symbol': raw_symbol,
+            'broker_symbol': mapped_broker_symbol,
+            'broker_name': broker_name,
+            'handler': broker_handler_instance,
+            'account_id': account_id,
+            'is_valid': bool,
+            'error_message': str
+        }
+        """
+        strategy = StrategyHandler.get_strategy_settings(strategy_or_params, strict=False)
+        symbol = strategy.get("symbol", "")
+        broker_name = strategy.get("broker", "metatrader")
+        handler = BrokerHandler.get_handler(broker_name)
+
+        account_id = strategy.get("account_id")
+        if not account_id and strategy.get("targets"):
+            targets = strategy.get("targets")
+            if isinstance(targets, list) and len(targets) > 0:
+                account_id = targets[0].get("account_id")
+
+        if not account_id and broker_name == 'metatrader':
+            try:
+                from account_handler import AccountHandler
+                active_acc = AccountHandler.get_active_account(broker_name)
+                if active_acc:
+                    account_id = active_acc.get("account_id")
+            except Exception:
+                pass
+
+        broker_symbol = SymbolMappingHandler.map_to_broker(symbol, account_id)
+
+        is_valid = True
+        error_msg = ""
+        if broker_name == 'binance' and not SymbolMappingHandler.has_mapping(symbol, account_id) and not getattr(handler, 'validate_and_format_symbol', lambda s: None)(broker_symbol):
+            is_valid = False
+            error_msg = f"Symbol '{symbol}' has no mapping configured for Binance account '{account_id}'. Please configure symbol mapping in settings."
+
+        return {
+            "symbol": symbol,
+            "broker_symbol": broker_symbol,
+            "broker_name": broker_name,
+            "handler": handler,
+            "account_id": account_id,
+            "is_valid": is_valid,
+            "error_message": error_msg
+        }
 
     @classmethod
     def init_db(cls):

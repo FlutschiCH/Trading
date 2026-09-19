@@ -352,29 +352,26 @@ def run_worker(job_id: str, is_resume: bool = False):
 
     try:
         params = StrategyHandler.get_strategy_settings(params, strict=False)
-        symbol = params["symbol"]
-        candle_source = params["broker"]
+        resolved = StrategyHandler.resolve_broker_and_symbol(params)
+        symbol = resolved["symbol"]
+        broker_symbol = resolved["broker_symbol"]
+        candle_source = resolved["broker_name"]
+        handler = resolved["handler"]
+        account_id = resolved["account_id"]
+        params['account_id'] = account_id
+
         timeframe = params["timeframe"]
         limit = int(params.get('limit', 1000))
         date_from = params.get('date_from') or params.get('dateFrom')
         date_to = params.get('date_to') or params.get('dateTo')
 
-        account_id = params.get('account_id')
-        if not account_id and candle_source == 'metatrader':
-            try:
-                from account_handler import AccountHandler
-                active_acc = AccountHandler.get_active_account(candle_source)
-                if active_acc:
-                    account_id = active_acc.get('account_id')
-                    params['account_id'] = account_id
-            except Exception:
-                pass
+        if not resolved["is_valid"]:
+            print(f"{Fore.YELLOW}[BacktestWorker Warning]{Style.RESET_ALL} {resolved['error_message']}", flush=True)
 
-        print(f"{Fore.CYAN}[BacktestWorker Data]{Style.RESET_ALL} Fetching candles for '{symbol}' ({timeframe}) | Source: '{candle_source}' | Account: '{account_id}' | Limit: {limit} | Range: {date_from} -> {date_to}", flush=True)
+        print(f"{Fore.CYAN}[BacktestWorker Data]{Style.RESET_ALL} Fetching candles for '{broker_symbol}' (raw: '{symbol}', {timeframe}) | Source: '{candle_source}' | Account: '{account_id}' | Limit: {limit} | Range: {date_from} -> {date_to}", flush=True)
 
-        handler = BrokerHandler.get_handler(candle_source)
         candles = handler.fetch_candles(
-            symbol=symbol,
+            symbol=broker_symbol,
             timeframe=timeframe,
             limit=limit,
             date_from=date_from,

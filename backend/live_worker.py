@@ -681,30 +681,25 @@ class LiveWorker:
                 # =========================================================================
                 # 1. MARKET ADAPTER & SYMBOL RESOLUTION
                 # =========================================================================
-                symbol = strategy["symbol"]
+                resolved = StrategyHandler.resolve_broker_and_symbol(strategy)
+                symbol = resolved["symbol"]
+                strat_broker_symbol = resolved["broker_symbol"]
+                broker_name = resolved["broker_name"]
+                handler = resolved["handler"]
+                strat_acc_id = resolved["account_id"]
                 timeframe = strategy["timeframe"]
                 lookback = strategy["lookbackWindow"]
-                broker_name = strategy["broker"]
-                handler = BrokerHandler.get_handler(broker_name)
 
                 opt = strategy.get("dateRangeOption", "last_candles")
                 custom_from = strategy.get("customFrom", "")
                 custom_to = strategy.get("customTo", "")
                 limit = strategy.get("candleLimit", 5000)
 
-                strat_acc_id = strategy.get("account_id")
-                if not strat_acc_id and strategy.get("targets"):
-                    targets = strategy.get("targets")
-                    if isinstance(targets, list) and len(targets) > 0:
-                        strat_acc_id = targets[0].get("account_id")
-
-                strat_broker_symbol = SymbolMappingHandler.map_to_broker(symbol, strat_acc_id)
-
-                if broker_name == 'binance' and not SymbolMappingHandler.has_mapping(symbol, strat_acc_id) and not getattr(handler, 'validate_and_format_symbol', lambda s: None)(strat_broker_symbol):
-                    print(f"{Fore.YELLOW}[LiveWorker Warning]{Style.RESET_ALL} Symbol '{symbol}' has no mapping configured for Binance account '{strat_acc_id}'. Please configure symbol mapping in settings.", flush=True)
+                if not resolved["is_valid"]:
+                    print(f"{Fore.YELLOW}[LiveWorker Warning]{Style.RESET_ALL} {resolved['error_message']}", flush=True)
                     self.send_update_or_heartbeat(state_info={
                         "stage": "UNKNOWN",
-                        "status_message": f"Symbol '{symbol}' has no mapping configured for Binance. Please configure symbol mapping in settings.",
+                        "status_message": resolved["error_message"],
                         "last_checked": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     })
                     time.sleep(5)
