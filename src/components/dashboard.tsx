@@ -1206,7 +1206,6 @@ export default function Dashboard() {
         body: JSON.stringify({
           account_id: getSelectedAccountId(),
           broker: candleSource,
-          candleSource,
           timeframe: reqTimeframe,
           limit: candleLimit,
           symbol: reqSymbol,
@@ -1373,7 +1372,6 @@ export default function Dashboard() {
         body: JSON.stringify({
           account_id: getSelectedAccountId(),
           broker: candleSource,
-          candleSource,
           timeframe: reqTimeframe,
           limit: candleLimit,
           symbol: reqSymbol,

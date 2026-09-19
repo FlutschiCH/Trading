@@ -1099,12 +1099,6 @@ class StrategyHandler:
             merged = {**nested, **raw}
             raw = merged
 
-        # Standardize aliases upfront
-        if raw.get("broker") is None and (raw.get("candleSource") or raw.get("candle_source")):
-            raw["broker"] = raw.get("candleSource") or raw.get("candle_source")
-        if raw.get("broker") is None:
-            raw["broker"] = "metatrader"
-
         if raw.get("lookbackWindow") is None and raw.get("lookback") is not None:
             raw["lookbackWindow"] = raw.get("lookback")
 
@@ -1154,7 +1148,7 @@ class StrategyHandler:
             "name": str(raw.get("name") or raw.get("strategy_name") or ""),
             "symbol": str(raw.get("symbol", "")),
             "timeframe": str(raw.get("timeframe", "5m")),
-            "broker": str(raw.get("broker") or raw.get("candleSource") or "metatrader"),
+            "broker": str(raw.get("broker") or "metatrader"),
             "account_id": raw.get("account_id") or raw.get("login"),
             "slVal": float(raw.get("slVal", 1.0)) if raw.get("slVal") is not None else 1.0,
             "slType": str(raw.get("slType", "pct")),
@@ -1330,7 +1324,6 @@ class StrategyHandler:
         start_index: int = 0,
         initial_results: list = None,
         account_id: str = None,
-        candle_source: str = None,
         limit: int = 1000
     ) -> dict:
         """
@@ -1355,7 +1348,7 @@ class StrategyHandler:
             single_strat = strat_list[0] if strat_list else {}
             strat_settings = StrategyHandler.get_strategy_settings(single_strat, strict=False)
             symbol = symbol or strat_settings["symbol"]
-            broker = broker or candle_source or strat_settings["broker"]
+            broker = broker or strat_settings["broker"]
             tf = timeframe or strat_settings["timeframe"]
             date_from = date_from if date_from is not None else strat_settings.get('date_from', strat_settings.get('dateFrom'))
             date_to = date_to if date_to is not None else strat_settings.get('date_to', strat_settings.get('dateTo'))
@@ -1757,7 +1750,7 @@ class StrategyHandler:
             htf_per = strat["htfEmaPeriod"]
             htf_tf = strat["htfEmaTimeframe"]
             min_save_pnl = strat.get("minSavePnl")
-            broker_src = broker or candle_source or strat.get("broker", "metatrader")
+            broker_src = broker or strat.get("broker", "metatrader")
             acc_id = account_id or strat.get("account_id")
             d_from = date_from if date_from is not None else strat.get("date_from", strat.get("dateFrom"))
             d_to = date_to if date_to is not None else strat.get("date_to", strat.get("dateTo"))
@@ -2027,7 +2020,7 @@ class StrategyHandler:
             date_from=kwargs.get('date_from'),
             date_to=kwargs.get('date_to'),
             account_id=kwargs.get('account_id'),
-            broker=kwargs.get('broker') or kwargs.get('candle_source', 'metatrader'),
+            broker=kwargs.get('broker', 'metatrader'),
             limit=kwargs.get('limit', 1000),
             progress_callback=kwargs.get('progress_callback'),
             check_cancelled=kwargs.get('check_cancelled'),
