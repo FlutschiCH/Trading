@@ -672,8 +672,34 @@ class CopytraderHandler:
                                     comment=""
                                 )
                                 print(f"   -> Order Execution Result on {slave_acc}: {res}", flush=True)
-                                if isinstance(res, dict) and "error" in res:
-                                    logPrint(f"[Copytrader Error] Failed to open {m_sym} on {slave_acc}: {res.get('error')}")
+                                if isinstance(res, dict) and ("error" in res or res.get("code") == -2019):
+                                    err_text = str(res.get("error") or res.get("msg") or res.get("message") or "")
+                                    logPrint(f"[Copytrader Error] Failed to open {m_sym} on {slave_acc}: {err_text}")
+                                    
+                                    # Check for insufficient margin
+                                    if "margin is insufficient" in err_text.lower() or res.get("code") == -2019:
+                                        print(f"[Copytrader Alert] Insufficient margin detected on slave {slave_acc} ({slave_broker}). Pausing setup '{cfg_name}' (ID: {cfg_id})", flush=True)
+                                        logPrint(f"[Copytrader] Insufficient margin on slave {slave_acc}. Pausing copytrader configuration '{cfg_name}'.")
+                                        
+                                        # Pause config in DB and memory
+                                        cfg_copy = dict(cfg)
+                                        cfg_copy["status"] = "paused"
+                                        cls.save_config(cfg_copy)
+
+                                        # Send Discord Notification
+                                        try:
+                                            from discord_handler import send_discord_message
+                                            discord_msg = (
+                                                f"⚠️ **Copytrader Paused: Insufficient Margin**\n"
+                                                f"🎛️ **Configuration:** `{cfg_name}` (ID: `{cfg_id}`)\n"
+                                                f"🏦 **Slave Account:** `{slave_acc}` ({slave_broker.upper()})\n"
+                                                f"📊 **Attempted Order:** `{m_side} {slave_lots} {m_sym}`\n"
+                                                f"❌ **Error:** `{err_text or 'Margin is insufficient'}`\n"
+                                                f"⏸️ **Action:** Copytrader configuration has been **PAUSED** to prevent spam. Please add funds and restart/resume copytrader."
+                                            )
+                                            send_discord_message(discord_msg)
+                                        except Exception as d_err:
+                                            print(f"[Copytrader Alert Error] Failed to send Discord alert: {d_err}", flush=True)
 
                         # B) For any position on slave that NO LONGER EXISTS on master -> CLOSE / DELETE IT!
                         for s_pos in unmatched_slaves:
