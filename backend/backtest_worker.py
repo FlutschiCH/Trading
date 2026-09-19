@@ -177,11 +177,22 @@ def run_worker(job_id: str, is_resume: bool = False):
         print(f"{Fore.RED}[BacktestWorker Host Mismatch]{Style.RESET_ALL} Job {job_id} was created by '{job_host}', but this worker is running on '{local_machine}'. Aborting execution to prevent cross-machine execution.", flush=True)
         sys.exit(0)
 
-    params = job.get('params', {})
+    raw_params = job.get('params', {})
     job_type = job.get('type', 'single')
 
-    symbols = params.get('symbols') or [params.get('symbol', 'BTCUSD')]
-    timeframes = params.get('timeframes') or [params.get('timeframe') or params.get('interval', '15m')]
+    # Strict normalization and validation of strategy settings
+    params = StrategyHandler.get_strategy_settings(raw_params, strict=True)
+    # Re-merge job-level optimization and control parameters into params
+    for k, v in raw_params.items():
+        if k not in params:
+            params[k] = v
+
+    symbols = raw_params.get('symbols') or [params['symbol']]
+    timeframes = raw_params.get('timeframes') or [params['timeframe']]
+    if not symbols:
+        raise ValueError("Backtest job must specify at least one symbol in 'symbols' or 'symbol'.")
+    if not timeframes:
+        raise ValueError("Backtest job must specify at least one timeframe in 'timeframes' or 'timeframe'.")
 
     # Set console window title to "Backtest - <symbol>"
     try:
@@ -199,21 +210,39 @@ def run_worker(job_id: str, is_resume: bool = False):
     if job_type == 'single':
         total_jobs = 1
     else:
-        # Calculate RR steps
-        rr_s = float(params.get('rrStart', 1.0))
-        rr_e = float(params.get('rrEnd', 5.0))
-        rr_st = float(params.get('rrStep', 0.5))
+        # Validate optimization parameters strictly (no fallbacks)
+        if params.get('rrStart') is None or params.get('rrEnd') is None or params.get('rrStep') is None:
+            raise ValueError("Optimization job requires 'rrStart', 'rrEnd', and 'rrStep' parameters.")
+        rr_s = float(params['rrStart'])
+        rr_e = float(params['rrEnd'])
+        rr_st = float(params['rrStep'])
+        if rr_st <= 0 or rr_s > rr_e:
+            raise ValueError(f"Invalid RR range: start={rr_s}, end={rr_e}, step={rr_st}")
         rr_cnt = max(1, int(round((rr_e - rr_s) / rr_st)) + 1)
 
         # Calculate SL steps
-        if params.get('slRangeMode') and params.get('slStart') is not None and params.get('slEnd') is not None and params.get('slStep'):
-            sl_cnt = max(1, int(round((float(params['slEnd']) - float(params['slStart'])) / float(params['slStep']))) + 1)
+        if params.get('slRangeMode'):
+            if params.get('slStart') is None or params.get('slEnd') is None or params.get('slStep') is None:
+                raise ValueError("Optimization has slRangeMode enabled but 'slStart', 'slEnd', or 'slStep' is missing.")
+            sl_s = float(params['slStart'])
+            sl_e = float(params['slEnd'])
+            sl_st = float(params['slStep'])
+            if sl_st <= 0 or sl_s > sl_e:
+                raise ValueError(f"Invalid SL range: start={sl_s}, end={sl_e}, step={sl_st}")
+            sl_cnt = max(1, int(round((sl_e - sl_s) / sl_st)) + 1)
         else:
             sl_cnt = 1
 
         # Calculate BE steps
-        if params.get('useBreakEven') and params.get('beRangeMode') and params.get('beStart') is not None and params.get('beEnd') is not None and params.get('beStep'):
-            be_cnt = max(1, int(round((float(params['beEnd']) - float(params['beStart'])) / float(params['beStep']))) + 1)
+        if params.get('useBreakEven') and params.get('beRangeMode'):
+            if params.get('beStart') is None or params.get('beEnd') is None or params.get('beStep') is None:
+                raise ValueError("Optimization has beRangeMode enabled but 'beStart', 'beEnd', or 'beStep' is missing.")
+            be_s = float(params['beStart'])
+            be_e = float(params['beEnd'])
+            be_st = float(params['beStep'])
+            if be_st <= 0 or be_s > be_e:
+                raise ValueError(f"Invalid BE range: start={be_s}, end={be_e}, step={be_st}")
+            be_cnt = max(1, int(round((be_e - be_s) / be_st)) + 1)
         else:
             be_cnt = 1
 
@@ -496,58 +525,58 @@ def run_worker(job_id: str, is_resume: bool = False):
 
             res = StrategyHandler.run_optimization(
                 symbol=symbol,
-                sl_val=float(params.get('slVal', 1.0)),
-                sl_type=params.get('slType', 'pct'),
-                size=float(params.get('size', 1.0)),
-                initial_balance=float(params.get('initialBalance', 10000.0)),
-                use_risk_sizing=bool(params.get('useRiskSizing', False)),
-                risk_pct=float(params.get('riskPct', 1.0)),
-                use_break_even=bool(params.get('useBreakEven', False)),
-                be_trigger_r=float(params.get('beTriggerR', 1.0)),
-                be_offset_mode=params.get('beOffsetMode', 'half_r'),
-                lookback_window=int(params.get('lookbackWindow', 20)),
-                rr_start=float(params.get('rrStart', 1.0)),
-                rr_end=float(params.get('rrEnd', 5.0)),
-                rr_step=float(params.get('rrStep', 0.5)),
-                fees_percent=float(params.get('feesPercent', 0.0)),
-                daily_retry_limit=int(params.get('dailyRetryLimit', 0)),
-                allow_opposite_close=bool(params.get('allowOppositeClose', True)),
+                sl_val=float(params['slVal']),
+                sl_type=str(params['slType']),
+                size=float(params['size']),
+                initial_balance=float(params['initialBalance']),
+                use_risk_sizing=bool(params['useRiskSizing']),
+                risk_pct=float(params['riskPct']),
+                use_break_even=bool(params['useBreakEven']),
+                be_trigger_r=float(params['beTriggerR']),
+                be_offset_mode=str(params['beOffsetMode']),
+                lookback_window=int(params['lookbackWindow']),
+                rr_start=float(params['rrStart']),
+                rr_end=float(params['rrEnd']),
+                rr_step=float(params['rrStep']),
+                fees_percent=float(params['feesPercent']),
+                daily_retry_limit=int(params['dailyRetryLimit']),
+                allow_opposite_close=bool(params['allowOppositeClose']),
                 date_from=date_from,
                 date_to=date_to,
-                timezone=params.get('timezone', 'Local'),
-                sessions=params.get('sessions', []),
-                use_global_close=bool(params.get('useGlobalClose', False)),
-                global_close_time=params.get('globalCloseTime', ''),
-                use_entry_cutoff=bool(params.get('useEntryCutoff', False)),
-                entry_cutoff_time=params.get('entryCutoffTime', ''),
-                entry_stability_rule=params.get('entryStabilityRule', 'default'),
+                timezone=str(params['timezone']),
+                sessions=list(params['sessions']),
+                use_global_close=bool(params['useGlobalClose']),
+                global_close_time=str(params['globalCloseTime']),
+                use_entry_cutoff=bool(params['useEntryCutoff']),
+                entry_cutoff_time=str(params['entryCutoffTime']),
+                entry_stability_rule=str(params['entryStabilityRule']),
                 candle_source=candle_source,
                 account_id=account_id,
                 limit=limit,
                 symbols=symbols,
                 timeframes=timeframes,
                 sl_range_mode=bool(params.get('slRangeMode', False)),
-                sl_start=float(params.get('slStart')) if params.get('slStart') is not None else None,
-                sl_end=float(params.get('slEnd')) if params.get('slEnd') is not None else None,
-                sl_step=float(params.get('slStep')) if params.get('slStep') is not None else None,
+                sl_start=float(params['slStart']) if params.get('slRangeMode') else None,
+                sl_end=float(params['slEnd']) if params.get('slRangeMode') else None,
+                sl_step=float(params['slStep']) if params.get('slRangeMode') else None,
                 be_range_mode=bool(params.get('beRangeMode', False)),
-                be_start=float(params.get('beStart')) if params.get('beStart') is not None else None,
-                be_end=float(params.get('beEnd')) if params.get('beEnd') is not None else None,
-                be_step=float(params.get('beStep')) if params.get('beStep') is not None else None,
+                be_start=float(params['beStart']) if params.get('beRangeMode') else None,
+                be_end=float(params['beEnd']) if params.get('beRangeMode') else None,
+                be_step=float(params['beStep']) if params.get('beRangeMode') else None,
                 be_offset_range_mode=bool(params.get('beOffsetRangeMode', False)),
-                be_offset_start=float(params.get('beOffsetStart')) if params.get('beOffsetStart') is not None else None,
-                be_offset_end=float(params.get('beOffsetEnd')) if params.get('beOffsetEnd') is not None else None,
-                be_offset_step=float(params.get('beOffsetStep')) if params.get('beOffsetStep') is not None else None,
-                daily_first_signals_mode=params.get('dailyFirstSignalsMode', 'disabled'),
-                daily_first_signals_count=int(params.get('dailyFirstSignalsCount', 0)),
-                daily_first_signals_risk_mult=float(params.get('dailyFirstSignalsRiskMult', 0.5)),
+                be_offset_start=float(params['beOffsetStart']) if params.get('beOffsetRangeMode') else None,
+                be_offset_end=float(params['beOffsetEnd']) if params.get('beOffsetRangeMode') else None,
+                be_offset_step=float(params['beOffsetStep']) if params.get('beOffsetRangeMode') else None,
+                daily_first_signals_mode=str(params['dailyFirstSignalsMode']),
+                daily_first_signals_count=int(params['dailyFirstSignalsCount']),
+                daily_first_signals_risk_mult=float(params['dailyFirstSignalsRiskMult']),
                 htf_ema_enabled=htf_ema_enabled,
                 htf_ema_period=htf_ema_period,
                 htf_ema_timeframe=htf_ema_timeframe,
                 htf_ema_range_mode=htf_ema_range_mode,
-                min_save_pnl=float(params.get('minSavePnl')) if params.get('minSavePnl') is not None and str(params.get('minSavePnl')).strip() != '' else None,
-                find_best_session=bool(params.get('findBestSession', False)),
-                min_hourly_pnl=float(params.get('minHourlyPnl', 0.0)),
+                min_save_pnl=float(params['minSavePnl']) if params.get('minSavePnl') is not None and str(params.get('minSavePnl')).strip() != '' else None,
+                find_best_session=bool(params['findBestSession']),
+                min_hourly_pnl=float(params['minHourlyPnl']),
                 start_index=checkpoint_idx,
                 initial_results=initial_res,
                 checkpoint_callback=lambda curr_idx, partial_results: send_local_update(
