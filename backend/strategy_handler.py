@@ -544,8 +544,11 @@ class StrategyHandler:
             print("Startup Recovery: No active strategy found in DB.", flush=True)
 
     @staticmethod
-    def _evaluate_wyckoff_signal(c: dict, state: dict, entry_stability_rule: str) -> tuple:
-        """Evaluates Wyckoff state, pending triggers, and returns (should_buy, should_sell)."""
+    def _evaluate_wyckoff_setup(c: dict, state: dict, entry_stability_rule: str) -> tuple:
+        """
+        Evaluates Wyckoff accumulation/distribution state, Spring/Upthrust triggers,
+        and returns potential structural trade opportunities: (possible_buy, possible_sell).
+        """
         wyckoff_sig = c.get('wyckoff_signal')
         stage = c.get('wyckoff_stage', 'TRANSITION')
 
@@ -580,7 +583,7 @@ class StrategyHandler:
             if pending_sell_age > 15:
                 pending_sell = False
 
-        # Set up signal triggers
+        # Set up structural triggers
         is_new_spring = False
         is_new_upthrust = False
 
@@ -598,10 +601,10 @@ class StrategyHandler:
             pending_buy = False
             is_new_upthrust = True
 
-        should_buy = False
-        should_sell = False
+        possible_buy = False
+        possible_sell = False
 
-        # Evaluate pending buy trigger
+        # Evaluate pending buy setup confirmation
         if pending_buy:
             duration_ok = True
             if entry_stability_rule in ('duration', 'both'):
@@ -616,13 +619,13 @@ class StrategyHandler:
 
             if duration_ok and confirmation_ok:
                 if stage != "DISTRIBUTION":
-                    should_buy = True
+                    possible_buy = True
                     pending_buy = False
 
             if wyckoff_sig == "Upthrust detected" or stage == "DISTRIBUTION":
                 pending_buy = False
 
-        # Evaluate pending sell trigger
+        # Evaluate pending sell setup confirmation
         if pending_sell:
             duration_ok = True
             if entry_stability_rule in ('duration', 'both'):
@@ -637,7 +640,7 @@ class StrategyHandler:
 
             if duration_ok and confirmation_ok:
                 if stage != "ACCUMULATION":
-                    should_sell = True
+                    possible_sell = True
                     pending_sell = False
 
             if wyckoff_sig == "Spring detected" or stage == "ACCUMULATION":
@@ -654,7 +657,7 @@ class StrategyHandler:
             'pending_sell_age': pending_sell_age
         })
 
-        return should_buy, should_sell
+        return possible_buy, possible_sell
 
     @staticmethod
     def _is_session_allowed(dt_curr, sessions: list) -> bool:
@@ -768,8 +771,8 @@ class StrategyHandler:
         if daily_signals_count is None:
             daily_signals_count = {}
 
-        # 1. Wyckoff Signal Detection
-        buy, sell = StrategyHandler._evaluate_wyckoff_signal(c, state, entry_stability_rule)
+        # 1. Structural Wyckoff Setup Detection
+        possible_buy, possible_sell = StrategyHandler._evaluate_wyckoff_setup(c, state, entry_stability_rule)
 
         # 2. Timing & Datetime context
         candle_time = int(c.get('time', 0))
@@ -780,22 +783,25 @@ class StrategyHandler:
         except Exception:
             date_str = 'unknown'
 
-        # 3. Check if trades are allowed by timing, session, date range, indicator, and HTF rules
-        if buy and not StrategyHandler._is_trade_allowed(
+        # 3. Filter Verification Pipeline: Check if trades are allowed by session, cutoff, date range, indicator, and HTF rules
+        buy = False
+        sell = False
+
+        if possible_buy and StrategyHandler._is_trade_allowed(
             c, dt_curr, candle_time, date_str, 'BUY',
             sessions=sessions, date_from=date_from, date_to=date_to,
             use_entry_cutoff=use_entry_cutoff, entry_cutoff_time=entry_cutoff_time,
             daily_retry_limit=daily_retry_limit, daily_trades_count=daily_trades_count
         ):
-            buy = False
+            buy = True
 
-        if sell and not StrategyHandler._is_trade_allowed(
+        if possible_sell and StrategyHandler._is_trade_allowed(
             c, dt_curr, candle_time, date_str, 'SELL',
             sessions=sessions, date_from=date_from, date_to=date_to,
             use_entry_cutoff=use_entry_cutoff, entry_cutoff_time=entry_cutoff_time,
             daily_retry_limit=daily_retry_limit, daily_trades_count=daily_trades_count
         ):
-            sell = False
+            sell = True
 
         # 4. Daily Initial Signals (Skip or Reduced Risk)
         if buy or sell:
