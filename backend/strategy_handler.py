@@ -820,6 +820,63 @@ class StrategyHandler:
         return should_buy, should_sell, state
 
     @staticmethod
+    def analyze_wyckoff_structure(candles: list, lookback: int = 20, progress_callback=None) -> list:
+        """Step 1: Analyzes raw candlestick data for Wyckoff phases and structures."""
+        if not candles:
+            return []
+        from wyckoff_handler import WyckoffHandler
+        return WyckoffHandler.analyze_wyckoff_structure(candles, lookback=lookback, progress_callback=progress_callback)
+
+    @staticmethod
+    def apply_indicators(candles: list, indicator_rules: list = None) -> list:
+        """Step 2: Calculates ATR and evaluates indicator confirmation rules."""
+        if not candles:
+            return []
+        try:
+            df = pd.DataFrame(candles)
+            atr_series = IndicatorHandler.atr(df, period=14, smoothing='rma')
+            for idx, c in enumerate(candles):
+                c['atr'] = float(atr_series.iloc[idx]) if not pd.isna(atr_series.iloc[idx]) else 0.0
+
+            if indicator_rules and len(indicator_rules) > 0:
+                buy_mask, sell_mask = IndicatorHandler.evaluate_indicator_rules(df, indicator_rules)
+                for idx, c in enumerate(candles):
+                    c['indicator_buy_valid'] = bool(buy_mask.iloc[idx])
+                    c['indicator_sell_valid'] = bool(sell_mask.iloc[idx])
+        except Exception as e:
+            print(f"[StrategyHandler] Warning: indicator calculation failed: {e}", flush=True)
+        return candles
+
+    @staticmethod
+    def apply_htf_ema(
+        candles: list,
+        htf_candles: list = None,
+        htf_ema_enabled: bool = False,
+        htf_ema_period: int = 200
+    ) -> list:
+        """Step 3: Calculates and annotates HTF EMA trend filter."""
+        if not candles:
+            return []
+        if not htf_ema_enabled:
+            return candles
+
+        try:
+            if htf_candles and len(htf_candles) > 0:
+                df = pd.DataFrame(candles)
+                htf_df = pd.DataFrame(htf_candles)
+                htf_ema_series = IndicatorHandler.htf_ema(df, htf_df, period=int(htf_ema_period), column='close')
+                for idx, c in enumerate(candles):
+                    ema_val = htf_ema_series.iloc[idx]
+                    c['htf_ema_enabled'] = True
+                    c['htf_ema'] = float(ema_val) if not pd.isna(ema_val) else None
+            else:
+                for c in candles:
+                    c['htf_ema_enabled'] = True
+        except Exception as e:
+            print(f"[StrategyHandler] Warning: HTF EMA calculation failed: {e}", flush=True)
+        return candles
+
+    @staticmethod
     def analyze_market_data(
         bars_list: list,
         lookback: int = 20,
@@ -829,45 +886,18 @@ class StrategyHandler:
         htf_ema_enabled: bool = False,
         htf_ema_period: int = 200
     ) -> dict:
-        """
-        Takes raw candlestick data, runs Wyckoff structure analysis,
-        evaluates indicator rules layer, calculates optional HTF EMA trend filter,
-        and returns the annotated dataset.
-        """
+        """Step-by-step pipeline runner: Wyckoff -> Indicators -> HTF EMA."""
         if not bars_list:
             return {"status": "success", "data": [], "fvgs": []}
-            
-        from wyckoff_handler import WyckoffHandler
-        wyckoff_candles = WyckoffHandler.analyze_wyckoff_structure(bars_list, lookback=lookback, progress_callback=progress_callback)
 
-        if len(wyckoff_candles) > 0:
-            try:
-                df = pd.DataFrame(wyckoff_candles)
-                atr_series = IndicatorHandler.atr(df, period=14, smoothing='rma')
-                for idx, c in enumerate(wyckoff_candles):
-                    c['atr'] = float(atr_series.iloc[idx]) if not pd.isna(atr_series.iloc[idx]) else 0.0
+        # Step 1: Wyckoff Structure
+        annotated = StrategyHandler.analyze_wyckoff_structure(bars_list, lookback=lookback, progress_callback=progress_callback)
+        # Step 2: Indicators
+        annotated = StrategyHandler.apply_indicators(annotated, indicator_rules=indicator_rules)
+        # Step 3: HTF EMA
+        annotated = StrategyHandler.apply_htf_ema(annotated, htf_candles=htf_candles, htf_ema_enabled=htf_ema_enabled, htf_ema_period=htf_ema_period)
 
-                if indicator_rules and len(indicator_rules) > 0:
-                    buy_mask, sell_mask = IndicatorHandler.evaluate_indicator_rules(df, indicator_rules)
-                    for idx, c in enumerate(wyckoff_candles):
-                        c['indicator_buy_valid'] = bool(buy_mask.iloc[idx])
-                        c['indicator_sell_valid'] = bool(sell_mask.iloc[idx])
-
-                # Calculate and annotate progressive HTF EMA if enabled and htf_candles provided
-                if htf_ema_enabled and htf_candles and len(htf_candles) > 0:
-                    htf_df = pd.DataFrame(htf_candles)
-                    htf_ema_series = IndicatorHandler.htf_ema(df, htf_df, period=int(htf_ema_period), column='close')
-                    for idx, c in enumerate(wyckoff_candles):
-                        ema_val = htf_ema_series.iloc[idx]
-                        c['htf_ema_enabled'] = True
-                        c['htf_ema'] = float(ema_val) if not pd.isna(ema_val) else None
-                elif htf_ema_enabled:
-                    for c in wyckoff_candles:
-                        c['htf_ema_enabled'] = True
-            except Exception as e:
-                print(f"[StrategyHandler] Warning: indicator calculation failed: {e}", flush=True)
-
-        return {"status": "success", "data": wyckoff_candles, "fvgs": []}
+        return {"status": "success", "data": annotated, "fvgs": []}
 
     @staticmethod
     def evaluate_signal(
@@ -878,10 +908,12 @@ class StrategyHandler:
         is_live: bool = False
     ) -> tuple:
         """
-        Unified market analysis and signal evaluation pipeline for both Live and Backtest.
-        Takes candlestick data and strategy settings, runs Wyckoff/Indicator analysis,
-        replays the state machine over closed bars, and returns:
-            (should_buy: bool, should_sell: bool, state_info: dict, annotated_candles: list)
+        Unified market analysis and signal evaluation pipeline.
+        Executes sequentially:
+            1. Wyckoff structure analysis
+            2. Indicator evaluation
+            3. HTF EMA trend filter
+            4. Sequential candle state machine replay
         """
         if not candles or len(candles) < 2:
             return False, False, {"stage": "UNKNOWN", "status_message": "Insufficient candle history"}, []
@@ -900,22 +932,18 @@ class StrategyHandler:
         use_entry_cutoff = bool(strategy.get("useEntryCutoff", False))
         entry_cutoff_time = strategy.get("entryCutoffTime", "")
 
-        # 1. Annotate candle series (Wyckoff + Indicators + HTF EMA)
-        analysis = StrategyHandler.analyze_market_data(
-            bars_list=candles,
-            lookback=lookback,
-            progress_callback=progress_callback,
-            indicator_rules=indicator_rules,
-            htf_candles=htf_candles,
-            htf_ema_enabled=htf_ema_enabled,
-            htf_ema_period=htf_ema_period
-        )
-        annotated_candles = analysis.get("data", [])
+        # Step 1: Wyckoff
+        annotated_candles = StrategyHandler.analyze_wyckoff_structure(candles, lookback=lookback, progress_callback=progress_callback)
         if not annotated_candles or len(annotated_candles) < 2:
             return False, False, {"stage": "UNKNOWN", "status_message": "Analysis returned empty dataset"}, []
 
-        # 2. Sequential state machine evaluation
-        # In live mode, evaluate closed candles up to index -2 (index -1 is active forming bar)
+        # Step 2: Indicators
+        annotated_candles = StrategyHandler.apply_indicators(annotated_candles, indicator_rules=indicator_rules)
+
+        # Step 3: HTF EMA
+        annotated_candles = StrategyHandler.apply_htf_ema(annotated_candles, htf_candles=htf_candles, htf_ema_enabled=htf_ema_enabled, htf_ema_period=htf_ema_period)
+
+        # Step 4: Sequential state machine evaluation
         eval_slice = annotated_candles[:-1] if is_live else annotated_candles
         state_dict = {}
         daily_signals_count = {}
@@ -937,7 +965,7 @@ class StrategyHandler:
                 entry_cutoff_time=entry_cutoff_time
             )
 
-        # 3. Extract final state telemetry
+        # Extract final state telemetry
         accum_consec_bars = state_dict.get('accum_consec_bars', 0)
         dist_consec_bars = state_dict.get('dist_consec_bars', 0)
         pending_buy = state_dict.get('pending_buy', False)
