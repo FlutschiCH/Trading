@@ -603,6 +603,7 @@ class LiveWorker:
                 try:
                     strategy = StrategyHandler.get_strategy_settings(strategy, strict=True)
                 except ValueError as val_err:
+                    set_console_quick_edit(True)
                     err_msg = f"CRITICAL: Strategy {self.strategy_id} configuration integrity error: {val_err}. Aborting live execution."
                     print(f"\n{Fore.RED}{Style.BRIGHT}{'='*70}", flush=True)
                     print(f"{Fore.RED}{Style.BRIGHT}  ❌ LIVE STRATEGY INTEGRITY ERROR: ABORTING", flush=True)
@@ -624,7 +625,7 @@ class LiveWorker:
                         status_msg="error"
                     )
                     self._release_instance_lock()
-                    print(f"\n{Fore.YELLOW}[LiveWorker]{Style.RESET_ALL} Press Enter to exit...", flush=True)
+                    print(f"\n{Fore.YELLOW}[LiveWorker]{Style.RESET_ALL} QuickEdit enabled. Press Enter to exit...", flush=True)
                     try:
                         input()
                     except Exception:
@@ -760,10 +761,11 @@ if __name__ == '__main__':
         worker = LiveWorker(strategy_id=args.strategy_id)
         worker.run()
     except Exception as e:
+        set_console_quick_edit(True)
         print(f"\n{Fore.RED}[LiveWorker Fatal Error]{Style.RESET_ALL} Unhandled exception in live worker: {e}", flush=True)
         import traceback
         traceback.print_exc()
-        print(f"\n{Fore.YELLOW}[LiveWorker]{Style.RESET_ALL} Press Enter to exit...", flush=True)
+        print(f"\n{Fore.YELLOW}[LiveWorker]{Style.RESET_ALL} QuickEdit enabled. Press Enter to exit...", flush=True)
         try:
             input()
         except Exception:

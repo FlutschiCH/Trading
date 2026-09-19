@@ -551,6 +551,7 @@ def run_worker(job_id: str, is_resume: bool = False):
             send_local_update(progress=100.0, status='completed', step_info='Finished', results=res if isinstance(res, dict) else {})
 
     except Exception as err:
+        set_console_quick_edit(True)
         print(f"{Fore.RED}[BacktestWorker]{Style.RESET_ALL} Error in worker execution for job {job_id}: {err}", flush=True)
         import traceback
         traceback.print_exc()
@@ -558,7 +559,7 @@ def run_worker(job_id: str, is_resume: bool = False):
             send_local_update(progress=100.0, status='failed', step_info=f"Worker error: {str(err)}")
         except Exception:
             pass
-        print(f"\n{Fore.YELLOW}[BacktestWorker]{Style.RESET_ALL} An error occurred during backtest execution. Press Enter to exit...", flush=True)
+        print(f"\n{Fore.YELLOW}[BacktestWorker]{Style.RESET_ALL} QuickEdit enabled. Press Enter to exit...", flush=True)
         try:
             input()
         except Exception:
@@ -592,10 +593,11 @@ if __name__ == '__main__':
     try:
         run_worker(job_id=args.job_id, is_resume=args.resume)
     except Exception as e:
+        set_console_quick_edit(True)
         print(f"\n{Fore.RED}[BacktestWorker Fatal Error]{Style.RESET_ALL} Unhandled exception: {e}", flush=True)
         import traceback
         traceback.print_exc()
-        print(f"\n{Fore.YELLOW}[BacktestWorker]{Style.RESET_ALL} Press Enter to exit...", flush=True)
+        print(f"\n{Fore.YELLOW}[BacktestWorker]{Style.RESET_ALL} QuickEdit enabled. Press Enter to exit...", flush=True)
         try:
             input()
         except Exception:
