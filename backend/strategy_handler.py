@@ -1184,9 +1184,128 @@ class StrategyHandler:
         return normalized
 
     @staticmethod
+    def prepare_batch_strategies(params: dict) -> list:
+        """
+        Generates a list of standardized strategy configuration dictionaries.
+        If params represent a single strategy, returns [StrategyHandler.get_strategy_settings(params, strict=False)].
+        If params represent an optimization matrix (ranges for SL, RR, BE, HTF, symbols, timeframes),
+        unrolls the full Cartesian product into individual strategy dictionaries.
+        """
+        if not params:
+            return []
+
+        raw = dict(params)
+        if isinstance(raw.get('strategy'), dict):
+            raw = {**raw.pop('strategy'), **raw}
+
+        job_type = raw.get('type')
+        has_matrix = (
+            job_type == 'optimize'
+            or bool(raw.get('slRangeMode'))
+            or bool(raw.get('beRangeMode'))
+            or bool(raw.get('beOffsetRangeMode'))
+            or bool(raw.get('htfEmaRangeMode'))
+            or (isinstance(raw.get('symbols'), list) and len(raw.get('symbols')) > 1)
+            or (isinstance(raw.get('timeframes'), list) and len(raw.get('timeframes')) > 1)
+            or (raw.get('rrStart') is not None and raw.get('rrEnd') is not None and raw.get('rrStart') != raw.get('rrEnd'))
+        )
+
+        if not has_matrix:
+            return [StrategyHandler.get_strategy_settings(raw, strict=False)]
+
+        symbols = raw.get('symbols') or [raw.get('symbol', 'BTCUSD')]
+        timeframes = raw.get('timeframes') or [raw.get('timeframe') or raw.get('interval', '15m')]
+
+        # Stop Loss values
+        sl_val = float(raw.get('slVal', 1.0))
+        if raw.get('slRangeMode') and raw.get('slStart') is not None and raw.get('slEnd') is not None and raw.get('slStep'):
+            sl_values = []
+            curr = float(raw['slStart'])
+            sl_end = float(raw['slEnd'])
+            sl_step = float(raw['slStep'])
+            while curr <= sl_end + 0.0001:
+                sl_values.append(round(curr, 2))
+                curr += sl_step
+        else:
+            sl_values = [sl_val]
+
+        # Reward-to-Risk values
+        rr_start = float(raw.get('rrStart', raw.get('rr', 2.0)))
+        rr_end = float(raw.get('rrEnd', rr_start))
+        rr_step = float(raw.get('rrStep', 0.5))
+        rr_values = []
+        curr = rr_start
+        while curr <= rr_end + 0.0001:
+            rr_values.append(round(curr, 2))
+            curr += rr_step
+        if not rr_values:
+            rr_values = [float(raw.get('rr', 2.0))]
+
+        # Break-Even Trigger values
+        use_break_even = bool(raw.get('useBreakEven', False))
+        be_trigger_r = float(raw.get('beTriggerR', 1.0))
+        if use_break_even and raw.get('beRangeMode') and raw.get('beStart') is not None and raw.get('beEnd') is not None and raw.get('beStep'):
+            be_values = []
+            curr = float(raw['beStart'])
+            be_end = float(raw['beEnd'])
+            be_step = float(raw['beStep'])
+            while curr <= be_end + 0.0001:
+                be_values.append(round(curr, 2))
+                curr += be_step
+        else:
+            be_values = [be_trigger_r] if use_break_even else [None]
+
+        # Break-Even Offset values
+        be_offset_mode = str(raw.get('beOffsetMode', 'half_r'))
+        if use_break_even and raw.get('beOffsetRangeMode') and raw.get('beOffsetStart') is not None and raw.get('beOffsetEnd') is not None and raw.get('beOffsetStep'):
+            be_offset_values = []
+            curr = float(raw['beOffsetStart'])
+            be_offset_end = float(raw['beOffsetEnd'])
+            be_offset_step = float(raw['beOffsetStep'])
+            while curr <= be_offset_end + 0.0001:
+                be_offset_values.append(str(round(curr, 2)))
+                curr += be_offset_step
+        else:
+            be_offset_values = [be_offset_mode]
+
+        # HTF EMA Modes
+        htf_ema_enabled = bool(raw.get('htfEmaEnabled', False))
+        if raw.get('htfEmaRangeMode'):
+            htf_ema_modes = [False, True]
+        else:
+            htf_ema_modes = [htf_ema_enabled]
+
+        strategies = []
+        for s in symbols:
+            for tf in timeframes:
+                for sl in sl_values:
+                    for rr in rr_values:
+                        for be in be_values:
+                            for be_off in be_offset_values:
+                                for htf_on in htf_ema_modes:
+                                    if use_break_even and be is not None and be >= rr:
+                                        continue  # Skip invalid BE >= RR combinations
+                                    combo = {
+                                        **raw,
+                                        "symbol": s,
+                                        "timeframe": tf,
+                                        "slVal": sl,
+                                        "rr": rr,
+                                        "useBreakEven": (be is not None),
+                                        "beTriggerR": be if be is not None else 1.0,
+                                        "beOffsetMode": be_off,
+                                        "htfEmaEnabled": htf_on
+                                    }
+                                    normalized = StrategyHandler.get_strategy_settings(combo, strict=False)
+                                    strategies.append(normalized)
+
+        return strategies
+
+    @staticmethod
     def run_backtest(
-        candles: list,
+        candles: list = None,
         strategy: dict = None,
+        strategies: list = None,
         symbol: str = None,
         broker: str = None,
         timeframe: str = None,
@@ -1199,627 +1318,499 @@ class StrategyHandler:
         session_config: dict = None,
         lookback_window: int = None,
         fees_percent: float = None,
-        daily_retry_limit: int = None
+        daily_retry_limit: int = None,
+        checkpoint_callback = None,
+        start_index: int = 0,
+        initial_results: list = None,
+        account_id: str = None,
+        candle_source: str = None,
+        limit: int = 1000
     ) -> dict:
         """
-        Runs the full Wyckoff structure analysis backtest in Python using a unified `strategy` dictionary.
+        Universal Backtest Runner: Executes single strategy or batch strategy matrix.
+        If given a single strategy (or strategies list of len 1), executes detailed single backtest.
+        If given multiple strategies, executes batch matrix simulation with candle/indicator caching.
         """
-        strat_settings = StrategyHandler.get_strategy_settings(strategy, strict=False)
-        symbol = symbol or strat_settings["symbol"]
-        broker = broker or strat_settings["broker"]
-        tf = timeframe or strat_settings["timeframe"]
-        date_from = date_from if date_from is not None else strat_settings.get('date_from', strat_settings.get('dateFrom'))
-        date_to = date_to if date_to is not None else strat_settings.get('date_to', strat_settings.get('dateTo'))
+        # Resolve strategy list
+        if strategies is not None:
+            strat_list = strategies
+        elif isinstance(strategy, list):
+            strat_list = strategy
+        elif strategy is not None:
+            strat_list = [strategy]
+        else:
+            strat_list = []
 
-        sl_val = strat_settings["slVal"]
-        sl_type = strat_settings["slType"]
-        rr = strat_settings["rr"]
-        size = strat_settings["size"]
-        initial_balance = strat_settings["initialBalance"]
-        use_risk_sizing = strat_settings["useRiskSizing"]
-        risk_pct = strat_settings["riskPct"]
-        use_break_even = strat_settings["useBreakEven"]
-        be_trigger_r = strat_settings["beTriggerR"]
-        be_offset_mode = strat_settings["beOffsetMode"]
-        lookback_window = lookback_window if lookback_window is not None else strat_settings["lookbackWindow"]
-        fees_percent = fees_percent if fees_percent is not None else strat_settings["feesPercent"]
-        daily_retry_limit = daily_retry_limit if daily_retry_limit is not None else strat_settings["dailyRetryLimit"]
-        allow_opposite_close = strat_settings["allowOppositeClose"]
-        timezone = strat_settings["timezone"]
-        sessions = strat_settings["sessions"]
-        use_global_close = strat_settings["useGlobalClose"]
-        global_close_time = strat_settings["globalCloseTime"]
-        use_entry_cutoff = strat_settings["useEntryCutoff"]
-        entry_cutoff_time = strat_settings["entryCutoffTime"]
-        entry_stability_rule = strat_settings["entryStabilityRule"]
-        daily_first_signals_mode = strat_settings["dailyFirstSignalsMode"]
-        daily_first_signals_count = strat_settings["dailyFirstSignalsCount"]
-        daily_first_signals_risk_mult = strat_settings["dailyFirstSignalsRiskMult"]
-        indicator_rules = strat_settings["indicatorRules"]
-        htf_ema_enabled = strat_settings["htfEmaEnabled"]
-        htf_ema_period = strat_settings["htfEmaPeriod"]
-        htf_ema_timeframe = strat_settings["htfEmaTimeframe"]
-        min_save_pnl = min_save_pnl if min_save_pnl is not None else strat_settings["minSavePnl"]
-        find_best_session = find_best_session if find_best_session is not None else strat_settings["findBestSession"]
-        min_hourly_pnl = min_hourly_pnl if min_hourly_pnl is not None else strat_settings["minHourlyPnl"]
-        from colorama import Fore, Style
-        htf_str = f" | HTF EMA: {htf_ema_timeframe} {htf_ema_period} EMA" if htf_ema_enabled else ""
-        print(f"\n{Fore.CYAN}[Backtest]{Style.RESET_ALL} Starting Wyckoff Structure Analysis backtest for {symbol} on {len(candles)} candles (1m Intrabar: {'Enabled' if candles_1m else 'Off'}{htf_str})...", flush=True)
-        
-        # Sanitize Break-Even vs RR (Break-Even cannot be >= RR)
-        if use_break_even and be_trigger_r >= rr:
-            print(f"{Fore.YELLOW}[Backtest]{Style.RESET_ALL} Warning: Break-Even trigger ({be_trigger_r}R) >= RR ({rr}R). Disabling Break-Even to prevent non-sensical simulation.", flush=True)
-            use_break_even = False
+        # =========================================================================
+        # SINGLE STRATEGY EXECUTION FLOW
+        # =========================================================================
+        if len(strat_list) <= 1:
+            single_strat = strat_list[0] if strat_list else {}
+            strat_settings = StrategyHandler.get_strategy_settings(single_strat, strict=False)
+            symbol = symbol or strat_settings["symbol"]
+            broker = broker or candle_source or strat_settings["broker"]
+            tf = timeframe or strat_settings["timeframe"]
+            date_from = date_from if date_from is not None else strat_settings.get('date_from', strat_settings.get('dateFrom'))
+            date_to = date_to if date_to is not None else strat_settings.get('date_to', strat_settings.get('dateTo'))
 
-        # 1. Run Market Data Analysis (0% to 50% progress)
-        wrapped_cb = None
-        if progress_callback:
-            wrapped_cb = lambda p: progress_callback(int(p / 2))
-            
-        annotated_data = StrategyHandler.prepare_annotated_candles(
-            candles=candles,
-            strategy_or_params=strat_settings,
-            htf_candles=htf_candles,
-            progress_callback=wrapped_cb
-        )
-        if not annotated_data:
-            return {"status": "error", "message": "Failed to analyze Wyckoff structure"}
-        
-        # 2. Run Trade Simulation (50% to 100% progress)
-        from backtest_helpers import run_trade_simulation
-        sim_cb = (lambda p: progress_callback(50 + int(p / 4))) if (progress_callback and find_best_session) else progress_callback
+            # Fetch candles if not provided
+            if candles is None:
+                from broker_handler import BrokerHandler
+                handler = BrokerHandler.get_handler(broker)
+                acc_id = account_id or strat_settings.get("account_id")
+                candles = handler.fetch_candles(
+                    symbol=symbol,
+                    timeframe=tf,
+                    limit=limit,
+                    date_from=date_from,
+                    date_to=date_to,
+                    login=acc_id,
+                    account_id=acc_id
+                )
+                if len(candles) > 1 and not date_to:
+                    candles = candles[:-1]
+                if not candles:
+                    raise RuntimeError(f"Failed to fetch candles for '{symbol}' from broker '{broker}'. Zero candles returned.")
 
-        pass1_sessions = [] if find_best_session else sessions
+            sl_val = strat_settings["slVal"]
+            sl_type = strat_settings["slType"]
+            rr = strat_settings["rr"]
+            size = strat_settings["size"]
+            initial_balance = strat_settings["initialBalance"]
+            use_risk_sizing = strat_settings["useRiskSizing"]
+            risk_pct = strat_settings["riskPct"]
+            use_break_even = strat_settings["useBreakEven"]
+            be_trigger_r = strat_settings["beTriggerR"]
+            be_offset_mode = strat_settings["beOffsetMode"]
+            lookback_window = lookback_window if lookback_window is not None else strat_settings["lookbackWindow"]
+            fees_percent = fees_percent if fees_percent is not None else strat_settings["feesPercent"]
+            daily_retry_limit = daily_retry_limit if daily_retry_limit is not None else strat_settings["dailyRetryLimit"]
+            allow_opposite_close = strat_settings["allowOppositeClose"]
+            timezone = strat_settings["timezone"]
+            sessions = strat_settings["sessions"]
+            use_global_close = strat_settings["useGlobalClose"]
+            global_close_time = strat_settings["globalCloseTime"]
+            use_entry_cutoff = strat_settings["useEntryCutoff"]
+            entry_cutoff_time = strat_settings["entryCutoffTime"]
+            entry_stability_rule = strat_settings["entryStabilityRule"]
+            daily_first_signals_mode = strat_settings["dailyFirstSignalsMode"]
+            daily_first_signals_count = strat_settings["dailyFirstSignalsCount"]
+            daily_first_signals_risk_mult = strat_settings["dailyFirstSignalsRiskMult"]
+            indicator_rules = strat_settings["indicatorRules"]
+            htf_ema_enabled = strat_settings["htfEmaEnabled"]
+            htf_ema_period = strat_settings["htfEmaPeriod"]
+            htf_ema_timeframe = strat_settings["htfEmaTimeframe"]
+            min_save_pnl = strat_settings["minSavePnl"]
+            find_best_session = strat_settings["findBestSession"]
+            min_hourly_pnl = strat_settings["minHourlyPnl"]
 
-        sim_result = run_trade_simulation(
-            annotated_data=annotated_data,
-            symbol=symbol,
-            sl_val=sl_val,
-            sl_type=sl_type,
-            rr=rr,
-            size=size,
-            initial_balance=initial_balance,
-            use_risk_sizing=use_risk_sizing,
-            risk_pct=risk_pct,
-            use_break_even=use_break_even,
-            be_trigger_r=be_trigger_r,
-            be_offset_mode=be_offset_mode,
-            fees_percent=fees_percent,
-            daily_retry_limit=daily_retry_limit,
-            allow_opposite_close=allow_opposite_close,
-            check_cancelled=check_cancelled,
-            date_from=date_from,
-            date_to=date_to,
-            timezone=timezone,
-            sessions=pass1_sessions,
-            use_global_close=use_global_close,
-            global_close_time=global_close_time,
-            use_entry_cutoff=use_entry_cutoff,
-            entry_cutoff_time=entry_cutoff_time,
-            progress_callback=sim_cb,
-            entry_stability_rule=entry_stability_rule,
-            session_config=session_config,
-            daily_first_signals_mode=daily_first_signals_mode,
-            daily_first_signals_count=daily_first_signals_count,
-            daily_first_signals_risk_mult=daily_first_signals_risk_mult,
-            candles_1m=candles_1m
-        )
-        
-        from candle_sanitizer import sanitize_and_fill_candles
-        annotated_data = sanitize_and_fill_candles(annotated_data)
+            from colorama import Fore, Style
+            htf_str = f" | HTF EMA: {htf_ema_timeframe} {htf_ema_period} EMA" if htf_ema_enabled else ""
+            print(f"\n{Fore.CYAN}[Backtest]{Style.RESET_ALL} Starting Wyckoff Structure Analysis backtest for {symbol} on {len(candles)} candles (1m Intrabar: {'Enabled' if candles_1m else 'Off'}{htf_str})...", flush=True)
 
-        from sql_handler import SQLHandler
-        ts_now = int(time.time())
-        baseline_summary = {
-            "netPnl": sim_result["netPnl"],
-            "winRate": sim_result["winRate"],
-            "profitFactor": sim_result["profitFactor"],
-            "totalTrades": sim_result["totalTrades"]
-        }
+            if use_break_even and be_trigger_r >= rr:
+                print(f"{Fore.YELLOW}[Backtest]{Style.RESET_ALL} Warning: Break-Even trigger ({be_trigger_r}R) >= RR ({rr}R). Disabling Break-Even to prevent non-sensical simulation.", flush=True)
+                use_break_even = False
 
-        try:
-            full_run_id = f"bt_{symbol.lower()}_{tf}_sl{sl_val}_rr{rr}_be{be_trigger_r}_full_{ts_now}" if find_best_session else f"bt_{symbol.lower()}_{tf}_sl{sl_val}_rr{rr}_be{be_trigger_r}_{ts_now}"
-            full_results_to_save = {
-                "explainer": "Wyckoff Structure Analysis backtest (Full / Baseline 24/7)" if find_best_session else "Wyckoff Structure Analysis backtest.",
-                "settings": {
-                    "symbol": symbol,
-                    "timeframe": tf,
-                    "broker": broker,
-                    "sl_val": sl_val,
-                    "sl_type": sl_type,
-                    "rr": rr,
-                    "size": size,
-                    "initial_balance": initial_balance,
-                    "use_risk_sizing": use_risk_sizing,
-                    "risk_pct": risk_pct,
-                    "use_break_even": use_break_even,
-                    "be_trigger_r": be_trigger_r,
-                    "be_offset_mode": be_offset_mode,
-                    "lookback_window": lookback_window,
-                    "fees_percent": fees_percent,
-                    "daily_retry_limit": daily_retry_limit,
-                    "allow_opposite_close": allow_opposite_close,
-                    "date_from": date_from,
-                    "date_to": date_to,
-                    "timezone": timezone,
-                    "sessions": pass1_sessions,
-                    "use_global_close": use_global_close,
-                    "global_close_time": global_close_time,
-                    "use_entry_cutoff": use_entry_cutoff,
-                    "entry_cutoff_time": entry_cutoff_time,
-                    "entry_stability_rule": entry_stability_rule,
-                    "indicator_rules": indicator_rules,
-                    "htf_ema_enabled": htf_ema_enabled,
-                    "htf_ema_period": htf_ema_period,
-                    "htf_ema_timeframe": htf_ema_timeframe,
-                    "limit": len(annotated_data)
-                },
-                "metrics": {
-                    "winRate": sim_result["winRate"],
-                    "netPnl": sim_result["netPnl"],
-                    "profitFactor": sim_result["profitFactor"],
-                    "totalTrades": sim_result["totalTrades"],
-                    "maxDrawdown": sim_result["maxDrawdown"],
-                    "maxDailyLoss": sim_result["maxDailyLoss"],
-                    "dailyLossBreached": sim_result["dailyLossBreached"],
-                    "candleCount": len(annotated_data)
-                },
-                "trades": sim_result["completed_trades_raw"]
-            }
+            # 1. Run Market Data Analysis (0% to 50% progress)
+            wrapped_cb = None
+            if progress_callback:
+                wrapped_cb = lambda p: progress_callback(int(p / 2))
 
-            SQLHandler.save_backtest_run(
-                backtest_id=full_run_id,
+            annotated_data = StrategyHandler.prepare_annotated_candles(
+                candles=candles,
+                strategy_or_params=strat_settings,
+                htf_candles=htf_candles,
+                progress_callback=wrapped_cb
+            )
+            if not annotated_data:
+                return {"status": "error", "message": "Failed to analyze Wyckoff structure"}
+
+            # 2. Run Trade Simulation (50% to 100% progress)
+            from backtest_helpers import run_trade_simulation
+            sim_cb = (lambda p: progress_callback(50 + int(p / 4))) if (progress_callback and find_best_session) else progress_callback
+
+            pass1_sessions = [] if find_best_session else sessions
+
+            sim_result = run_trade_simulation(
+                annotated_data=annotated_data,
                 symbol=symbol,
-                timeframe=tf,
-                broker=broker,
                 sl_val=sl_val,
                 sl_type=sl_type,
                 rr=rr,
+                size=size,
+                initial_balance=initial_balance,
+                use_risk_sizing=use_risk_sizing,
+                risk_pct=risk_pct,
+                use_break_even=use_break_even,
                 be_trigger_r=be_trigger_r,
-                net_pnl=sim_result["netPnl"],
-                win_rate=sim_result["winRate"],
-                trades_cnt=sim_result["totalTrades"],
-                profit_factor=sim_result["profitFactor"],
-                max_drawdown=sim_result["maxDrawdown"],
-                payload_dict=full_results_to_save,
-                min_pnl=min_save_pnl
+                be_offset_mode=be_offset_mode,
+                fees_percent=fees_percent,
+                daily_retry_limit=daily_retry_limit,
+                allow_opposite_close=allow_opposite_close,
+                check_cancelled=check_cancelled,
+                date_from=date_from,
+                date_to=date_to,
+                timezone=timezone,
+                sessions=pass1_sessions,
+                use_global_close=use_global_close,
+                global_close_time=global_close_time,
+                use_entry_cutoff=use_entry_cutoff,
+                entry_cutoff_time=entry_cutoff_time,
+                progress_callback=sim_cb,
+                entry_stability_rule=entry_stability_rule,
+                session_config=session_config,
+                daily_first_signals_mode=daily_first_signals_mode,
+                daily_first_signals_count=daily_first_signals_count,
+                daily_first_signals_risk_mult=daily_first_signals_risk_mult,
+                candles_1m=candles_1m
             )
-            print(f"{Fore.GREEN}[SQLHandler]{Style.RESET_ALL} Successfully saved baseline backtest run '{full_run_id}' to MySQL DB.", flush=True)
-        except Exception as sql_err:
-            print(f"{Fore.RED}[SQLHandler]{Style.RESET_ALL} Failed saving baseline backtest run: {sql_err}", flush=True)
 
-        discovered_sessions = []
-        hourly_breakdown = {}
+            from candle_sanitizer import sanitize_and_fill_candles
+            annotated_data = sanitize_and_fill_candles(annotated_data)
 
-        # Pass 2: If Find Best Session is active, discover winning hours and re-run simulation
-        if find_best_session:
-            completed_trades = sim_result.get("completed_trades_raw", [])
-            discovered_sessions, hourly_breakdown = StrategyHandler.filter_best_sessions_from_trades(
-                trades=completed_trades,
-                timezone_str=timezone,
-                min_hourly_pnl=min_hourly_pnl
-            )
-            print(f"{Fore.CYAN}[FindBestSession]{Style.RESET_ALL} Discovered {len(discovered_sessions)} profitable 1-hour sessions (Min PnL > ${min_hourly_pnl:.2f}) from {len(completed_trades)} baseline trades.", flush=True)
+            from sql_handler import SQLHandler
+            ts_now = int(time.time())
+            baseline_summary = {
+                "netPnl": sim_result["netPnl"],
+                "winRate": sim_result["winRate"],
+                "profitFactor": sim_result["profitFactor"],
+                "totalTrades": sim_result["totalTrades"]
+            }
 
-            if discovered_sessions:
-                pass2_cb = (lambda p: progress_callback(75 + int(p / 4))) if progress_callback else None
-                sim_result = run_trade_simulation(
-                    annotated_data=annotated_data,
+            try:
+                full_run_id = f"bt_{symbol.lower()}_{tf}_sl{sl_val}_rr{rr}_be{be_trigger_r}_full_{ts_now}" if find_best_session else f"bt_{symbol.lower()}_{tf}_sl{sl_val}_rr{rr}_be{be_trigger_r}_{ts_now}"
+                full_results_to_save = {
+                    "explainer": "Wyckoff Structure Analysis backtest (Full / Baseline 24/7)" if find_best_session else "Wyckoff Structure Analysis backtest.",
+                    "settings": {
+                        "symbol": symbol,
+                        "timeframe": tf,
+                        "broker": broker,
+                        "sl_val": sl_val,
+                        "sl_type": sl_type,
+                        "rr": rr,
+                        "size": size,
+                        "initial_balance": initial_balance,
+                        "use_risk_sizing": use_risk_sizing,
+                        "risk_pct": risk_pct,
+                        "use_break_even": use_break_even,
+                        "be_trigger_r": be_trigger_r,
+                        "be_offset_mode": be_offset_mode,
+                        "lookback_window": lookback_window,
+                        "fees_percent": fees_percent,
+                        "daily_retry_limit": daily_retry_limit,
+                        "allow_opposite_close": allow_opposite_close,
+                        "date_from": date_from,
+                        "date_to": date_to,
+                        "timezone": timezone,
+                        "sessions": pass1_sessions,
+                        "use_global_close": use_global_close,
+                        "global_close_time": global_close_time,
+                        "use_entry_cutoff": use_entry_cutoff,
+                        "entry_cutoff_time": entry_cutoff_time,
+                        "entry_stability_rule": entry_stability_rule,
+                        "indicator_rules": indicator_rules,
+                        "htf_ema_enabled": htf_ema_enabled,
+                        "htf_ema_period": htf_ema_period,
+                        "htf_ema_timeframe": htf_ema_timeframe,
+                        "limit": len(annotated_data)
+                    },
+                    "metrics": {
+                        "winRate": sim_result["winRate"],
+                        "netPnl": sim_result["netPnl"],
+                        "profitFactor": sim_result["profitFactor"],
+                        "totalTrades": sim_result["totalTrades"],
+                        "maxDrawdown": sim_result["maxDrawdown"],
+                        "maxDailyLoss": sim_result["maxDailyLoss"],
+                        "dailyLossBreached": sim_result["dailyLossBreached"],
+                        "candleCount": len(annotated_data)
+                    },
+                    "trades": sim_result["completed_trades_raw"]
+                }
+
+                SQLHandler.save_backtest_run(
+                    backtest_id=full_run_id,
                     symbol=symbol,
+                    timeframe=tf,
+                    broker=broker,
                     sl_val=sl_val,
                     sl_type=sl_type,
                     rr=rr,
-                    size=size,
-                    initial_balance=initial_balance,
-                    use_risk_sizing=use_risk_sizing,
-                    risk_pct=risk_pct,
-                    use_break_even=use_break_even,
                     be_trigger_r=be_trigger_r,
-                    be_offset_mode=be_offset_mode,
-                    fees_percent=fees_percent,
-                    daily_retry_limit=daily_retry_limit,
-                    allow_opposite_close=allow_opposite_close,
-                    check_cancelled=check_cancelled,
-                    date_from=date_from,
-                    date_to=date_to,
-                    timezone=timezone,
-                    sessions=discovered_sessions,
-                    use_global_close=use_global_close,
-                    global_close_time=global_close_time,
-                    use_entry_cutoff=use_entry_cutoff,
-                    entry_cutoff_time=entry_cutoff_time,
-                    progress_callback=pass2_cb,
-                    entry_stability_rule=entry_stability_rule,
-                    session_config=session_config,
-                    daily_first_signals_mode=daily_first_signals_mode,
-                    daily_first_signals_count=daily_first_signals_count,
-                    daily_first_signals_risk_mult=daily_first_signals_risk_mult,
-                    candles_1m=candles_1m
+                    net_pnl=sim_result["netPnl"],
+                    win_rate=sim_result["winRate"],
+                    trades_cnt=sim_result["totalTrades"],
+                    profit_factor=sim_result["profitFactor"],
+                    max_drawdown=sim_result["maxDrawdown"],
+                    payload_dict=full_results_to_save,
+                    min_pnl=min_save_pnl
                 )
+                print(f"{Fore.GREEN}[SQLHandler]{Style.RESET_ALL} Successfully saved baseline backtest run '{full_run_id}' to MySQL DB.", flush=True)
+            except Exception as sql_err:
+                print(f"{Fore.RED}[SQLHandler]{Style.RESET_ALL} Failed saving baseline backtest run: {sql_err}", flush=True)
 
-                # Persist Pass 2 (Session-Optimized) Run to MySQL DB
-                try:
-                    session_run_id = f"bt_{symbol.lower()}_{tf}_sl{sl_val}_rr{rr}_be{be_trigger_r}_session_{ts_now}"
-                    session_results_to_save = {
-                        "explainer": "Wyckoff Structure Analysis backtest (Session-Optimized)",
-                        "settings": {
-                            "symbol": symbol,
-                            "timeframe": tf,
-                            "broker": broker,
-                            "sl_val": sl_val,
-                            "sl_type": sl_type,
-                            "rr": rr,
-                            "size": size,
-                            "initial_balance": initial_balance,
-                            "use_risk_sizing": use_risk_sizing,
-                            "risk_pct": risk_pct,
-                            "use_break_even": use_break_even,
-                            "be_trigger_r": be_trigger_r,
-                            "be_offset_mode": be_offset_mode,
-                            "lookback_window": lookback_window,
-                            "fees_percent": fees_percent,
-                            "daily_retry_limit": daily_retry_limit,
-                            "allow_opposite_close": allow_opposite_close,
-                            "date_from": date_from,
-                            "date_to": date_to,
-                            "timezone": timezone,
-                            "sessions": discovered_sessions,
-                            "use_global_close": use_global_close,
-                            "global_close_time": global_close_time,
-                            "use_entry_cutoff": use_entry_cutoff,
-                            "entry_cutoff_time": entry_cutoff_time,
-                            "entry_stability_rule": entry_stability_rule,
-                            "indicator_rules": indicator_rules,
-                            "htf_ema_enabled": htf_ema_enabled,
-                            "htf_ema_period": htf_ema_period,
-                            "htf_ema_timeframe": htf_ema_timeframe,
-                            "limit": len(annotated_data)
-                        },
-                        "metrics": {
-                            "winRate": sim_result["winRate"],
-                            "netPnl": sim_result["netPnl"],
-                            "profitFactor": sim_result["profitFactor"],
-                            "totalTrades": sim_result["totalTrades"],
-                            "maxDrawdown": sim_result["maxDrawdown"],
-                            "maxDailyLoss": sim_result["maxDailyLoss"],
-                            "dailyLossBreached": sim_result["dailyLossBreached"],
-                            "candleCount": len(annotated_data)
-                        },
-                        "trades": sim_result["completed_trades_raw"]
-                    }
+            discovered_sessions = []
+            hourly_breakdown = {}
 
-                    SQLHandler.save_backtest_run(
-                        backtest_id=session_run_id,
+            # Pass 2: If Find Best Session is active, discover winning hours and re-run simulation
+            if find_best_session:
+                completed_trades = sim_result.get("completed_trades_raw", [])
+                discovered_sessions, hourly_breakdown = StrategyHandler.filter_best_sessions_from_trades(
+                    trades=completed_trades,
+                    timezone_str=timezone,
+                    min_hourly_pnl=min_hourly_pnl
+                )
+                print(f"{Fore.CYAN}[FindBestSession]{Style.RESET_ALL} Discovered {len(discovered_sessions)} profitable 1-hour sessions (Min PnL > ${min_hourly_pnl:.2f}) from {len(completed_trades)} baseline trades.", flush=True)
+
+                if discovered_sessions:
+                    pass2_cb = (lambda p: progress_callback(75 + int(p / 4))) if progress_callback else None
+                    sim_result = run_trade_simulation(
+                        annotated_data=annotated_data,
                         symbol=symbol,
-                        timeframe=tf,
-                        broker=broker,
                         sl_val=sl_val,
                         sl_type=sl_type,
                         rr=rr,
+                        size=size,
+                        initial_balance=initial_balance,
+                        use_risk_sizing=use_risk_sizing,
+                        risk_pct=risk_pct,
+                        use_break_even=use_break_even,
                         be_trigger_r=be_trigger_r,
-                        net_pnl=sim_result["netPnl"],
-                        win_rate=sim_result["winRate"],
-                        trades_cnt=sim_result["totalTrades"],
-                        profit_factor=sim_result["profitFactor"],
-                        max_drawdown=sim_result["maxDrawdown"],
-                        payload_dict=session_results_to_save,
-                        min_pnl=min_save_pnl
+                        be_offset_mode=be_offset_mode,
+                        fees_percent=fees_percent,
+                        daily_retry_limit=daily_retry_limit,
+                        allow_opposite_close=allow_opposite_close,
+                        check_cancelled=check_cancelled,
+                        date_from=date_from,
+                        date_to=date_to,
+                        timezone=timezone,
+                        sessions=discovered_sessions,
+                        use_global_close=use_global_close,
+                        global_close_time=global_close_time,
+                        use_entry_cutoff=use_entry_cutoff,
+                        entry_cutoff_time=entry_cutoff_time,
+                        progress_callback=pass2_cb,
+                        entry_stability_rule=entry_stability_rule,
+                        session_config=session_config,
+                        daily_first_signals_mode=daily_first_signals_mode,
+                        daily_first_signals_count=daily_first_signals_count,
+                        daily_first_signals_risk_mult=daily_first_signals_risk_mult,
+                        candles_1m=candles_1m
                     )
-                    print(f"{Fore.GREEN}[SQLHandler]{Style.RESET_ALL} Successfully saved session-optimized backtest run '{session_run_id}' to MySQL DB.", flush=True)
-                except Exception as sql_err:
-                    print(f"{Fore.RED}[SQLHandler]{Style.RESET_ALL} Failed saving session-optimized backtest run: {sql_err}", flush=True)
 
-        if progress_callback:
-            try:
-                progress_callback(100)
-            except Exception:
-                pass
+                    # Persist Pass 2 (Session-Optimized) Run to MySQL DB
+                    try:
+                        session_run_id = f"bt_{symbol.lower()}_{tf}_sl{sl_val}_rr{rr}_be{be_trigger_r}_session_{ts_now}"
+                        session_results_to_save = {
+                            "explainer": "Wyckoff Structure Analysis backtest (Session-Optimized)",
+                            "settings": {
+                                "symbol": symbol,
+                                "timeframe": tf,
+                                "broker": broker,
+                                "sl_val": sl_val,
+                                "sl_type": sl_type,
+                                "rr": rr,
+                                "size": size,
+                                "initial_balance": initial_balance,
+                                "use_risk_sizing": use_risk_sizing,
+                                "risk_pct": risk_pct,
+                                "use_break_even": use_break_even,
+                                "be_trigger_r": be_trigger_r,
+                                "be_offset_mode": be_offset_mode,
+                                "lookback_window": lookback_window,
+                                "fees_percent": fees_percent,
+                                "daily_retry_limit": daily_retry_limit,
+                                "allow_opposite_close": allow_opposite_close,
+                                "date_from": date_from,
+                                "date_to": date_to,
+                                "timezone": timezone,
+                                "sessions": discovered_sessions,
+                                "use_global_close": use_global_close,
+                                "global_close_time": global_close_time,
+                                "use_entry_cutoff": use_entry_cutoff,
+                                "entry_cutoff_time": entry_cutoff_time,
+                                "entry_stability_rule": entry_stability_rule,
+                                "indicator_rules": indicator_rules,
+                                "htf_ema_enabled": htf_ema_enabled,
+                                "htf_ema_period": htf_ema_period,
+                                "htf_ema_timeframe": htf_ema_timeframe,
+                                "limit": len(annotated_data)
+                            },
+                            "metrics": {
+                                "winRate": sim_result["winRate"],
+                                "netPnl": sim_result["netPnl"],
+                                "profitFactor": sim_result["profitFactor"],
+                                "totalTrades": sim_result["totalTrades"],
+                                "maxDrawdown": sim_result["maxDrawdown"],
+                                "maxDailyLoss": sim_result["maxDailyLoss"],
+                                "dailyLossBreached": sim_result["dailyLossBreached"],
+                                "candleCount": len(annotated_data)
+                            },
+                            "trades": sim_result["completed_trades_raw"]
+                        }
 
-        return {
-            "trades": sim_result["trades"],
-            "winRate": sim_result["winRate"],
-            "netPnl": sim_result["netPnl"],
-            "profitFactor": sim_result["profitFactor"],
-            "totalTrades": sim_result["totalTrades"],
-            "maxDrawdown": sim_result["maxDrawdown"],
-            "maxDailyLoss": sim_result["maxDailyLoss"],
-            "dailyLossBreached": sim_result["dailyLossBreached"],
-            "candles": annotated_data,
-            "monthlyBreakdown": sim_result["monthlyBreakdown"],
-            "weeklyBreakdown": sim_result["weeklyBreakdown"],
-            "dateFrom": sim_result.get("dateFrom"),
-            "dateTo": sim_result.get("dateTo"),
-            "discovered_sessions": discovered_sessions,
-            "hourly_breakdown": hourly_breakdown,
-            "baseline_summary": baseline_summary if find_best_session else None,
-            "fvgs": []
-        }
+                        SQLHandler.save_backtest_run(
+                            backtest_id=session_run_id,
+                            symbol=symbol,
+                            timeframe=tf,
+                            broker=broker,
+                            sl_val=sl_val,
+                            sl_type=sl_type,
+                            rr=rr,
+                            be_trigger_r=be_trigger_r,
+                            net_pnl=sim_result["netPnl"],
+                            win_rate=sim_result["winRate"],
+                            trades_cnt=sim_result["totalTrades"],
+                            profit_factor=sim_result["profitFactor"],
+                            max_drawdown=sim_result["maxDrawdown"],
+                            payload_dict=session_results_to_save,
+                            min_pnl=min_save_pnl
+                        )
+                        print(f"{Fore.GREEN}[SQLHandler]{Style.RESET_ALL} Successfully saved session-optimized backtest run '{session_run_id}' to MySQL DB.", flush=True)
+                    except Exception as sql_err:
+                        print(f"{Fore.RED}[SQLHandler]{Style.RESET_ALL} Failed saving session backtest run: {sql_err}", flush=True)
 
-    @staticmethod
-    def run_optimization(
-        symbol: str,
-        sl_val: float,
-        sl_type: str,
-        size: float,
-        initial_balance: float,
-        use_risk_sizing: bool,
-        risk_pct: float,
-        use_break_even: bool,
-        be_trigger_r: float,
-        be_offset_mode: str = 'half_r',
-        lookback_window: int = 20,
-        rr_start: float = 1.0,
-        rr_end: float = 5.0,
-        rr_step: float = 0.5,
-        fees_percent: float = 0.0,
-        daily_retry_limit: int = 0,
-        allow_opposite_close: bool = True,
-        check_cancelled = None,
-        date_from: float = None,
-        date_to: float = None,
-        timezone: str = 'Local',
-        sessions: list = None,
-        use_global_close: bool = False,
-        global_close_time: str = '',
-        use_entry_cutoff: bool = False,
-        entry_cutoff_time: str = '',
-        progress_callback = None,
-        entry_stability_rule: str = 'default',
-        candle_source: str = 'metatrader',
-        account_id: str = None,
-        limit: int = 1000,
-        symbols: list = None,
-        timeframes: list = None,
-        sl_range_mode: bool = False,
-        sl_start: float = None,
-        sl_end: float = None,
-        sl_step: float = None,
-        be_range_mode: bool = False,
-        be_start: float = None,
-        be_end: float = None,
-        be_step: float = None,
-        be_offset_range_mode: bool = False,
-        be_offset_start: float = None,
-        be_offset_end: float = None,
-        be_offset_step: float = None,
-        daily_first_signals_mode: str = 'disabled',
-        daily_first_signals_count: int = 0,
-        daily_first_signals_risk_mult: float = 0.5,
-        htf_ema_enabled: bool = False,
-        htf_ema_period: int = 200,
-        htf_ema_timeframe: str = '4h',
-        htf_ema_range_mode: bool = False,
-        min_save_pnl: float = None,
-        find_best_session: bool = False,
-        min_hourly_pnl: float = 0.0,
-        start_index: int = 0,
-        initial_results: list = None,
-        checkpoint_callback = None
-    ) -> dict:
-        """
-        Runs Wyckoff parameter grid search optimization, fetching candles dynamically and executing simulations.
-        """
-        import os
-        import json
+            return {
+                "status": "success",
+                "strategy_type": "wyckoff",
+                "symbol": symbol,
+                "timeframe": tf,
+                "summary": baseline_summary,
+                "trades": sim_result["trades"],
+                "completed_trades_raw": sim_result["completed_trades_raw"],
+                "winRate": sim_result["winRate"],
+                "netPnl": sim_result["netPnl"],
+                "profitFactor": sim_result["profitFactor"],
+                "totalTrades": sim_result["totalTrades"],
+                "maxDrawdown": sim_result["maxDrawdown"],
+                "maxDailyLoss": sim_result["maxDailyLoss"],
+                "dailyLossBreached": sim_result["dailyLossBreached"],
+                "candles": annotated_data,
+                "monthlyBreakdown": sim_result["monthlyBreakdown"],
+                "weeklyBreakdown": sim_result["weeklyBreakdown"],
+                "dateFrom": sim_result.get("dateFrom"),
+                "dateTo": sim_result.get("dateTo"),
+                "discovered_sessions": discovered_sessions,
+                "hourly_breakdown": hourly_breakdown,
+                "baseline_summary": baseline_summary if find_best_session else None,
+                "fvgs": []
+            }
 
-        # Generate Stop Loss values
-        if sl_range_mode and sl_start is not None and sl_end is not None and sl_step:
-            sl_values = []
-            curr = sl_start
-            while curr <= sl_end + 0.0001:
-                sl_values.append(round(curr, 2))
-                curr += sl_step
-        else:
-            sl_values = [sl_val]
+        # =========================================================================
+        # BATCH STRATEGY / OPTIMIZATION MATRIX EXECUTION FLOW
+        # =========================================================================
+        from broker_handler import BrokerHandler
+        from backtest_helpers import run_trade_simulation
+        from sql_handler import SQLHandler
 
-        # Generate Reward-to-Risk values
-        rr_values = []
-        curr = rr_start
-        while curr <= rr_end + 0.0001:
-            rr_values.append(round(curr, 2))
-            curr += rr_step
-        if not rr_values:
-            rr_values = [2.0]
-
-        # Generate Break-Even Trigger values
-        if use_break_even and be_range_mode and be_start is not None and be_end is not None and be_step:
-            be_values = []
-            curr = be_start
-            while curr <= be_end + 0.0001:
-                be_values.append(round(curr, 2))
-                curr += be_step
-        else:
-            be_values = [be_trigger_r] if use_break_even else [None]
-
-        # Generate Break-Even Offset values
-        if use_break_even and be_offset_range_mode and be_offset_start is not None and be_offset_end is not None and be_offset_step:
-            be_offset_values = []
-            curr = be_offset_start
-            while curr <= be_offset_end + 0.0001:
-                be_offset_values.append(str(round(curr, 2)))
-                curr += be_offset_step
-        else:
-            be_offset_values = [be_offset_mode]
-
-        # Generate HTF EMA binary range values (On / Off)
-        if htf_ema_range_mode:
-            htf_ema_modes = [False, True]
-        else:
-            htf_ema_modes = [htf_ema_enabled]
-
-        symbols_list = symbols if (symbols and len(symbols) > 0) else [symbol]
-        timeframes_list = timeframes if (timeframes and len(timeframes) > 0) else [timeframe]
-
-        # Build combination matrix
-        matrix = []
-        skipped_invalid_combos = 0
-        for s in symbols_list:
-            for tf in timeframes_list:
-                for sl in sl_values:
-                    for rr in rr_values:
-                        for be in be_values:
-                            for be_off in be_offset_values:
-                                for htf_on in htf_ema_modes:
-                                    if use_break_even and be is not None and be >= rr:
-                                        skipped_invalid_combos += 1
-                                        continue
-                                    matrix.append({
-                                        "symbol": s,
-                                        "timeframe": tf,
-                                        "sl": sl,
-                                        "rr": rr,
-                                        "be": be,
-                                        "be_offset": be_off,
-                                        "htf_ema_enabled": htf_on,
-                                        "htf_ema_period": htf_ema_period,
-                                        "htf_ema_timeframe": htf_ema_timeframe
-                                    })
-
-        # Translate master symbols to broker symbols using SymbolMappingHandler
-        from symbol_mapping_handler import SymbolMappingHandler
-        translated_symbol_info = []
-        for sym in symbols_list:
-            mapped_broker_sym = SymbolMappingHandler.map_to_broker(sym, account_id) if account_id else sym
-            if mapped_broker_sym and mapped_broker_sym != sym:
-                translated_symbol_info.append(f"{sym} ➔ {mapped_broker_sym}")
-            else:
-                translated_symbol_info.append(mapped_broker_sym or sym)
-
-        import time
+        total_runs = len(strat_list)
+        results = list(initial_results) if initial_results else []
+        candle_cache = {}
+        candles_1m_cache = {}
+        analysis_cache = {}
+        recent_durations = []
         overall_start_time = time.time()
+
         print("\n==========================================================================", flush=True)
-        print(f"[Optimization] STARTING GRID MATRIX OPTIMIZATION", flush=True)
-        print(f"  • Account Target     : {account_id or 'Default'} ({candle_source})", flush=True)
-        print(f"  • Translated Symbols : {', '.join(translated_symbol_info)}", flush=True)
-        print(f"  • Timeframes         : {', '.join(timeframes_list)}", flush=True)
-        print(f"  • SL Range           : {sl_values[0] if len(sl_values)==1 else f'{sl_values[0]} .. {sl_values[-1]}'} ({sl_type}, {len(sl_values)} steps)", flush=True)
-        print(f"  • RR Range           : {rr_values[0] if len(rr_values)==1 else f'{rr_values[0]} .. {rr_values[-1]}'} ({len(rr_values)} steps)", flush=True)
-        print(f"  • BE Range           : {be_values[0] if len(be_values)==1 else f'{be_values[0]} .. {be_values[-1]}'} ({len(be_values)} steps)" if use_break_even else "  • BE Range           : Off", flush=True)
-        print(f"  • Total Matrix Runs  : {len(matrix)} combinations (Skipped {skipped_invalid_combos} invalid combos where BE >= RR)", flush=True)
+        print(f"[Batch Backtest] STARTING BATCH EXECUTION ({total_runs} STRATEGIES)", flush=True)
         print("==========================================================================\n", flush=True)
 
-        analysis_cache = {}
-        candles_1m_cache = {}
-        results = list(initial_results) if initial_results else []
-        total_runs = len(matrix)
-
-        if start_index > 0:
-            print(f"[Optimization] Resuming optimization matrix from checkpoint run [{start_index + 1}/{total_runs}] ({len(results)} previous results restored)...", flush=True)
-
-        recent_durations = []
-
-        for idx, combo in enumerate(matrix):
-            if idx < start_index:
-                continue
-
-            try:
-                import gevent
-                gevent.sleep(0)
-            except ImportError:
-                pass
-
+        for idx in range(start_index, total_runs):
             if check_cancelled and check_cancelled():
-                print(f"[Optimization] Optimization cancelled by user at run {idx}/{total_runs}.", flush=True)
+                print(f"[Batch Backtest] Cancel signal detected at run {idx+1}/{total_runs}. Halting execution.", flush=True)
                 break
 
+            strat = strat_list[idx]
+            s = strat["symbol"]
+            tf = strat["timeframe"]
+            sl = strat["slVal"]
+            sl_type = strat["slType"]
+            rr = strat["rr"]
+            be = strat["beTriggerR"] if strat.get("useBreakEven") else None
+            be_off = strat.get("beOffsetMode", "half_r")
+            size = strat["size"]
+            initial_balance = strat["initialBalance"]
+            use_risk_sizing = strat["useRiskSizing"]
+            risk_pct = strat["riskPct"]
+            lookback_window = strat["lookbackWindow"]
+            fees_percent = strat["feesPercent"]
+            daily_retry_limit = strat["dailyRetryLimit"]
+            allow_opposite_close = strat["allowOppositeClose"]
+            timezone = strat["timezone"]
+            sessions = strat["sessions"]
+            use_global_close = strat["useGlobalClose"]
+            global_close_time = strat["globalCloseTime"]
+            use_entry_cutoff = strat["useEntryCutoff"]
+            entry_cutoff_time = strat["entryCutoffTime"]
+            entry_stability_rule = strat["entryStabilityRule"]
+            daily_first_signals_mode = strat["dailyFirstSignalsMode"]
+            daily_first_signals_count = strat["dailyFirstSignalsCount"]
+            daily_first_signals_risk_mult = strat["dailyFirstSignalsRiskMult"]
+            htf_on = strat["htfEmaEnabled"]
+            htf_per = strat["htfEmaPeriod"]
+            htf_tf = strat["htfEmaTimeframe"]
+            min_save_pnl = strat.get("minSavePnl")
+            broker_src = candle_source or strat.get("broker", "metatrader")
+            acc_id = account_id or strat.get("account_id")
+            d_from = date_from if date_from is not None else strat.get("date_from", strat.get("dateFrom"))
+            d_to = date_to if date_to is not None else strat.get("date_to", strat.get("dateTo"))
 
             run_start_time = time.time()
-            elapsed_sec = run_start_time - overall_start_time
-            if elapsed_sec >= 60:
-                elapsed_str = f"{int(elapsed_sec // 60)}m {elapsed_sec % 60:.1f}s"
-            else:
-                elapsed_str = f"{elapsed_sec:.1f}s"
+            cache_key = (s, tf, lookback_window, htf_on, htf_per, htf_tf)
 
-            pct = int((idx / total_runs) * 100)
-            if progress_callback:
+            # Fetch / cache primary candles
+            candle_key = (s, tf, broker_src)
+            if candle_key not in candle_cache:
+                handler = BrokerHandler.get_handler(broker_src)
                 try:
-                    progress_callback(pct, idx + 1, total_runs)
-                except TypeError:
-                    progress_callback(pct)
-
-            s = combo["symbol"]
-            tf = combo["timeframe"]
-            sl = combo["sl"]
-            rr = combo["rr"]
-            be = combo["be"]
-            be_str = f"{be}R" if be is not None else "Off"
-
-            eta_str = "Calculating..."
-            if idx >= 3 and len(recent_durations) >= 3:
-                avg_duration = sum(recent_durations[-4:]) / len(recent_durations[-4:])
-                remaining_runs = total_runs - idx
-                rem_sec = remaining_runs * avg_duration
-                tot_sec = total_runs * avg_duration
-
-                rem_m, rem_s = divmod(int(rem_sec), 60)
-                rem_h, rem_m = divmod(rem_m, 60)
-                rem_formatted = f"{rem_h}h {rem_m}m {rem_s}s" if rem_h > 0 else (f"{rem_m}m {rem_s}s" if rem_m > 0 else f"{rem_s}s")
-
-                tot_m, tot_s = divmod(int(tot_sec), 60)
-                tot_h, tot_m = divmod(tot_m, 60)
-                tot_formatted = f"{tot_h}h {tot_m}m {tot_s}s" if tot_h > 0 else (f"{tot_m}m {tot_s}s" if tot_m > 0 else f"{tot_s}s")
-
-                eta_str = f"Rem: {rem_formatted} | Est Total: {tot_formatted} (~{avg_duration:.1f}s/run)"
-
-            # Remove spammy start print in favor of a single comprehensive completion line
-
-
-
-
-
-            htf_on = combo.get("htf_ema_enabled", htf_ema_enabled)
-            htf_tf = combo.get("htf_ema_timeframe", htf_ema_timeframe)
-            htf_per = combo.get("htf_ema_period", htf_ema_period)
-
-            cache_key = (s, tf, htf_on, htf_tf, htf_per)
-            if cache_key not in analysis_cache:
-                from broker_handler import BrokerHandler
-                handler = BrokerHandler.get_handler(candle_source)
-                try:
-                    candles = handler.fetch_candles(
+                    c_data = handler.fetch_candles(
                         symbol=s,
                         timeframe=tf,
                         limit=limit,
-                        date_from=date_from,
-                        date_to=date_to,
-                        account_id=account_id
+                        date_from=d_from,
+                        date_to=d_to,
+                        account_id=acc_id
                     )
-                    if len(candles) > 1 and not date_to:
-                        candles = candles[:-1]
+                    if len(c_data) > 1 and not d_to:
+                        c_data = c_data[:-1]
+                    candle_cache[candle_key] = c_data
                 except Exception as e:
-                    print(f"[Optimization] Failed to fetch candles for {s} {tf}: {e}", flush=True)
+                    print(f"[Batch Backtest] Failed to fetch candles for {s} {tf}: {e}", flush=True)
                     continue
 
-                if not candles:
-                    print(f"[Optimization] No candle data available for {s} {tf}.", flush=True)
-                    continue
+            c_list = candle_cache.get(candle_key, [])
+            if not c_list:
+                print(f"[Batch Backtest] No candle data available for {s} {tf}.", flush=True)
+                continue
 
-                # Fetch HTF candles if HTF EMA filter is active for this combo
-                htf_candles_opt = None
-                if htf_on:
+            # Fetch / cache HTF candles if needed
+            htf_candles_opt = None
+            if htf_on:
+                htf_key = (s, htf_tf, broker_src)
+                if htf_key not in candle_cache:
+                    handler = BrokerHandler.get_handler(broker_src)
                     try:
-                        htf_candles_opt = handler.fetch_candles(
+                        h_data = handler.fetch_candles(
                             symbol=s,
                             timeframe=htf_tf,
                             limit=limit,
-                            date_from=date_from,
-                            date_to=date_to,
-                            account_id=account_id
+                            date_from=d_from,
+                            date_to=d_to,
+                            account_id=acc_id
                         )
-                        if len(htf_candles_opt) > 1 and not date_to:
-                            htf_candles_opt = htf_candles_opt[:-1]
+                        if len(h_data) > 1 and not d_to:
+                            h_data = h_data[:-1]
+                        candle_cache[htf_key] = h_data
                     except Exception as e_htf:
-                        print(f"[Optimization] Warning: Failed to fetch HTF candles for {s} {htf_tf}: {e_htf}", flush=True)
-                        htf_candles_opt = None
+                        print(f"[Batch Backtest] Warning: Failed to fetch HTF candles for {s} {htf_tf}: {e_htf}", flush=True)
+                        candle_cache[htf_key] = None
+                htf_candles_opt = candle_cache.get(htf_key)
 
+            # Prepare / cache annotated market data
+            if cache_key not in analysis_cache:
                 opt_annotated = StrategyHandler.prepare_annotated_candles(
-                    candles=candles,
-                    strategy_or_params={
-                        "lookbackWindow": lookback_window,
-                        "indicatorRules": indicator_rules,
-                        "htfEmaEnabled": htf_on,
-                        "htfEmaPeriod": htf_per
-                    },
+                    candles=c_list,
+                    strategy_or_params=strat,
                     htf_candles=htf_candles_opt,
                     progress_callback=lambda p: None
                 )
@@ -1827,34 +1818,31 @@ class StrategyHandler:
 
             annotated_data = analysis_cache[cache_key]
             if not annotated_data:
-                print(f"[Optimization] No market data analyzed for {s} {tf}.", flush=True)
+                print(f"[Batch Backtest] No market data analyzed for {s} {tf}.", flush=True)
                 continue
 
-            # Fetch / cache 1m candles for intrabar resolution if timeframe is not 1m
+            # Fetch / cache 1m candles for intrabar resolution
             candles_1m_opt = None
             if tf.lower() not in ('1m', '1min'):
                 if s not in candles_1m_cache:
-                    from broker_handler import BrokerHandler
-                    handler = BrokerHandler.get_handler(candle_source)
+                    handler = BrokerHandler.get_handler(broker_src)
                     try:
                         c_1m = handler.fetch_candles(
                             symbol=s,
                             timeframe='1m',
                             limit=limit * 15,
-                            date_from=date_from,
-                            date_to=date_to,
-                            account_id=account_id
+                            date_from=d_from,
+                            date_to=d_to,
+                            account_id=acc_id
                         )
-                        if len(c_1m) > 1 and not date_to:
+                        if len(c_1m) > 1 and not d_to:
                             c_1m = c_1m[:-1]
                         candles_1m_cache[s] = c_1m
                     except Exception as e:
-                        print(f"[Optimization] Warning: Failed to fetch 1m candles for {s}: {e}", flush=True)
+                        print(f"[Batch Backtest] Warning: Failed to fetch 1m candles for {s}: {e}", flush=True)
                         candles_1m_cache[s] = []
                 candles_1m_opt = candles_1m_cache.get(s)
 
-            be_off = combo.get("be_offset", be_offset_mode)
-            from backtest_helpers import run_trade_simulation
             sim_result = run_trade_simulation(
                 annotated_data=annotated_data,
                 symbol=s,
@@ -1872,8 +1860,8 @@ class StrategyHandler:
                 daily_retry_limit=daily_retry_limit,
                 allow_opposite_close=allow_opposite_close,
                 check_cancelled=check_cancelled,
-                date_from=date_from,
-                date_to=date_to,
+                date_from=d_from,
+                date_to=d_to,
                 timezone=timezone,
                 sessions=sessions,
                 use_global_close=use_global_close,
@@ -1895,74 +1883,75 @@ class StrategyHandler:
             trades_cnt = sim_result["totalTrades"]
             pf = sim_result["profitFactor"]
             pnl_str = f"+${pnl:.2f}" if pnl >= 0 else f"-${abs(pnl):.2f}"
+            be_str = f"{be}R ({be_off})" if be is not None else "Off"
 
             recent_durations.append(run_duration)
             if len(recent_durations) > 10:
                 recent_durations.pop(0)
 
-            # Only print log if Net PnL is greater than or equal to min_save_pnl (if min_save_pnl is configured)
+            avg_dur = sum(recent_durations) / len(recent_durations)
+            rem_jobs = total_runs - (idx + 1)
+            eta_sec = int(rem_jobs * avg_dur)
+            eta_str = f"ETA: {eta_sec // 60}m {eta_sec % 60}s" if eta_sec >= 60 else f"ETA: {eta_sec}s"
+            pct = round(((idx + 1) / total_runs) * 100, 1)
+
             if min_save_pnl is None or pnl >= float(min_save_pnl):
-                print(f"[Optimization] [{idx+1}/{total_runs}] ({pct}%) Testing {s} ({tf}) | SL:{sl}{sl_type} RR:1:{rr} BE:{be_str} -> {pnl_str} | WR: {win_rate:.1f}% | Trades: {trades_cnt} | PF: {pf:.2f} ({run_duration:.2f}s | {eta_str})", flush=True)
+                print(f"[Batch Backtest] [{idx+1}/{total_runs}] ({pct}%) Testing {s} ({tf}) | SL:{sl}{sl_type} RR:1:{rr} BE:{be_str} -> {pnl_str} | WR: {win_rate:.1f}% | Trades: {trades_cnt} | PF: {pf:.2f} ({run_duration:.2f}s | {eta_str})", flush=True)
 
-
-            # Save detailed combo results
-            results_to_save = {
-                "settings": {
-                    "symbol": s,
-                    "timeframe": tf,
-                    "sl_val": sl,
-                    "sl_type": sl_type,
-                    "rr": rr,
-                    "be_trigger_r": be,
-                    "be_offset_mode": be_off,
-                    "size": size,
-                    "initial_balance": initial_balance,
-                    "use_risk_sizing": use_risk_sizing,
-                    "risk_pct": risk_pct,
-                    "use_break_even": (be is not None),
-                    "lookback_window": lookback_window,
-                    "fees_percent": fees_percent,
-                    "daily_retry_limit": daily_retry_limit,
-                    "allow_opposite_close": allow_opposite_close,
-                    "timezone": timezone,
-                    "sessions": sessions,
-                    "use_global_close": use_global_close,
-                    "global_close_time": global_close_time,
-                    "use_entry_cutoff": use_entry_cutoff,
-                    "entry_cutoff_time": entry_cutoff_time,
-                    "entry_stability_rule": entry_stability_rule,
-                    "htf_ema_enabled": htf_on,
-                    "htf_ema_period": htf_per,
-                    "htf_ema_timeframe": htf_tf,
-                    "date_from": date_from,
-                    "date_to": date_to,
-                    "limit": len(annotated_data)
-                },
-                "metrics": {
-                    "winRate": sim_result["winRate"],
-                    "netPnl": sim_result["netPnl"],
-                    "profitFactor": sim_result["profitFactor"],
-                    "totalTrades": sim_result["totalTrades"],
-                    "maxDrawdown": sim_result["maxDrawdown"],
-                    "maxDailyLoss": sim_result["maxDailyLoss"],
-                    "dailyLossBreached": sim_result["dailyLossBreached"],
-                    "candleCount": len(annotated_data),
-                    "executionTimeSec": round(run_duration, 3)
-                },
-                "trades": sim_result["completed_trades_raw"]
-            }
-
+            # Auto-persist iteration run to MySQL database if qualified
             try:
-                # Auto-persist iteration run to MySQL database
-                from sql_handler import SQLHandler
-                be_str = str(be) if be is not None else "off"
                 htf_tag = f"_htf{htf_per}" if htf_on else ""
                 backtest_id_str = f"bt_{s.lower()}_{tf}_sl{sl}_rr{rr}_be{be_str}{htf_tag}_{int(time.time())}"
+                results_to_save = {
+                    "settings": {
+                        "symbol": s,
+                        "timeframe": tf,
+                        "sl_val": sl,
+                        "sl_type": sl_type,
+                        "rr": rr,
+                        "be_trigger_r": be,
+                        "be_offset_mode": be_off,
+                        "size": size,
+                        "initial_balance": initial_balance,
+                        "use_risk_sizing": use_risk_sizing,
+                        "risk_pct": risk_pct,
+                        "use_break_even": (be is not None),
+                        "lookback_window": lookback_window,
+                        "fees_percent": fees_percent,
+                        "daily_retry_limit": daily_retry_limit,
+                        "allow_opposite_close": allow_opposite_close,
+                        "timezone": timezone,
+                        "sessions": sessions,
+                        "use_global_close": use_global_close,
+                        "global_close_time": global_close_time,
+                        "use_entry_cutoff": use_entry_cutoff,
+                        "entry_cutoff_time": entry_cutoff_time,
+                        "entry_stability_rule": entry_stability_rule,
+                        "htf_ema_enabled": htf_on,
+                        "htf_ema_period": htf_per,
+                        "htf_ema_timeframe": htf_tf,
+                        "date_from": d_from,
+                        "date_to": d_to,
+                        "limit": len(annotated_data)
+                    },
+                    "metrics": {
+                        "winRate": sim_result["winRate"],
+                        "netPnl": sim_result["netPnl"],
+                        "profitFactor": sim_result["profitFactor"],
+                        "totalTrades": sim_result["totalTrades"],
+                        "maxDrawdown": sim_result["maxDrawdown"],
+                        "maxDailyLoss": sim_result["maxDailyLoss"],
+                        "dailyLossBreached": sim_result["dailyLossBreached"],
+                        "candleCount": len(annotated_data),
+                        "executionTimeSec": round(run_duration, 3)
+                    },
+                    "trades": sim_result["completed_trades_raw"]
+                }
                 SQLHandler.save_backtest_run(
                     backtest_id=backtest_id_str,
                     symbol=s,
                     timeframe=tf,
-                    broker=candle_source,
+                    broker=broker_src,
                     sl_val=sl,
                     sl_type=sl_type,
                     rr=rr,
@@ -1975,15 +1964,8 @@ class StrategyHandler:
                     payload_dict=results_to_save,
                     min_pnl=min_save_pnl
                 )
-                # Saved to MySQL DB (logging suppressed for batch performance)
-                pass
             except Exception as e:
                 print(f"[SQLHandler] Failed auto-persisting backtest run to MySQL DB for {s} {tf}: {e}", flush=True)
-
-            # Periodically release unreferenced memory
-            if (idx + 1) % 25 == 0:
-                import gc
-                gc.collect()
 
             results.append({
                 "symbol": s,
@@ -2009,29 +1991,43 @@ class StrategyHandler:
             if checkpoint_callback:
                 try:
                     checkpoint_callback(idx + 1, results)
-                except Exception as cp_err:
+                except Exception:
                     pass
 
         if progress_callback:
             progress_callback(100)
 
         total_duration = time.time() - overall_start_time
-        if total_duration >= 60:
-            duration_str = f"{int(total_duration // 60)}m {total_duration % 60:.2f}s"
-        else:
-            duration_str = f"{total_duration:.2f}s"
-
+        duration_str = f"{int(total_duration // 60)}m {total_duration % 60:.2f}s" if total_duration >= 60 else f"{total_duration:.2f}s"
         best_combo = max(results, key=lambda x: x['netPnl']) if results else None
         if best_combo:
-            print(f"[Optimization] Completed grid matrix optimization ({len(results)} runs) in {duration_str}. Best Net PnL: +${best_combo['netPnl']:.2f} ({best_combo['symbol']} {best_combo['timeframe']} SL:{best_combo['sl']} RR:{best_combo['rr']})", flush=True)
+            print(f"[Batch Backtest] Completed batch execution ({len(results)} runs) in {duration_str}. Best Net PnL: +${best_combo['netPnl']:.2f} ({best_combo['symbol']} {best_combo['timeframe']} SL:{best_combo['sl']} RR:{best_combo['rr']})", flush=True)
         else:
-            print(f"[Optimization] Completed grid matrix optimization ({len(results)} runs) in {duration_str}.", flush=True)
+            print(f"[Batch Backtest] Completed batch execution ({len(results)} runs) in {duration_str}.", flush=True)
 
         return {
             "status": "success",
             "results": results,
             "totalExecutionTimeSec": round(total_duration, 2)
         }
+
+    @staticmethod
+    def run_optimization(**kwargs) -> dict:
+        """Alias delegating to prepare_batch_strategies and universal run_backtest."""
+        strategies = StrategyHandler.prepare_batch_strategies(kwargs)
+        return StrategyHandler.run_backtest(
+            strategies=strategies,
+            date_from=kwargs.get('date_from'),
+            date_to=kwargs.get('date_to'),
+            account_id=kwargs.get('account_id'),
+            candle_source=kwargs.get('candle_source', 'metatrader'),
+            limit=kwargs.get('limit', 1000),
+            progress_callback=kwargs.get('progress_callback'),
+            check_cancelled=kwargs.get('check_cancelled'),
+            checkpoint_callback=kwargs.get('checkpoint_callback'),
+            start_index=kwargs.get('start_index', 0),
+            initial_results=kwargs.get('initial_results')
+        )
 
     @staticmethod
     def filter_best_sessions_from_trades(trades: list, timezone_str: str = 'Local', min_hourly_pnl: float = 0.0) -> tuple:
