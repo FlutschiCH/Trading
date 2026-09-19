@@ -6,33 +6,6 @@ from trading_handler import TradingHandler
 
 class StrategyHandler:
     @staticmethod
-    def evaluate_candle_signal(
-        c: dict,
-        state: dict,
-        entry_stability_rule: str = 'default',
-        timezone: str = 'Local',
-        sessions: list = None,
-        date_from: float = None,
-        date_to: float = None,
-        daily_retry_limit: int = 0,
-        daily_trades_count: dict = None,
-        daily_first_signals_mode: str = 'disabled',
-        daily_first_signals_count: int = 0,
-        daily_first_signals_risk_mult: float = 0.5,
-        daily_signals_count: dict = None,
-        use_entry_cutoff: bool = False,
-        entry_cutoff_time: str = ''
-    ) -> tuple:
-        """
-        Pure signal detection logic shared between Backtesting and Live Trading.
-        Updates state dictionary in-place and returns (should_buy, should_sell, state).
-        """
-        if daily_trades_count is None:
-            daily_trades_count = {}
-        if daily_signals_count is None:
-            daily_signals_count = {}
-
-    @staticmethod
     def _evaluate_wyckoff_signal(c: dict, state: dict, entry_stability_rule: str) -> tuple:
         """Evaluates Wyckoff state, pending triggers, and returns (should_buy, should_sell)."""
         wyckoff_sig = c.get('wyckoff_signal')
