@@ -892,6 +892,43 @@ class StrategyHandler:
         return candles
 
     @staticmethod
+    def prepare_annotated_candles(
+        candles: list,
+        strategy_or_params,
+        htf_candles: list = None,
+        progress_callback = None
+    ) -> list:
+        """
+        Unified market data preparation pipeline shared across Backtest, Live Worker, and Optimization.
+        Executes sequentially:
+            Step 1: Wyckoff structure analysis
+            Step 2: Indicators evaluation
+            Step 3: HTF EMA filter
+            (All future steps can be added here)
+        """
+        if not candles:
+            return []
+
+        strategy = StrategyHandler.get_strategy_settings(strategy_or_params, strict=False)
+        lookback = int(strategy.get("lookbackWindow", 20))
+        indicator_rules = strategy.get("indicatorRules") or []
+        htf_ema_enabled = bool(strategy.get("htfEmaEnabled", False))
+        htf_ema_period = int(strategy.get("htfEmaPeriod", 200))
+
+        # Step 1: Wyckoff Structure Analysis
+        annotated = StrategyHandler.analyze_wyckoff_structure(candles, lookback=lookback, progress_callback=progress_callback)
+        if not annotated or len(annotated) < 2:
+            return []
+
+        # Step 2: Apply Indicators
+        annotated = StrategyHandler.apply_indicators(annotated, indicator_rules=indicator_rules)
+
+        # Step 3: Apply HTF EMA
+        annotated = StrategyHandler.apply_htf_ema(annotated, htf_candles=htf_candles, htf_ema_enabled=htf_ema_enabled, htf_ema_period=htf_ema_period)
+
+        return annotated
+
+    @staticmethod
     def analyze_market_data(
         bars_list: list,
         lookback: int = 20,
@@ -902,16 +939,17 @@ class StrategyHandler:
         htf_ema_period: int = 200
     ) -> dict:
         """Step-by-step pipeline runner: Wyckoff -> Indicators -> HTF EMA."""
-        if not bars_list:
-            return {"status": "success", "data": [], "fvgs": []}
-
-        # Step 1: Wyckoff Structure
-        annotated = StrategyHandler.analyze_wyckoff_structure(bars_list, lookback=lookback, progress_callback=progress_callback)
-        # Step 2: Indicators
-        annotated = StrategyHandler.apply_indicators(annotated, indicator_rules=indicator_rules)
-        # Step 3: HTF EMA
-        annotated = StrategyHandler.apply_htf_ema(annotated, htf_candles=htf_candles, htf_ema_enabled=htf_ema_enabled, htf_ema_period=htf_ema_period)
-
+        annotated = StrategyHandler.prepare_annotated_candles(
+            candles=bars_list,
+            strategy_or_params={
+                "lookbackWindow": lookback,
+                "indicatorRules": indicator_rules,
+                "htfEmaEnabled": htf_ema_enabled,
+                "htfEmaPeriod": htf_ema_period
+            },
+            htf_candles=htf_candles,
+            progress_callback=progress_callback
+        )
         return {"status": "success", "data": annotated, "fvgs": []}
 
     @staticmethod
@@ -925,25 +963,15 @@ class StrategyHandler:
         """
         Unified market analysis and signal evaluation pipeline.
         Executes sequentially:
-            1. Wyckoff structure analysis
-            2. Indicator evaluation
-            3. HTF EMA trend filter
-            4. Sequential candle state machine replay
+            1. Unified market data preparation (prepare_annotated_candles)
+            2. Sequential candle state machine replay
         """
         if not candles or len(candles) < 2:
             return False, False, {"stage": "UNKNOWN", "status_message": "Insufficient candle history"}, []
 
         strategy = StrategyHandler.get_strategy_settings(strategy_or_params, strict=False)
-        lookback = int(strategy.get("lookbackWindow", 20))
-        indicator_rules = strategy.get("indicatorRules") or []
-        htf_ema_enabled = bool(strategy.get("htfEmaEnabled", False))
-        htf_ema_period = int(strategy.get("htfEmaPeriod", 200))
-        entry_stability_rule = strategy.get("entryStabilityRule", "default")
         timezone_str = strategy.get("timezone", "Local")
         sessions = strategy.get("sessions") or []
-        daily_mode = strategy.get("dailyFirstSignalsMode", "disabled")
-        daily_count = int(strategy.get("dailyFirstSignalsCount", 1))
-        daily_risk_mult = float(strategy.get("dailyFirstSignalsRiskMult", 0.5))
         use_entry_cutoff = bool(strategy.get("useEntryCutoff", False))
         entry_cutoff_time = strategy.get("entryCutoffTime", "")
 
@@ -982,16 +1010,15 @@ class StrategyHandler:
             }
             return False, False, state_info, candles
 
-        # Step 1: Wyckoff
-        annotated_candles = StrategyHandler.analyze_wyckoff_structure(candles, lookback=lookback, progress_callback=progress_callback)
+        # Unified Market Preparation (Steps 1, 2, 3)
+        annotated_candles = StrategyHandler.prepare_annotated_candles(
+            candles=candles,
+            strategy_or_params=strategy,
+            htf_candles=htf_candles,
+            progress_callback=progress_callback
+        )
         if not annotated_candles or len(annotated_candles) < 2:
             return False, False, {"stage": "UNKNOWN", "status_message": "Analysis returned empty dataset"}, []
-
-        # Step 2: Indicators
-        annotated_candles = StrategyHandler.apply_indicators(annotated_candles, indicator_rules=indicator_rules)
-
-        # Step 3: HTF EMA
-        annotated_candles = StrategyHandler.apply_htf_ema(annotated_candles, htf_candles=htf_candles, htf_ema_enabled=htf_ema_enabled, htf_ema_period=htf_ema_period)
 
         # Step 4: Sequential state machine evaluation
         eval_slice = annotated_candles[:-1] if is_live else annotated_candles
@@ -1229,28 +1256,14 @@ class StrategyHandler:
         if progress_callback:
             wrapped_cb = lambda p: progress_callback(int(p / 2))
             
-        # Step 1: Wyckoff Structure Analysis
-        annotated_data = StrategyHandler.analyze_wyckoff_structure(
-            candles,
-            lookback=lookback_window,
+        annotated_data = StrategyHandler.prepare_annotated_candles(
+            candles=candles,
+            strategy_or_params=strat_settings,
+            htf_candles=htf_candles,
             progress_callback=wrapped_cb
         )
         if not annotated_data:
             return {"status": "error", "message": "Failed to analyze Wyckoff structure"}
-
-        # Step 2: Apply Indicators
-        annotated_data = StrategyHandler.apply_indicators(
-            annotated_data,
-            indicator_rules=indicator_rules
-        )
-
-        # Step 3: Apply HTF EMA
-        annotated_data = StrategyHandler.apply_htf_ema(
-            annotated_data,
-            htf_candles=htf_candles,
-            htf_ema_enabled=htf_ema_enabled,
-            htf_ema_period=htf_ema_period
-        )
         
         # 2. Run Trade Simulation (50% to 100% progress)
         from backtest_helpers import run_trade_simulation
@@ -1799,23 +1812,16 @@ class StrategyHandler:
                         print(f"[Optimization] Warning: Failed to fetch HTF candles for {s} {htf_tf}: {e_htf}", flush=True)
                         htf_candles_opt = None
 
-                # Step 1: Wyckoff Structure Analysis
-                opt_annotated = StrategyHandler.analyze_wyckoff_structure(
-                    candles,
-                    lookback=lookback_window,
-                    progress_callback=lambda p: None
-                )
-                # Step 2: Apply Indicators
-                opt_annotated = StrategyHandler.apply_indicators(
-                    opt_annotated,
-                    indicator_rules=indicator_rules
-                )
-                # Step 3: Apply HTF EMA
-                opt_annotated = StrategyHandler.apply_htf_ema(
-                    opt_annotated,
+                opt_annotated = StrategyHandler.prepare_annotated_candles(
+                    candles=candles,
+                    strategy_or_params={
+                        "lookbackWindow": lookback_window,
+                        "indicatorRules": indicator_rules,
+                        "htfEmaEnabled": htf_on,
+                        "htfEmaPeriod": htf_per
+                    },
                     htf_candles=htf_candles_opt,
-                    htf_ema_enabled=htf_on,
-                    htf_ema_period=htf_per
+                    progress_callback=lambda p: None
                 )
                 analysis_cache[cache_key] = opt_annotated
 
