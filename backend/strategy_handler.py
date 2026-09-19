@@ -1229,16 +1229,28 @@ class StrategyHandler:
         if progress_callback:
             wrapped_cb = lambda p: progress_callback(int(p / 2))
             
-        analysis = StrategyHandler.analyze_market_data(
+        # Step 1: Wyckoff Structure Analysis
+        annotated_data = StrategyHandler.analyze_wyckoff_structure(
             candles,
             lookback=lookback_window,
-            progress_callback=wrapped_cb,
-            indicator_rules=indicator_rules,
+            progress_callback=wrapped_cb
+        )
+        if not annotated_data:
+            return {"status": "error", "message": "Failed to analyze Wyckoff structure"}
+
+        # Step 2: Apply Indicators
+        annotated_data = StrategyHandler.apply_indicators(
+            annotated_data,
+            indicator_rules=indicator_rules
+        )
+
+        # Step 3: Apply HTF EMA
+        annotated_data = StrategyHandler.apply_htf_ema(
+            annotated_data,
             htf_candles=htf_candles,
             htf_ema_enabled=htf_ema_enabled,
             htf_ema_period=htf_ema_period
         )
-        annotated_data = list(analysis.get('data', []))
         
         # 2. Run Trade Simulation (50% to 100% progress)
         from backtest_helpers import run_trade_simulation
@@ -1787,16 +1799,25 @@ class StrategyHandler:
                         print(f"[Optimization] Warning: Failed to fetch HTF candles for {s} {htf_tf}: {e_htf}", flush=True)
                         htf_candles_opt = None
 
-                # Start Wyckoff Structure Analysis backtest
-                analysis = StrategyHandler.analyze_market_data(
+                # Step 1: Wyckoff Structure Analysis
+                opt_annotated = StrategyHandler.analyze_wyckoff_structure(
                     candles,
                     lookback=lookback_window,
-                    progress_callback=lambda p: None,
+                    progress_callback=lambda p: None
+                )
+                # Step 2: Apply Indicators
+                opt_annotated = StrategyHandler.apply_indicators(
+                    opt_annotated,
+                    indicator_rules=indicator_rules
+                )
+                # Step 3: Apply HTF EMA
+                opt_annotated = StrategyHandler.apply_htf_ema(
+                    opt_annotated,
                     htf_candles=htf_candles_opt,
                     htf_ema_enabled=htf_on,
                     htf_ema_period=htf_per
                 )
-                analysis_cache[cache_key] = list(analysis.get('data', []))
+                analysis_cache[cache_key] = opt_annotated
 
             annotated_data = analysis_cache[cache_key]
             if not annotated_data:
