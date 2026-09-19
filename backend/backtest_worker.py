@@ -366,7 +366,9 @@ def run_worker(job_id: str, is_resume: bool = False):
         date_to = params.get('date_to') or params.get('dateTo')
 
         if not resolved["is_valid"]:
-            print(f"{Fore.YELLOW}[BacktestWorker Warning]{Style.RESET_ALL} {resolved['error_message']}", flush=True)
+            err_msg = f"Symbol resolution failed: {resolved.get('error_message')}"
+            print(f"{Fore.RED}[BacktestWorker Error]{Style.RESET_ALL} {err_msg}", flush=True)
+            raise ValueError(err_msg)
 
         print(f"{Fore.CYAN}[BacktestWorker Data]{Style.RESET_ALL} Fetching candles for '{broker_symbol}' (raw: '{symbol}', {timeframe}) | Source: '{candle_source}' | Account: '{account_id}' | Limit: {limit} | Range: {date_from} -> {date_to}", flush=True)
 
@@ -384,8 +386,9 @@ def run_worker(job_id: str, is_resume: bool = False):
             candles = candles[:-1]
 
         if not candles:
-            print(f"{Fore.RED}[BacktestWorker Data Error]{Style.RESET_ALL} Failed to fetch candles for '{symbol}' from broker '{candle_source}'. Zero candles returned.", flush=True)
-            sys.exit(1)
+            err_msg = f"Failed to fetch candles for '{symbol}' from broker '{candle_source}'. Zero candles returned."
+            print(f"{Fore.RED}[BacktestWorker Data Error]{Style.RESET_ALL} {err_msg}", flush=True)
+            raise RuntimeError(err_msg)
 
         first_c = candles[0]
         last_c = candles[-1]
@@ -400,8 +403,8 @@ def run_worker(job_id: str, is_resume: bool = False):
         # If timeframe is not 1m, fetch 1m candles for accurate intrabar trade resolution
         candles_1m = None
         if timeframe.lower() not in ('1m', '1min'):
+            print(f"{Fore.CYAN}[BacktestWorker Data]{Style.RESET_ALL} Fetching 1m candles for intrabar trade follow-through...", flush=True)
             try:
-                print(f"{Fore.CYAN}[BacktestWorker Data]{Style.RESET_ALL} Fetching 1m candles for intrabar trade follow-through...", flush=True)
                 candles_1m = handler.fetch_candles(
                     symbol=symbol,
                     timeframe='1m',
@@ -413,10 +416,12 @@ def run_worker(job_id: str, is_resume: bool = False):
                 )
                 if len(candles_1m) > 1 and not date_to:
                     candles_1m = candles_1m[:-1]
+                if not candles_1m:
+                    raise RuntimeError(f"Zero 1m candles returned for '{symbol}' from '{candle_source}'.")
                 print(f"{Fore.GREEN}[BacktestWorker Data]{Style.RESET_ALL} Retrieved {len(candles_1m)} 1m candles for intrabar resolution.", flush=True)
             except Exception as e_1m:
-                print(f"{Fore.YELLOW}[BacktestWorker Data]{Style.RESET_ALL} Warning: Could not fetch 1m candles ({e_1m}). Falling back to {timeframe} resolution.", flush=True)
-                candles_1m = None
+                print(f"{Fore.RED}[BacktestWorker Data Error]{Style.RESET_ALL} Failed to fetch 1m candles: {e_1m}", flush=True)
+                raise RuntimeError(f"Failed to fetch 1m candles for intrabar resolution on {symbol}: {e_1m}")
 
         # If HTF EMA Filter is active, fetch dedicated HTF candles from broker
         htf_candles = None
@@ -426,8 +431,8 @@ def run_worker(job_id: str, is_resume: bool = False):
         htf_ema_range_mode = bool(params.get('htfEmaRangeMode', params.get('htf_ema_range_mode', False)))
 
         if htf_ema_enabled:
+            print(f"{Fore.CYAN}[BacktestWorker Data]{Style.RESET_ALL} Fetching {htf_ema_timeframe} HTF candles for HTF {htf_ema_period} EMA filter...", flush=True)
             try:
-                print(f"{Fore.CYAN}[BacktestWorker Data]{Style.RESET_ALL} Fetching {htf_ema_timeframe} HTF candles for HTF {htf_ema_period} EMA filter...", flush=True)
                 htf_candles = handler.fetch_candles(
                     symbol=symbol,
                     timeframe=htf_ema_timeframe,
@@ -439,10 +444,12 @@ def run_worker(job_id: str, is_resume: bool = False):
                 )
                 if len(htf_candles) > 1 and not date_to:
                     htf_candles = htf_candles[:-1]
+                if not htf_candles:
+                    raise RuntimeError(f"Zero {htf_ema_timeframe} candles returned for '{symbol}' from '{candle_source}'.")
                 print(f"{Fore.GREEN}[BacktestWorker Data]{Style.RESET_ALL} Retrieved {len(htf_candles)} {htf_ema_timeframe} candles for HTF EMA filter.", flush=True)
             except Exception as e_htf:
-                print(f"{Fore.YELLOW}[BacktestWorker Data]{Style.RESET_ALL} Warning: Could not fetch {htf_ema_timeframe} HTF candles ({e_htf}).", flush=True)
-                htf_candles = None
+                print(f"{Fore.RED}[BacktestWorker Data Error]{Style.RESET_ALL} Failed to fetch {htf_ema_timeframe} HTF candles: {e_htf}", flush=True)
+                raise RuntimeError(f"Failed to fetch {htf_ema_timeframe} HTF candles for HTF {htf_ema_period} EMA filter on {symbol}: {e_htf}")
 
         # Check if this is a scalper backtest
         is_scalper = params.get('strategy_type') == 'scalper' or 'scalper' in str(params.get('strategy_name', '')).lower() or 'scalper' in str(params.get('name', '')).lower()
