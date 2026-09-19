@@ -384,10 +384,11 @@ def run_worker(job_id: str, is_resume: bool = False):
         resolved = StrategyHandler.resolve_broker_and_symbol(params)
         symbol = resolved["symbol"]
         broker_symbol = resolved["broker_symbol"]
-        candle_source = resolved["broker_name"]
+        broker = resolved["broker_name"]
         handler = resolved["handler"]
         account_id = resolved["account_id"]
         params['account_id'] = account_id
+        params['broker'] = broker
 
         timeframe = params["timeframe"]
         limit = int(params.get('limit', 1000))
@@ -399,7 +400,7 @@ def run_worker(job_id: str, is_resume: bool = False):
             print(f"{Fore.RED}[BacktestWorker Error]{Style.RESET_ALL} {err_msg}", flush=True)
             raise ValueError(err_msg)
 
-        print(f"{Fore.CYAN}[BacktestWorker Data]{Style.RESET_ALL} Fetching candles for '{broker_symbol}' (raw: '{symbol}', {timeframe}) | Source: '{candle_source}' | Account: '{account_id}' | Limit: {limit} | Range: {date_from} -> {date_to}", flush=True)
+        print(f"{Fore.CYAN}[BacktestWorker Data]{Style.RESET_ALL} Fetching candles for '{broker_symbol}' (raw: '{symbol}', {timeframe}) | Broker: '{broker}' | Account: '{account_id}' | Limit: {limit} | Range: {date_from} -> {date_to}", flush=True)
 
         candles = handler.fetch_candles(
             symbol=broker_symbol,
@@ -415,7 +416,7 @@ def run_worker(job_id: str, is_resume: bool = False):
             candles = candles[:-1]
 
         if not candles:
-            err_msg = f"Failed to fetch candles for '{symbol}' from broker '{candle_source}'. Zero candles returned."
+            err_msg = f"Failed to fetch candles for '{symbol}' from broker '{broker}'. Zero candles returned."
             print(f"{Fore.RED}[BacktestWorker Data Error]{Style.RESET_ALL} {err_msg}", flush=True)
             raise RuntimeError(err_msg)
 
@@ -446,7 +447,7 @@ def run_worker(job_id: str, is_resume: bool = False):
                 if len(candles_1m) > 1 and not date_to:
                     candles_1m = candles_1m[:-1]
                 if not candles_1m:
-                    raise RuntimeError(f"Zero 1m candles returned for '{symbol}' from '{candle_source}'.")
+                    raise RuntimeError(f"Zero 1m candles returned for '{symbol}' from '{broker}'.")
                 print(f"{Fore.GREEN}[BacktestWorker Data]{Style.RESET_ALL} Retrieved {len(candles_1m)} 1m candles for intrabar resolution.", flush=True)
             except Exception as e_1m:
                 print(f"{Fore.RED}[BacktestWorker Data Error]{Style.RESET_ALL} Failed to fetch 1m candles: {e_1m}", flush=True)
@@ -474,7 +475,7 @@ def run_worker(job_id: str, is_resume: bool = False):
                 if len(htf_candles) > 1 and not date_to:
                     htf_candles = htf_candles[:-1]
                 if not htf_candles:
-                    raise RuntimeError(f"Zero {htf_ema_timeframe} candles returned for '{symbol}' from '{candle_source}'.")
+                    raise RuntimeError(f"Zero {htf_ema_timeframe} candles returned for '{symbol}' from '{broker}'.")
                 print(f"{Fore.GREEN}[BacktestWorker Data]{Style.RESET_ALL} Retrieved {len(htf_candles)} {htf_ema_timeframe} candles for HTF EMA filter.", flush=True)
             except Exception as e_htf:
                 print(f"{Fore.RED}[BacktestWorker Data Error]{Style.RESET_ALL} Failed to fetch {htf_ema_timeframe} HTF candles: {e_htf}", flush=True)
@@ -501,7 +502,7 @@ def run_worker(job_id: str, is_resume: bool = False):
                 candles=candles,
                 symbol=symbol,
                 strategy=strat_obj,
-                broker=candle_source,
+                broker=broker,
                 date_from=date_from,
                 date_to=date_to,
                 timeframe=timeframe,
@@ -528,7 +529,7 @@ def run_worker(job_id: str, is_resume: bool = False):
                 date_from=date_from,
                 date_to=date_to,
                 account_id=account_id,
-                candle_source=candle_source,
+                broker=broker,
                 limit=limit,
                 check_cancelled=check_cancelled,
                 start_index=checkpoint_idx,

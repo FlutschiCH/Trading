@@ -1099,10 +1099,17 @@ class StrategyHandler:
             merged = {**nested, **raw}
             raw = merged
 
+        # Standardize aliases upfront
+        if raw.get("broker") is None and (raw.get("candleSource") or raw.get("candle_source")):
+            raw["broker"] = raw.get("candleSource") or raw.get("candle_source")
+        if raw.get("broker") is None:
+            raw["broker"] = "metatrader"
+
+        if raw.get("lookbackWindow") is None and raw.get("lookback") is not None:
+            raw["lookbackWindow"] = raw.get("lookback")
+
         if strict:
             required_fields = ["symbol", "timeframe", "lookbackWindow", "slVal", "slType", "rr", "broker"]
-            if raw.get("lookbackWindow") is None and raw.get("lookback") is not None:
-                raw["lookbackWindow"] = raw.get("lookback")
 
             missing_fields = [f for f in required_fields if raw.get(f) is None]
 
@@ -1750,7 +1757,7 @@ class StrategyHandler:
             htf_per = strat["htfEmaPeriod"]
             htf_tf = strat["htfEmaTimeframe"]
             min_save_pnl = strat.get("minSavePnl")
-            broker_src = candle_source or strat.get("broker", "metatrader")
+            broker_src = broker or candle_source or strat.get("broker", "metatrader")
             acc_id = account_id or strat.get("account_id")
             d_from = date_from if date_from is not None else strat.get("date_from", strat.get("dateFrom"))
             d_to = date_to if date_to is not None else strat.get("date_to", strat.get("dateTo"))
@@ -2020,7 +2027,7 @@ class StrategyHandler:
             date_from=kwargs.get('date_from'),
             date_to=kwargs.get('date_to'),
             account_id=kwargs.get('account_id'),
-            candle_source=kwargs.get('candle_source', 'metatrader'),
+            broker=kwargs.get('broker') or kwargs.get('candle_source', 'metatrader'),
             limit=kwargs.get('limit', 1000),
             progress_callback=kwargs.get('progress_callback'),
             check_cancelled=kwargs.get('check_cancelled'),
