@@ -349,7 +349,7 @@ def run_trade_simulation(
             'pending_buy_age': pending_buy_age,
             'pending_sell_age': pending_sell_age
         }
-        should_buy, should_sell, state_dict = StrategyHandler.evaluate_candle_signal(
+        should_buy, should_sell, state_dict = StrategyHandler.single_candle_signal(
             c=c,
             state=state_dict,
             entry_stability_rule=entry_stability_rule,

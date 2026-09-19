@@ -742,7 +742,7 @@ class StrategyHandler:
         return True
 
     @staticmethod
-    def evaluate_candle_signal(
+    def single_candle_signal(
         c: dict,
         state: dict,
         entry_stability_rule: str = 'default',
@@ -951,7 +951,7 @@ class StrategyHandler:
         should_sell = False
 
         for c in eval_slice:
-            should_buy, should_sell, state_dict = StrategyHandler.evaluate_candle_signal(
+            should_buy, should_sell, state_dict = StrategyHandler.single_candle_signal(
                 c=c,
                 state=state_dict,
                 entry_stability_rule=entry_stability_rule,
