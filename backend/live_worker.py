@@ -540,17 +540,20 @@ class LiveWorker:
             except Exception as be_err:
                 print(f"{Fore.RED}[LiveWorker BE Error]{Style.RESET_ALL} Error checking Break-Even on target {target}: {be_err}", flush=True)
 
-    def run(self):
-        print(f"{Fore.CYAN}[LiveWorker]{Style.RESET_ALL} Starting live strategy worker for Strategy ID: {Style.BRIGHT}{self.strategy_id}{Style.RESET_ALL} (PID: {os.getpid()})", flush=True)
-
+    def _register_system_exit_handlers(self):
+        """
+        Registers OS-level process signal handlers (SIGINT, SIGTERM, SIGBREAK)
+        and Windows console close events (external termination signals, not trading signals)
+        to ensure clean worker shutdown and lock release.
+        """
         def handle_exit(sig=None, frame=None):
-            print(f"\n{Fore.YELLOW}[LiveWorker]{Style.RESET_ALL} Exit signal received. Stopping worker for {self.strategy_id}...", flush=True)
+            print(f"\n{Fore.YELLOW}[LiveWorker]{Style.RESET_ALL} OS exit signal received. Stopping worker for {self.strategy_id}...", flush=True)
             self.running = False
             self.send_update_or_heartbeat(status_msg="stopped")
             self._release_instance_lock()
             sys.exit(0)
 
-        # OS Signal handlers
+        # OS Process Signals (Ctrl+C, kill/terminate, break)
         try:
             signal.signal(signal.SIGINT, handle_exit)
             signal.signal(signal.SIGTERM, handle_exit)
@@ -559,7 +562,7 @@ class LiveWorker:
         except Exception:
             pass
 
-        # Windows console close handler
+        # Windows Console Close Event Handler (closing terminal window or session)
         if sys.platform == "win32":
             try:
                 import ctypes
@@ -577,6 +580,10 @@ class LiveWorker:
                 ctypes.windll.kernel32.SetConsoleCtrlHandler(_win_ctrl_handler_ref, True)
             except Exception as ex:
                 print(f"[LiveWorker] Console handler note: {ex}", flush=True)
+
+    def run(self):
+        print(f"{Fore.CYAN}[LiveWorker]{Style.RESET_ALL} Starting live strategy worker for Strategy ID: {Style.BRIGHT}{self.strategy_id}{Style.RESET_ALL} (PID: {os.getpid()})", flush=True)
+        self._register_system_exit_handlers()
 
         first_run = True
 
