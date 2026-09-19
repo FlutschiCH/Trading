@@ -460,7 +460,7 @@ def run_worker(job_id: str, is_resume: bool = False):
             )
         elif job_type == 'single':
             print(f"{Fore.CYAN}[BacktestWorker]{Style.RESET_ALL} Running single backtest for job {job_id}...", flush=True)
-            strat_obj = params.get('strategy') if isinstance(params.get('strategy'), dict) else params
+            strat_obj = StrategyHandler.get_strategy_settings(params, strict=False)
             res = StrategyHandler.run_backtest(
                 candles=candles,
                 symbol=symbol,
