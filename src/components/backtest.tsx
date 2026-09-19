@@ -132,7 +132,15 @@ interface WyckoffBacktesterProps {
   timeframe: string;
   liveStrategy: any;
   isDeploying: boolean;
-  deployLiveStrategy: (targetComputer: string, targets: Array<{ broker: string; account_id: string }>, name?: string) => void;
+  deployLiveStrategy: (
+    targetComputer: string,
+    targets: Array<{ broker: string; account_id: string }>,
+    name?: string,
+    dateRangeOption?: string,
+    customFrom?: string,
+    customTo?: string,
+    candleLimit?: number
+  ) => void;
   backtestBalance: string;
   setBacktestBalance: (val: string) => void;
   useRiskSizing: boolean;
@@ -5399,10 +5407,14 @@ export default function Backtester({
             size={backtestSize}
             useRiskSizing={useRiskSizing}
             riskPct={backtestRiskPct}
+            initialDateRangeOption={dateRangeOption}
+            initialCustomFrom={customFrom}
+            initialCustomTo={customTo}
+            initialCandleLimit={candleLimit}
             onClose={() => setShowDeployModal(false)}
-            onConfirm={(target, targets, name) => {
+            onConfirm={(target, targets, name, dOption, dFrom, dTo, cLimit) => {
               setShowDeployModal(false);
-              deployLiveStrategy(target, targets, name);
+              deployLiveStrategy(target, targets, name, dOption, dFrom, dTo, cLimit);
             }}
           />
         )}

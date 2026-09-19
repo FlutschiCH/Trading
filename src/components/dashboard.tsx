@@ -1540,12 +1540,20 @@ export default function Dashboard() {
     }
   };
 
-  const deployLiveStrategy = async (targetComputer: string = 'All', targets: Array<{ broker: string; account_id: string }> = [], name: string = '') => {
+  const deployLiveStrategy = async (
+    targetComputer: string = 'All',
+    targets: Array<{ broker: string; account_id: string }> = [],
+    name: string = '',
+    dRangeOption?: string,
+    cFrom?: string,
+    cTo?: string,
+    cLimit?: number
+  ) => {
     if (isProdHost && !isAuthenticated) {
       alert("Action disabled in read-only mode.");
       return;
     }
-    const targetBroker = candleSource === 'ctrader' ? 'ctrader' : 'metatrader';
+    const targetBroker = activeAccount?.broker_type || activeAccount?.broker || candleSource || 'metatrader';
     setIsDeploying(true);
     try {
       const result = await apiService.deployLiveStrategy({
@@ -1574,10 +1582,10 @@ export default function Dashboard() {
         target_computer: targetComputer,
         targets: targets,
         initialBalance: parseFloat(backtestBalance) || 10000.0,
-        dateRangeOption,
-        customFrom,
-        customTo,
-        candleLimit: candleLimit || 1000,
+        dateRangeOption: dRangeOption || dateRangeOption,
+        customFrom: cFrom !== undefined ? cFrom : customFrom,
+        customTo: cTo !== undefined ? cTo : customTo,
+        candleLimit: cLimit || candleLimit || 1000,
         dailyFirstSignalsMode: localStorage.getItem('wyckoff_daily_first_signals_mode') || 'disabled',
         dailyFirstSignalsCount: parseInt(localStorage.getItem('wyckoff_daily_first_signals_count') || '1') || 1,
         dailyFirstSignalsRiskMult: parseFloat(localStorage.getItem('wyckoff_daily_first_signals_risk_mult') || '0.5') || 0.5,

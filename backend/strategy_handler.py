@@ -1099,7 +1099,7 @@ class StrategyHandler:
             merged = {**nested, **raw}
             raw = merged
 
-        print(f"[StrategySettings Debug] broker='{raw.get('broker')}' | strict={strict} | keys={list(raw.keys())}", flush=True)
+        # print(f"[StrategySettings Debug] broker='{raw.get('broker')}' | strict={strict} | keys={list(raw.keys())}", flush=True)
 
         if raw.get("lookbackWindow") is None and raw.get("lookback") is not None:
             raw["lookbackWindow"] = raw.get("lookback")
