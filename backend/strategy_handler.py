@@ -699,12 +699,10 @@ class StrategyHandler:
         return True
 
     @staticmethod
-    def _is_trade_allowed(
-        c: dict,
+    def _is_timing_allowed(
         dt_curr,
         candle_time: int,
         date_str: str,
-        side: str,
         sessions: list = None,
         date_from: float = None,
         date_to: float = None,
@@ -713,7 +711,7 @@ class StrategyHandler:
         daily_retry_limit: int = 0,
         daily_trades_count: dict = None
     ) -> bool:
-        """Determines if a trade entry (BUY or SELL) is allowed by session, cutoff, date range, daily retry, indicator, and HTF rules."""
+        """1. Datetime & Schedule: Validates trading sessions, cutoff time, date bounds, and daily trade limits."""
         if not StrategyHandler._is_session_allowed(dt_curr, sessions):
             return False
 
@@ -726,6 +724,11 @@ class StrategyHandler:
         if not StrategyHandler._is_daily_retry_allowed(date_str, daily_retry_limit, daily_trades_count or {}):
             return False
 
+        return True
+
+    @staticmethod
+    def _is_trade_allowed(c: dict, side: str) -> bool:
+        """2. Technical & Trade Filters: Validates indicator confirmation rules and HTF EMA trend filter."""
         # Indicator confirmation layer check
         if side == 'BUY' and c.get('indicator_buy_valid') is False:
             return False
@@ -764,7 +767,7 @@ class StrategyHandler:
     ) -> tuple:
         """
         Pure signal detection logic shared between Backtesting and Live Trading.
-        Updates state dictionary in-place and returns (should_buy, should_sell, state).
+        Updates state dictionary in-place and returns (buy, sell, state).
         """
         if daily_trades_count is None:
             daily_trades_count = {}
@@ -783,25 +786,29 @@ class StrategyHandler:
         except Exception:
             date_str = 'unknown'
 
-        # 3. Filter Verification Pipeline: Check if trades are allowed by session, cutoff, date range, indicator, and HTF rules
+        # 3. Step A: Datetime & Schedule Filter
+        timing_ok = StrategyHandler._is_timing_allowed(
+            dt_curr=dt_curr,
+            candle_time=candle_time,
+            date_str=date_str,
+            sessions=sessions,
+            date_from=date_from,
+            date_to=date_to,
+            use_entry_cutoff=use_entry_cutoff,
+            entry_cutoff_time=entry_cutoff_time,
+            daily_retry_limit=daily_retry_limit,
+            daily_trades_count=daily_trades_count
+        )
+
+        # 3. Step B: Technical Trade Filters (Indicators & HTF EMA)
         buy = False
         sell = False
 
-        if possible_buy and StrategyHandler._is_trade_allowed(
-            c, dt_curr, candle_time, date_str, 'BUY',
-            sessions=sessions, date_from=date_from, date_to=date_to,
-            use_entry_cutoff=use_entry_cutoff, entry_cutoff_time=entry_cutoff_time,
-            daily_retry_limit=daily_retry_limit, daily_trades_count=daily_trades_count
-        ):
-            buy = True
-
-        if possible_sell and StrategyHandler._is_trade_allowed(
-            c, dt_curr, candle_time, date_str, 'SELL',
-            sessions=sessions, date_from=date_from, date_to=date_to,
-            use_entry_cutoff=use_entry_cutoff, entry_cutoff_time=entry_cutoff_time,
-            daily_retry_limit=daily_retry_limit, daily_trades_count=daily_trades_count
-        ):
-            sell = True
+        if timing_ok:
+            if possible_buy and StrategyHandler._is_trade_allowed(c, 'BUY'):
+                buy = True
+            if possible_sell and StrategyHandler._is_trade_allowed(c, 'SELL'):
+                sell = True
 
         # 4. Daily Initial Signals (Skip or Reduced Risk)
         if buy or sell:
