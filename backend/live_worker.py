@@ -624,6 +624,11 @@ class LiveWorker:
                         status_msg="error"
                     )
                     self._release_instance_lock()
+                    print(f"\n{Fore.YELLOW}[LiveWorker]{Style.RESET_ALL} Press Enter to exit...", flush=True)
+                    try:
+                        input()
+                    except Exception:
+                        pass
                     sys.exit(1)
 
                 # =========================================================================
@@ -751,5 +756,15 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     set_console_quick_edit(args.quickedit)
-    worker = LiveWorker(strategy_id=args.strategy_id)
-    worker.run()
+    try:
+        worker = LiveWorker(strategy_id=args.strategy_id)
+        worker.run()
+    except Exception as e:
+        print(f"\n{Fore.RED}[LiveWorker Fatal Error]{Style.RESET_ALL} Unhandled exception in live worker: {e}", flush=True)
+        import traceback
+        traceback.print_exc()
+        print(f"\n{Fore.YELLOW}[LiveWorker]{Style.RESET_ALL} Press Enter to exit...", flush=True)
+        try:
+            input()
+        except Exception:
+            pass
