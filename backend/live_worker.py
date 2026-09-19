@@ -670,7 +670,7 @@ class LiveWorker:
                         "last_checked": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     })
                 else:
-                    should_buy, should_sell, state_info, wyckoff_candles = StrategyHandler.evaluate_signal(
+                    buy, sell, state_info, wyckoff_candles = StrategyHandler.evaluate_signal(
                         candles=self.candles_cache,
                         strategy_or_params=strategy,
                         is_live=True
@@ -686,8 +686,8 @@ class LiveWorker:
                     # Ensure trade trigger executes only once per closed bar timestamp
                     if self.last_processed_candle_time != candle_time and candle_time > 0:
                         self.last_processed_candle_time = candle_time
-                        if should_buy or should_sell:
-                            direction = "BUY" if should_buy else "SELL"
+                        if buy or sell:
+                            direction = "BUY" if buy else "SELL"
                             close_price = last_completed_candle.get("close", 0)
                             allow_opp = strategy.get("allowOppositeClose", True)
                             print(f"{Fore.GREEN}[LiveWorker SIGNAL DETECTED]{Style.RESET_ALL} {direction} at {close_price:.5f} (Opposite close: {allow_opp})", flush=True)
@@ -722,7 +722,7 @@ class LiveWorker:
                                 print(f"[LiveWorker Error] Failed to send web push: {push_err}", flush=True)
 
                             # Dispatch live order creation to broker accounts
-                            self.execute_trades(strategy, should_buy, should_sell, last_completed_candle)
+                            self.execute_trades(strategy, buy, sell, last_completed_candle)
 
                             new_trade = {
                                 "id": len(self.trades_cache) + 1,

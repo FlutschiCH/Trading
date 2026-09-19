@@ -769,7 +769,7 @@ class StrategyHandler:
             daily_signals_count = {}
 
         # 1. Wyckoff Signal Detection
-        should_buy, should_sell = StrategyHandler._evaluate_wyckoff_signal(c, state, entry_stability_rule)
+        buy, sell = StrategyHandler._evaluate_wyckoff_signal(c, state, entry_stability_rule)
 
         # 2. Timing & Datetime context
         candle_time = int(c.get('time', 0))
@@ -781,35 +781,35 @@ class StrategyHandler:
             date_str = 'unknown'
 
         # 3. Check if trades are allowed by timing, session, date range, indicator, and HTF rules
-        if should_buy and not StrategyHandler._is_trade_allowed(
+        if buy and not StrategyHandler._is_trade_allowed(
             c, dt_curr, candle_time, date_str, 'BUY',
             sessions=sessions, date_from=date_from, date_to=date_to,
             use_entry_cutoff=use_entry_cutoff, entry_cutoff_time=entry_cutoff_time,
             daily_retry_limit=daily_retry_limit, daily_trades_count=daily_trades_count
         ):
-            should_buy = False
+            buy = False
 
-        if should_sell and not StrategyHandler._is_trade_allowed(
+        if sell and not StrategyHandler._is_trade_allowed(
             c, dt_curr, candle_time, date_str, 'SELL',
             sessions=sessions, date_from=date_from, date_to=date_to,
             use_entry_cutoff=use_entry_cutoff, entry_cutoff_time=entry_cutoff_time,
             daily_retry_limit=daily_retry_limit, daily_trades_count=daily_trades_count
         ):
-            should_sell = False
+            sell = False
 
         # 4. Daily Initial Signals (Skip or Reduced Risk)
-        if should_buy or should_sell:
+        if buy or sell:
             daily_signals_count[date_str] = daily_signals_count.get(date_str, 0) + 1
             curr_signal_idx = daily_signals_count[date_str]
-            raw_sig_type = 'BUY' if should_buy else 'SELL'
+            raw_sig_type = 'BUY' if buy else 'SELL'
             c['signal_index_in_day'] = curr_signal_idx
 
             if daily_first_signals_mode in ('skip', 'reduced_risk') and curr_signal_idx <= daily_first_signals_count:
                 if daily_first_signals_mode == 'skip':
                     c['signal_action'] = 'skipped'
                     c['skipped_signal_type'] = raw_sig_type
-                    should_buy = False
-                    should_sell = False
+                    buy = False
+                    sell = False
                 elif daily_first_signals_mode == 'reduced_risk':
                     c['signal_action'] = 'reduced'
                     c['risk_multiplier'] = float(daily_first_signals_risk_mult)
@@ -817,7 +817,7 @@ class StrategyHandler:
                 c['signal_action'] = 'normal'
                 c['risk_multiplier'] = 1.0
 
-        return should_buy, should_sell, state
+        return buy, sell, state
 
     @staticmethod
     def analyze_wyckoff_structure(candles: list, lookback: int = 20, progress_callback=None) -> list:
@@ -947,11 +947,11 @@ class StrategyHandler:
         eval_slice = annotated_candles[:-1] if is_live else annotated_candles
         state_dict = {}
         daily_signals_count = {}
-        should_buy = False
-        should_sell = False
+        buy = False
+        sell = False
 
         for c in eval_slice:
-            should_buy, should_sell, state_dict = StrategyHandler.single_candle_signal(
+            buy, sell, state_dict = StrategyHandler.single_candle_signal(
                 c=c,
                 state=state_dict,
                 entry_stability_rule=entry_stability_rule,
@@ -1005,7 +1005,7 @@ class StrategyHandler:
             "last_checked": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
 
-        return should_buy, should_sell, state_info, annotated_candles
+        return buy, sell, state_info, annotated_candles
 
     @staticmethod
     def get_strategy_settings(strategy_or_params, strict: bool = False) -> dict:
