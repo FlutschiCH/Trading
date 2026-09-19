@@ -587,39 +587,11 @@ class LiveWorker:
                     print(f"{Fore.YELLOW}[LiveWorker]{Style.RESET_ALL} Strategy {self.strategy_id} is no longer active (status='{strategy.get('status')}'). Exiting worker...", flush=True)
                     break
 
-                # =========================================================================
-                # STRICT CONFIGURATION VALIDATION (NO SILENT FALLBACKS)
-                # =========================================================================
-                # Live trading requires strict parameter integrity. If any required
-                # configuration field is missing, None, or invalid, we abort immediately.
-                # =========================================================================
-                required_fields = ["symbol", "timeframe", "lookbackWindow", "slVal", "slType", "rr", "broker"]
-                missing_fields = [f for f in required_fields if strategy.get(f) is None]
-
-                # Validate sizing configuration
-                use_risk_sizing = strategy.get("useRiskSizing")
-                if use_risk_sizing is None:
-                    missing_fields.append("useRiskSizing")
-                elif use_risk_sizing and strategy.get("riskPct") is None:
-                    missing_fields.append("riskPct")
-                elif not use_risk_sizing and strategy.get("size") is None:
-                    missing_fields.append("size")
-
-                # Validate Break-Even configuration if enabled
-                if strategy.get("useBreakEven"):
-                    if strategy.get("beTriggerR") is None:
-                        missing_fields.append("beTriggerR")
-                    if strategy.get("beOffsetMode") is None:
-                        missing_fields.append("beOffsetMode")
-
-                # Validate Global Close and Entry Cutoff if enabled
-                if strategy.get("useGlobalClose") and not strategy.get("globalCloseTime"):
-                    missing_fields.append("globalCloseTime")
-                if strategy.get("useEntryCutoff") and not strategy.get("entryCutoffTime"):
-                    missing_fields.append("entryCutoffTime")
-
-                if missing_fields:
-                    err_msg = f"CRITICAL: Strategy {self.strategy_id} is missing mandatory configuration fields: {', '.join(missing_fields)}. Aborting live execution without fallback."
+                # Strict configuration validation & normalization via StrategyHandler
+                try:
+                    strategy = StrategyHandler.get_strategy_settings(strategy, strict=True)
+                except ValueError as val_err:
+                    err_msg = f"CRITICAL: Strategy {self.strategy_id} configuration integrity error: {val_err}. Aborting live execution."
                     print(f"\n{Fore.RED}{Style.BRIGHT}{'='*70}", flush=True)
                     print(f"{Fore.RED}{Style.BRIGHT}  ❌ LIVE STRATEGY INTEGRITY ERROR: ABORTING", flush=True)
                     print(f"{Fore.RED}{Style.BRIGHT}{'='*70}{Style.RESET_ALL}", flush=True)
@@ -627,7 +599,7 @@ class LiveWorker:
                     
                     try:
                         from discord_handler import send_discord_message
-                        send_discord_message(f"🚨 **Live Worker Aborted!**\nStrategy `{self.strategy_id}` missing required fields: `{missing_fields}`")
+                        send_discord_message(f"🚨 **Live Worker Aborted!**\n`{err_msg}`")
                     except Exception:
                         pass
                     

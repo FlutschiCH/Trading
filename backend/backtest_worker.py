@@ -351,20 +351,22 @@ def run_worker(job_id: str, is_resume: bool = False):
         pass
 
     try:
-        symbol = params.get('symbol', 'BTCUSD')
-        candle_source = params.get('candleSource') or params.get('broker', 'metatrader')
-        timeframe = params.get('timeframe') or params.get('interval', '15m')
+        params = StrategyHandler.get_strategy_settings(params, strict=False)
+        symbol = params["symbol"]
+        candle_source = params["broker"]
+        timeframe = params["timeframe"]
         limit = int(params.get('limit', 1000))
         date_from = params.get('date_from') or params.get('dateFrom')
         date_to = params.get('date_to') or params.get('dateTo')
 
-        account_id = params.get('account_id') or params.get('account') or params.get('login')
+        account_id = params.get('account_id')
         if not account_id and candle_source == 'metatrader':
             try:
                 from account_handler import AccountHandler
                 active_acc = AccountHandler.get_active_account(candle_source)
                 if active_acc:
                     account_id = active_acc.get('account_id')
+                    params['account_id'] = account_id
             except Exception:
                 pass
 

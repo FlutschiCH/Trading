@@ -5,6 +5,7 @@ from indicator_handler import IndicatorHandler
 from trading_handler import TradingHandler
 
 class StrategyHandler:
+  
     @staticmethod
     def _evaluate_wyckoff_signal(c: dict, state: dict, entry_stability_rule: str) -> tuple:
         """Evaluates Wyckoff state, pending triggers, and returns (should_buy, should_sell)."""
@@ -332,6 +333,104 @@ class StrategyHandler:
         return {"status": "success", "data": wyckoff_candles, "fvgs": []}
 
     @staticmethod
+    def get_strategy_settings(strategy_or_params: dict, strict: bool = False) -> dict:
+        """
+        Fetches, validates, and normalizes strategy settings in 1 single pass.
+        Ensures strict parameter integrity when strict=True (e.g. for LiveWorker),
+        and applies standardized defaults when strict=False (e.g. for BacktestWorker).
+        """
+        raw = dict(strategy_or_params or {})
+        # If strategy is nested under 'strategy', unpack and merge it
+        if isinstance(raw.get('strategy'), dict):
+            nested = raw.pop('strategy')
+            merged = {**nested, **raw}
+            raw = merged
+
+        if strict:
+            required_fields = ["symbol", "timeframe", "lookbackWindow", "slVal", "slType", "rr", "broker"]
+            if raw.get("lookbackWindow") is None and raw.get("lookback") is not None:
+                raw["lookbackWindow"] = raw.get("lookback")
+
+            missing_fields = [f for f in required_fields if raw.get(f) is None]
+
+            use_risk_sizing = raw.get("useRiskSizing")
+            if use_risk_sizing is None:
+                missing_fields.append("useRiskSizing")
+            elif use_risk_sizing and raw.get("riskPct") is None:
+                missing_fields.append("riskPct")
+            elif not use_risk_sizing and raw.get("size") is None:
+                missing_fields.append("size")
+
+            if raw.get("useBreakEven"):
+                if raw.get("beTriggerR") is None:
+                    missing_fields.append("beTriggerR")
+                if raw.get("beOffsetMode") is None:
+                    missing_fields.append("beOffsetMode")
+
+            if raw.get("useGlobalClose") and not raw.get("globalCloseTime"):
+                missing_fields.append("globalCloseTime")
+            if raw.get("useEntryCutoff") and not raw.get("entryCutoffTime"):
+                missing_fields.append("entryCutoffTime")
+
+            if missing_fields:
+                raise ValueError(f"Strategy integrity validation failed. Missing mandatory fields: {', '.join(missing_fields)}")
+
+        lookback = raw.get('lookbackWindow', raw.get('lookback', 20))
+        try:
+            lookback_val = int(lookback) if lookback is not None else 20
+        except (ValueError, TypeError):
+            lookback_val = 20
+
+        min_save_pnl = None
+        if raw.get('minSavePnl') is not None and str(raw.get('minSavePnl')).strip() != '':
+            try:
+                min_save_pnl = float(raw.get('minSavePnl'))
+            except (ValueError, TypeError):
+                min_save_pnl = None
+
+        normalized = {
+            **raw,
+            "id": str(raw.get("id", "")),
+            "name": str(raw.get("name") or raw.get("strategy_name") or ""),
+            "symbol": str(raw.get("symbol", "")),
+            "timeframe": str(raw.get("timeframe", "5m")),
+            "broker": str(raw.get("broker") or raw.get("candleSource") or "metatrader"),
+            "account_id": raw.get("account_id") or raw.get("login"),
+            "slVal": float(raw.get("slVal", 1.0)) if raw.get("slVal") is not None else 1.0,
+            "slType": str(raw.get("slType", "pct")),
+            "rr": float(raw.get("rr", 2.0)) if raw.get("rr") is not None else 2.0,
+            "size": float(raw.get("size", 1.0)) if raw.get("size") is not None else 1.0,
+            "initialBalance": float(raw.get("initialBalance", 10000.0)) if raw.get("initialBalance") is not None else 10000.0,
+            "useRiskSizing": bool(raw.get("useRiskSizing", False)),
+            "riskPct": float(raw.get("riskPct", 1.0)) if raw.get("riskPct") is not None else 1.0,
+            "useBreakEven": bool(raw.get("useBreakEven", False)),
+            "beTriggerR": float(raw.get("beTriggerR", 1.0)) if raw.get("beTriggerR") is not None else 1.0,
+            "beOffsetMode": str(raw.get("beOffsetMode", "half_r")),
+            "lookbackWindow": lookback_val,
+            "feesPercent": float(raw.get("feesPercent", 0.0)) if raw.get("feesPercent") is not None else 0.0,
+            "dailyRetryLimit": int(raw.get("dailyRetryLimit", 0)) if raw.get("dailyRetryLimit") is not None else 0,
+            "allowOppositeClose": bool(raw.get("allowOppositeClose", True)),
+            "timezone": str(raw.get("timezone", "Local")),
+            "sessions": raw.get("sessions") or [],
+            "useGlobalClose": bool(raw.get("useGlobalClose", False)),
+            "globalCloseTime": str(raw.get("globalCloseTime", "")),
+            "useEntryCutoff": bool(raw.get("useEntryCutoff", False)),
+            "entryCutoffTime": str(raw.get("entryCutoffTime", "")),
+            "entryStabilityRule": str(raw.get("entryStabilityRule", "default")),
+            "dailyFirstSignalsMode": str(raw.get("dailyFirstSignalsMode", "disabled")),
+            "dailyFirstSignalsCount": int(raw.get("dailyFirstSignalsCount", 0)) if raw.get("dailyFirstSignalsCount") is not None else 0,
+            "dailyFirstSignalsRiskMult": float(raw.get("dailyFirstSignalsRiskMult", 0.5)) if raw.get("dailyFirstSignalsRiskMult") is not None else 0.5,
+            "indicatorRules": raw.get("indicatorRules") or raw.get("indicator_rules") or [],
+            "htfEmaEnabled": bool(raw.get("htfEmaEnabled", raw.get("htf_ema_enabled", False))),
+            "htfEmaPeriod": int(raw.get("htfEmaPeriod", raw.get("htf_ema_period", 200))) if (raw.get("htfEmaPeriod") is not None or raw.get("htf_ema_period") is not None) else 200,
+            "htfEmaTimeframe": str(raw.get("htfEmaTimeframe", raw.get("htf_ema_timeframe", "4h"))),
+            "minSavePnl": min_save_pnl,
+            "findBestSession": bool(raw.get("findBestSession", False)),
+            "minHourlyPnl": float(raw.get("minHourlyPnl", 0.0)) if raw.get("minHourlyPnl") is not None else 0.0
+        }
+        return normalized
+
+    @staticmethod
     def run_backtest(
         candles: list,
         strategy: dict = None,
@@ -352,50 +451,44 @@ class StrategyHandler:
         """
         Runs the full Wyckoff structure analysis backtest in Python using a unified `strategy` dictionary.
         """
-        strategy = strategy or {}
-        symbol = symbol or strategy.get('symbol', '')
-        broker = broker or strategy.get('broker', 'metatrader')
-        tf = timeframe or strategy.get('timeframe', '5m')
-        date_from = date_from if date_from is not None else strategy.get('date_from', strategy.get('dateFrom'))
-        date_to = date_to if date_to is not None else strategy.get('date_to', strategy.get('dateTo'))
+        strat_settings = StrategyHandler.get_strategy_settings(strategy, strict=False)
+        symbol = symbol or strat_settings["symbol"]
+        broker = broker or strat_settings["broker"]
+        tf = timeframe or strat_settings["timeframe"]
+        date_from = date_from if date_from is not None else strat_settings.get('date_from', strat_settings.get('dateFrom'))
+        date_to = date_to if date_to is not None else strat_settings.get('date_to', strat_settings.get('dateTo'))
 
-        sl_val = float(strategy.get('slVal', 1.0))
-        sl_type = strategy.get('slType', 'pct')
-        rr = float(strategy.get('rr', 2.0))
-        size = float(strategy.get('size', 1.0)) if strategy.get('size') is not None else 1.0
-        initial_balance = float(strategy.get('initialBalance', 10000.0)) if strategy.get('initialBalance') is not None else 10000.0
-        use_risk_sizing = bool(strategy.get('useRiskSizing', False))
-        risk_pct = float(strategy.get('riskPct', 1.0)) if strategy.get('riskPct') is not None else 1.0
-        use_break_even = bool(strategy.get('useBreakEven', False))
-        be_trigger_r = float(strategy.get('beTriggerR', 1.0)) if strategy.get('beTriggerR') is not None else 1.0
-        be_offset_mode = strategy.get('beOffsetMode', 'half_r')
-        lookback_window = lookback_window if lookback_window is not None else int(strategy.get('lookbackWindow', strategy.get('lookback', 20)))
-        fees_percent = fees_percent if fees_percent is not None else float(strategy.get('feesPercent', 0.0))
-        daily_retry_limit = daily_retry_limit if daily_retry_limit is not None else int(strategy.get('dailyRetryLimit', 0))
-        allow_opposite_close = bool(strategy.get('allowOppositeClose', True))
-        timezone = strategy.get('timezone', 'Local')
-        sessions = strategy.get('sessions', [])
-        use_global_close = bool(strategy.get('useGlobalClose', False))
-        global_close_time = strategy.get('globalCloseTime', '')
-        use_entry_cutoff = bool(strategy.get('useEntryCutoff', False))
-        entry_cutoff_time = strategy.get('entryCutoffTime', '')
-        entry_stability_rule = strategy.get('entryStabilityRule', 'default')
-        daily_first_signals_mode = strategy.get('dailyFirstSignalsMode', 'disabled')
-        daily_first_signals_count = int(strategy.get('dailyFirstSignalsCount', 0)) if strategy.get('dailyFirstSignalsCount') is not None else 0
-        daily_first_signals_risk_mult = float(strategy.get('dailyFirstSignalsRiskMult', 0.5)) if strategy.get('dailyFirstSignalsRiskMult') is not None else 0.5
-        indicator_rules = strategy.get('indicatorRules', strategy.get('indicator_rules', []))
-        htf_ema_enabled = bool(strategy.get('htfEmaEnabled', strategy.get('htf_ema_enabled', False)))
-        htf_ema_period = int(strategy.get('htfEmaPeriod', strategy.get('htf_ema_period', 200))) if (strategy.get('htfEmaPeriod') is not None or strategy.get('htf_ema_period') is not None) else 200
-        htf_ema_timeframe = strategy.get('htfEmaTimeframe', strategy.get('htf_ema_timeframe', '4h'))
-
-        min_save_pnl = None
-        if strategy.get('minSavePnl') is not None and str(strategy.get('minSavePnl')).strip() != '':
-            try:
-                min_save_pnl = float(strategy.get('minSavePnl'))
-            except (ValueError, TypeError):
-                min_save_pnl = None
-        find_best_session = bool(strategy.get('findBestSession', False))
-        min_hourly_pnl = float(strategy.get('minHourlyPnl', 0.0)) if strategy.get('minHourlyPnl') is not None else 0.0
+        sl_val = strat_settings["slVal"]
+        sl_type = strat_settings["slType"]
+        rr = strat_settings["rr"]
+        size = strat_settings["size"]
+        initial_balance = strat_settings["initialBalance"]
+        use_risk_sizing = strat_settings["useRiskSizing"]
+        risk_pct = strat_settings["riskPct"]
+        use_break_even = strat_settings["useBreakEven"]
+        be_trigger_r = strat_settings["beTriggerR"]
+        be_offset_mode = strat_settings["beOffsetMode"]
+        lookback_window = lookback_window if lookback_window is not None else strat_settings["lookbackWindow"]
+        fees_percent = fees_percent if fees_percent is not None else strat_settings["feesPercent"]
+        daily_retry_limit = daily_retry_limit if daily_retry_limit is not None else strat_settings["dailyRetryLimit"]
+        allow_opposite_close = strat_settings["allowOppositeClose"]
+        timezone = strat_settings["timezone"]
+        sessions = strat_settings["sessions"]
+        use_global_close = strat_settings["useGlobalClose"]
+        global_close_time = strat_settings["globalCloseTime"]
+        use_entry_cutoff = strat_settings["useEntryCutoff"]
+        entry_cutoff_time = strat_settings["entryCutoffTime"]
+        entry_stability_rule = strat_settings["entryStabilityRule"]
+        daily_first_signals_mode = strat_settings["dailyFirstSignalsMode"]
+        daily_first_signals_count = strat_settings["dailyFirstSignalsCount"]
+        daily_first_signals_risk_mult = strat_settings["dailyFirstSignalsRiskMult"]
+        indicator_rules = strat_settings["indicatorRules"]
+        htf_ema_enabled = strat_settings["htfEmaEnabled"]
+        htf_ema_period = strat_settings["htfEmaPeriod"]
+        htf_ema_timeframe = strat_settings["htfEmaTimeframe"]
+        min_save_pnl = min_save_pnl if min_save_pnl is not None else strat_settings["minSavePnl"]
+        find_best_session = find_best_session if find_best_session is not None else strat_settings["findBestSession"]
+        min_hourly_pnl = min_hourly_pnl if min_hourly_pnl is not None else strat_settings["minHourlyPnl"]
         from colorama import Fore, Style
         htf_str = f" | HTF EMA: {htf_ema_timeframe} {htf_ema_period} EMA" if htf_ema_enabled else ""
         print(f"\n{Fore.CYAN}[Backtest]{Style.RESET_ALL} Starting Wyckoff Structure Analysis backtest for {symbol} on {len(candles)} candles (1m Intrabar: {'Enabled' if candles_1m else 'Off'}{htf_str})...", flush=True)
