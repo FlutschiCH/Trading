@@ -120,7 +120,7 @@ class LiveWorker:
         # Direct DB state update
         if state_info:
             try:
-                LiveStrategyHandler.update_strategy_state(self.strategy_id, state_info)
+                StrategyHandler.update_strategy_state(self.strategy_id, state_info)
             except Exception as ex:
                 print(f"{Fore.YELLOW}[LiveWorker DB Warning]{Style.RESET_ALL} Failed to update live state: {ex}", flush=True)
 
