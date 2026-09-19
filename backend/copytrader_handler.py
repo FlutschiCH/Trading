@@ -678,13 +678,13 @@ class CopytraderHandler:
                                     
                                     # Check for insufficient margin
                                     if "margin is insufficient" in err_text.lower() or res.get("code") == -2019:
-                                        print(f"[Copytrader Alert] Insufficient margin detected on slave {slave_acc} ({slave_broker}). Pausing setup '{cfg_name}' (ID: {cfg_id})", flush=True)
-                                        logPrint(f"[Copytrader] Insufficient margin on slave {slave_acc}. Pausing copytrader configuration '{cfg_name}'.")
+                                        print(f"[Copytrader Alert] Insufficient margin detected on slave {slave_acc} ({slave_broker}). Pausing setup '{cfg_name}' (ID: {cfg_id}) in memory", flush=True)
+                                        logPrint(f"[Copytrader] Insufficient margin on slave {slave_acc}. Pausing copytrader configuration '{cfg_name}' in memory.")
                                         
-                                        # Pause config in DB and memory
-                                        cfg_copy = dict(cfg)
-                                        cfg_copy["status"] = "paused"
-                                        cls.save_config(cfg_copy)
+                                        # Pause config in-memory only (DB remains unchanged so next app restart will resume)
+                                        with cls._lock:
+                                            if cls._configs_cache and cfg_id in cls._configs_cache:
+                                                cls._configs_cache[cfg_id]["status"] = "paused"
 
                                         # Send Discord Notification
                                         try:
