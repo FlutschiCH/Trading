@@ -626,6 +626,65 @@ class LiveWorker:
         print(f"  {Fore.WHITE}• Sessions & Close  :{Style.RESET_ALL} TZ={strat_tz} | Sessions=[{sessions_str}] | GlobalClose={strat_use_gc} ({strat_gc_time}) | EntryCutoff={strat_use_cutoff} ({strat_cutoff_time})", flush=True)
         print(f"{Fore.CYAN}{Style.BRIGHT}{'='*60}\n{Style.RESET_ALL}", flush=True)
 
+    def sync_candles(self, strategy: dict, resolved: dict) -> list:
+        """
+        Synchronizes candlestick data via warm-up fetching or incremental polling updates.
+        Returns the updated candles list from self.candles_cache.
+        """
+        symbol = resolved["symbol"]
+        strat_broker_symbol = resolved["broker_symbol"]
+        broker_name = resolved["broker_name"]
+        handler = resolved["handler"]
+        strat_acc_id = resolved["account_id"]
+        timeframe = strategy["timeframe"]
+        lookback = strategy["lookbackWindow"]
+
+        opt = strategy.get("dateRangeOption", "last_candles")
+        custom_from = strategy.get("customFrom", "")
+        custom_to = strategy.get("customTo", "")
+        limit = strategy.get("candleLimit", 5000)
+
+        curr_config = (symbol, strat_broker_symbol, timeframe, lookback, broker_name, opt, custom_from, custom_to, limit)
+        if self.cache_config_fingerprint != curr_config or not self.candles_cache:
+            self.cache_config_fingerprint = curr_config
+            date_from, date_to = calculate_date_bounds(opt, custom_from, custom_to)
+            print(f"{Fore.CYAN}[LiveWorker Warmup]{Style.RESET_ALL} Fetching historical candles for {strat_broker_symbol} ({timeframe}) from {broker_name}...", flush=True)
+            candles = handler.fetch_candles(
+                symbol=strat_broker_symbol,
+                timeframe=timeframe,
+                limit=limit,
+                date_from=date_from,
+                date_to=date_to,
+                login=strat_acc_id,
+                account_id=strat_acc_id
+            )
+
+            if candles:
+                self.candles_cache = candles
+                print(f"{Fore.GREEN}[LiveWorker Warmup Success]{Style.RESET_ALL} Warm-up completed with {len(self.candles_cache)} candles.", flush=True)
+            else:
+                print(f"{Fore.RED}[LiveWorker Warmup Error]{Style.RESET_ALL} Failed to fetch warm-up candles.", flush=True)
+                self.candles_cache = []
+        else:
+            # Incremental fetch: retrieve only the latest 10 candles and merge with local history
+            new_candles = handler.fetch_candles(
+                symbol=strat_broker_symbol,
+                timeframe=timeframe,
+                limit=10,
+                login=strat_acc_id,
+                account_id=strat_acc_id
+            )
+            if new_candles:
+                merge_map = {c["time"]: c for c in self.candles_cache}
+                for c in new_candles:
+                    merge_map[c["time"]] = c
+                sorted_times = sorted(merge_map.keys())
+                if len(sorted_times) > 5000:
+                    sorted_times = sorted_times[-5000:]
+                self.candles_cache = [merge_map[t] for t in sorted_times]
+
+        return self.candles_cache
+
     def run(self):
         print(f"{Fore.CYAN}[LiveWorker]{Style.RESET_ALL} Starting live strategy worker for Strategy ID: {Style.BRIGHT}{self.strategy_id}{Style.RESET_ALL} (PID: {os.getpid()})", flush=True)
         self._register_system_exit_handlers()
@@ -690,11 +749,6 @@ class LiveWorker:
                 timeframe = strategy["timeframe"]
                 lookback = strategy["lookbackWindow"]
 
-                opt = strategy.get("dateRangeOption", "last_candles")
-                custom_from = strategy.get("customFrom", "")
-                custom_to = strategy.get("customTo", "")
-                limit = strategy.get("candleLimit", 5000)
-
                 if not resolved["is_valid"]:
                     print(f"{Fore.YELLOW}[LiveWorker Warning]{Style.RESET_ALL} {resolved['error_message']}", flush=True)
                     self.send_update_or_heartbeat(state_info={
@@ -708,52 +762,7 @@ class LiveWorker:
                 # =========================================================================
                 # 2. CANDLE DATA SYNC (WARM-UP vs INCREMENTAL UPDATE)
                 # =========================================================================
-                curr_config = (symbol, strat_broker_symbol, timeframe, lookback, broker_name, opt, custom_from, custom_to, limit)
-                if self.cache_config_fingerprint != curr_config or not self.candles_cache:
-                    self.cache_config_fingerprint = curr_config
-                    # Compute historical start and end timestamps based on user date range options
-                    date_from, date_to = calculate_date_bounds(opt, custom_from, custom_to)
-                    print(f"{Fore.CYAN}[LiveWorker Warmup]{Style.RESET_ALL} Fetching historical candles for {strat_broker_symbol} ({timeframe}) from {broker_name}...", flush=True)
-                    # Fetch historical OHLCV candle data from the active broker handler
-                    # Parameters:
-                    # - symbol: mapped broker symbol identifier
-                    # - timeframe: chart period / candle interval (e.g., '1m', '5m', '1h')
-                    # - limit: max number of candles to retrieve if date bounds are open
-                    # - date_from / date_to: ISO/formatted datetime bounds for the query
-                    # - login / account_id: broker account credentials context
-                    candles = handler.fetch_candles(
-                        symbol=strat_broker_symbol,
-                        timeframe=timeframe,
-                        limit=limit,
-                        date_from=date_from,
-                        date_to=date_to,
-                        login=strat_acc_id,
-                        account_id=strat_acc_id
-                    )
-
-                    if candles:
-                        self.candles_cache = candles
-                        print(f"{Fore.GREEN}[LiveWorker Warmup Success]{Style.RESET_ALL} Warm-up completed with {len(self.candles_cache)} candles.", flush=True)
-                    else:
-                        print(f"{Fore.RED}[LiveWorker Warmup Error]{Style.RESET_ALL} Failed to fetch warm-up candles.", flush=True)
-                        self.candles_cache = []
-                else:
-                    # Incremental fetch: retrieve only the latest 10 candles and merge with local history
-                    new_candles = handler.fetch_candles(
-                        symbol=strat_broker_symbol,
-                        timeframe=timeframe,
-                        limit=10,
-                        login=strat_acc_id,
-                        account_id=strat_acc_id
-                    )
-                    if new_candles:
-                        merge_map = {c["time"]: c for c in self.candles_cache}
-                        for c in new_candles:
-                            merge_map[c["time"]] = c
-                        sorted_times = sorted(merge_map.keys())
-                        if len(sorted_times) > 5000:
-                            sorted_times = sorted_times[-5000:]
-                        self.candles_cache = [merge_map[t] for t in sorted_times]
+                candles = self.sync_candles(strategy, resolved)
 
                 # =========================================================================
                 # 3. SIGNAL EVALUATION & EXECUTION PIPELINE
