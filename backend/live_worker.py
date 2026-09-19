@@ -47,7 +47,6 @@ class LiveWorker:
         self._acquire_instance_lock()
         self.running = True
         self.candles_cache = []
-        self.trades_cache = []
         self.last_processed_candle_time = None
         self.cache_config_fingerprint = None
         self.http_failed = False
@@ -246,8 +245,7 @@ class LiveWorker:
             "pending_sell_age": pending_sell_age,
             "status_message": status_message,
             "last_candle_time": datetime.fromtimestamp(last_c.get('time')).strftime("%Y-%m-%d %H:%M:%S") if last_c.get('time') else None,
-            "last_checked": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "trades": self.trades_cache
+            "last_checked": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
 
         # Return boolean trade trigger flags for candle[-2] alongside telemetry payload
@@ -708,19 +706,6 @@ class LiveWorker:
                     print(f"{Fore.CYAN}{Style.BRIGHT}{'='*60}\n{Style.RESET_ALL}", flush=True)
 
                 # =========================================================================
-                # 0. EARLY TRADING ALLOWANCE CHECK (CPU & API OPTIMIZATION)
-                # =========================================================================
-                allowed, reason = LiveStrategyHandler.is_trading_allowed(strategy)
-                if not allowed:
-                    self.send_update_or_heartbeat(state_info={
-                        "stage": "INACTIVE",
-                        "status_message": f"Outside trading hours: {reason}",
-                        "last_checked": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    })
-                    time.sleep(5)
-                    continue
-
-                # =========================================================================
                 # 1. MARKET ADAPTER & SYMBOL RESOLUTION
                 # =========================================================================
                 symbol = strategy["symbol"]
@@ -779,20 +764,7 @@ class LiveWorker:
                     )
 
                     if candles:
-                        backtest_res = StrategyHandler.run_backtest(
-                            candles=candles,
-                            symbol=symbol,
-                            strategy=strategy,
-                            broker=broker_name,
-                            lookback_window=lookback,
-                            date_from=date_from,
-                            date_to=date_to,
-                            timeframe=timeframe,
-                            fees_percent=0.0,
-                            daily_retry_limit=0
-                        )
-                        self.candles_cache = backtest_res.get("candles", [])
-                        self.trades_cache = backtest_res.get("trades", [])
+                        self.candles_cache = candles
                         print(f"{Fore.GREEN}[LiveWorker Warmup Success]{Style.RESET_ALL} Warm-up completed with {len(self.candles_cache)} candles.", flush=True)
                     else:
                         print(f"{Fore.RED}[LiveWorker Warmup Error]{Style.RESET_ALL} Failed to fetch warm-up candles.", flush=True)
@@ -813,13 +785,7 @@ class LiveWorker:
                         sorted_times = sorted(merge_map.keys())
                         if len(sorted_times) > 5000:
                             sorted_times = sorted_times[-5000:]
-                        full_history = [merge_map[t] for t in sorted_times]
-                        analysis_res = StrategyHandler.analyze_market_data(
-                            bars_list=full_history,
-                            lookback=lookback,
-                            indicator_rules=strategy.get("indicatorRules") or strategy.get("indicator_rules")
-                        )
-                        self.candles_cache = list(analysis_res.get('data', []))
+                        self.candles_cache = [merge_map[t] for t in sorted_times]
 
                 # =========================================================================
                 # 3. SIGNAL EVALUATION & EXECUTION PIPELINE
@@ -831,13 +797,19 @@ class LiveWorker:
                         "last_checked": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     })
                 else:
-                    should_buy, should_sell, state_info = self._evaluate_signals(self.candles_cache, strategy)
-                    recent_candles = self.candles_cache[-5000:] if len(self.candles_cache) > 5000 else self.candles_cache
+                    analysis_res = StrategyHandler.analyze_market_data(
+                        bars_list=self.candles_cache,
+                        lookback=lookback,
+                        indicator_rules=strategy.get("indicatorRules") or strategy.get("indicator_rules")
+                    )
+                    annotated_candles = list(analysis_res.get('data', []))
+                    should_buy, should_sell, state_info = self._evaluate_signals(annotated_candles, strategy)
+                    recent_candles = annotated_candles[-5000:] if len(annotated_candles) > 5000 else annotated_candles
                     state_info["candles"] = recent_candles
                     self.send_update_or_heartbeat(state_info=state_info)
 
                     # Inspect the last fully closed candle (index -2; index -1 is currently forming)
-                    last_completed_candle = self.candles_cache[-2]
+                    last_completed_candle = annotated_candles[-2]
                     candle_time = int(last_completed_candle["time"])
 
                     # Ensure trade trigger executes only once per closed bar timestamp
