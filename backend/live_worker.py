@@ -797,19 +797,18 @@ class LiveWorker:
                         "last_checked": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     })
                 else:
-                    analysis_res = StrategyHandler.analyze_market_data(
-                        bars_list=self.candles_cache,
-                        lookback=lookback,
-                        indicator_rules=strategy.get("indicatorRules") or strategy.get("indicator_rules")
+                    # 1. Analyze Wyckoff structure on synced candles
+                    wyckoff_candles = WyckoffHandler.analyze_wyckoff_structure(
+                        candles=self.candles_cache,
+                        lookback=lookback
                     )
-                    annotated_candles = list(analysis_res.get('data', []))
-                    should_buy, should_sell, state_info = self._evaluate_signals(annotated_candles, strategy)
-                    recent_candles = annotated_candles[-5000:] if len(annotated_candles) > 5000 else annotated_candles
+                    should_buy, should_sell, state_info = self._evaluate_signals(wyckoff_candles, strategy)
+                    recent_candles = wyckoff_candles[-5000:] if len(wyckoff_candles) > 5000 else wyckoff_candles
                     state_info["candles"] = recent_candles
                     self.send_update_or_heartbeat(state_info=state_info)
 
                     # Inspect the last fully closed candle (index -2; index -1 is currently forming)
-                    last_completed_candle = annotated_candles[-2]
+                    last_completed_candle = wyckoff_candles[-2]
                     candle_time = int(last_completed_candle["time"])
 
                     # Ensure trade trigger executes only once per closed bar timestamp
