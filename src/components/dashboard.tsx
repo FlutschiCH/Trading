@@ -1616,7 +1616,9 @@ export default function Dashboard() {
   }, [candleLimit]);
 
   useEffect(() => {
-    localStorage.setItem('wyckoff_candle_source', candleSource);
+    if (candleSource) {
+      localStorage.setItem('wyckoff_candle_source', candleSource);
+    }
   }, [candleSource]);
 
   useEffect(() => {

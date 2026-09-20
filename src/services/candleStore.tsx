@@ -11,14 +11,14 @@ interface CandleContextType {
   loading: boolean;
   symbol: string;
   timeframe: string;
-  broker: string;
-  candleSource?: string;
+  broker: 'ctrader' | 'metatrader';
+  candleSource: 'ctrader' | 'metatrader';
   candleLimit: number;
   activeStrategyId: string | null;
   setSymbol: (sym: string) => void;
   setTimeframe: (tf: string) => void;
   setBroker: (broker: string) => void;
-  setCandleSource?: (source: any) => void;
+  setCandleSource: (source: 'ctrader' | 'metatrader') => void;
   candleLimitState?: number;
   setCandleLimit: (limit: number) => void;
   setActiveStrategyId: (strategyId: string | null) => void;
@@ -30,17 +30,17 @@ const CandleContext = createContext<CandleContextType | undefined>(undefined);
 export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [symbol, setSymbolState] = useState<string>(() => localStorage.getItem('wyckoff_symbol') || 'EURUSD');
   const [timeframe, setTimeframeState] = useState<string>(() => localStorage.getItem('wyckoff_timeframe') || '15m');
-  const [broker, setBrokerState] = useState<string>(() => {
+  const [broker, setBrokerState] = useState<'ctrader' | 'metatrader'>(() => {
     try {
       const savedAcc = localStorage.getItem('wyckoff_active_account');
       if (savedAcc) {
         const parsed = JSON.parse(savedAcc);
         const b = (parsed?.broker_type || parsed?.broker || '').toLowerCase();
-        if (b) return b;
+        if (b === 'ctrader' || b === 'metatrader') return b;
       }
     } catch {}
     const saved = localStorage.getItem('wyckoff_broker') || localStorage.getItem('wyckoff_candle_source');
-    return saved || 'metatrader';
+    return saved === 'ctrader' ? 'ctrader' : 'metatrader';
   });
   const [candleLimit, setCandleLimitState] = useState<number>(
     () => parseInt(localStorage.getItem('wyckoff_candle_limit') || '5000', 10)
@@ -111,9 +111,11 @@ export const CandleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const setBroker = (newBroker: string) => {
     localStorage.setItem('wyckoff_broker', newBroker);
-    setBrokerState(newBroker);
+    setBrokerState(newBroker as 'ctrader' | 'metatrader');
   };
-  const setCandleSource = setBroker;
+  const setCandleSource = (source: 'ctrader' | 'metatrader') => {
+    setBroker(source);
+  };
 
   const setCandleLimit = (limit: number) => {
     localStorage.setItem('wyckoff_candle_limit', limit.toString());
