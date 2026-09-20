@@ -655,6 +655,11 @@ export default function TVChart({
     });
   }, [candles]);
 
+  const isMobileRef = useRef(isMobile);
+  useEffect(() => {
+    isMobileRef.current = isMobile;
+  }, [isMobile]);
+
   useEffect(() => {
     onSelectCandleRef.current = onSelectCandle;
   }, [onSelectCandle]);
@@ -1587,12 +1592,15 @@ export default function TVChart({
 
       if (tradeFound) return;
 
-      if (onSelectCandleRef.current && fullCandlesRef.current) {
+      if (fullCandlesRef.current) {
         const foundCandle = fullCandlesRef.current.find(c => Number(c.time) === clickTime);
         if (foundCandle) {
-          onSelectCandleRef.current(foundCandle);
+          const isMobileDevice = isMobileRef.current || (typeof window !== 'undefined' && window.innerWidth < 768);
           if (replayToolActiveRef.current) {
+            if (onSelectCandleRef.current) onSelectCandleRef.current(foundCandle);
             setReplayTime(clickTime);
+          } else if (!isMobileDevice) {
+            if (onSelectCandleRef.current) onSelectCandleRef.current(foundCandle);
           }
         }
       }
