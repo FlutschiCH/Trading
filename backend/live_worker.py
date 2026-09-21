@@ -46,6 +46,7 @@ class LiveWorker:
         self._acquire_instance_lock()
         self.running = True
         self.candles_cache = []
+        self.trades_cache = []
         self.last_processed_candle_time = None
         self.cache_config_fingerprint = None
         self.http_failed = False
