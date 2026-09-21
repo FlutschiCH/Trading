@@ -34,3 +34,30 @@ def delete_config(config_id):
     if success:
         return jsonify({"status": "success", "message": f"Config {config_id} deleted successfully"})
     return jsonify({"status": "error", "message": "Failed to delete config"}), 500
+
+@copytrader_routes.route('/copytrader/config/<config_id>/status', methods=['POST'])
+def set_config_status(config_id):
+    """
+    Reactivate or pause a Copytrader setup in memory or database.
+    """
+    payload = request.get_json(silent=True) or {}
+    status = payload.get("status", "active")
+    persist = bool(payload.get("persist", False))
+    success = CopytraderHandler.set_config_status(config_id, status=status, persist=persist)
+    if success:
+        return jsonify({"status": "success", "message": f"Config {config_id} status set to '{status}'"})
+    return jsonify({"status": "error", "message": "Config not found"}), 404
+
+@copytrader_routes.route('/copytrader/config/<config_id>/slave/<slave_account_id>/status', methods=['POST'])
+def set_slave_status(config_id, slave_account_id):
+    """
+    Reactivate or pause an individual slave account in memory or database.
+    """
+    payload = request.get_json(silent=True) or {}
+    status = payload.get("status", "active")
+    persist = bool(payload.get("persist", False))
+    success = CopytraderHandler.set_slave_status(config_id, slave_account_id, status=status, persist=persist)
+    if success:
+        return jsonify({"status": "success", "message": f"Slave {slave_account_id} status set to '{status}'"})
+    return jsonify({"status": "error", "message": "Slave or Config not found"}), 404
+

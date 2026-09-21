@@ -132,6 +132,46 @@ export const Copytrader: React.FC = () => {
     }
   };
 
+  const handleToggleConfigStatus = async (id: string, currentStatus: string, persist: boolean = false) => {
+    const nextStatus = currentStatus === 'active' ? 'paused' : 'active';
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/copytrader/config/${id}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: nextStatus, persist })
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        fetchConfigs();
+      } else {
+        alert(data.message || 'Failed to update status');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Failed to update Copytrader status');
+    }
+  };
+
+  const handleToggleSlaveStatus = async (configId: string, slaveAccountId: string, currentStatus: string, persist: boolean = false) => {
+    const nextStatus = currentStatus === 'active' ? 'paused' : 'active';
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/copytrader/config/${configId}/slave/${slaveAccountId}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: nextStatus, persist })
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        fetchConfigs();
+      } else {
+        alert(data.message || 'Failed to update slave status');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Failed to update Slave status');
+    }
+  };
+
   const resetForm = () => {
     setEditingId(null);
     setName('');
@@ -579,9 +619,98 @@ export const Copytrader: React.FC = () => {
                     <span>Master: <strong style={{ color: '#60a5fa' }}>{cfg.master_account}</strong></span>
                     <span>Slaves: <strong style={{ color: '#34d399' }}>{cfg.slaves?.length || 0}</strong></span>
                   </div>
+
+                  {/* Individual Slaves list and in-memory reactivate controls */}
+                  {cfg.slaves && cfg.slaves.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '6px' }}>
+                      {cfg.slaves.map((slave, sIdx) => {
+                        const isSlavePaused = slave.status === 'paused';
+                        return (
+                          <div
+                            key={`${slave.account_id}_${sIdx}`}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              backgroundColor: '#020617',
+                              border: `1px solid ${isSlavePaused ? '#78350f' : '#1e293b'}`,
+                              borderRadius: '4px',
+                              padding: '3px 8px',
+                              fontSize: '10px'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={{ color: isSlavePaused ? '#f87171' : '#38bdf8', fontWeight: 'bold' }}>
+                                ➜ {slave.account_id} ({slave.broker.toUpperCase()})
+                              </span>
+                              <span style={{ color: '#64748b' }}>
+                                [{slave.mode}{slave.mode === 'multiplier' || slave.mode === 'divider' ? ` x${slave.multiplier}` : ''}]
+                              </span>
+                              <span
+                                style={{
+                                  fontSize: '8px',
+                                  padding: '1px 4px',
+                                  borderRadius: '3px',
+                                  fontWeight: 'bold',
+                                  backgroundColor: isSlavePaused ? '#451a03' : '#064e3b',
+                                  color: isSlavePaused ? '#fbbf24' : '#34d399',
+                                  border: `1px solid ${isSlavePaused ? '#b45309' : '#047857'}`
+                                }}
+                              >
+                                {isSlavePaused ? 'PAUSED' : 'ACTIVE'}
+                              </span>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleToggleSlaveStatus(cfg.id, slave.account_id, slave.status, false)}
+                              style={{
+                                backgroundColor: isSlavePaused ? '#064e3b' : '#1e293b',
+                                color: isSlavePaused ? '#34d399' : '#94a3b8',
+                                border: `1px solid ${isSlavePaused ? '#047857' : '#334155'}`,
+                                borderRadius: '3px',
+                                padding: '1px 6px',
+                                fontSize: '9px',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '3px'
+                              }}
+                              title={isSlavePaused ? "Reactivate slave account in memory" : "Pause slave account in memory"}
+                            >
+                              {isSlavePaused ? <Play size={10} /> : <PauseCircle size={10} />}
+                              <span>{isSlavePaused ? 'Reactivate' : 'Pause'}</span>
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleConfigStatus(cfg.id, cfg.status, false)}
+                    style={{
+                      backgroundColor: cfg.status === 'active' ? 'rgba(234, 179, 8, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                      color: cfg.status === 'active' ? '#facc15' : '#34d399',
+                      border: `1px solid ${cfg.status === 'active' ? 'rgba(234, 179, 8, 0.3)' : 'rgba(16, 185, 129, 0.3)'}`,
+                      borderRadius: '4px',
+                      padding: '4px 10px',
+                      fontSize: '11px',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                    title={cfg.status === 'active' ? "Pause in memory" : "Reactivate in memory"}
+                  >
+                    {cfg.status === 'active' ? <PauseCircle size={13} /> : <Play size={13} />}
+                    <span>{cfg.status === 'active' ? 'Pause' : 'Reactivate'}</span>
+                  </button>
                   <button
                     type="button"
                     onClick={() => editConfig(cfg)}

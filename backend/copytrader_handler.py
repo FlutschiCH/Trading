@@ -239,6 +239,53 @@ class CopytraderHandler:
             SQLHandler.execute_query("DELETE FROM copytrader_configs WHERE id = ?", (config_id,))
         return True
 
+    @classmethod
+    def set_config_status(cls, config_id: str, status: str = "active", persist: bool = False) -> bool:
+        """
+        Reactivates or pauses a configuration in memory (and optionally persists to DB).
+        """
+        cls._ensure_cache_loaded()
+        with cls._lock:
+            if cls._configs_cache and config_id in cls._configs_cache:
+                cls._configs_cache[config_id]["status"] = status
+                # Also ensure all slaves inside this config are set to active if reactivating
+                if status == "active":
+                    for s in cls._configs_cache[config_id].get("slaves", []):
+                        s["status"] = "active"
+
+                if persist:
+                    cfg = cls._configs_cache[config_id]
+                    cls.save_config(cfg)
+                logPrint(f"[Copytrader] Configuration {config_id} set to '{status}' (persist={persist}).")
+                return True
+        return False
+
+    @classmethod
+    def set_slave_status(cls, config_id: str, slave_account_id: str, status: str = "active", persist: bool = False) -> bool:
+        """
+        Reactivates or pauses a specific slave account within a configuration.
+        """
+        cls._ensure_cache_loaded()
+        with cls._lock:
+            if cls._configs_cache and config_id in cls._configs_cache:
+                cfg = cls._configs_cache[config_id]
+                # If reactivating slave and config is paused, reactivate config too
+                if status == "active" and cfg.get("status") == "paused":
+                    cfg["status"] = "active"
+
+                found = False
+                for s in cfg.get("slaves", []):
+                    if str(s.get("account_id")) == str(slave_account_id):
+                        s["status"] = status
+                        found = True
+
+                if found:
+                    if persist:
+                        cls.save_config(cfg)
+                    logPrint(f"[Copytrader] Slave {slave_account_id} in config {config_id} set to '{status}' (persist={persist}).")
+                    return True
+        return False
+
     @staticmethod
     def start():
         if CopytraderHandler._is_running:
