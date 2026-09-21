@@ -566,6 +566,8 @@ class CopytraderHandler:
                 if cfg.get("status") != "active":
                     continue
                 
+                cfg_id = cfg.get("id")
+                cfg_name = cfg.get("name") or "Unnamed Config"
                 target_comp = str(cfg.get("target_computer", "All")).strip().lower()
                 if target_comp != "all" and target_comp != current_host:
                     continue
@@ -681,7 +683,8 @@ class CopytraderHandler:
                                         print(f"[Copytrader Alert] Insufficient margin detected on slave {slave_acc} ({slave_broker}). Pausing setup '{cfg_name}' (ID: {cfg_id}) in memory", flush=True)
                                         logPrint(f"[Copytrader] Insufficient margin on slave {slave_acc}. Pausing copytrader configuration '{cfg_name}' in memory.")
                                         
-                                        # Pause config in-memory only (DB remains unchanged so next app restart will resume)
+                                        # Pause slave and config in-memory only (DB remains unchanged so next app restart or manual resume restores it)
+                                        slave["status"] = "paused"
                                         with cls._lock:
                                             if cls._configs_cache and cfg_id in cls._configs_cache:
                                                 cls._configs_cache[cfg_id]["status"] = "paused"
@@ -700,6 +703,7 @@ class CopytraderHandler:
                                             send_discord_message(discord_msg)
                                         except Exception as d_err:
                                             print(f"[Copytrader Alert Error] Failed to send Discord alert: {d_err}", flush=True)
+                                        break
 
                         # B) For any position on slave that NO LONGER EXISTS on master -> CLOSE / DELETE IT!
                         for s_pos in unmatched_slaves:
