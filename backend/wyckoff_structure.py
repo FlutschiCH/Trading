@@ -207,6 +207,10 @@ class WyckoffStructure:
         # Calculate 20 SMA of close prices on backend
         df['sma_20'] = df['close'].rolling(window=20, min_periods=1).mean()
         
+        # Calculate 14 RMA ATR on backend
+        from indicator_handler import IndicatorHandler
+        df['atr'] = IndicatorHandler.atr(df, period=14, smoothing='rma').fillna(0.0)
+        
         # Print stage changes and the most recent one
         stage_changes = 0
         last_change_time = None

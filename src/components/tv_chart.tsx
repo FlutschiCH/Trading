@@ -1,13 +1,20 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType, CandlestickSeries, HistogramSeries, LineSeries, createSeriesMarkers, CrosshairMode } from 'lightweight-charts';
 import type { ISeriesPrimitive, IPrimitivePaneView as SeriesPrimitivePaneView, IPrimitivePaneRenderer as SeriesPrimitivePaneRenderer } from 'lightweight-charts';
-import { Square, PenTool, Trash2, XCircle, RefreshCw, Maximize2, Minimize2, Settings, Play, Pause, SkipBack, SkipForward, X } from 'lucide-react';
+import { Square, PenTool, Trash2, XCircle, RefreshCw, Maximize2, Minimize2, Settings, Play, Pause, SkipBack, SkipForward, X, Eye, EyeOff } from 'lucide-react';
 import { calculateDateBounds } from '../App';
 import { API_BASE_URL } from '../api';
 import { SymbolTimeframeSelector } from './symbol_timeframe_selector';
 import { usePositionsStore } from '../services/positionsStore';
 import DebugComponentBadge from './debug_component_badge';
 import type { Candle } from '../types/trading';
+import IndicatorModal from './indicator_modal';
+import {
+  loadStoredIndicators,
+  saveStoredIndicators,
+  calculateIndicatorsBackend,
+  type IndicatorConfig,
+} from '../services/indicatorService';
 
 class SessionBoxRenderer implements SeriesPrimitivePaneRenderer {
   private _sessionCoords: any[];
@@ -235,6 +242,14 @@ export default function TVChart({
   const [replayToolActive, setReplayToolActive] = useState(false);
 
   const replayToolActiveRef = useRef(replayToolActive);
+
+  // Dynamic Indicator Overlays state (Python Backend Driven)
+  const [indicators, setIndicators] = useState<IndicatorConfig[]>(() => loadStoredIndicators());
+  const [showIndicatorModal, setShowIndicatorModal] = useState<boolean>(false);
+  const [editingIndicatorId, setEditingIndicatorId] = useState<string | null>(null);
+  const [indicatorLatestValues, setIndicatorLatestValues] = useState<Record<string, string>>({});
+  const indicatorSeriesMapRef = useRef<Map<string, any>>(new Map());
+  const subpaneSeriesMapRef = useRef<Map<string, any>>(new Map());
 
   const [executingOrder, setExecutingOrder] = useState(false);
   const [tradeOrderResult, setTradeOrderResult] = useState<{ status: 'success' | 'error'; message: string } | null>(null);
@@ -1707,6 +1722,18 @@ export default function TVChart({
         } catch (e) { }
         selectedTradePathSeriesRef.current = null;
       }
+      indicatorSeriesMapRef.current.forEach((series) => {
+        try {
+          mainChart.removeSeries(series);
+        } catch (e) { }
+      });
+      indicatorSeriesMapRef.current.clear();
+      subpaneSeriesMapRef.current.forEach((series) => {
+        try {
+          weisChart.removeSeries(series);
+        } catch (e) { }
+      });
+      subpaneSeriesMapRef.current.clear();
       if (animationFrameId !== null) {
         cancelAnimationFrame(animationFrameId);
       }
@@ -2122,6 +2149,264 @@ export default function TVChart({
 
     updateDrawingCoordinates();
   }, [activeCandles, visibleTrades, actualFilter, chartSettings.showTrades, chartSettings.showTrLines, chartSettings.showPositions, replayTime, storePositions, openPositions]);
+
+  // Synchronize indicators with Python backend and render LineSeries on mainChart
+  useEffect(() => {
+    if (!chartRef.current || !activeCandles || activeCandles.length === 0) {
+      indicatorSeriesMapRef.current.forEach((series) => {
+        try {
+          series.setData([]);
+        } catch (e) { }
+      });
+      return;
+    }
+
+    let isSubscribed = true;
+
+    const syncIndicators = async () => {
+      const activeList = indicators.filter((ind) => ind.visible);
+      if (activeList.length === 0) {
+        indicatorSeriesMapRef.current.forEach((series) => {
+          try { series.setData([]); } catch (e) { }
+        });
+        subpaneSeriesMapRef.current.forEach((series) => {
+          try { series.setData([]); } catch (e) { }
+        });
+        setIndicatorLatestValues({});
+        return;
+      }
+
+      const calculatedData = await calculateIndicatorsBackend(activeCandles, activeList);
+      if (!isSubscribed || !chartRef.current || !weisChartRef.current) return;
+
+      const latestVals: Record<string, string> = {};
+
+      // Cleanup overlay series that are no longer active
+      const activeOverlayIds = new Set(activeList.filter(i => i.pane !== 'subpane').map((ind) => ind.id));
+      indicatorSeriesMapRef.current.forEach((series, key) => {
+        const baseId = key.split('__')[0];
+        if (!activeOverlayIds.has(baseId)) {
+          try {
+            chartRef.current.removeSeries(series);
+          } catch (e) { }
+          indicatorSeriesMapRef.current.delete(key);
+        }
+      });
+
+      // Cleanup subpane series that are no longer active
+      const activeSubpaneIds = new Set(activeList.filter(i => i.pane === 'subpane').map((ind) => ind.id));
+      subpaneSeriesMapRef.current.forEach((series, key) => {
+        const baseId = key.split('__')[0];
+        if (!activeSubpaneIds.has(baseId)) {
+          try {
+            weisChartRef.current.removeSeries(series);
+          } catch (e) { }
+          subpaneSeriesMapRef.current.delete(key);
+        }
+      });
+
+      // Update / create series for each active indicator
+      for (const ind of activeList) {
+        const result = calculatedData[ind.id];
+        if (!result) continue;
+
+        const isSubpane = ind.pane === 'subpane';
+        const targetChart = isSubpane ? weisChartRef.current : chartRef.current;
+        const targetSeriesMap = isSubpane ? subpaneSeriesMapRef.current : indicatorSeriesMapRef.current;
+
+        if (result.type === 'dataframe' && result.columns) {
+          const cols = result.columns;
+          
+          if (ind.name === 'supertrend') {
+            // Supertrend
+            const stPoints = cols.supertrend?.points || [];
+            let series = targetSeriesMap.get(ind.id);
+            if (!series) {
+              try {
+                series = targetChart.addSeries(LineSeries, {
+                  color: ind.color,
+                  lineWidth: ind.lineWidth,
+                  lineStyle: ind.lineStyle,
+                  lastValueVisible: false,
+                  priceLineVisible: false,
+                  crosshairMarkerVisible: false,
+                });
+                targetSeriesMap.set(ind.id, series);
+              } catch (err) { }
+            }
+            if (series) {
+              series.applyOptions({ color: ind.color, lineWidth: ind.lineWidth, lineStyle: ind.lineStyle });
+              series.setData(stPoints);
+            }
+            if (stPoints.length > 0) {
+              const lastVal = stPoints[stPoints.length - 1].value;
+              latestVals[ind.id] = lastVal.toFixed(5);
+            }
+          } else if (cols.upper && cols.lower) {
+            // Channels (Bollinger Bands, Keltner, Donchian, Envelopes)
+            const bands = [
+              { key: `${ind.id}__upper`, data: cols.upper?.points || [], color: ind.color, lineStyle: 1, lineWidth: 1 },
+              { key: `${ind.id}__middle`, data: cols.middle?.points || [], color: ind.color, lineStyle: ind.lineStyle, lineWidth: ind.lineWidth },
+              { key: `${ind.id}__lower`, data: cols.lower?.points || [], color: ind.color, lineStyle: 1, lineWidth: 1 },
+            ];
+
+            bands.forEach((band) => {
+              let series = targetSeriesMap.get(band.key);
+              if (!series) {
+                try {
+                  series = targetChart.addSeries(LineSeries, {
+                    color: band.color,
+                    lineWidth: band.lineWidth as any,
+                    lineStyle: band.lineStyle,
+                    lastValueVisible: false,
+                    priceLineVisible: false,
+                    crosshairMarkerVisible: false,
+                  });
+                  targetSeriesMap.set(band.key, series);
+                } catch (err) {
+                  console.error('Failed to create channel series:', err);
+                }
+              }
+              if (series) {
+                series.applyOptions({
+                  color: band.color,
+                  lineWidth: band.lineWidth as any,
+                  lineStyle: band.lineStyle,
+                });
+                series.setData(band.data);
+              }
+            });
+
+            const lastUpper = cols.upper?.points?.[cols.upper.points.length - 1]?.value;
+            const lastMid = cols.middle?.points?.[cols.middle.points.length - 1]?.value;
+            const lastLower = cols.lower?.points?.[cols.lower.points.length - 1]?.value;
+            if (lastMid !== undefined) {
+              latestVals[ind.id] = `${lastMid.toFixed(5)} [${lastLower !== undefined ? lastLower.toFixed(5) : ''} - ${lastUpper !== undefined ? lastUpper.toFixed(5) : ''}]`;
+            }
+          } else if (cols.k && cols.d) {
+            // Stochastic
+            const stochSeries = [
+              { key: `${ind.id}__k`, data: cols.k?.points || [], color: ind.color, lineStyle: 0, lineWidth: ind.lineWidth },
+              { key: `${ind.id}__d`, data: cols.d?.points || [], color: '#ef4444', lineStyle: 1, lineWidth: 1 },
+            ];
+            stochSeries.forEach(s => {
+              let line = targetSeriesMap.get(s.key);
+              if (!line) {
+                try {
+                  line = targetChart.addSeries(LineSeries, {
+                    color: s.color,
+                    lineWidth: s.lineWidth as any,
+                    lineStyle: s.lineStyle,
+                    lastValueVisible: false,
+                    priceLineVisible: false,
+                    crosshairMarkerVisible: false,
+                  });
+                  targetSeriesMap.set(s.key, line);
+                } catch (err) { }
+              }
+              if (line) {
+                line.applyOptions({ color: s.color, lineWidth: s.lineWidth as any, lineStyle: s.lineStyle });
+                line.setData(s.data);
+              }
+            });
+            const lastK = cols.k?.points?.[cols.k.points.length - 1]?.value;
+            const lastD = cols.d?.points?.[cols.d.points.length - 1]?.value;
+            if (lastK !== undefined) {
+              latestVals[ind.id] = `K: ${lastK.toFixed(2)} D: ${lastD ? lastD.toFixed(2) : ''}`;
+            }
+          } else if (cols.macd && cols.signal) {
+            // MACD
+            const macdLines = [
+              { key: `${ind.id}__macd`, data: cols.macd?.points || [], color: ind.color, lineStyle: 0, lineWidth: ind.lineWidth },
+              { key: `${ind.id}__signal`, data: cols.signal?.points || [], color: '#ef4444', lineStyle: 1, lineWidth: 1 },
+            ];
+            macdLines.forEach(m => {
+              let line = targetSeriesMap.get(m.key);
+              if (!line) {
+                try {
+                  line = targetChart.addSeries(LineSeries, {
+                    color: m.color,
+                    lineWidth: m.lineWidth as any,
+                    lineStyle: m.lineStyle,
+                    lastValueVisible: false,
+                    priceLineVisible: false,
+                    crosshairMarkerVisible: false,
+                  });
+                  targetSeriesMap.set(m.key, line);
+                } catch (err) { }
+              }
+              if (line) {
+                line.applyOptions({ color: m.color, lineWidth: m.lineWidth as any, lineStyle: m.lineStyle });
+                line.setData(m.data);
+              }
+            });
+            const lastMacd = cols.macd?.points?.[cols.macd.points.length - 1]?.value;
+            const lastSig = cols.signal?.points?.[cols.signal.points.length - 1]?.value;
+            if (lastMacd !== undefined) {
+              latestVals[ind.id] = `M: ${lastMacd.toFixed(4)} S: ${lastSig ? lastSig.toFixed(4) : ''}`;
+            }
+          }
+        } else {
+          // Single line indicator (EMA, SMA, WMA, HMA, Parabolic SAR, VWAP, RSI, ATR)
+          const points = result.points || [];
+          let series = targetSeriesMap.get(ind.id);
+          if (!series) {
+            try {
+              series = targetChart.addSeries(LineSeries, {
+                color: ind.color,
+                lineWidth: ind.lineWidth,
+                lineStyle: ind.lineStyle,
+                lastValueVisible: false,
+                priceLineVisible: false,
+                crosshairMarkerVisible: false,
+              });
+              targetSeriesMap.set(ind.id, series);
+            } catch (err) {
+              console.error('Failed to create indicator series:', err);
+            }
+          }
+          if (series) {
+            series.applyOptions({
+              color: ind.color,
+              lineWidth: ind.lineWidth,
+              lineStyle: ind.lineStyle,
+            });
+            series.setData(points);
+          }
+
+          if (points.length > 0) {
+            const lastPt = points[points.length - 1];
+            latestVals[ind.id] = ind.name === 'rsi' || ind.name === 'stochastic' ? lastPt.value.toFixed(2) : lastPt.value.toFixed(5);
+          }
+        }
+      }
+
+      setIndicatorLatestValues(latestVals);
+    };
+
+    syncIndicators();
+
+    return () => {
+      isSubscribed = false;
+    };
+  }, [indicators, activeCandles]);
+
+  // Dynamically adjust lower chart panel height when subpane indicators are active
+  useEffect(() => {
+    const hasSubpane = indicators.some((i) => i.pane === 'subpane' && i.visible);
+    const isMobileSize = window.innerWidth < 768;
+    const baseWeisH = isMobileSize ? 100 : 140;
+    const expandedWeisH = isMobileSize ? 140 : 180;
+    const targetWeisH = hasSubpane ? expandedWeisH : baseWeisH;
+
+    if (weisHeightRef.current !== targetWeisH) {
+      setWeisHeight(targetWeisH);
+      weisHeightRef.current = targetWeisH;
+      if (weisChartRef.current && weisContainerRef.current) {
+        weisChartRef.current.resize(weisContainerRef.current.clientWidth || (window.innerWidth - 32), targetWeisH);
+      }
+    }
+  }, [indicators]);
 
   // Update price format and precision dynamically based on candle data
   useEffect(() => {
@@ -2700,6 +2985,28 @@ export default function TVChart({
                     LIVE
                   </button>
                 )}
+                <button
+                  onClick={() => {
+                    setEditingIndicatorId(null);
+                    setShowIndicatorModal(true);
+                  }}
+                  style={{
+                    ...styles.refreshBtn,
+                    backgroundColor: indicators.some((i) => i.visible) ? (isLight ? '#dbeafe' : 'rgba(59, 130, 246, 0.2)') : (isLight ? '#e2e8f0' : '#1f2937'),
+                    color: indicators.some((i) => i.visible) ? '#3b82f6' : (isLight ? '#0f172a' : '#9ca3af'),
+                    border: indicators.some((i) => i.visible) ? '1px solid #3b82f6' : 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '2px',
+                    padding: '4px 6px',
+                    fontSize: '11px',
+                    fontWeight: 'bold',
+                  }}
+                  title="Indicators Overlay"
+                >
+                  <span style={{ fontStyle: 'italic', fontWeight: 'bold', color: '#3b82f6' }}>fx</span>
+                  <span>Ind{indicators.filter((i) => i.visible).length > 0 ? ` (${indicators.filter((i) => i.visible).length})` : ''}</span>
+                </button>
                 <button onClick={() => onRefresh?.()} style={styles.refreshBtn} title="Refresh chart data"><RefreshCw size={14} className={loadingStrategy ? 'animate-spin' : ''} /></button>
                 <div style={{ position: 'relative' }}>
                   <button onClick={() => setShowSettingsDropdown(!showSettingsDropdown)} style={styles.refreshBtn} title="Chart Visibility Settings"><Settings size={14} /></button>
@@ -2809,6 +3116,28 @@ export default function TVChart({
                 </div>
               )}
               <button onClick={() => onRefresh?.()} style={styles.refreshBtn} title="Refresh chart data"><RefreshCw size={14} className={loadingStrategy ? 'animate-spin' : ''} /></button>
+              <button
+                onClick={() => {
+                  setEditingIndicatorId(null);
+                  setShowIndicatorModal(true);
+                }}
+                style={{
+                  ...styles.refreshBtn,
+                  backgroundColor: indicators.some((i) => i.visible) ? (isLight ? '#dbeafe' : 'rgba(59, 130, 246, 0.2)') : (isLight ? '#e2e8f0' : '#1f2937'),
+                  color: indicators.some((i) => i.visible) ? '#3b82f6' : (isLight ? '#0f172a' : '#9ca3af'),
+                  border: indicators.some((i) => i.visible) ? '1px solid #3b82f6' : 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '6px 12px',
+                  fontSize: '11px',
+                  fontWeight: 'bold',
+                }}
+                title="Add & Configure Technical Indicators (EMA, SMA, WMA, Bollinger Bands)"
+              >
+                <span style={{ fontStyle: 'italic', fontWeight: 'bold', fontSize: '13px', color: '#3b82f6' }}>fx</span>
+                <span>Indicators{indicators.filter((i) => i.visible).length > 0 ? ` (${indicators.filter((i) => i.visible).length})` : ''}</span>
+              </button>
               <button onClick={() => { if (replayToolActive) { setReplayTime(null); setIsPlaying(false); if (onSelectCandleRef.current) { onSelectCandleRef.current(null); } } setReplayToolActive(!replayToolActive); }} style={{ ...styles.refreshBtn, backgroundColor: replayToolActive ? '#2563eb' : (isLight ? '#e2e8f0' : '#1f2937'), color: replayToolActive ? '#ffffff' : (isLight ? '#0f172a' : '#9ca3af'), display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '11px', fontWeight: 'bold' }} title="Toggle Replay Tool">
                 <Play size={12} fill={replayToolActive ? "#ffffff" : "none"} />
                 Replay
@@ -2854,6 +3183,129 @@ export default function TVChart({
       <div style={styles.chartWrapper}>
         <div style={{ position: 'relative', height: chartHeight }}>
           <div ref={chartContainerRef} onContextMenu={handleChartContextMenu} style={{ width: '100%', height: '100%', touchAction: 'none' }} />
+
+          {/* Top-Left On-Chart Indicators Status Legend (Overlays only) */}
+          {indicators.filter(i => i.pane !== 'subpane').length > 0 && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '12px',
+                left: '14px',
+                zIndex: 20,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '4px',
+                pointerEvents: 'auto',
+                maxWidth: '80%',
+              }}
+            >
+              {indicators.filter(i => i.pane !== 'subpane').map((ind) => {
+                const valStr = indicatorLatestValues[ind.id];
+                return (
+                  <div
+                    key={ind.id}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      backgroundColor: isLight ? 'rgba(255, 255, 255, 0.88)' : 'rgba(15, 23, 42, 0.88)',
+                      backdropFilter: 'blur(4px)',
+                      border: isLight ? '1px solid #cbd5e1' : '1px solid #334155',
+                      borderRadius: '6px',
+                      padding: '2px 8px',
+                      fontSize: '11px',
+                      lineHeight: '1.2',
+                      color: isLight ? '#0f172a' : '#ffffff',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: '8px',
+                        height: '8px',
+                        borderRadius: '50%',
+                        backgroundColor: ind.color,
+                        display: 'inline-block',
+                        flexShrink: 0,
+                      }}
+                    />
+                    <span style={{ fontWeight: 'bold', color: ind.color }}>
+                      {ind.label || `${ind.name.toUpperCase()} ${ind.params.period}`}
+                    </span>
+                    {valStr && (
+                      <span style={{ fontFamily: 'monospace', fontWeight: 600, color: isLight ? '#334155' : '#cbd5e1' }}>
+                        {valStr}
+                      </span>
+                    )}
+
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', marginLeft: '4px' }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = indicators.map((item) =>
+                            item.id === ind.id ? { ...item, visible: !item.visible } : item
+                          );
+                          setIndicators(next);
+                          saveStoredIndicators(next);
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          padding: '1px',
+                          cursor: 'pointer',
+                          color: ind.visible ? (isLight ? '#3b82f6' : '#60a5fa') : '#94a3b8',
+                          display: 'flex',
+                          alignItems: 'center',
+                        }}
+                        title={ind.visible ? 'Hide indicator' : 'Show indicator'}
+                      >
+                        {ind.visible ? <Eye size={12} /> : <EyeOff size={12} />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingIndicatorId(ind.id);
+                          setShowIndicatorModal(true);
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          padding: '1px',
+                          cursor: 'pointer',
+                          color: isLight ? '#64748b' : '#94a3b8',
+                          display: 'flex',
+                          alignItems: 'center',
+                        }}
+                        title="Edit indicator"
+                      >
+                        <Settings size={12} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = indicators.filter((item) => item.id !== ind.id);
+                          setIndicators(next);
+                          saveStoredIndicators(next);
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          padding: '1px',
+                          cursor: 'pointer',
+                          color: '#ef4444',
+                          display: 'flex',
+                          alignItems: 'center',
+                        }}
+                        title="Remove indicator"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           {/* Context Menu for Price Alert */}
           {contextMenu && (
@@ -3443,7 +3895,132 @@ export default function TVChart({
           </svg>
         </div>
 
-        <div ref={weisContainerRef} style={{ width: '100%', height: weisHeight, touchAction: 'none' }} />
+        <div style={{ position: 'relative', width: '100%', height: weisHeight }}>
+          <div ref={weisContainerRef} style={{ width: '100%', height: '100%', touchAction: 'none' }} />
+
+          {/* Top-Left On-Chart Indicators Status Legend (Subpane Oscillators: RSI, ATR, MACD, Stochastic) */}
+          {indicators.filter(i => i.pane === 'subpane').length > 0 && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '8px',
+                left: '14px',
+                zIndex: 20,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '4px',
+                pointerEvents: 'auto',
+                maxWidth: '80%',
+              }}
+            >
+              {indicators.filter(i => i.pane === 'subpane').map((ind) => {
+                const valStr = indicatorLatestValues[ind.id];
+                return (
+                  <div
+                    key={ind.id}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      backgroundColor: isLight ? 'rgba(255, 255, 255, 0.88)' : 'rgba(15, 23, 42, 0.88)',
+                      backdropFilter: 'blur(4px)',
+                      border: isLight ? '1px solid #cbd5e1' : '1px solid #334155',
+                      borderRadius: '6px',
+                      padding: '2px 8px',
+                      fontSize: '11px',
+                      lineHeight: '1.2',
+                      color: isLight ? '#0f172a' : '#ffffff',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: '8px',
+                        height: '8px',
+                        borderRadius: '50%',
+                        backgroundColor: ind.color,
+                        display: 'inline-block',
+                        flexShrink: 0,
+                      }}
+                    />
+                    <span style={{ fontWeight: 'bold', color: ind.color }}>
+                      {ind.label || `${ind.name.toUpperCase()} ${ind.params.period || ''}`.trim()}
+                    </span>
+                    {valStr && (
+                      <span style={{ fontFamily: 'monospace', fontWeight: 600, color: isLight ? '#334155' : '#cbd5e1' }}>
+                        {valStr}
+                      </span>
+                    )}
+
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', marginLeft: '4px' }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = indicators.map((item) =>
+                            item.id === ind.id ? { ...item, visible: !item.visible } : item
+                          );
+                          setIndicators(next);
+                          saveStoredIndicators(next);
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          padding: '1px',
+                          cursor: 'pointer',
+                          color: ind.visible ? (isLight ? '#3b82f6' : '#60a5fa') : '#94a3b8',
+                          display: 'flex',
+                          alignItems: 'center',
+                        }}
+                        title={ind.visible ? 'Hide indicator' : 'Show indicator'}
+                      >
+                        {ind.visible ? <Eye size={12} /> : <EyeOff size={12} />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingIndicatorId(ind.id);
+                          setShowIndicatorModal(true);
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          padding: '1px',
+                          cursor: 'pointer',
+                          color: isLight ? '#64748b' : '#94a3b8',
+                          display: 'flex',
+                          alignItems: 'center',
+                        }}
+                        title="Edit indicator"
+                      >
+                        <Settings size={12} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = indicators.filter((item) => item.id !== ind.id);
+                          setIndicators(next);
+                          saveStoredIndicators(next);
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          padding: '1px',
+                          cursor: 'pointer',
+                          color: '#ef4444',
+                          display: 'flex',
+                          alignItems: 'center',
+                        }}
+                        title="Remove indicator"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Interactive SL / TP Edit Modal */}
@@ -3725,6 +4302,22 @@ export default function TVChart({
           </div>
         </div>
       )}
+
+      {/* Technical Indicators Configuration Modal */}
+      <IndicatorModal
+        isOpen={showIndicatorModal}
+        onClose={() => {
+          setShowIndicatorModal(false);
+          setEditingIndicatorId(null);
+        }}
+        indicators={indicators}
+        onSaveIndicators={(updated) => {
+          setIndicators(updated);
+          saveStoredIndicators(updated);
+        }}
+        theme={theme}
+        initialEditingId={editingIndicatorId}
+      />
     </div>
   );
 }

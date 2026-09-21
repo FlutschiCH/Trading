@@ -155,10 +155,195 @@ class IndicatorHandler:
     def vwap(df: pd.DataFrame, high_col: str = 'high', low_col: str = 'low',
              close_col: str = 'close', vol_col: str = 'volume') -> pd.Series:
         """Volume Weighted Average Price (VWAP)."""
-        typical_price = (df[high_col] + df[low_col] + df[close_col]) / 3.0
-        cum_pv = (typical_price * df[vol_col]).cumsum()
-        cum_vol = df[vol_col].cumsum()
+        high = df[high_col] if high_col in df.columns else df['close']
+        low = df[low_col] if low_col in df.columns else df['close']
+        close = df[close_col] if close_col in df.columns else df['close']
+        vol = df[vol_col] if vol_col in df.columns else pd.Series(1, index=df.index)
+
+        typical_price = (high + low + close) / 3.0
+        cum_pv = (typical_price * vol).cumsum()
+        cum_vol = vol.cumsum()
         return cum_pv / cum_vol.replace(0, np.nan)
+
+    @staticmethod
+    def hma(df: pd.DataFrame, period: int = 20, column: str = 'close') -> pd.Series:
+        """Hull Moving Average (HMA). Fast, highly responsive smoothed moving average."""
+        half_period = max(1, int(period / 2))
+        sqrt_period = max(1, int(np.sqrt(period)))
+        
+        wma_half = IndicatorHandler.wma(df, period=half_period, column=column)
+        wma_full = IndicatorHandler.wma(df, period=period, column=column)
+        
+        diff = 2.0 * wma_half - wma_full
+        diff_df = pd.DataFrame({'diff': diff}, index=df.index)
+        return IndicatorHandler.wma(diff_df, period=sqrt_period, column='diff')
+
+    @staticmethod
+    def supertrend(df: pd.DataFrame, period: int = 10, multiplier: float = 3.0,
+                    high_col: str = 'high', low_col: str = 'low', close_col: str = 'close') -> pd.DataFrame:
+        """Supertrend calculation returning trend line and direction (1 for Bullish, -1 for Bearish)."""
+        high = df[high_col]
+        low = df[low_col]
+        close = df[close_col]
+        atr = IndicatorHandler.atr(df, period=period, high_col=high_col, low_col=low_col, close_col=close_col)
+
+        hl2 = (high + low) / 2.0
+        basic_upper = hl2 + (multiplier * atr)
+        basic_lower = hl2 - (multiplier * atr)
+
+        n = len(df)
+        final_upper = np.zeros(n)
+        final_lower = np.zeros(n)
+        trend = np.ones(n)
+        st_line = np.zeros(n)
+
+        close_arr = close.to_numpy()
+        b_upper_arr = basic_upper.to_numpy()
+        b_lower_arr = basic_lower.to_numpy()
+
+        for i in range(n):
+            if i == 0:
+                final_upper[i] = b_upper_arr[i]
+                final_lower[i] = b_lower_arr[i]
+                st_line[i] = final_lower[i]
+                trend[i] = 1
+                continue
+
+            # Upper Band logic
+            if b_upper_arr[i] < final_upper[i - 1] or close_arr[i - 1] > final_upper[i - 1]:
+                final_upper[i] = b_upper_arr[i]
+            else:
+                final_upper[i] = final_upper[i - 1]
+
+            # Lower Band logic
+            if b_lower_arr[i] > final_lower[i - 1] or close_arr[i - 1] < final_lower[i - 1]:
+                final_lower[i] = b_lower_arr[i]
+            else:
+                final_lower[i] = final_lower[i - 1]
+
+            # Trend direction & Supertrend Line
+            if trend[i - 1] == 1:
+                if close_arr[i] < final_lower[i]:
+                    trend[i] = -1
+                    st_line[i] = final_upper[i]
+                else:
+                    trend[i] = 1
+                    st_line[i] = final_lower[i]
+            else:
+                if close_arr[i] > final_upper[i]:
+                    trend[i] = 1
+                    st_line[i] = final_lower[i]
+                else:
+                    trend[i] = -1
+                    st_line[i] = final_upper[i]
+
+        return pd.DataFrame({
+            'supertrend': st_line,
+            'trend': trend,
+            'upper': final_upper,
+            'lower': final_lower
+        }, index=df.index)
+
+    @staticmethod
+    def donchian_channels(df: pd.DataFrame, period: int = 20, high_col: str = 'high', low_col: str = 'low') -> pd.DataFrame:
+        """Donchian Channels (Upper, Lower, Middle)."""
+        upper = df[high_col].rolling(window=period, min_periods=1).max()
+        lower = df[low_col].rolling(window=period, min_periods=1).min()
+        middle = (upper + lower) / 2.0
+        return pd.DataFrame({'upper': upper, 'middle': middle, 'lower': lower}, index=df.index)
+
+    @staticmethod
+    def keltner_channels(df: pd.DataFrame, ema_period: int = 20, atr_period: int = 10, multiplier: float = 2.0,
+                         column: str = 'close') -> pd.DataFrame:
+        """Keltner Channels (EMA baseline with ATR-based bands)."""
+        middle = IndicatorHandler.ema(df, period=ema_period, column=column)
+        atr = IndicatorHandler.atr(df, period=atr_period)
+        upper = middle + (multiplier * atr)
+        lower = middle - (multiplier * atr)
+        return pd.DataFrame({'upper': upper, 'middle': middle, 'lower': lower}, index=df.index)
+
+    @staticmethod
+    def envelopes(df: pd.DataFrame, period: int = 20, percent: float = 2.5, column: str = 'close') -> pd.DataFrame:
+        """Price Envelopes around a Simple Moving Average."""
+        middle = df[column].rolling(window=period, min_periods=1).mean()
+        factor = percent / 100.0
+        upper = middle * (1.0 + factor)
+        lower = middle * (1.0 - factor)
+        return pd.DataFrame({'upper': upper, 'middle': middle, 'lower': lower}, index=df.index)
+
+    @staticmethod
+    def parabolic_sar(df: pd.DataFrame, step: float = 0.02, max_step: float = 0.2,
+                       high_col: str = 'high', low_col: str = 'low') -> pd.Series:
+        """Parabolic SAR trailing stop overlay."""
+        n = len(df)
+        sar = np.zeros(n)
+        if n == 0:
+            return pd.Series(sar, index=df.index)
+
+        high = df[high_col].to_numpy()
+        low = df[low_col].to_numpy()
+
+        is_bull = True
+        ep = high[0]
+        af = step
+        sar[0] = low[0]
+
+        for i in range(1, n):
+            prev_sar = sar[i - 1]
+            if is_bull:
+                curr_sar = prev_sar + af * (ep - prev_sar)
+                if i >= 2:
+                    curr_sar = min(curr_sar, low[i - 1], low[i - 2])
+                else:
+                    curr_sar = min(curr_sar, low[i - 1])
+
+                if low[i] < curr_sar:
+                    is_bull = False
+                    curr_sar = ep
+                    ep = low[i]
+                    af = step
+                else:
+                    if high[i] > ep:
+                        ep = high[i]
+                        af = min(af + step, max_step)
+            else:
+                curr_sar = prev_sar + af * (ep - prev_sar)
+                if i >= 2:
+                    curr_sar = max(curr_sar, high[i - 1], high[i - 2])
+                else:
+                    curr_sar = max(curr_sar, high[i - 1])
+
+                if high[i] > curr_sar:
+                    is_bull = True
+                    curr_sar = ep
+                    ep = high[i]
+                    af = step
+                else:
+                    if low[i] < ep:
+                        ep = low[i]
+                        af = min(af + step, max_step)
+
+            sar[i] = curr_sar
+
+        return pd.Series(sar, index=df.index)
+
+    @staticmethod
+    def stochastic(df: pd.DataFrame, k_period: int = 14, d_period: int = 3, slowing: int = 3,
+                   high_col: str = 'high', low_col: str = 'low', close_col: str = 'close') -> pd.DataFrame:
+        """Stochastic Oscillator (%K and %D)."""
+        lowest_low = df[low_col].rolling(window=k_period, min_periods=1).min()
+        highest_high = df[high_col].rolling(window=k_period, min_periods=1).max()
+
+        denom = (highest_high - lowest_low).replace(0, np.nan)
+        fast_k = 100.0 * (df[close_col] - lowest_low) / denom
+        
+        slow_k = fast_k.rolling(window=slowing, min_periods=1).mean()
+        d_line = slow_k.rolling(window=d_period, min_periods=1).mean()
+
+        return pd.DataFrame({
+            'k': slow_k.fillna(50.0),
+            'd': d_line.fillna(50.0)
+        }, index=df.index)
 
     # --- Custom / Specialized Pattern Handlers ---
     @staticmethod
@@ -250,88 +435,159 @@ class IndicatorHandler:
     def get_catalog() -> dict:
         """Returns catalog of supported indicators, parameters, and metadata for UI integration."""
         return {
-            "atr": {
-                "name": "Average True Range",
+            "ema": {
+                "name": "Exponential Moving Average (EMA)",
+                "category": "Trend Overlays",
+                "pane": "overlay",
+                "description": "Weighted moving average giving higher weight to recent prices.",
                 "params": {
-                    "period": {"type": "int", "default": 14, "min": 1},
-                    "smoothing": {"type": "select", "default": "rma", "options": ["rma", "sma", "ema", "wma"]}
+                    "period": {"type": "int", "default": 20, "min": 1, "max": 5000, "label": "Period"},
+                    "column": {"type": "select", "default": "close", "options": ["close", "open", "high", "low"], "label": "Source"}
                 }
             },
             "sma": {
-                "name": "Simple Moving Average",
+                "name": "Simple Moving Average (SMA)",
+                "category": "Trend Overlays",
+                "pane": "overlay",
+                "description": "Arithmetic moving average calculated by adding closing prices over a period.",
                 "params": {
-                    "period": {"type": "int", "default": 20, "min": 1},
-                    "column": {"type": "string", "default": "close"}
-                }
-            },
-            "ema": {
-                "name": "Exponential Moving Average",
-                "params": {
-                    "period": {"type": "int", "default": 20, "min": 1},
-                    "column": {"type": "string", "default": "close"}
+                    "period": {"type": "int", "default": 50, "min": 1, "max": 5000, "label": "Period"},
+                    "column": {"type": "select", "default": "close", "options": ["close", "open", "high", "low"], "label": "Source"}
                 }
             },
             "wma": {
-                "name": "Weighted Moving Average",
+                "name": "Weighted Moving Average (WMA)",
+                "category": "Trend Overlays",
+                "pane": "overlay",
+                "description": "Linear weighted moving average placing greatest weight on recent bars.",
                 "params": {
-                    "period": {"type": "int", "default": 20, "min": 1},
-                    "column": {"type": "string", "default": "close"}
+                    "period": {"type": "int", "default": 20, "min": 1, "max": 5000, "label": "Period"},
+                    "column": {"type": "select", "default": "close", "options": ["close", "open", "high", "low"], "label": "Source"}
                 }
             },
-            "rma": {
-                "name": "Wilder's Smoothing",
+            "hma": {
+                "name": "Hull Moving Average (HMA)",
+                "category": "Trend Overlays",
+                "pane": "overlay",
+                "description": "Extremely fast and smooth moving average with almost zero lag.",
                 "params": {
-                    "period": {"type": "int", "default": 14, "min": 1},
-                    "column": {"type": "string", "default": "close"}
+                    "period": {"type": "int", "default": 20, "min": 1, "max": 1000, "label": "Period"},
+                    "column": {"type": "select", "default": "close", "options": ["close", "open", "high", "low"], "label": "Source"}
                 }
             },
-            "rsi": {
-                "name": "Relative Strength Index",
+            "supertrend": {
+                "name": "Supertrend",
+                "category": "Trend Overlays",
+                "pane": "overlay",
+                "description": "ATR-based trend line identifying bullish and bearish trend shifts.",
                 "params": {
-                    "period": {"type": "int", "default": 14, "min": 1},
-                    "column": {"type": "string", "default": "close"},
-                    "smoothing": {"type": "select", "default": "rma", "options": ["rma", "sma", "ema", "wma"]}
+                    "period": {"type": "int", "default": 10, "min": 1, "max": 200, "label": "ATR Period"},
+                    "multiplier": {"type": "float", "default": 3.0, "min": 0.1, "max": 20.0, "label": "Multiplier"}
                 }
             },
-            "macd": {
-                "name": "MACD",
+            "parabolic_sar": {
+                "name": "Parabolic SAR",
+                "category": "Trend Overlays",
+                "pane": "overlay",
+                "description": "Trailing stop-and-reverse price points tracking dynamic momentum.",
                 "params": {
-                    "fast_period": {"type": "int", "default": 12, "min": 1},
-                    "slow_period": {"type": "int", "default": 26, "min": 1},
-                    "signal_period": {"type": "int", "default": 9, "min": 1},
-                    "column": {"type": "string", "default": "close"}
-                }
-            },
-            "bollinger_bands": {
-                "name": "Bollinger Bands",
-                "params": {
-                    "period": {"type": "int", "default": 20, "min": 1},
-                    "std_dev": {"type": "float", "default": 2.0, "min": 0.1},
-                    "column": {"type": "string", "default": "close"}
+                    "step": {"type": "float", "default": 0.02, "min": 0.001, "max": 0.5, "label": "Step"},
+                    "max_step": {"type": "float", "default": 0.2, "min": 0.01, "max": 1.0, "label": "Max Step"}
                 }
             },
             "vwap": {
-                "name": "Volume Weighted Average Price",
-                "params": {
-                    "high_col": {"type": "string", "default": "high"},
-                    "low_col": {"type": "string", "default": "low"},
-                    "close_col": {"type": "string", "default": "close"},
-                    "vol_col": {"type": "string", "default": "volume"}
-                }
-            },
-            "fvg": {
-                "name": "Fair Value Gaps",
+                "name": "Volume Weighted Average Price (VWAP)",
+                "category": "Volume & Flow",
+                "pane": "overlay",
+                "description": "Benchmark price representing total value traded divided by total volume.",
                 "params": {}
             },
-            "vsa": {
-                "name": "Volume Spread Analysis",
+            "bollinger_bands": {
+                "name": "Bollinger Bands",
+                "category": "Volatility & Bands",
+                "pane": "overlay",
+                "description": "Volatility bands placed above and below a moving average.",
                 "params": {
-                    "lookback": {"type": "int", "default": 20, "min": 1}
+                    "period": {"type": "int", "default": 20, "min": 1, "max": 500, "label": "Period"},
+                    "std_dev": {"type": "float", "default": 2.0, "min": 0.1, "max": 10.0, "label": "Std Dev Multiplier"},
+                    "column": {"type": "select", "default": "close", "options": ["close", "open", "high", "low"], "label": "Source"}
                 }
             },
-            "weis_wave": {
-                "name": "Weis Wave Volume",
-                "params": {}
+            "keltner_channels": {
+                "name": "Keltner Channels",
+                "category": "Volatility & Bands",
+                "pane": "overlay",
+                "description": "Volatility-based envelopes using an EMA baseline and ATR bands.",
+                "params": {
+                    "ema_period": {"type": "int", "default": 20, "min": 1, "max": 500, "label": "EMA Period"},
+                    "atr_period": {"type": "int", "default": 10, "min": 1, "max": 200, "label": "ATR Period"},
+                    "multiplier": {"type": "float", "default": 2.0, "min": 0.1, "max": 10.0, "label": "ATR Multiplier"},
+                    "column": {"type": "select", "default": "close", "options": ["close", "open", "high", "low"], "label": "Source"}
+                }
+            },
+            "donchian_channels": {
+                "name": "Donchian Channels",
+                "category": "Volatility & Bands",
+                "pane": "overlay",
+                "description": "Highest high and lowest low bands over a lookback window.",
+                "params": {
+                    "period": {"type": "int", "default": 20, "min": 1, "max": 500, "label": "Period"}
+                }
+            },
+            "envelopes": {
+                "name": "Price Envelopes",
+                "category": "Volatility & Bands",
+                "pane": "overlay",
+                "description": "Percentage envelope bands placed above and below an SMA.",
+                "params": {
+                    "period": {"type": "int", "default": 20, "min": 1, "max": 500, "label": "Period"},
+                    "percent": {"type": "float", "default": 2.5, "min": 0.1, "max": 50.0, "label": "Envelope Percentage (%)"},
+                    "column": {"type": "select", "default": "close", "options": ["close", "open", "high", "low"], "label": "Source"}
+                }
+            },
+            "rsi": {
+                "name": "Relative Strength Index (RSI)",
+                "category": "Momentum & Oscillators",
+                "pane": "subpane",
+                "description": "Momentum oscillator measuring the speed and change of price movements.",
+                "params": {
+                    "period": {"type": "int", "default": 14, "min": 1, "max": 200, "label": "Period"},
+                    "column": {"type": "select", "default": "close", "options": ["close", "open", "high", "low"], "label": "Source"},
+                    "smoothing": {"type": "select", "default": "rma", "options": ["rma", "sma", "ema", "wma"], "label": "Smoothing"}
+                }
+            },
+            "stochastic": {
+                "name": "Stochastic Oscillator",
+                "category": "Momentum & Oscillators",
+                "pane": "subpane",
+                "description": "Compares closing price to price range over a specific time period.",
+                "params": {
+                    "k_period": {"type": "int", "default": 14, "min": 1, "max": 200, "label": "%K Period"},
+                    "d_period": {"type": "int", "default": 3, "min": 1, "max": 50, "label": "%D Smoothing"},
+                    "slowing": {"type": "int", "default": 3, "min": 1, "max": 50, "label": "Slowing"}
+                }
+            },
+            "macd": {
+                "name": "MACD (Moving Average Convergence Divergence)",
+                "category": "Momentum & Oscillators",
+                "pane": "subpane",
+                "description": "Trend-following momentum indicator showing the relationship between two EMAs.",
+                "params": {
+                    "fast_period": {"type": "int", "default": 12, "min": 1, "max": 200, "label": "Fast Period"},
+                    "slow_period": {"type": "int", "default": 26, "min": 1, "max": 500, "label": "Slow Period"},
+                    "signal_period": {"type": "int", "default": 9, "min": 1, "max": 100, "label": "Signal Smoothing"},
+                    "column": {"type": "select", "default": "close", "options": ["close", "open", "high", "low"], "label": "Source"}
+                }
+            },
+            "atr": {
+                "name": "Average True Range (ATR)",
+                "category": "Volatility & Bands",
+                "pane": "subpane",
+                "description": "Measures market volatility by decomposing the entire range of an asset.",
+                "params": {
+                    "period": {"type": "int", "default": 14, "min": 1, "max": 200, "label": "Period"},
+                    "smoothing": {"type": "select", "default": "rma", "options": ["rma", "sma", "ema", "wma"], "label": "Smoothing"}
+                }
             }
         }
 

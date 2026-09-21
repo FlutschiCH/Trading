@@ -19,6 +19,7 @@ export interface Candle {
   wyckoff_signal?: string;
   accum_consec_bars?: number;
   dist_consec_bars?: number;
+  atr?: number;
 }
 
 export interface AccountInfo {

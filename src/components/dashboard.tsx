@@ -393,7 +393,7 @@ export default function Dashboard() {
 
   // Backtester states
   const [backtestSL, setBacktestSL] = useState(() => localStorage.getItem('wyckoff_backtest_sl') || '20');
-  const [backtestSLType, setBacktestSLType] = useState<'pct' | 'price' | 'dollar' | 'atr'>(() => (localStorage.getItem('wyckoff_backtest_sl_type') as 'pct' | 'price' | 'dollar' | 'atr') || 'price');
+  const [backtestSLType, setBacktestSLType] = useState<'pct' | 'price' | 'pips' | 'dollar' | 'atr'>(() => (localStorage.getItem('wyckoff_backtest_sl_type') as 'pct' | 'price' | 'pips' | 'dollar' | 'atr') || 'price');
   const [backtestRR, setBacktestRR] = useState(() => localStorage.getItem('wyckoff_backtest_rr') || '2');
   const [backtestSize, setBacktestSize] = useState(() => localStorage.getItem('wyckoff_backtest_size') || '1');
   const [lookbackWindow, setLookbackWindow] = useState(() => localStorage.getItem('wyckoff_backtest_lookback') || '20');
@@ -2628,15 +2628,27 @@ export default function Dashboard() {
       const isBuy = pos.trade_side === 'BUY';
       const entry = pos.entry_price;
 
-      if (liveStrategy.slType === 'price') {
-        slPrice = isBuy ? entry - slVal : entry + slVal;
-      } else if (liveStrategy.slType === 'dollar') {
+      const slTypeStr = String(liveStrategy.slType || 'price').toLowerCase();
+      if (slTypeStr === 'pips') {
+        const pip = pos.symbol?.toUpperCase().includes('JPY') ? 0.01 : (pos.symbol?.toUpperCase().includes('XAU') ? 0.1 : 0.0001);
+        const slDist = slVal * pip;
+        slPrice = isBuy ? entry - slDist : entry + slDist;
+      } else if (slTypeStr === 'atr') {
+        const atr = (candles.length > 0 && candles[candles.length - 1].atr) ? Number(candles[candles.length - 1].atr) : 0.0010;
+        const slDist = slVal * atr;
+        slPrice = isBuy ? entry - slDist : entry + slDist;
+      } else if (slTypeStr === 'dollar' || slTypeStr === 'amount') {
         const lotSize = getLotSize(pos.symbol);
         const volume = parseFloat(pos.volume) || 1.0;
         const slDistance = slVal / (volume * lotSize);
         slPrice = isBuy ? entry - slDistance : entry + slDistance;
-      } else {
+      } else if (slTypeStr === 'pct') {
         slPrice = isBuy ? entry * (1 - slVal / 100) : entry * (1 + slVal / 100);
+      } else {
+        // Price mode: check if it was entered in pips for forex pairs
+        const pip = pos.symbol?.toUpperCase().includes('JPY') ? 0.01 : (pos.symbol?.toUpperCase().includes('XAU') ? 0.1 : 0.0001);
+        const slDist = (slVal >= entry || (entry < 10 && slVal >= 1.0)) ? slVal * pip : slVal;
+        slPrice = isBuy ? entry - slDist : entry + slDist;
       }
 
       const slDistancePrice = Math.abs(entry - slPrice);

@@ -167,12 +167,24 @@ class PositionManager:
 
                 # Determine Risk Distance R for BE evaluation
                 pip_size = get_pip_size(symbol, entry_price)
-                if sl_type == "pips":
+                lot_size = get_lot_size(symbol)
+                sl_type_lower = str(sl_type).lower().strip() if sl_type else "pips"
+
+                if sl_type_lower in ("pips", "pip", "points"):
                     risk_dist = sl_val * pip_size
-                elif sl_type == "price":
-                    risk_dist = sl_val
-                else: # percent / default
+                elif sl_type_lower in ("atr", "xatr"):
+                    atr_val = float(strategy.get("atr", 0.0))
+                    risk_dist = (sl_val * atr_val) if atr_val > 0 else (sl_val * pip_size * 10.0 if pip_size > 0 else sl_val)
+                elif sl_type_lower in ("amount", "$", "dollar", "risk"):
+                    qty = float(pos.get("volume", 1.0))
+                    risk_dist = sl_val / (qty * lot_size) if (lot_size > 0 and qty > 0) else sl_val
+                elif sl_type_lower in ("pct", "percent", "percentage"):
                     risk_dist = entry_price * (sl_val / 100.0)
+                else: # price / delta
+                    if pip_size > 0 and (sl_val >= entry_price or (pip_size <= 0.001 and sl_val >= 1.0)):
+                        risk_dist = sl_val * pip_size
+                    else:
+                        risk_dist = sl_val
 
                 if risk_dist <= 0:
                     continue

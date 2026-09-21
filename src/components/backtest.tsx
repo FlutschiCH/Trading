@@ -151,8 +151,8 @@ interface WyckoffBacktesterProps {
   setBacktestSize: (val: string) => void;
   backtestSL: string;
   setBacktestSL: (val: string) => void;
-  backtestSLType: 'pct' | 'price' | 'dollar' | 'atr';
-  setBacktestSLType: (val: 'pct' | 'price' | 'dollar' | 'atr') => void;
+  backtestSLType: 'pct' | 'price' | 'pips' | 'dollar' | 'atr';
+  setBacktestSLType: (val: 'pct' | 'price' | 'pips' | 'dollar' | 'atr') => void;
   backtestRR: string;
   setBacktestRR: (val: string) => void;
   useBreakEven: boolean;
@@ -2798,13 +2798,13 @@ export default function Backtester({
                       <select
                         value={backtestSLType}
                         onChange={(e) => {
-                          const newType = e.target.value as 'pct' | 'price' | 'dollar' | 'atr';
+                          const newType = e.target.value as 'pct' | 'price' | 'pips' | 'dollar' | 'atr';
                           setUseRiskSizing(true);
                           setBacktestSLType(newType);
                           try {
                             localStorage.setItem('wyckoff_backtest_sl_type', newType);
                           } catch (err) {}
-                          setBacktestSL(newType === 'pct' ? '1.0' : (newType === 'dollar' ? '100' : (newType === 'atr' ? '1.5' : '1.0')));
+                          setBacktestSL(newType === 'pct' ? '1.0' : (newType === 'dollar' ? '100' : (newType === 'atr' ? '1.5' : (newType === 'pips' ? '20' : '1.0'))));
                         }}
                         style={{
                           backgroundColor: 'rgba(30, 41, 59, 0.9)',
@@ -2819,6 +2819,7 @@ export default function Backtester({
                         }}
                       >
                         <option value="price">Price ($)</option>
+                        <option value="pips">Pips</option>
                         <option value="pct">% Pct</option>
                         <option value="dollar">Risk $</option>
                         <option value="atr">xATR</option>
@@ -2873,6 +2874,7 @@ export default function Backtester({
                           }}
                         >
                           <option value="price">Price</option>
+                          <option value="pips">Pips</option>
                           <option value="pct">%</option>
                           <option value="dollar">$</option>
                           <option value="atr">xATR</option>

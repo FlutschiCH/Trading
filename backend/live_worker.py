@@ -233,11 +233,11 @@ class LiveWorker:
                     symbol=target_broker_symbol,
                     entry_price=entry_price,
                     direction=direction,
-                    sl_type=strategy["slType"],
-                    sl_val=strategy["slVal"],
-                    rr=strategy["rr"],
+                    sl_type=strategy.get("slType", "price"),
+                    sl_val=strategy.get("slVal", 1.0),
+                    rr=strategy.get("rr", 2.0),
                     size=effective_size,
-                    use_risk_sizing=strategy["useRiskSizing"],
+                    use_risk_sizing=strategy.get("useRiskSizing", False),
                     risk_pct=effective_risk_pct,
                     balance=balance,
                     lot_size=lot_size,
@@ -279,10 +279,20 @@ class LiveWorker:
                         f"🏦 **Broker:** `{target_broker}` (Acc: `{target_acc_id}`)\n"
                         f"📊 **Symbol:** `{symbol}` | ➡️ **Side:** `{direction}`\n"
                         f"📦 **Volume:** `{params['qty']}` | 💵 **Entry:** `{params['entry_price']:.5f}`\n"
-                        f"🛑 **SL:** `{params['sl_price']:.5f}` | 🎯 **TP:** `{params['tp_price']:.5f}`"
-                    )
             except Exception as ex:
-                print(f"{Fore.RED}[LiveWorker Error]{Style.RESET_ALL} Error executing trade: {ex}", flush=True)
+                err_text = str(ex)
+                print(f"{Fore.RED}[LiveWorker Error]{Style.RESET_ALL} Error executing trade: {err_text}", flush=True)
+                try:
+                    from discord_handler import send_discord_message
+                    send_discord_message(
+                        f"❌ **Trade Execution / SL Error!**\n"
+                        f"🎛️ **Strategy ID:** `{strategy_id}`\n"
+                        f"🏦 **Broker:** `{target_broker}` (Acc: `{target_acc_id}`)\n"
+                        f"📊 **Symbol:** `{symbol}` | ➡️ **Side:** `{direction}`\n"
+                        f"⚠️ **Error:** {err_text}"
+                    )
+                except Exception:
+                    pass
 
     def check_break_even(self, strategy: dict):
         """
@@ -335,12 +345,26 @@ class LiveWorker:
                         continue
 
                     pip_size = get_pip_size(broker_symbol or symbol, entry_price)
-                    if sl_type == "pips":
+                    lot_size = get_lot_size(broker_symbol or symbol)
+                    sl_type_lower = str(sl_type).lower().strip() if sl_type else "price"
+
+                    if sl_type_lower in ("pips", "pip", "points"):
                         sl_distance = sl_val * pip_size
-                    elif sl_type == "price":
-                        sl_distance = sl_val
-                    else:
+                    elif sl_type_lower in ("atr", "xatr"):
+                        atr_val = 0.0
+                        if self.candles_cache and len(self.candles_cache) > 0:
+                            atr_val = float(self.candles_cache[-1].get("atr", 0.0))
+                        sl_distance = (sl_val * atr_val) if atr_val > 0 else (sl_val * pip_size * 10.0 if pip_size > 0 else sl_val)
+                    elif sl_type_lower in ("amount", "$", "dollar", "risk"):
+                        qty = float(p.get("volume", 1.0))
+                        sl_distance = sl_val / (qty * lot_size) if (lot_size > 0 and qty > 0) else sl_val
+                    elif sl_type_lower in ("pct", "percent", "percentage"):
                         sl_distance = entry_price * (sl_val / 100.0)
+                    else: # price / delta
+                        if pip_size > 0 and (sl_val >= entry_price or (pip_size <= 0.001 and sl_val >= 1.0)):
+                            sl_distance = sl_val * pip_size
+                        else:
+                            sl_distance = sl_val
 
                     if sl_distance <= 0:
                         continue

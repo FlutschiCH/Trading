@@ -43,29 +43,61 @@ def calculate_indicators():
         if col in df.columns:
             df[col] = df[col].astype(float)
 
+    times = df['time'].astype(int).tolist() if 'time' in df.columns else []
+
     results = {}
 
-    for req in indicator_requests:
+    for idx, req in enumerate(indicator_requests):
         name = req.get('name')
-        params = req.get('params', {})
         if not name:
             continue
+        req_id = str(req.get('id') or f"{name}_{idx}")
+        params = req.get('params', {})
 
         try:
             res = IndicatorHandler.compute(df, name, **params)
             if isinstance(res, pd.Series):
-                # Clean NaNs for JSON response
                 cleaned = res.replace({np.nan: None}).tolist()
-                results[name] = cleaned
+                points = []
+                if times:
+                    for t, v in zip(times, cleaned):
+                        if v is not None and not np.isnan(float(v)):
+                            points.append({"time": int(t), "value": float(v)})
+                results[req_id] = {
+                    "type": "series",
+                    "values": cleaned,
+                    "points": points
+                }
             elif isinstance(res, pd.DataFrame):
                 cleaned_df = res.replace({np.nan: None})
-                results[name] = cleaned_df.to_dict(orient='list')
+                cols = {}
+                for col in cleaned_df.columns:
+                    col_vals = cleaned_df[col].tolist()
+                    pts = []
+                    if times:
+                        for t, v in zip(times, col_vals):
+                            if v is not None and not np.isnan(float(v)):
+                                pts.append({"time": int(t), "value": float(v)})
+                    cols[col] = {
+                        "values": col_vals,
+                        "points": pts
+                    }
+                results[req_id] = {
+                    "type": "dataframe",
+                    "columns": cols
+                }
             elif isinstance(res, list):
-                results[name] = res
+                results[req_id] = {
+                    "type": "list",
+                    "data": res
+                }
             else:
-                results[name] = res
+                results[req_id] = {
+                    "type": "value",
+                    "data": res
+                }
         except Exception as e:
-            results[name] = {"error": str(e)}
+            results[req_id] = {"error": str(e)}
 
     return jsonify({"status": "success", "data": results})
 
