@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Activity, X, TrendingUp, TrendingDown, Clock, HelpCircle, RefreshCw, Menu, ChevronDown, Sun, Moon, Settings, ShieldAlert } from 'lucide-react';
+import { Activity, X, TrendingUp, TrendingDown, Clock, HelpCircle, RefreshCw, Menu, ChevronDown, Sun, Moon, Settings, ShieldAlert, Compass, ChevronRight, Layers, BarChart2, Sliders, LineChart, Cpu, Link, Bot, Terminal as TerminalIcon, Database, Zap } from 'lucide-react';
 import TVChart from './tv_chart';
 import Backtester from './backtest';
 import HowToPage from './how_to_page';
@@ -1057,6 +1057,44 @@ export default function Dashboard() {
       return next;
     });
   };
+
+  const [isSideMenuExpanded, setIsSideMenuExpanded] = useState<boolean>(() => {
+    return localStorage.getItem('wyckoff_card_side_menu_expanded') === 'true';
+  });
+
+  const toggleSideMenu = () => {
+    setIsSideMenuExpanded(prev => {
+      const next = !prev;
+      localStorage.setItem('wyckoff_card_side_menu_expanded', String(next));
+      return next;
+    });
+  };
+
+  const jumpToCard = (cardId: string) => {
+    // If card is collapsed, expand it first
+    if (collapsedCards[cardId]) {
+      setCollapsedCards(prev => {
+        const next = { ...prev, [cardId]: false };
+        localStorage.setItem('wyckoff_desk_collapsed_cards', JSON.stringify(next));
+        return next;
+      });
+    }
+    const el = document.getElementById(`card-panel-${cardId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // Temporary highlight animation
+      el.style.transition = 'box-shadow 0.3s ease, border-color 0.3s ease';
+      const origBorder = el.style.borderColor;
+      const origBoxShadow = el.style.boxShadow;
+      el.style.borderColor = '#3b82f6';
+      el.style.boxShadow = '0 0 20px rgba(59, 130, 246, 0.4)';
+      setTimeout(() => {
+        el.style.borderColor = origBorder;
+        el.style.boxShadow = origBoxShadow;
+      }, 1500);
+    }
+  };
+
   const [activeResize, setActiveResize] = useState<{
     id: string;
     direction: 'horizontal' | 'vertical';
@@ -2680,6 +2718,118 @@ export default function Dashboard() {
         <>
           {/* Main Grid View */}
           <main style={styles.mainLayout}>
+            {/* Quick Card Navigator Side Dock (Desktop / Tablet) */}
+            {!isMobile && (
+              <div
+                style={{
+                  position: 'fixed',
+                  left: isSideMenuExpanded ? '16px' : '8px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  zIndex: 999,
+                  backgroundColor: 'rgba(15, 23, 42, 0.92)',
+                  backdropFilter: 'blur(12px)',
+                  WebkitBackdropFilter: 'blur(12px)',
+                  border: '1px solid rgba(59, 130, 246, 0.3)',
+                  borderRadius: isSideMenuExpanded ? '14px' : '10px',
+                  padding: isSideMenuExpanded ? '10px 8px' : '6px 4px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '6px',
+                  boxShadow: '0 20px 30px -10px rgba(0, 0, 0, 0.7), 0 0 15px rgba(59, 130, 246, 0.2)',
+                  transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                  maxWidth: isSideMenuExpanded ? '210px' : '44px',
+                }}
+              >
+                {/* Header / Toggle Button */}
+                <button
+                  type="button"
+                  onClick={toggleSideMenu}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: isSideMenuExpanded ? 'space-between' : 'center',
+                    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                    color: '#60a5fa',
+                    borderRadius: '8px',
+                    padding: isSideMenuExpanded ? '6px 10px' : '6px',
+                    cursor: 'pointer',
+                    fontSize: '11px',
+                    fontWeight: 'bold',
+                    outline: 'none',
+                    transition: 'all 0.15s ease',
+                  }}
+                  title={isSideMenuExpanded ? 'Collapse Navigation Bar' : 'Expand Card Quick Navigation'}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Compass size={16} />
+                    {isSideMenuExpanded && <span>Card Jump</span>}
+                  </div>
+                  {isSideMenuExpanded ? (
+                    <ChevronRight size={14} style={{ transform: 'rotate(180deg)' }} />
+                  ) : null}
+                </button>
+
+                {/* Card Jump Navigation Buttons */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '2px' }}>
+                  {[
+                    { id: 'chart', label: 'Chart & Wave', icon: <BarChart2 size={15} color="#38bdf8" /> },
+                    { id: 'backtester', label: 'Backtester', icon: <Sliders size={15} color="#a855f7" /> },
+                    { id: 'trades', label: 'Live Trades', icon: <LineChart size={15} color="#10b981" /> },
+                    { id: 'live_overview', label: 'Live Strategies', icon: <Zap size={15} color="#f59e0b" /> },
+                    { id: 'symbol_mapping', label: 'Symbol Maps', icon: <Link size={15} color="#6366f1" /> },
+                    { id: 'analyzer', label: 'AI Analyzer', icon: <Bot size={15} color="#ec4899" /> },
+                    { id: 'scalper', label: 'Void Scalper', icon: <Activity size={15} color="#14b8a6" /> },
+                    { id: 'copytrader-bottom', label: 'Copytrader', icon: <Cpu size={15} color="#f97316" /> },
+                    ...(showTerminal ? [{ id: 'terminal', label: 'Terminal Logs', icon: <TerminalIcon size={15} color="#4ade80" /> }] : []),
+                    { id: 'collector', label: '1M Collector', icon: <Database size={15} color="#94a3b8" /> },
+                  ].map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => jumpToCard(item.id)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        backgroundColor: 'transparent',
+                        border: '1px solid transparent',
+                        borderRadius: '6px',
+                        padding: isSideMenuExpanded ? '6px 8px' : '6px',
+                        justifyContent: isSideMenuExpanded ? 'flex-start' : 'center',
+                        color: 'var(--app-text, #f3f4f6)',
+                        cursor: 'pointer',
+                        fontSize: '11px',
+                        fontWeight: 500,
+                        textAlign: 'left',
+                        outline: 'none',
+                        transition: 'all 0.15s ease',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.2)';
+                        e.currentTarget.style.borderColor = 'rgba(59, 130, 246, 0.4)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                        e.currentTarget.style.borderColor = 'transparent';
+                      }}
+                      title={`Jump to ${item.label}`}
+                    >
+                      <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        {item.icon}
+                      </span>
+                      {isSideMenuExpanded && (
+                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {item.label}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Selected Candle Details Inspector Component */}
             <CandleDetailsCard
               selectedCandle={selectedCandle}
@@ -3203,6 +3353,7 @@ export default function Dashboard() {
                     return (
                       <div
                         key="chart"
+                        id="card-panel-chart"
                         onDragOver={(e) => handleDragOver(e, 'chart')}
                         onDrop={(e) => handleDrop(e, 'chart')}
                         style={dragStyles}
@@ -3295,6 +3446,7 @@ export default function Dashboard() {
                     return (
                       <div
                         key="backtester"
+                        id="card-panel-backtester"
                         onDragOver={(e) => handleDragOver(e, 'backtester')}
                         onDrop={(e) => handleDrop(e, 'backtester')}
                         style={{
@@ -3457,6 +3609,7 @@ export default function Dashboard() {
                     return (
                       <div
                         key="trades"
+                        id="card-panel-trades"
                         onDragOver={(e) => handleDragOver(e, 'trades')}
                         onDrop={(e) => handleDrop(e, 'trades')}
                         style={dragStyles}
@@ -3588,6 +3741,7 @@ export default function Dashboard() {
                     return (
                       <div
                         key="live_overview"
+                        id="card-panel-live_overview"
                         onDragOver={(e) => handleDragOver(e, 'live_overview')}
                         onDrop={(e) => handleDrop(e, 'live_overview')}
                         style={dragStyles}
@@ -3631,6 +3785,7 @@ export default function Dashboard() {
                     return (
                       <div
                         key="symbol_mapping"
+                        id="card-panel-symbol_mapping"
                         onDragOver={(e) => handleDragOver(e, 'symbol_mapping')}
                         onDrop={(e) => handleDrop(e, 'symbol_mapping')}
                         style={dragStyles}
@@ -3662,6 +3817,7 @@ export default function Dashboard() {
                     return (
                       <div
                         key="copytrader"
+                        id="card-panel-copytrader"
                         onDragOver={(e) => handleDragOver(e, 'copytrader')}
                         onDrop={(e) => handleDrop(e, 'copytrader')}
                         style={dragStyles}
@@ -3696,7 +3852,7 @@ export default function Dashboard() {
             {!isMobile && (
               <>
                 {/* Backtest Analyzer Card (AI Prompt Generator) */}
-                <div style={{ marginTop: '24px' }}>
+                <div id="card-panel-analyzer" style={{ marginTop: '24px' }}>
                   <BacktestAnalyzerCard
                     currentBacktestResults={backtestResults}
                     currentSymbol={symbol}
@@ -3706,7 +3862,7 @@ export default function Dashboard() {
                 </div>
 
                 {/* M1/M5 Liquidity Void & Reversal Scalper Card */}
-                <div style={{ marginTop: '24px' }}>
+                <div id="card-panel-scalper" style={{ marginTop: '24px' }}>
                   <ScalperCard
                     currentSymbol={symbol}
                     currentTimeframe={timeframe}
@@ -3718,7 +3874,7 @@ export default function Dashboard() {
                 </div>
 
                 {/* Copytrader Master / Slave Engine Card */}
-                <div style={{
+                <div id="card-panel-copytrader-bottom" style={{
                   marginTop: '24px',
                   backgroundColor: 'var(--app-card-bg, #111827)',
                   border: '1px solid var(--app-card-border, #1f2937)',
@@ -3743,7 +3899,7 @@ export default function Dashboard() {
                 </div>
                 {/* Interactive Realtime Log Panel */}
                 {showTerminal && (
-                  <div style={{
+                  <div id="card-panel-terminal" style={{
                     width: '100%',
                     height: '420px',
                     marginTop: '24px',
@@ -3754,7 +3910,9 @@ export default function Dashboard() {
                 )}
 
                 {/* 1M Candle Collector Panel */}
-                <CandleCollectorPanel availableSymbols={availableSymbols} />
+                <div id="card-panel-collector">
+                  <CandleCollectorPanel availableSymbols={availableSymbols} />
+                </div>
               </>
             )}
 
