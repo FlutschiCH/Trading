@@ -87,6 +87,7 @@ class StrategyHandler:
                 riskPct DOUBLE DEFAULT 1.0,
                 useBreakEven TINYINT(1) DEFAULT 0,
                 beTriggerR DOUBLE DEFAULT 1.0,
+                beOffsetMode VARCHAR(32) DEFAULT 'half_r',
                 allowOppositeClose TINYINT(1) DEFAULT 1,
                 lookbackWindow INT DEFAULT 100,
                 deployedAt VARCHAR(64) DEFAULT '',
@@ -135,6 +136,7 @@ class StrategyHandler:
                 riskPct REAL DEFAULT 1.0,
                 useBreakEven INTEGER DEFAULT 0,
                 beTriggerR REAL DEFAULT 1.0,
+                beOffsetMode TEXT DEFAULT 'half_r',
                 allowOppositeClose INTEGER DEFAULT 1,
                 lookbackWindow INTEGER DEFAULT 100,
                 deployedAt TEXT DEFAULT '',
@@ -176,6 +178,15 @@ class StrategyHandler:
                     SQLHandler.execute_query(create_targets_sqlite)
                 except Exception as e:
                     print(f"Error initializing strategies DB: {e}", flush=True)
+
+            # Alter table migrations for existing databases
+            try:
+                SQLHandler.execute_query("ALTER TABLE live_strategies ADD COLUMN beOffsetMode VARCHAR(32) DEFAULT 'half_r'")
+            except Exception:
+                try:
+                    SQLHandler.execute_query("ALTER TABLE live_strategies ADD COLUMN beOffsetMode TEXT DEFAULT 'half_r'")
+                except Exception:
+                    pass
 
             cls._db_initialized = True
 
@@ -225,12 +236,12 @@ class StrategyHandler:
         query = """
         INSERT INTO live_strategies (
             id, name, symbol, status, timeframe, slVal, slType, rr, size, 
-            useRiskSizing, riskPct, useBreakEven, beTriggerR, allowOppositeClose, lookbackWindow, deployedAt,
+            useRiskSizing, riskPct, useBreakEven, beTriggerR, beOffsetMode, allowOppositeClose, lookbackWindow, deployedAt,
             timezone, sessions, useGlobalClose, globalCloseTime, useEntryCutoff, entryCutoffTime, entryStabilityRule, broker, account_id, target_computer,
             dateRangeOption, customFrom, customTo, candleLimit,
             dailyFirstSignalsMode, dailyFirstSignalsCount, dailyFirstSignalsRiskMult
         ) VALUES (
-            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
             %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
             %s, %s, %s, %s,
             %s, %s, %s
@@ -247,6 +258,7 @@ class StrategyHandler:
             riskPct=VALUES(riskPct),
             useBreakEven=VALUES(useBreakEven),
             beTriggerR=VALUES(beTriggerR),
+            beOffsetMode=VALUES(beOffsetMode),
             allowOppositeClose=VALUES(allowOppositeClose),
             lookbackWindow=VALUES(lookbackWindow),
             deployedAt=VALUES(deployedAt),
@@ -290,6 +302,7 @@ class StrategyHandler:
             strategy.get("riskPct", 1.0),
             1 if strategy.get("useBreakEven") else 0,
             strategy.get("beTriggerR", 1.0),
+            strategy.get("beOffsetMode", "half_r") or "half_r",
             1 if strategy.get("allowOppositeClose", True) else 0,
             strategy.get("lookbackWindow", 100),
             strategy.get("deployedAt", str(int(time.time()))),
@@ -421,6 +434,7 @@ class StrategyHandler:
             "riskPct": float(row["riskPct"]),
             "useBreakEven": bool(row["useBreakEven"]),
             "beTriggerR": float(row["beTriggerR"]),
+            "beOffsetMode": row.get("beOffsetMode") or "half_r",
             "allowOppositeClose": bool(row.get("allowOppositeClose", True)),
             "lookbackWindow": int(row["lookbackWindow"]),
             "deployedAt": row["deployedAt"],
@@ -2127,7 +2141,6 @@ if __name__ == "__main__":
 
     if not candles:
         print(f"{Fore.RED}[Error] Could not fetch candles. Aborting comparison.{Style.RESET_ALL}")
-        sys.exit(1)
 
     print(f"{Fore.GREEN}[Data]{Style.RESET_ALL} Retrieved {len(candles)} candles.")
 
