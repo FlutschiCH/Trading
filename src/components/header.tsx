@@ -198,6 +198,28 @@ export default function Header({
           </div>
           
           <button
+            onClick={toggleTheme}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: 'var(--app-panel-header-bg)',
+              border: '1px solid var(--app-card-border)',
+              cursor: 'pointer',
+              borderRadius: '6px',
+              padding: '4px 6px',
+              color: 'var(--app-text)',
+              outline: 'none',
+              flexShrink: 0,
+              height: '28px',
+            }}
+            title={theme === 'dark' ? "Switch to Light Mode" : "Switch to Dark Mode"}
+            aria-label="Toggle dark/light theme"
+          >
+            {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+          </button>
+          
+          <button
             onClick={() => setShowMobileNav(!showMobileNav)}
             style={{
               background: 'none',
