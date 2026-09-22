@@ -743,6 +743,32 @@ class CopytraderHandler:
                                     
                                     # Check for insufficient margin
                                     if "margin is insufficient" in err_text.lower() or res.get("code") == -2019:
+                                        # Calculate required margin details
+                                        margin_calc_str = ""
+                                        try:
+                                            from broker_handler import BrokerHandler
+                                            acct_data = BrokerHandler.get_account_info(broker_name=slave_broker, account_id=slave_acc)
+                                            avail_bal = None
+                                            if acct_data:
+                                                if isinstance(acct_data.get("data"), dict):
+                                                    avail_bal = float(acct_data["data"].get("availableBalance") or acct_data["data"].get("balance") or 0.0)
+                                                else:
+                                                    avail_bal = float(acct_data.get("availableBalance") or acct_data.get("balance") or 0.0)
+
+                                            ref_price = m_open_price if m_open_price > 0 else 0.0
+                                            notional = slave_lots * ref_price if ref_price > 0 else 0.0
+                                            
+                                            margin_calc_str = (
+                                                f"[Margin Details] Slave: {slave_broker.upper()} | "
+                                                f"Attempted Qty: {slave_lots} {m_sym} @ ~{ref_price:.2f} (Notional Value: ${notional:.2f}) | "
+                                                f"Available Margin/Balance: ${avail_bal:.2f} | "
+                                                f"Req Margin: ~${notional:.2f} (1x) / ~${(notional/20.0):.2f} (20x) / ~${(notional/50.0):.2f} (50x)"
+                                            )
+                                            print(margin_calc_str, flush=True)
+                                        except Exception as m_calc_err:
+                                            margin_calc_str = f"[Margin Details] Error calculating required margin: {m_calc_err}"
+                                            print(margin_calc_str, flush=True)
+
                                         print(f"[Copytrader Alert] Insufficient margin detected on slave {slave_acc} ({slave_broker}). Pausing setup '{cfg_name}' (ID: {cfg_id}) in memory", flush=True)
                                         logPrint(f"[Copytrader] Insufficient margin on slave {slave_acc}. Pausing copytrader configuration '{cfg_name}' in memory.")
                                         
@@ -760,6 +786,7 @@ class CopytraderHandler:
                                                 f"🎛️ **Configuration:** `{cfg_name}` (ID: `{cfg_id}`)\n"
                                                 f"🏦 **Slave Account:** `{slave_acc}` ({slave_broker.upper()})\n"
                                                 f"📊 **Attempted Order:** `{m_side} {slave_lots} {m_sym}`\n"
+                                                f"💰 **Margin Info:** `{margin_calc_str}`\n"
                                                 f"❌ **Error:** `{err_text or 'Margin is insufficient'}`\n"
                                                 f"⏸️ **Action:** Copytrader configuration has been **PAUSED** to prevent spam. Please add funds and restart/resume copytrader."
                                             )
