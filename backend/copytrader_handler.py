@@ -832,7 +832,12 @@ if __name__ == "__main__":
 
     root = tk.Tk()
     root.title("Copytrader Manual Sync & Diagnostic Panel")
-    root.geometry("850x650")
+    win_w, win_h = 850, 650
+    screen_w = root.winfo_screenwidth()
+    screen_h = root.winfo_screenheight()
+    pos_x = max(0, (screen_w - win_w) // 2)
+    pos_y = max(0, (screen_h - win_h) // 2)
+    root.geometry(f"{win_w}x{win_h}+{pos_x}+{pos_y}")
     root.configure(bg="#1e1e2e")
 
     style = ttk.Style()
