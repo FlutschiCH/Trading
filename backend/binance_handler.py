@@ -209,31 +209,50 @@ class BinanceFuturesHandler(BaseBrokerHandler):
 
         formatted_price = cls._format_price(b_sym, price)
 
-        # 1. First attempt: Conditional STOP/TAKE_PROFIT market exit if applicable
+        # 1. Stop Loss: Use STOP_MARKET / STOP order with stopPrice
         if is_stop:
-            order_type = 'STOP_MARKET'
             stop_params = {
                 'symbol': b_sym,
                 'side': side.upper(),
-                'type': order_type,
+                'type': 'STOP_MARKET',
                 'stopPrice': formatted_price,
                 'closePosition': 'true'
             }
             res = cls._request('POST', '/fapi/v1/order', params=stop_params, api_key=api_key, secret_key=secret_key, signed=True)
-            if not isinstance(res, dict) or ('error' not in res and 'code' not in res):
-                return res
+            if isinstance(res, dict) and ('error' in res or 'code' in res):
+                # Fallback: STOP with stopPrice and price
+                res = cls._request('POST', '/fapi/v1/order', params={
+                    'symbol': b_sym,
+                    'side': side.upper(),
+                    'type': 'STOP',
+                    'stopPrice': formatted_price,
+                    'price': formatted_price,
+                    'quantity': formatted_qty,
+                    'reduceOnly': 'true',
+                    'timeInForce': 'GTC'
+                }, api_key=api_key, secret_key=secret_key, signed=True)
+            return res
 
-        # 2. Fallback / Take Profit: reduceOnly LIMIT order
-        limit_params = {
+        # 2. Take Profit: reduceOnly LIMIT order above market for BUY / below for SELL, or TAKE_PROFIT_MARKET
+        tp_params = {
             'symbol': b_sym,
             'side': side.upper(),
-            'type': 'LIMIT',
-            'price': formatted_price,
-            'quantity': formatted_qty,
-            'reduceOnly': 'true',
-            'timeInForce': 'GTC'
+            'type': 'TAKE_PROFIT_MARKET',
+            'stopPrice': formatted_price,
+            'closePosition': 'true'
         }
-        res = cls._request('POST', '/fapi/v1/order', params=limit_params, api_key=api_key, secret_key=secret_key, signed=True)
+        res = cls._request('POST', '/fapi/v1/order', params=tp_params, api_key=api_key, secret_key=secret_key, signed=True)
+        if isinstance(res, dict) and ('error' in res or 'code' in res):
+            limit_params = {
+                'symbol': b_sym,
+                'side': side.upper(),
+                'type': 'LIMIT',
+                'price': formatted_price,
+                'quantity': formatted_qty,
+                'reduceOnly': 'true',
+                'timeInForce': 'GTC'
+            }
+            res = cls._request('POST', '/fapi/v1/order', params=limit_params, api_key=api_key, secret_key=secret_key, signed=True)
         return res
 
     @classmethod
