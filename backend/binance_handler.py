@@ -113,14 +113,50 @@ class BinanceFuturesHandler(BaseBrokerHandler):
         if not isinstance(res, list):
             return []
 
+        # Fetch open orders to populate SL / TP on open positions
+        open_orders = []
+        try:
+            order_params = {'symbol': symbol} if symbol else {}
+            res_orders = cls._request('GET', '/fapi/v1/openOrders', params=order_params, api_key=api_key, secret_key=secret_key, signed=True)
+            if isinstance(res_orders, list):
+                open_orders = res_orders
+        except Exception:
+            pass
+
         positions = []
         for pos in res:
             amt = float(pos.get('positionAmt', 0))
             if amt != 0:
-                if symbol and pos.get('symbol') != symbol:
+                p_sym = pos.get('symbol')
+                if symbol and p_sym != symbol:
                     continue
+
+                pos_side = 'BUY' if amt > 0 else 'SELL'
+                sl_val = 0.0
+                tp_val = 0.0
+
+                # Match reduceOnly open orders for this symbol
+                for o in open_orders:
+                    if o.get('symbol') == p_sym and (o.get('reduceOnly') or o.get('closePosition')):
+                        o_type = str(o.get('type') or o.get('origType') or '').upper()
+                        price_val = float(o.get('price') or 0.0)
+                        stop_val = float(o.get('stopPrice') or 0.0)
+                        target_price = stop_val if stop_val > 0 else price_val
+
+                        if target_price > 0:
+                            if pos_side == 'BUY':
+                                if target_price < float(pos.get('entryPrice', 0)) or 'STOP' in o_type:
+                                    sl_val = target_price
+                                else:
+                                    tp_val = target_price
+                            else:  # SELL position
+                                if target_price > float(pos.get('entryPrice', 0)) or 'STOP' in o_type:
+                                    sl_val = target_price
+                                else:
+                                    tp_val = target_price
+
                 positions.append({
-                    'symbol': pos.get('symbol'),
+                    'symbol': p_sym,
                     'positionAmt': amt,
                     'entryPrice': float(pos.get('entryPrice', 0)),
                     'markPrice': float(pos.get('markPrice', 0)),
@@ -128,7 +164,11 @@ class BinanceFuturesHandler(BaseBrokerHandler):
                     'liquidationPrice': float(pos.get('liquidationPrice', 0)),
                     'leverage': int(pos.get('leverage', 1)),
                     'marginType': pos.get('marginType'),
-                    'side': 'BUY' if amt > 0 else 'SELL',
+                    'side': pos_side,
+                    'stop_loss': sl_val,
+                    'sl': sl_val,
+                    'take_profit': tp_val,
+                    'tp': tp_val,
                     'raw': pos
                 })
         return positions
@@ -208,30 +248,6 @@ class BinanceFuturesHandler(BaseBrokerHandler):
 
         formatted_price = cls._format_price(b_sym, price)
 
-        if is_stop:
-            # Stop Loss must trigger conditionally at or below/above market price
-            stop_params = {
-                'symbol': b_sym,
-                'side': side.upper(),
-                'type': 'STOP_MARKET',
-                'stopPrice': formatted_price,
-                'closePosition': 'true'
-            }
-            res = cls._request('POST', '/fapi/v1/order', params=stop_params, api_key=api_key, secret_key=secret_key, signed=True)
-            if isinstance(res, dict) and ('error' in res or 'code' in res):
-                res = cls._request('POST', '/fapi/v1/order', params={
-                    'symbol': b_sym,
-                    'side': side.upper(),
-                    'type': 'STOP',
-                    'stopPrice': formatted_price,
-                    'price': formatted_price,
-                    'quantity': formatted_qty,
-                    'reduceOnly': 'true',
-                    'timeInForce': 'GTC'
-                }, api_key=api_key, secret_key=secret_key, signed=True)
-            return res
-
-        # Take Profit: reduceOnly LIMIT order
         limit_params = {
             'symbol': b_sym,
             'side': side.upper(),
