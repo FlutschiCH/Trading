@@ -202,14 +202,36 @@ class BinanceFuturesHandler(BaseBrokerHandler):
         if not b_sym:
             return {'error': f"Symbol '{symbol}' has no mapping on Binance"}
 
-        # Double the size for reduceOnly limit order to ensure full position coverage
-        target_qty = float(volume) * 2.0
-        formatted_qty = cls._format_quantity(b_sym, target_qty)
+        formatted_qty = cls._format_quantity(b_sym, float(volume))
         if formatted_qty <= 0:
             formatted_qty = cls._get_symbol_rules(b_sym).get('stepSize', 0.001)
 
         formatted_price = cls._format_price(b_sym, price)
 
+        if is_stop:
+            # Stop Loss must trigger conditionally at or below/above market price
+            stop_params = {
+                'symbol': b_sym,
+                'side': side.upper(),
+                'type': 'STOP_MARKET',
+                'stopPrice': formatted_price,
+                'closePosition': 'true'
+            }
+            res = cls._request('POST', '/fapi/v1/order', params=stop_params, api_key=api_key, secret_key=secret_key, signed=True)
+            if isinstance(res, dict) and ('error' in res or 'code' in res):
+                res = cls._request('POST', '/fapi/v1/order', params={
+                    'symbol': b_sym,
+                    'side': side.upper(),
+                    'type': 'STOP',
+                    'stopPrice': formatted_price,
+                    'price': formatted_price,
+                    'quantity': formatted_qty,
+                    'reduceOnly': 'true',
+                    'timeInForce': 'GTC'
+                }, api_key=api_key, secret_key=secret_key, signed=True)
+            return res
+
+        # Take Profit: reduceOnly LIMIT order
         limit_params = {
             'symbol': b_sym,
             'side': side.upper(),
