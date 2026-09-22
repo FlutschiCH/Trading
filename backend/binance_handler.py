@@ -113,13 +113,21 @@ class BinanceFuturesHandler(BaseBrokerHandler):
         if not isinstance(res, list):
             return []
 
-        # Fetch open orders to populate SL / TP on open positions
+        # Fetch open orders and open algo orders to populate SL / TP on open positions
         open_orders = []
         try:
             order_params = {'symbol': symbol} if symbol else {}
             res_orders = cls._request('GET', '/fapi/v1/openOrders', params=order_params, api_key=api_key, secret_key=secret_key, signed=True)
             if isinstance(res_orders, list):
-                open_orders = res_orders
+                open_orders.extend(res_orders)
+        except Exception:
+            pass
+
+        try:
+            algo_params = {'symbol': symbol} if symbol else {}
+            res_algo = cls._request('GET', '/fapi/v1/openAlgoOrders', params=algo_params, api_key=api_key, secret_key=secret_key, signed=True)
+            if isinstance(res_algo, list):
+                open_orders.extend(res_algo)
         except Exception:
             pass
 
@@ -135,25 +143,30 @@ class BinanceFuturesHandler(BaseBrokerHandler):
                 sl_val = 0.0
                 tp_val = 0.0
 
-                # Match reduceOnly open orders for this symbol
+                # Match reduceOnly or conditional algo open orders for this symbol
                 for o in open_orders:
-                    if o.get('symbol') == p_sym and (o.get('reduceOnly') or o.get('closePosition')):
-                        o_type = str(o.get('type') or o.get('origType') or '').upper()
+                    if o.get('symbol') == p_sym:
+                        o_type = str(o.get('type') or o.get('origType') or o.get('orderType') or '').upper()
                         price_val = float(o.get('price') or 0.0)
-                        stop_val = float(o.get('stopPrice') or 0.0)
+                        stop_val = float(o.get('stopPrice') or o.get('triggerPrice') or 0.0)
                         target_price = stop_val if stop_val > 0 else price_val
 
                         if target_price > 0:
-                            if pos_side == 'BUY':
-                                if target_price < float(pos.get('entryPrice', 0)) or 'STOP' in o_type:
-                                    sl_val = target_price
-                                else:
-                                    tp_val = target_price
-                            else:  # SELL position
-                                if target_price > float(pos.get('entryPrice', 0)) or 'STOP' in o_type:
-                                    sl_val = target_price
-                                else:
-                                    tp_val = target_price
+                            if 'STOP' in o_type:
+                                sl_val = target_price
+                            elif 'TAKE_PROFIT' in o_type:
+                                tp_val = target_price
+                            elif o.get('reduceOnly') or o.get('closePosition'):
+                                if pos_side == 'BUY':
+                                    if target_price < float(pos.get('entryPrice', 0)):
+                                        sl_val = target_price
+                                    else:
+                                        tp_val = target_price
+                                else:  # SELL position
+                                    if target_price > float(pos.get('entryPrice', 0)):
+                                        sl_val = target_price
+                                    else:
+                                        tp_val = target_price
 
                 positions.append({
                     'symbol': p_sym,
@@ -234,7 +247,7 @@ class BinanceFuturesHandler(BaseBrokerHandler):
         return round(float(qty), prec)
 
     @classmethod
-    def _place_reduce_only_limit(cls, symbol: str, side: str, price: float, volume: float, is_stop: bool = False, api_key: str = None, secret_key: str = None) -> dict:
+    def _place_algo_order(cls, symbol: str, side: str, price: float, volume: float, is_stop: bool = False, api_key: str = None, secret_key: str = None) -> dict:
         if not price or float(price) <= 0:
             return {'status': 'skipped', 'message': 'Invalid price'}
         
@@ -247,17 +260,17 @@ class BinanceFuturesHandler(BaseBrokerHandler):
             formatted_qty = cls._get_symbol_rules(b_sym).get('stepSize', 0.001)
 
         formatted_price = cls._format_price(b_sym, price)
+        order_type = 'STOP_MARKET' if is_stop else 'TAKE_PROFIT_MARKET'
 
-        limit_params = {
+        params = {
             'symbol': b_sym,
+            'algoType': 'CONDITIONAL',
+            'type': order_type,
             'side': side.upper(),
-            'type': 'LIMIT',
-            'price': formatted_price,
-            'quantity': formatted_qty,
-            'reduceOnly': 'true',
-            'timeInForce': 'GTC'
+            'triggerPrice': formatted_price,
+            'quantity': formatted_qty
         }
-        res = cls._request('POST', '/fapi/v1/order', params=limit_params, api_key=api_key, secret_key=secret_key, signed=True)
+        res = cls._request('POST', '/fapi/v1/algoOrder', params=params, api_key=api_key, secret_key=secret_key, signed=True)
         return res
 
     _max_leverage_cache = {}  # {symbol: max_leverage_int}
@@ -321,10 +334,10 @@ class BinanceFuturesHandler(BaseBrokerHandler):
 
         results = {'main_order': order_res}
 
-        # 2. Place 2nd and 3rd reduceOnly LIMIT orders in opposite direction with 2x size
+        # 2. Place 2nd and 3rd algo orders in opposite direction for SL and TP
         opposite_side = 'SELL' if side.upper() == 'BUY' else 'BUY'
         if stop_loss is not None and float(stop_loss) > 0:
-            results['stop_loss_order'] = cls._place_reduce_only_limit(
+            results['stop_loss_order'] = cls._place_algo_order(
                 symbol=b_sym,
                 side=opposite_side,
                 price=stop_loss,
@@ -335,7 +348,7 @@ class BinanceFuturesHandler(BaseBrokerHandler):
             )
 
         if take_profit is not None and float(take_profit) > 0:
-            results['take_profit_order'] = cls._place_reduce_only_limit(
+            results['take_profit_order'] = cls._place_algo_order(
                 symbol=b_sym,
                 side=opposite_side,
                 price=take_profit,
@@ -357,7 +370,7 @@ class BinanceFuturesHandler(BaseBrokerHandler):
             print(f"[BinanceHandler] Warning: Symbol '{symbol}' has no mapping on Binance. Skipping close_position.", flush=True)
             return {'error': f"Symbol '{symbol}' has no mapping on Binance"}
 
-        # Cancel any pending open SL/TP reduceOnly limit orders
+        # Cancel any pending open SL/TP orders and algo orders
         cls.cancel_all_orders(symbol=b_sym, api_key=api_key, secret_key=secret_key)
 
         if not side:
@@ -404,12 +417,12 @@ class BinanceFuturesHandler(BaseBrokerHandler):
         opposite_side = 'SELL' if pos_side == 'BUY' else 'BUY'
         volume = abs(pos_amt)
 
-        # Clear existing open reduceOnly limit orders before placing updated ones
+        # Clear existing open reduceOnly and algo orders before placing updated ones
         cls.cancel_all_orders(symbol=b_sym, api_key=api_key, secret_key=secret_key)
 
         results = {'status': 'success'}
         if stop_loss is not None and float(stop_loss) > 0:
-            results['stop_loss_order'] = cls._place_reduce_only_limit(
+            results['stop_loss_order'] = cls._place_algo_order(
                 symbol=b_sym,
                 side=opposite_side,
                 price=stop_loss,
@@ -420,7 +433,7 @@ class BinanceFuturesHandler(BaseBrokerHandler):
             )
 
         if take_profit is not None and float(take_profit) > 0:
-            results['take_profit_order'] = cls._place_reduce_only_limit(
+            results['take_profit_order'] = cls._place_algo_order(
                 symbol=b_sym,
                 side=opposite_side,
                 price=take_profit,
@@ -482,7 +495,22 @@ class BinanceFuturesHandler(BaseBrokerHandler):
         if not b_sym:
             print(f"[BinanceHandler] Warning: Symbol '{symbol}' has no mapping on Binance. Skipping cancel_all_orders.", flush=True)
             return {'error': f"Symbol '{symbol}' has no mapping on Binance"}
-        return cls._request('DELETE', '/fapi/v1/allOpenOrders', params={'symbol': b_sym}, api_key=api_key, secret_key=secret_key, signed=True)
+
+        # 1. Cancel all standard open orders
+        res = cls._request('DELETE', '/fapi/v1/allOpenOrders', params={'symbol': b_sym}, api_key=api_key, secret_key=secret_key, signed=True)
+
+        # 2. Cancel all open algo orders for this symbol
+        try:
+            open_algos = cls._request('GET', '/fapi/v1/openAlgoOrders', params={'symbol': b_sym}, api_key=api_key, secret_key=secret_key, signed=True)
+            if isinstance(open_algos, list):
+                for ao in open_algos:
+                    a_id = ao.get('algoId')
+                    if a_id:
+                        cls._request('DELETE', '/fapi/v1/algoOrder', params={'symbol': b_sym, 'algoId': a_id}, api_key=api_key, secret_key=secret_key, signed=True)
+        except Exception:
+            pass
+
+        return res
 
     @classmethod
     def change_leverage(cls, symbol: str, leverage: int, api_key: str = None, secret_key: str = None) -> dict:
