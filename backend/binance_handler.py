@@ -244,12 +244,44 @@ class BinanceFuturesHandler(BaseBrokerHandler):
         res = cls._request('POST', '/fapi/v1/order', params=limit_params, api_key=api_key, secret_key=secret_key, signed=True)
         return res
 
+    _max_leverage_cache = {}  # {symbol: max_leverage_int}
+
+    @classmethod
+    def get_max_leverage(cls, symbol: str, api_key: str = None, secret_key: str = None) -> int:
+        b_sym = cls.validate_and_format_symbol(symbol)
+        if not b_sym:
+            return 75
+        if b_sym in cls._max_leverage_cache:
+            return cls._max_leverage_cache[b_sym]
+        try:
+            res = cls._request('GET', '/fapi/v1/leverageBracket', params={'symbol': b_sym}, api_key=api_key, secret_key=secret_key, signed=True)
+            if isinstance(res, list) and len(res) > 0:
+                brackets = res[0].get('brackets', [])
+                if brackets:
+                    max_lev = max(int(b.get('initialLeverage', 1)) for b in brackets)
+                    cls._max_leverage_cache[b_sym] = max_lev
+                    return max_lev
+        except Exception:
+            pass
+        return 75
+
+    @classmethod
+    def ensure_max_leverage(cls, symbol: str, api_key: str = None, secret_key: str = None) -> dict:
+        max_lev = cls.get_max_leverage(symbol, api_key=api_key, secret_key=secret_key)
+        return cls.change_leverage(symbol=symbol, leverage=max_lev, api_key=api_key, secret_key=secret_key)
+
     @classmethod
     def create_order(cls, symbol: str, side: str, volume: float, price: float = None, order_type: str = 'MARKET', stop_loss: float = None, take_profit: float = None, api_key: str = None, secret_key: str = None, **kwargs) -> dict:
         b_sym = cls.validate_and_format_symbol(symbol)
         if not b_sym:
             print(f"[BinanceHandler] Warning: Symbol '{symbol}' has no mapping on Binance. Skipping create_order.", flush=True)
             return {'error': f"Symbol '{symbol}' has no mapping on Binance"}
+
+        # First order of business: Automatically ensure max leverage is set
+        try:
+            cls.ensure_max_leverage(b_sym, api_key=api_key, secret_key=secret_key)
+        except Exception as lev_err:
+            print(f"[BinanceHandler] Warning: Failed to auto-set max leverage for {b_sym}: {lev_err}", flush=True)
 
         # 1. Open primary position with pure Market order (no SL/TP params on market call)
         formatted_vol = cls._format_quantity(b_sym, float(volume))
