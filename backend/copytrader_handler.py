@@ -584,25 +584,41 @@ class CopytraderHandler:
                         elif isinstance(acct_info, dict):
                             balance = float(acct_info.get("balance") or balance)
 
-                    return TradingHandler.calculate_lot_size(
+                    calculated_lots = TradingHandler.calculate_lot_size(
                         balance=balance,
                         risk_pct=pct_val,
                         sl_distance=sl_dist,
                         lot_size=lot_size
                     )
+                    risk_amount = balance * (pct_val / 100.0)
+                    print(
+                        f"[Copytrader Sizing: % Risk] Slave: {slave_broker.upper()} ({slave_account}) | "
+                        f"Balance: ${balance:.2f} | Risk: {pct_val}% (${risk_amount:.2f}) | "
+                        f"Entry: {entry_price} | SL: {sl} (Distance: {sl_dist:.2f}) | "
+                        f"Contract/Lot Size: {lot_size} | Sized Lots: {calculated_lots}",
+                        flush=True
+                    )
+                    return calculated_lots
                 except Exception as calc_err:
                     print(f"[Copytrader] Risk percentage sizing error ({calc_err}), falling back to direct lots: {master_lots}", flush=True)
             # Fallback if SL is not provided on master order: scale master lots by percentage / 100
             lots = round(master_lots * (pct_val / 100.0), 2)
-            return max(0.01, lots)
+            final_lots = max(0.01, lots)
+            print(f"[Copytrader Sizing: % Direct Scale (No SL)] Master Lots: {master_lots} x ({pct_val}%) => {final_lots}", flush=True)
+            return final_lots
         elif mode_lower == "multiplier":
-            lots = round(master_lots * multiplier, 2)
+            lots = max(0.01, round(master_lots * multiplier, 2))
+            print(f"[Copytrader Sizing: Multiplier] Master Lots: {master_lots} x {multiplier} => {lots}", flush=True)
+            return lots
         elif mode_lower == "divider":
             div_val = multiplier if multiplier > 0 else 1.0
-            lots = round(master_lots / div_val, 2)
+            lots = max(0.01, round(master_lots / div_val, 2))
+            print(f"[Copytrader Sizing: Divider] Master Lots: {master_lots} / {div_val} => {lots}", flush=True)
+            return lots
         else:
-            lots = master_lots
-        return max(0.01, lots)
+            lots = max(0.01, master_lots)
+            print(f"[Copytrader Sizing: Direct] Master Lots: {master_lots} => {lots}", flush=True)
+            return lots
 
     @classmethod
     def sync_once(cls):
