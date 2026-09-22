@@ -825,77 +825,185 @@ class CopytraderHandler:
 
 
 if __name__ == "__main__":
-    print("=" * 60)
-    print("[Copytrader Debug Runner] Initializing one-pass diagnostic test")
-    print("=" * 60)
+    import tkinter as tk
+    from tkinter import ttk, messagebox, scrolledtext
 
-    try:
-        CopytraderHandler.init_db()
-        print("[OK] Copytrader DB initialized successfully.")
-    except Exception as e:
-        print(f"[ERROR] Failed to initialize DB: {e}")
+    CopytraderHandler.init_db()
 
-    configs = CopytraderHandler.get_all_configs()
-    print(f"[INFO] Found {len(configs)} total configurations in DB.")
+    root = tk.Tk()
+    root.title("Copytrader Manual Sync & Diagnostic Panel")
+    root.geometry("850x650")
+    root.configure(bg="#1e1e2e")
 
-    active_configs = [c for c in configs if str(c.get("status", "")).lower() in ("active", "enabled", "true")]
-    print(f"[INFO] Active configurations count: {len(active_configs)}")
+    style = ttk.Style()
+    style.theme_use("clam")
+    style.configure(".", background="#1e1e2e", foreground="#cdd6f4", font=("Segoe UI", 10))
+    style.configure("TLabel", background="#1e1e2e", foreground="#cdd6f4")
+    style.configure("TButton", font=("Segoe UI", 10, "bold"), padding=6)
+    style.configure("TCombobox", fieldbackground="#313244", background="#45475a", foreground="#ffffff")
+    style.map("TButton", background=[("active", "#45475a")])
 
-    for idx, cfg in enumerate(active_configs, 1):
-        print(f"\n--- [Config #{idx}: {cfg.get('name')}] ---")
-        master_broker = str(cfg.get("master_broker", "metatrader")).lower()
-        master_acc = str(cfg.get("master_account", ""))
-        print(f"Master: {master_broker.upper()} Account: '{master_acc}'")
-        
-        m_pos = CopytraderHandler._get_account_positions(master_acc, master_broker) or []
-        print(f"   Master Positions ({len(m_pos)}):")
-        for p in m_pos:
-            print(f"     -> Symbol: {p.get('symbol')} | Side: {p.get('side') or p.get('trade_side')} | Vol: {p.get('volume') or p.get('positionAmt')} | Open: {p.get('entry_price') or p.get('open_price') or p.get('price')} | SL: {p.get('stop_loss') or p.get('sl')} | TP: {p.get('take_profit') or p.get('tp')}")
+    configs_list = CopytraderHandler.get_all_configs()
+    cfg_map = {f"{c.get('name', 'Setup')} (ID: {c.get('id')})": c for c in configs_list}
+
+    header = tk.Label(root, text="Copytrader Strategy Sync Controller", font=("Segoe UI", 14, "bold"), fg="#89b4fa", bg="#1e1e2e")
+    header.pack(pady=10)
+
+    # Strategy Selector Frame
+    sel_frame = tk.Frame(root, bg="#1e1e2e")
+    sel_frame.pack(fill="x", padx=15, pady=5)
+
+    tk.Label(sel_frame, text="Select Strategy:", font=("Segoe UI", 10, "bold"), fg="#cdd6f4", bg="#1e1e2e").pack(side="left", padx=5)
+    cfg_var = tk.StringVar()
+    cfg_dropdown = ttk.Combobox(sel_frame, textvariable=cfg_var, values=list(cfg_map.keys()), state="readonly", width=45)
+    if cfg_map:
+        cfg_dropdown.current(0)
+    cfg_dropdown.pack(side="left", padx=5)
+
+    # Output text area
+    log_area = scrolledtext.ScrolledText(root, wrap="word", bg="#181825", fg="#a6adc8", font=("Consolas", 10), height=18)
+    log_area.pack(fill="both", expand=True, padx=15, pady=10)
+
+    def log_gui(msg: str):
+        log_area.insert("end", msg + "\n")
+        log_area.see("end")
+
+    def get_current_cfg():
+        selected = cfg_var.get()
+        return cfg_map.get(selected)
+
+    def refresh_status():
+        log_area.delete("1.0", "end")
+        cfg = get_current_cfg()
+        if not cfg:
+            log_gui("[INFO] No configuration selected.")
+            return
+
+        m_acc = cfg.get("master_account", "")
+        m_broker = str(cfg.get("master_broker", "metatrader")).lower()
+        log_gui(f"=== STRATEGY: {cfg.get('name')} (Status: {cfg.get('status')}) ===")
+        log_gui(f"Master: {m_broker.upper()} Account: '{m_acc}'")
+
+        m_positions = CopytraderHandler._get_account_positions(m_acc, m_broker) or []
+        log_gui(f"Master Open Positions ({len(m_positions)}):")
+        for p in m_positions:
+            log_gui(f"  -> Symbol: {p.get('symbol')} | Side: {p.get('side') or p.get('trade_side')} | Lots: {p.get('volume') or p.get('positionAmt')} | Entry: {p.get('entry_price') or p.get('open_price') or p.get('price')} | SL: {p.get('stop_loss') or p.get('sl')} | TP: {p.get('take_profit') or p.get('tp')}")
 
         slaves = cfg.get("slaves", [])
-        print(f"Configured Slaves ({len(slaves)}):")
-        for s_idx, slave in enumerate(slaves, 1):
-            if not slave.get("is_active", True) and slave.get("status") == "paused":
-                print(f"   [{s_idx}] Slave (INACTIVE/PAUSED): {slave.get('account_id')}")
-                continue
-
-            s_broker = str(slave.get("broker", "metatrader")).lower()
-            s_acc = str(slave.get("account_id", ""))
-            mode = str(slave.get("mode", "direct")).lower()
-            multiplier = float(slave.get("multiplier", 1.0))
-            print(f"   [{s_idx}] Slave: {s_broker.upper()} Account: '{s_acc}' | Mode: {mode} | Multiplier/Val: {multiplier}")
-            
-            s_pos = CopytraderHandler._get_account_positions(s_acc, s_broker) or []
-            print(f"       Slave Positions ({len(s_pos)}):")
+        log_gui(f"\nConfigured Slaves ({len(slaves)}):")
+        for s in slaves:
+            s_acc = str(s.get("account_id"))
+            s_brk = str(s.get("broker", "metatrader")).lower()
+            s_mode = s.get("mode", "direct")
+            s_mult = s.get("multiplier", 1.0)
+            log_gui(f"  • Slave: {s_brk.upper()} Account '{s_acc}' [Mode: {s_mode}, Mult: {s_mult}]")
+            s_pos = CopytraderHandler._get_account_positions(s_acc, s_brk) or []
+            log_gui(f"    Positions ({len(s_pos)}):")
             for sp in s_pos:
-                print(f"         -> Symbol: {sp.get('symbol')} | Side: {sp.get('side') or sp.get('trade_side')} | Vol: {sp.get('volume') or sp.get('positionAmt')} | ID: {sp.get('position_id') or sp.get('ticket')}")
+                log_gui(f"      - {sp.get('symbol')} | Side: {sp.get('side') or sp.get('trade_side')} | Lots: {sp.get('volume') or sp.get('positionAmt')} | SL: {sp.get('stop_loss') or sp.get('sl')} | TP: {sp.get('take_profit') or sp.get('tp')}")
 
-            # Test lot calculation against current master positions
-            for p in m_pos:
-                m_sym = str(p.get("symbol", ""))
-                m_lots = float(p.get("volume") or abs(float(p.get("positionAmt", 0))) or 0)
-                m_side = str(p.get("trade_side") or p.get("side") or "").strip().upper()
-                m_open = float(p.get("entry_price") or p.get("open_price") or p.get("price") or 0.0)
-                sl = float(p.get("stop_loss") or p.get("sl") or 0.0)
-                
-                calculated_lots = CopytraderHandler._calculate_lots(
-                    master_lots=m_lots,
-                    mode=mode,
-                    multiplier=multiplier,
-                    entry_price=m_open,
-                    sl=sl,
-                    direction=m_side,
-                    slave_account=s_acc,
-                    slave_broker=s_broker,
-                    symbol=m_sym
-                )
-                print(f"       [Sizing Test] Master {m_side} {m_lots} {m_sym} (SL={sl}, Entry={m_open}) => Slave Sized Lots: {calculated_lots}")
+    def execute_custom_sync(sync_order=True, sync_sl=True, sync_tp=True):
+        cfg = get_current_cfg()
+        if not cfg:
+            messagebox.showwarning("Warning", "Select a strategy first")
+            return
 
-    print("\n" + "=" * 60)
-    print("[Copytrader Live Sync Pass] Executing sync_once()...")
-    print("=" * 60)
-    CopytraderHandler.sync_once()
+        log_gui("\n" + "=" * 50)
+        log_gui(f"[START] Syncing (Order={sync_order}, SL={sync_sl}, TP={sync_tp})...")
+        log_gui("=" * 50)
 
-    print("\n" + "=" * 60)
-    print("[COMPLETE] Diagnostic & sync pass complete.")
-    print("=" * 60)
+        m_acc = cfg.get("master_account")
+        m_broker = cfg.get("master_broker", "metatrader")
+        slaves = cfg.get("slaves", [])
+        cfg_symbols = cfg.get("symbols", "All")
+
+        master_positions = [
+            p for p in (CopytraderHandler._get_account_positions(m_acc, m_broker) or [])
+            if CopytraderHandler._is_symbol_allowed(p.get("symbol", ""), cfg_symbols)
+        ]
+
+        for slave in slaves:
+            s_acc = str(slave.get("account_id"))
+            s_brk = slave.get("broker", "metatrader")
+            s_syms = slave.get("symbols", "All")
+            mode = slave.get("mode", "direct")
+            multiplier = float(slave.get("multiplier", 1.0))
+
+            slave_positions = CopytraderHandler._get_account_positions(s_acc, s_brk) or []
+            unmatched = list(slave_positions)
+
+            target_m_pos = [p for p in master_positions if CopytraderHandler._is_symbol_allowed(p.get("symbol", ""), s_syms)]
+
+            for m_pos in target_m_pos:
+                m_sym = m_pos.get("symbol", "")
+                m_side = str(m_pos.get("trade_side") or m_pos.get("side") or "").strip().upper()
+                if m_side not in ("BUY", "SELL"):
+                    m_side = "BUY" if str(m_pos.get("type")) == "0" else "SELL"
+
+                m_lots = float(m_pos.get("volume") or m_pos.get("lots") or m_pos.get("size") or 0.01)
+                sl = float(m_pos.get("stop_loss") or m_pos.get("sl") or 0.0) if sync_sl else 0.0
+                tp = float(m_pos.get("take_profit") or m_pos.get("tp") or 0.0) if sync_tp else 0.0
+                m_open = float(m_pos.get("entry_price") or m_pos.get("open_price") or m_pos.get("price") or 0.0)
+
+                match_idx = -1
+                for idx_s, sp in enumerate(unmatched):
+                    s_sym = str(sp.get("symbol", ""))
+                    s_side = str(sp.get("trade_side") or sp.get("side") or "").strip().upper()
+                    if s_side == m_side and CopytraderHandler._are_symbols_matching(m_sym, s_sym, s_acc):
+                        match_idx = idx_s
+                        break
+
+                if match_idx >= 0:
+                    matched = unmatched.pop(match_idx)
+                    s_ticket = str(matched.get("position_id") or matched.get("ticket") or "")
+                    curr_sl = float(matched.get("stop_loss") or matched.get("sl") or 0.0)
+                    curr_tp = float(matched.get("take_profit") or matched.get("tp") or 0.0)
+
+                    target_sl = sl if sync_sl else curr_sl
+                    target_tp = tp if sync_tp else curr_tp
+
+                    if (sync_sl and abs(curr_sl - sl) > 1e-5) or (sync_tp and abs(curr_tp - tp) > 1e-5):
+                        log_gui(f"[MODIFY] Updating Position {s_ticket} on {s_acc} -> SL: {target_sl}, TP: {target_tp}")
+                        res = CopytraderHandler._modify_position(s_brk, s_acc, s_ticket, m_sym, target_sl, target_tp)
+                        log_gui(f"  -> Result: {res}")
+                    else:
+                        log_gui(f"[SYNC OK] Position {s_ticket} already matches requested parameters.")
+                elif sync_order:
+                    s_lots = CopytraderHandler._calculate_lots(
+                        master_lots=m_lots,
+                        mode=mode,
+                        multiplier=multiplier,
+                        entry_price=m_open,
+                        sl=sl,
+                        direction=m_side,
+                        slave_account=s_acc,
+                        slave_broker=s_brk,
+                        symbol=m_sym
+                    )
+                    log_gui(f"[OPEN] Opening {m_side} {s_lots} {m_sym} on {s_acc} ({s_brk}) (SL={sl}, TP={tp})")
+                    res = CopytraderHandler._execute_order(
+                        broker=s_brk,
+                        account_id=s_acc,
+                        symbol=m_sym,
+                        action=m_side,
+                        lots=s_lots,
+                        sl=sl,
+                        tp=tp
+                    )
+                    log_gui(f"  -> Result: {res}")
+
+        log_gui("\n[DONE] Action complete.")
+
+    # Action Buttons Frame
+    btn_frame = tk.Frame(root, bg="#1e1e2e")
+    btn_frame.pack(fill="x", padx=15, pady=8)
+
+    tk.Button(btn_frame, text="🔍 Refresh Status", bg="#89b4fa", fg="#11111b", font=("Segoe UI", 9, "bold"), command=refresh_status, padx=8, pady=4).pack(side="left", padx=4)
+    tk.Button(btn_frame, text="🚀 Open Order Only", bg="#a6e3a1", fg="#11111b", font=("Segoe UI", 9, "bold"), command=lambda: execute_custom_sync(sync_order=True, sync_sl=False, sync_tp=False), padx=8, pady=4).pack(side="left", padx=4)
+    tk.Button(btn_frame, text="🛑 Sync SL Only", bg="#f38ba8", fg="#11111b", font=("Segoe UI", 9, "bold"), command=lambda: execute_custom_sync(sync_order=False, sync_sl=True, sync_tp=False), padx=8, pady=4).pack(side="left", padx=4)
+    tk.Button(btn_frame, text="🎯 Sync TP Only", bg="#fab387", fg="#11111b", font=("Segoe UI", 9, "bold"), command=lambda: execute_custom_sync(sync_order=False, sync_sl=False, sync_tp=True), padx=8, pady=4).pack(side="left", padx=4)
+    tk.Button(btn_frame, text="⚡ Full Sync", bg="#cba6f7", fg="#11111b", font=("Segoe UI", 9, "bold"), command=lambda: execute_custom_sync(sync_order=True, sync_sl=True, sync_tp=True), padx=8, pady=4).pack(side="left", padx=4)
+
+    cfg_dropdown.bind("<<ComboboxSelected>>", lambda e: refresh_status())
+    refresh_status()
+    root.mainloop()
