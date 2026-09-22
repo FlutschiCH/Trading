@@ -707,8 +707,24 @@ class CopytraderHandler:
                                     s_ticket = str(matched_s_pos.get("position_id") or matched_s_pos.get("ticket") or matched_s_pos.get("id") or "")
                                     curr_sl = float(matched_s_pos.get("stop_loss") or matched_s_pos.get("sl") or 0.0)
                                     curr_tp = float(matched_s_pos.get("take_profit") or matched_s_pos.get("tp") or 0.0)
-                                    if abs(curr_sl - sl) > 1e-5 or abs(curr_tp - tp) > 1e-5:
-                                        cls._modify_position(slave_broker, slave_acc, s_ticket, m_sym, sl, tp)
+
+                                    # Normalize target SL and TP to match broker precision formatting
+                                    formatted_target_sl = sl
+                                    formatted_target_tp = tp
+                                    if "binance" in str(slave_broker).lower():
+                                        from binance_handler import BinanceFuturesHandler
+                                        mapped_b_sym = BinanceFuturesHandler.validate_and_format_symbol(m_sym)
+                                        if mapped_b_sym:
+                                            if sl > 0:
+                                                formatted_target_sl = BinanceFuturesHandler._format_price(mapped_b_sym, sl)
+                                            if tp > 0:
+                                                formatted_target_tp = BinanceFuturesHandler._format_price(mapped_b_sym, tp)
+
+                                    needs_sl_mod = sl > 0 and abs(curr_sl - formatted_target_sl) > 1e-4
+                                    needs_tp_mod = tp > 0 and abs(curr_tp - formatted_target_tp) > 1e-4
+
+                                    if needs_sl_mod or needs_tp_mod:
+                                        cls._modify_position(slave_broker, slave_acc, s_ticket, m_sym, formatted_target_sl, formatted_target_tp)
                             else:
                                 # Position missing on slave -> OPEN IT!
                                 m_open_price = float(m_pos.get("entry_price") or m_pos.get("open_price") or m_pos.get("price") or 0.0)
