@@ -188,6 +188,8 @@ interface TVChartProps {
   onLiveFeedChange?: (active: boolean) => void;
   isMobile?: boolean;
   theme?: 'dark' | 'light';
+  hasBacktest?: boolean;
+  onClearBacktest?: () => void;
 }
 
 export default function TVChart({
@@ -226,7 +228,9 @@ export default function TVChart({
   isLiveFeed = false,
   onLiveFeedChange,
   isMobile = false,
-  theme = 'dark'
+  theme = 'dark',
+  hasBacktest = false,
+  onClearBacktest
 }: TVChartProps) {
   const { candles: storeCandles, loading: storeLoading, fetchCandles: storeFetchCandles } = useCandleStore();
   const baseCandles = candles || storeCandles;
@@ -3089,6 +3093,27 @@ export default function TVChart({
                     LIVE
                   </button>
                 )}
+                {(hasBacktest || (trades && trades.length > 0 && trades.some((t: any) => t.isBacktest || t.stage || t.strategy_name || t.pnl !== undefined))) && onClearBacktest && (
+                  <button
+                    onClick={onClearBacktest}
+                    style={{
+                      ...styles.refreshBtn,
+                      backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                      color: '#ef4444',
+                      border: '1px solid rgba(239, 68, 68, 0.4)',
+                      padding: '4px 8px',
+                      fontSize: '11px',
+                      fontWeight: 'bold',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                    }}
+                    title="Clear Backtest & Reset Chart"
+                  >
+                    <Trash2 size={12} />
+                    <span>Clear BT</span>
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     setEditingIndicatorId(null);
@@ -3213,6 +3238,28 @@ export default function TVChart({
               })()}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {(hasBacktest || (trades && trades.length > 0 && trades.some((t: any) => t.isBacktest || t.stage || t.strategy_name || t.pnl !== undefined))) && onClearBacktest && (
+                <button
+                  onClick={onClearBacktest}
+                  style={{
+                    ...styles.refreshBtn,
+                    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                    color: '#ef4444',
+                    border: '1px solid rgba(239, 68, 68, 0.4)',
+                    padding: '6px 12px',
+                    fontSize: '11px',
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    cursor: 'pointer',
+                  }}
+                  title="Clear Backtest & Reset Chart"
+                >
+                  <Trash2 size={13} />
+                  <span>Clear Backtest</span>
+                </button>
+              )}
               {onLiveFeedChange && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <button onClick={() => { const nextVal = !isLiveFeed; localStorage.setItem('wyckoff_is_live_feed', String(nextVal)); onLiveFeedChange(nextVal); }} style={{ ...styles.refreshBtn, backgroundColor: isLiveFeed ? '#10b981' : (isLight ? '#e2e8f0' : '#1f2937'), color: isLiveFeed ? '#ffffff' : (isLight ? '#0f172a' : '#ffffff'), display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '11px', fontWeight: 'bold', boxShadow: isLiveFeed ? '0 0 10px rgba(16, 185, 129, 0.4)' : 'none' }} title="Toggle Live Feed">

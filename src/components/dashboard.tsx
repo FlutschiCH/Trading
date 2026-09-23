@@ -429,7 +429,43 @@ export default function Dashboard() {
     candles?: Candle[];
     monthlyBreakdown?: { [month: string]: number };
     weeklyBreakdown?: { [week: string]: number };
-  } | null>(null);
+  } | null>(() => {
+    try {
+      const saved = localStorage.getItem('wyckoff_last_backtest_results');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (e) {
+      console.error('Failed to parse cached backtest results:', e);
+    }
+    return null;
+  });
+
+  // Automatically persist last backtest results to localStorage
+  useEffect(() => {
+    try {
+      if (backtestResults) {
+        localStorage.setItem('wyckoff_last_backtest_results', JSON.stringify(backtestResults));
+      } else {
+        localStorage.removeItem('wyckoff_last_backtest_results');
+      }
+    } catch (e) {
+      console.warn('Could not save backtest results to localStorage (quota exceeded?):', e);
+      // If full results with candles exceeded quota, try storing without huge candles array
+      try {
+        if (backtestResults) {
+          const trimmed = { ...backtestResults, candles: undefined };
+          localStorage.setItem('wyckoff_last_backtest_results', JSON.stringify(trimmed));
+        }
+      } catch (err) {}
+    }
+  }, [backtestResults]);
+
+  const handleClearBacktest = () => {
+    setBacktestResults(null);
+    setSelectedTrade(null);
+    localStorage.removeItem('wyckoff_last_backtest_results');
+  };
   const [selectedTrade, setSelectedTrade] = useState<any>(null);
   const [showModal, setShowModal] = useState<boolean>(false);
 
@@ -2939,6 +2975,8 @@ export default function Dashboard() {
                       isLiveFeed={isLiveFeed}
                       onLiveFeedChange={setIsLiveFeed}
                       isMobile={true}
+                      hasBacktest={!!backtestResults}
+                      onClearBacktest={handleClearBacktest}
                     />
                   </div>
                 ) : mobileTab === 'backtester' ? (
@@ -3447,6 +3485,8 @@ export default function Dashboard() {
                               hiddenStages={hiddenStages}
                               isLiveFeed={isLiveFeed}
                               onLiveFeedChange={setIsLiveFeed}
+                              hasBacktest={!!backtestResults}
+                              onClearBacktest={handleClearBacktest}
                             />
                           </div>
                         )}

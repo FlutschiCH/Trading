@@ -3,7 +3,7 @@ import type { IndicatorConfig } from '../services/indicatorService';
 import TVChartLegend from './tv_chart_legend';
 
 interface TVChartIndicatorPaneProps {
-  containerRef: React.RefObject<HTMLDivElement>;
+  containerRef: React.RefObject<HTMLDivElement | null> | React.RefObject<HTMLDivElement>;
   height: number;
   indicators: IndicatorConfig[];
   indicatorLatestValues: Record<string, string>;
