@@ -724,6 +724,7 @@ export default function TVChart({
       const saved = localStorage.getItem('tv_chart_settings');
       const parsed = saved ? JSON.parse(saved) : {};
       return {
+        showVolume: parsed.showVolume ?? true,
         showFvg: parsed.showFvg ?? true,
         showSessions: parsed.showSessions ?? true,
         showTrades: parsed.showTrades ?? true,
@@ -737,6 +738,7 @@ export default function TVChart({
       };
     } catch {
       return {
+        showVolume: true,
         showFvg: true,
         showSessions: true,
         showTrades: true,
@@ -2024,15 +2026,19 @@ export default function TVChart({
     }
 
     if (weisSeriesRef.current) {
-      const volumeData = activeCandles.map((c) => {
-        const isUp = c.close >= c.open;
-        return {
-          time: c.time,
-          value: c.volume || 0,
-          color: isUp ? 'rgba(16, 185, 129, 0.6)' : 'rgba(239, 68, 68, 0.6)',
-        };
-      });
-      weisSeriesRef.current.setData(volumeData);
+      if (chartSettings.showVolume === false) {
+        weisSeriesRef.current.setData([]);
+      } else {
+        const volumeData = activeCandles.map((c) => {
+          const isUp = c.close >= c.open;
+          return {
+            time: c.time,
+            value: c.volume || 0,
+            color: isUp ? 'rgba(16, 185, 129, 0.6)' : 'rgba(239, 68, 68, 0.6)',
+          };
+        });
+        weisSeriesRef.current.setData(volumeData);
+      }
     }
 
     if (chartRef.current && activeCandles.length > 0) {
@@ -3019,6 +3025,7 @@ export default function TVChart({
                       <div onClick={() => setShowSettingsDropdown(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }} />
                       <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '6px', backgroundColor: isLight ? '#ffffff' : '#0f172a', border: isLight ? '1px solid #cbd5e1' : '1px solid #1f2937', borderRadius: '8px', padding: '12px', zIndex: 1000, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.2)', minWidth: '180px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         <div style={{ fontSize: '11px', fontWeight: 'bold', color: isLight ? '#64748b' : '#9ca3af', borderBottom: isLight ? '1px solid #e2e8f0' : '1px solid #1f2937', paddingBottom: '6px', marginBottom: '4px' }}>Chart Visibility</div>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: isLight ? '#0f172a' : '#ffffff' }}><input type="checkbox" checked={chartSettings.showVolume ?? true} onChange={(e) => setChartSettings({ ...chartSettings, showVolume: e.target.checked })} style={{ cursor: 'pointer' }} /> Volume (Subpane)</label>
                         <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: isLight ? '#0f172a' : '#ffffff' }}><input type="checkbox" checked={chartSettings.showFvg} onChange={(e) => setChartSettings({ ...chartSettings, showFvg: e.target.checked })} style={{ cursor: 'pointer' }} /> Fair Value Gaps (FVG)</label>
                         <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: isLight ? '#0f172a' : '#ffffff' }}><input type="checkbox" checked={chartSettings.showSessions} onChange={(e) => setChartSettings({ ...chartSettings, showSessions: e.target.checked })} style={{ cursor: 'pointer' }} /> Trading Sessions</label>
                         <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: isLight ? '#0f172a' : '#ffffff' }}><input type="checkbox" checked={chartSettings.showTrades} onChange={(e) => setChartSettings({ ...chartSettings, showTrades: e.target.checked })} style={{ cursor: 'pointer' }} /> Trades & Order Levels</label>
@@ -3154,6 +3161,7 @@ export default function TVChart({
                     <div onClick={() => setShowSettingsDropdown(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }} />
                     <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '6px', backgroundColor: isLight ? '#ffffff' : '#0f172a', border: isLight ? '1px solid #cbd5e1' : '1px solid #1f2937', borderRadius: '8px', padding: '12px', zIndex: 1000, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.2)', minWidth: '180px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <div style={{ fontSize: '11px', fontWeight: 'bold', color: isLight ? '#64748b' : '#9ca3af', borderBottom: isLight ? '1px solid #e2e8f0' : '1px solid #1f2937', paddingBottom: '6px', marginBottom: '4px' }}>Chart Visibility</div>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: isLight ? '#0f172a' : '#ffffff' }}><input type="checkbox" checked={chartSettings.showVolume ?? true} onChange={(e) => setChartSettings({ ...chartSettings, showVolume: e.target.checked })} style={{ cursor: 'pointer' }} /> Volume (Subpane)</label>
                       <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: isLight ? '#0f172a' : '#ffffff' }}><input type="checkbox" checked={chartSettings.showFvg} onChange={(e) => setChartSettings({ ...chartSettings, showFvg: e.target.checked })} style={{ cursor: 'pointer' }} /> Fair Value Gaps (FVG)</label>
                       <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: isLight ? '#0f172a' : '#ffffff' }}><input type="checkbox" checked={chartSettings.showSessions} onChange={(e) => setChartSettings({ ...chartSettings, showSessions: e.target.checked })} style={{ cursor: 'pointer' }} /> Trading Sessions</label>
                       <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: isLight ? '#0f172a' : '#ffffff' }}><input type="checkbox" checked={chartSettings.showTrades} onChange={(e) => setChartSettings({ ...chartSettings, showTrades: e.target.checked })} style={{ cursor: 'pointer' }} /> Trades & Order Levels</label>
@@ -3806,31 +3814,138 @@ export default function TVChart({
         <div style={{ position: 'relative', width: '100%', height: weisHeight }}>
           <div ref={weisContainerRef} style={{ width: '100%', height: '100%', touchAction: 'none' }} />
 
-          {/* Top-Left On-Chart Indicators Status Legend (Subpane Oscillators: RSI, ATR, MACD, Stochastic) */}
-          <TVChartLegend
-            indicators={indicators}
-            pane="subpane"
-            indicatorLatestValues={indicatorLatestValues}
-            theme={theme}
-            top="8px"
-            left="14px"
-            onToggleVisibility={(id) => {
-              const next = indicators.map((item) =>
-                item.id === id ? { ...item, visible: !item.visible } : item
-              );
-              setIndicators(next);
-              saveStoredIndicators(next);
+          {/* Subpane Status Legend (Volume Indicator + Oscillators: RSI, ATR, MACD, Stochastic) */}
+          <div
+            style={{
+              position: 'absolute',
+              top: '8px',
+              left: '14px',
+              zIndex: 20,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '4px',
+              pointerEvents: 'auto',
+              maxWidth: '80%',
             }}
-            onEdit={(id) => {
-              setEditingIndicatorId(id);
-              setShowIndicatorModal(true);
-            }}
-            onRemove={(id) => {
-              const next = indicators.filter((item) => item.id !== id);
-              setIndicators(next);
-              saveStoredIndicators(next);
-            }}
-          />
+          >
+            {/* Volume indicator item with hide / show button */}
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                backgroundColor: isLight
+                  ? 'rgba(255, 255, 255, 0.88)'
+                  : 'rgba(15, 23, 42, 0.88)',
+                backdropFilter: 'blur(4px)',
+                border: isLight ? '1px solid #cbd5e1' : '1px solid #334155',
+                borderRadius: '6px',
+                padding: '2px 8px',
+                fontSize: '11px',
+                lineHeight: '1.2',
+                color: isLight ? '#0f172a' : '#ffffff',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                opacity: chartSettings.showVolume !== false ? 1 : 0.75,
+              }}
+            >
+              <span
+                style={{
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  backgroundColor: '#26a69a',
+                  display: 'inline-block',
+                  flexShrink: 0,
+                  opacity: chartSettings.showVolume !== false ? 1 : 0.4,
+                }}
+              />
+              <span
+                style={{
+                  fontWeight: 'bold',
+                  color: '#26a69a',
+                  opacity: chartSettings.showVolume !== false ? 1 : 0.6,
+                  marginLeft: '4px',
+                }}
+              >
+                Vol
+              </span>
+
+              {/* Hide / Show Eye Toggle Button */}
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '3px',
+                  marginLeft: '4px',
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setChartSettings(prev => ({
+                      ...prev,
+                      showVolume: prev.showVolume === false ? true : false,
+                    }));
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: '1px',
+                    cursor: 'pointer',
+                    color: chartSettings.showVolume !== false
+                      ? isLight
+                        ? '#3b82f6'
+                        : '#60a5fa'
+                      : '#94a3b8',
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                  title={chartSettings.showVolume !== false ? 'Hide volume' : 'Show volume'}
+                >
+                  {chartSettings.showVolume !== false ? <Eye size={12} /> : <EyeOff size={12} />}
+                </button>
+              </div>
+
+              {/* Volume latest value */}
+              {chartSettings.showVolume !== false && activeCandles.length > 0 && (
+                <span
+                  style={{
+                    fontFamily: 'monospace',
+                    fontWeight: 600,
+                    color: isLight ? '#334155' : '#cbd5e1',
+                    marginLeft: '6px',
+                  }}
+                >
+                  {Number(activeCandles[activeCandles.length - 1]?.volume || 0).toLocaleString()}
+                </span>
+              )}
+            </div>
+
+            {/* Custom Dynamic Subpane Indicators (RSI, ATR, MACD, etc.) */}
+            <TVChartLegend
+              indicators={indicators}
+              pane="subpane"
+              indicatorLatestValues={indicatorLatestValues}
+              theme={theme}
+              top="0px"
+              left="0px"
+              onToggleVisibility={(id) => {
+                const next = indicators.map((item) =>
+                  item.id === id ? { ...item, visible: !item.visible } : item
+                );
+                setIndicators(next);
+                saveStoredIndicators(next);
+              }}
+              onEdit={(id) => {
+                setEditingIndicatorId(id);
+                setShowIndicatorModal(true);
+              }}
+              onRemove={(id) => {
+                const next = indicators.filter((item) => item.id !== id);
+                setIndicators(next);
+                saveStoredIndicators(next);
+              }}
+            />
+          </div>
         </div>
       </div>
 
