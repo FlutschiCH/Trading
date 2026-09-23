@@ -751,7 +751,9 @@ export default function TVChart({
     }
   });
 
+  const chartSettingsRef = useRef(chartSettings);
   useEffect(() => {
+    chartSettingsRef.current = chartSettings;
     localStorage.setItem('tv_chart_settings', JSON.stringify(chartSettings));
   }, [chartSettings]);
 
@@ -1223,7 +1225,8 @@ export default function TVChart({
       setFvgCoords([]);
     }
 
-    if (chartSettings.showSessions && currentSessions && currentSessions.length > 0 && candlesRef.current && candlesRef.current.length > 0) {
+    const currentSettings = chartSettingsRef.current || chartSettings;
+    if (currentSettings.showSessions && currentSessions && currentSessions.length > 0 && candlesRef.current && candlesRef.current.length > 0) {
       const activeCoords: any[] = [];
       const startIdxLimit = visibleRange ? Math.max(0, Math.floor(visibleRange.from) - 5) : 0;
       const endIdxLimit = visibleRange ? Math.min(candlesRef.current.length - 1, Math.ceil(visibleRange.to) + 5) : candlesRef.current.length - 1;
@@ -2149,7 +2152,7 @@ export default function TVChart({
     }
 
     updateDrawingCoordinates();
-  }, [activeCandles, visibleTrades, actualFilter, chartSettings.showTrades, chartSettings.showTrLines, chartSettings.showPositions, replayTime, storePositions, openPositions]);
+  }, [activeCandles, visibleTrades, actualFilter, chartSettings, replayTime, storePositions, openPositions]);
 
   // Synchronize indicators with Python backend and render LineSeries on mainChart
   useEffect(() => {
