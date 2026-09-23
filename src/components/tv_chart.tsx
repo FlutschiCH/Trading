@@ -3930,18 +3930,20 @@ export default function TVChart({
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
+                whiteSpace: 'nowrap',
                 backgroundColor: isLight
                   ? 'rgba(255, 255, 255, 0.88)'
                   : 'rgba(15, 23, 42, 0.88)',
                 backdropFilter: 'blur(4px)',
                 border: isLight ? '1px solid #cbd5e1' : '1px solid #334155',
                 borderRadius: '6px',
-                padding: '2px 8px',
+                padding: '3px 10px',
                 fontSize: '11px',
                 lineHeight: '1.2',
                 color: isLight ? '#0f172a' : '#ffffff',
                 boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
                 opacity: chartSettings.showVolume !== false ? 1 : 0.75,
+                flexShrink: 0,
               }}
             >
               <span
@@ -3960,7 +3962,9 @@ export default function TVChart({
                   fontWeight: 'bold',
                   color: '#26a69a',
                   opacity: chartSettings.showVolume !== false ? 1 : 0.6,
-                  marginLeft: '4px',
+                  marginLeft: '5px',
+                  marginRight: '3px',
+                  whiteSpace: 'nowrap',
                 }}
               >
                 Vol
