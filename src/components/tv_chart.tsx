@@ -9,6 +9,7 @@ import { usePositionsStore } from '../services/positionsStore';
 import DebugComponentBadge from './debug_component_badge';
 import type { Candle } from '../types/trading';
 import IndicatorModal from './indicator_modal';
+import TVChartLegend from './tv_chart_legend';
 import {
   loadStoredIndicators,
   saveStoredIndicators,
@@ -3186,127 +3187,30 @@ export default function TVChart({
           <div ref={chartContainerRef} onContextMenu={handleChartContextMenu} style={{ width: '100%', height: '100%', touchAction: 'none' }} />
 
           {/* Top-Left On-Chart Indicators Status Legend (Overlays only) */}
-          {indicators.filter(i => i.pane !== 'subpane').length > 0 && (
-            <div
-              style={{
-                position: 'absolute',
-                top: '12px',
-                left: '14px',
-                zIndex: 20,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px',
-                pointerEvents: 'auto',
-                maxWidth: '80%',
-              }}
-            >
-              {indicators.filter(i => i.pane !== 'subpane').map((ind) => {
-                const valStr = indicatorLatestValues[ind.id];
-                return (
-                  <div
-                    key={ind.id}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      backgroundColor: isLight ? 'rgba(255, 255, 255, 0.88)' : 'rgba(15, 23, 42, 0.88)',
-                      backdropFilter: 'blur(4px)',
-                      border: isLight ? '1px solid #cbd5e1' : '1px solid #334155',
-                      borderRadius: '6px',
-                      padding: '2px 8px',
-                      fontSize: '11px',
-                      lineHeight: '1.2',
-                      color: isLight ? '#0f172a' : '#ffffff',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                    }}
-                  >
-                    <span
-                      style={{
-                        width: '8px',
-                        height: '8px',
-                        borderRadius: '50%',
-                        backgroundColor: ind.color,
-                        display: 'inline-block',
-                        flexShrink: 0,
-                      }}
-                    />
-                    <span style={{ fontWeight: 'bold', color: ind.color }}>
-                      {ind.label || `${ind.name.toUpperCase()} ${ind.params.period}`}
-                    </span>
-                    {valStr && (
-                      <span style={{ fontFamily: 'monospace', fontWeight: 600, color: isLight ? '#334155' : '#cbd5e1' }}>
-                        {valStr}
-                      </span>
-                    )}
-
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', marginLeft: '4px' }}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const next = indicators.map((item) =>
-                            item.id === ind.id ? { ...item, visible: !item.visible } : item
-                          );
-                          setIndicators(next);
-                          saveStoredIndicators(next);
-                        }}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          padding: '1px',
-                          cursor: 'pointer',
-                          color: ind.visible ? (isLight ? '#3b82f6' : '#60a5fa') : '#94a3b8',
-                          display: 'flex',
-                          alignItems: 'center',
-                        }}
-                        title={ind.visible ? 'Hide indicator' : 'Show indicator'}
-                      >
-                        {ind.visible ? <Eye size={12} /> : <EyeOff size={12} />}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingIndicatorId(ind.id);
-                          setShowIndicatorModal(true);
-                        }}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          padding: '1px',
-                          cursor: 'pointer',
-                          color: isLight ? '#64748b' : '#94a3b8',
-                          display: 'flex',
-                          alignItems: 'center',
-                        }}
-                        title="Edit indicator"
-                      >
-                        <Settings size={12} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const next = indicators.filter((item) => item.id !== ind.id);
-                          setIndicators(next);
-                          saveStoredIndicators(next);
-                        }}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          padding: '1px',
-                          cursor: 'pointer',
-                          color: '#ef4444',
-                          display: 'flex',
-                          alignItems: 'center',
-                        }}
-                        title="Remove indicator"
-                      >
-                        <X size={12} />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          <TVChartLegend
+            indicators={indicators}
+            pane="main"
+            indicatorLatestValues={indicatorLatestValues}
+            theme={theme}
+            top="12px"
+            left="14px"
+            onToggleVisibility={(id) => {
+              const next = indicators.map((item) =>
+                item.id === id ? { ...item, visible: !item.visible } : item
+              );
+              setIndicators(next);
+              saveStoredIndicators(next);
+            }}
+            onEdit={(id) => {
+              setEditingIndicatorId(id);
+              setShowIndicatorModal(true);
+            }}
+            onRemove={(id) => {
+              const next = indicators.filter((item) => item.id !== id);
+              setIndicators(next);
+              saveStoredIndicators(next);
+            }}
+          />
 
           {/* Context Menu for Price Alert */}
           {contextMenu && (
@@ -3900,127 +3804,30 @@ export default function TVChart({
           <div ref={weisContainerRef} style={{ width: '100%', height: '100%', touchAction: 'none' }} />
 
           {/* Top-Left On-Chart Indicators Status Legend (Subpane Oscillators: RSI, ATR, MACD, Stochastic) */}
-          {indicators.filter(i => i.pane === 'subpane').length > 0 && (
-            <div
-              style={{
-                position: 'absolute',
-                top: '8px',
-                left: '14px',
-                zIndex: 20,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px',
-                pointerEvents: 'auto',
-                maxWidth: '80%',
-              }}
-            >
-              {indicators.filter(i => i.pane === 'subpane').map((ind) => {
-                const valStr = indicatorLatestValues[ind.id];
-                return (
-                  <div
-                    key={ind.id}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      backgroundColor: isLight ? 'rgba(255, 255, 255, 0.88)' : 'rgba(15, 23, 42, 0.88)',
-                      backdropFilter: 'blur(4px)',
-                      border: isLight ? '1px solid #cbd5e1' : '1px solid #334155',
-                      borderRadius: '6px',
-                      padding: '2px 8px',
-                      fontSize: '11px',
-                      lineHeight: '1.2',
-                      color: isLight ? '#0f172a' : '#ffffff',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                    }}
-                  >
-                    <span
-                      style={{
-                        width: '8px',
-                        height: '8px',
-                        borderRadius: '50%',
-                        backgroundColor: ind.color,
-                        display: 'inline-block',
-                        flexShrink: 0,
-                      }}
-                    />
-                    <span style={{ fontWeight: 'bold', color: ind.color }}>
-                      {ind.label || `${ind.name.toUpperCase()} ${ind.params.period || ''}`.trim()}
-                    </span>
-                    {valStr && (
-                      <span style={{ fontFamily: 'monospace', fontWeight: 600, color: isLight ? '#334155' : '#cbd5e1' }}>
-                        {valStr}
-                      </span>
-                    )}
-
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', marginLeft: '4px' }}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const next = indicators.map((item) =>
-                            item.id === ind.id ? { ...item, visible: !item.visible } : item
-                          );
-                          setIndicators(next);
-                          saveStoredIndicators(next);
-                        }}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          padding: '1px',
-                          cursor: 'pointer',
-                          color: ind.visible ? (isLight ? '#3b82f6' : '#60a5fa') : '#94a3b8',
-                          display: 'flex',
-                          alignItems: 'center',
-                        }}
-                        title={ind.visible ? 'Hide indicator' : 'Show indicator'}
-                      >
-                        {ind.visible ? <Eye size={12} /> : <EyeOff size={12} />}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingIndicatorId(ind.id);
-                          setShowIndicatorModal(true);
-                        }}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          padding: '1px',
-                          cursor: 'pointer',
-                          color: isLight ? '#64748b' : '#94a3b8',
-                          display: 'flex',
-                          alignItems: 'center',
-                        }}
-                        title="Edit indicator"
-                      >
-                        <Settings size={12} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const next = indicators.filter((item) => item.id !== ind.id);
-                          setIndicators(next);
-                          saveStoredIndicators(next);
-                        }}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          padding: '1px',
-                          cursor: 'pointer',
-                          color: '#ef4444',
-                          display: 'flex',
-                          alignItems: 'center',
-                        }}
-                        title="Remove indicator"
-                      >
-                        <X size={12} />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          <TVChartLegend
+            indicators={indicators}
+            pane="subpane"
+            indicatorLatestValues={indicatorLatestValues}
+            theme={theme}
+            top="8px"
+            left="14px"
+            onToggleVisibility={(id) => {
+              const next = indicators.map((item) =>
+                item.id === id ? { ...item, visible: !item.visible } : item
+              );
+              setIndicators(next);
+              saveStoredIndicators(next);
+            }}
+            onEdit={(id) => {
+              setEditingIndicatorId(id);
+              setShowIndicatorModal(true);
+            }}
+            onRemove={(id) => {
+              const next = indicators.filter((item) => item.id !== id);
+              setIndicators(next);
+              saveStoredIndicators(next);
+            }}
+          />
         </div>
       </div>
 
