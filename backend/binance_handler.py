@@ -68,10 +68,13 @@ class BinanceFuturesHandler(BaseBrokerHandler):
 
             try:
                 res_json = response.json()
-                if isinstance(res_json, dict) and 'code' in res_json and res_json['code'] != 200:
-                    print(f"[Binance ERROR] Endpoint: {endpoint} | Params: {params} | Code: {res_json.get('code')}, Msg: {res_json.get('msg')}", flush=True)
-                    if 'error' not in res_json:
-                        res_json['error'] = res_json.get('msg', f"Binance error code {res_json.get('code')}")
+                if isinstance(res_json, dict) and 'code' in res_json:
+                    code_val = res_json.get('code')
+                    msg_val = str(res_json.get('msg', '')).lower()
+                    if str(code_val) not in ('200', '0') and msg_val != 'success':
+                        print(f"[Binance ERROR] Endpoint: {endpoint} | Params: {params} | Code: {code_val}, Msg: {res_json.get('msg')}", flush=True)
+                        if 'error' not in res_json:
+                            res_json['error'] = res_json.get('msg', f"Binance error code {code_val}")
                 return res_json
             except Exception as parse_err:
                 print(f"[Binance ERROR] Failed to parse JSON on {endpoint}: {parse_err}", flush=True)
