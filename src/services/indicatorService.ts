@@ -101,13 +101,13 @@ export const saveStoredIndicators = (indicators: IndicatorConfig[]): void => {
 };
 
 /**
- * Fetches the dynamic indicator catalog from Python backend GET /indicators/catalog.
+ * Fetches the dynamic indicator catalog from Python backend GET /api/indicators/catalog.
  */
 export async function fetchIndicatorCatalog(): Promise<CatalogIndicatorItem[]> {
   if (cachedCatalog) return cachedCatalog;
 
   try {
-    const response = await fetch(`${API_BASE_URL}/indicators/catalog`);
+    const response = await fetch(`${API_BASE_URL}/api/indicators/catalog`);
     if (response.ok) {
       const json = await response.json();
       if (json.status === 'success' && json.data) {
@@ -183,7 +183,7 @@ export async function calculateIndicatorsBackend(
   }));
 
   try {
-    const response = await fetch(`${API_BASE_URL}/indicators/calculate`, {
+    const response = await fetch(`${API_BASE_URL}/api/indicators/calculate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
