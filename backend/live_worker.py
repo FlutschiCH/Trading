@@ -273,12 +273,15 @@ class LiveWorker:
                     )
                 else:
                     print(f"{Fore.GREEN}[LiveWorker Success]{Style.RESET_ALL} Order successfully executed for target {target_acc_id} on {symbol}.", flush=True)
+                    sl_str = f"{params['sl_price']:.5f}" if params.get('sl_price') is not None else "None"
+                    tp_str = f"{params['tp_price']:.5f}" if params.get('tp_price') is not None else "None"
                     send_discord_message(
                         f"✅ **Real Trade Executed Successfully!**\n"
                         f"🎛️ **Strategy ID:** `{strategy_id}`\n"
                         f"🏦 **Broker:** `{target_broker}` (Acc: `{target_acc_id}`)\n"
                         f"📊 **Symbol:** `{symbol}` | ➡️ **Side:** `{direction}`\n"
                         f"📦 **Volume:** `{params['qty']}` | 💵 **Entry:** `{params['entry_price']:.5f}`\n"
+                        f"🛑 **SL:** `{sl_str}` | 🎯 **TP:** `{tp_str}`"
                     )
             except Exception as ex:
                 err_text = str(ex)
@@ -725,6 +728,36 @@ class LiveWorker:
                             print(f"{Fore.GREEN}[LiveWorker SIGNAL DETECTED]{Style.RESET_ALL} {direction} at {close_price:.5f} (Opposite close: {allow_opp})", flush=True)
 
                             from discord_handler import send_discord_message
+                            
+                            # Estimate baseline SL / TP for signal alert
+                            sl_info_str = ""
+                            try:
+                                atr_val = float(last_completed_candle.get("atr") or 0.0)
+                                sig_pip_size = get_pip_size(symbol, float(close_price))
+                                sig_lot_size = get_lot_size(symbol)
+                                sig_params = TradingHandler.calculate_trade_parameters(
+                                    symbol=symbol,
+                                    entry_price=float(close_price),
+                                    direction=direction,
+                                    sl_type=strategy.get("slType", "price"),
+                                    sl_val=strategy.get("slVal", 1.0),
+                                    rr=strategy.get("rr", 2.0),
+                                    size=float(strategy.get("size") or 1.0),
+                                    use_risk_sizing=False,
+                                    risk_pct=1.0,
+                                    balance=10000.0,
+                                    lot_size=sig_lot_size,
+                                    pip_size=sig_pip_size,
+                                    precision=5,
+                                    atr_val=atr_val
+                                )
+                                sl_price_val = sig_params.get("sl_price")
+                                tp_price_val = sig_params.get("tp_price")
+                                if sl_price_val is not None and tp_price_val is not None:
+                                    sl_info_str = f"🛑 **SL:** `{sl_price_val:.5f}` | 🎯 **TP:** `{tp_price_val:.5f}`\n"
+                            except Exception:
+                                pass
+
                             send_discord_message(
                                 f"🚨 **New Trade Signal Detected!**\n"
                                 f"🎛️ **Strategy ID:** `{self.strategy_id}`\n"
@@ -732,6 +765,7 @@ class LiveWorker:
                                 f"⏱️ **Timeframe:** `{timeframe}`\n"
                                 f"➡️ **Direction:** `{direction}`\n"
                                 f"💵 **Price:** `{close_price:.5f}`\n"
+                                f"{sl_info_str}"
                                 f"🔄 **Allow Opposite Close:** `{allow_opp}`"
                             )
 
