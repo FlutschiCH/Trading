@@ -10,6 +10,7 @@ import DebugComponentBadge from './debug_component_badge';
 import type { Candle } from '../types/trading';
 import IndicatorModal from './indicator_modal';
 import TVChartLegend from './tv_chart_legend';
+import TVChartIndicatorPane from './tv_chart_indicator_pane';
 import {
   loadStoredIndicators,
   saveStoredIndicators,
@@ -4019,51 +4020,29 @@ export default function TVChart({
         </div>
 
         {/* Pane 3: Dedicated Indicators / Oscillators Pane (RSI, ATR, MACD, Stochastic, etc.) */}
-        <div style={{ position: 'relative', width: '100%', height: subpaneHeight, display: indicators.some((i) => i.pane === 'subpane' && i.visible) ? 'block' : 'none' }}>
-          <div ref={subpaneContainerRef} style={{ width: '100%', height: '100%', touchAction: 'none' }} />
-
-          {/* Indicators Subpane Legend */}
-          <div
-            style={{
-              position: 'absolute',
-              top: '8px',
-              left: '14px',
-              zIndex: 20,
-              display: 'flex',
-              flexDirection: 'row',
-              flexWrap: 'wrap',
-              alignItems: 'center',
-              gap: '6px',
-              pointerEvents: 'auto',
-              maxWidth: '90%',
-            }}
-          >
-            <TVChartLegend
-              indicators={indicators}
-              pane="subpane"
-              indicatorLatestValues={indicatorLatestValues}
-              theme={theme}
-              top="0px"
-              left="0px"
-              onToggleVisibility={(id) => {
-                const next = indicators.map((item) =>
-                  item.id === id ? { ...item, visible: !item.visible } : item
-                );
-                setIndicators(next);
-                saveStoredIndicators(next);
-              }}
-              onEdit={(id) => {
-                setEditingIndicatorId(id);
-                setShowIndicatorModal(true);
-              }}
-              onRemove={(id) => {
-                const next = indicators.filter((item) => item.id !== id);
-                setIndicators(next);
-                saveStoredIndicators(next);
-              }}
-            />
-          </div>
-        </div>
+        <TVChartIndicatorPane
+          containerRef={subpaneContainerRef}
+          height={subpaneHeight}
+          indicators={indicators}
+          indicatorLatestValues={indicatorLatestValues}
+          theme={theme}
+          onToggleVisibility={(id) => {
+            const next = indicators.map((item) =>
+              item.id === id ? { ...item, visible: !item.visible } : item
+            );
+            setIndicators(next);
+            saveStoredIndicators(next);
+          }}
+          onEdit={(id) => {
+            setEditingIndicatorId(id);
+            setShowIndicatorModal(true);
+          }}
+          onRemove={(id) => {
+            const next = indicators.filter((item) => item.id !== id);
+            setIndicators(next);
+            saveStoredIndicators(next);
+          }}
+        />
       </div>
 
       {/* Interactive SL / TP Edit Modal */}
