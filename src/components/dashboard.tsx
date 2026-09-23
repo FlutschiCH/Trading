@@ -2879,19 +2879,7 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* Selected Candle Details Inspector Component */}
-            <CandleDetailsCard
-              selectedCandle={selectedCandle}
-              candles={backtestResults?.candles || candles}
-              symbol={symbol}
-              timeframe={timeframe}
-              entryStabilityRule={entryStabilityRule}
-              sessionsTimezone={sessionsTimezone}
-              tradingSessions={tradingSessions}
-              onClose={() => setSelectedCandle(null)}
-              formatPrice={formatPrice}
-              formatDateTime={formatDateTime}
-            />
+
 
             {isMobile && (
               <MobileTabNav

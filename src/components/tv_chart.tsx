@@ -1678,14 +1678,9 @@ export default function TVChart({
 
       if (fullCandlesRef.current) {
         const foundCandle = fullCandlesRef.current.find(c => Number(c.time) === clickTime);
-        if (foundCandle) {
-          const isMobileDevice = isMobileRef.current || (typeof window !== 'undefined' && window.innerWidth < 768);
-          if (replayToolActiveRef.current) {
-            if (onSelectCandleRef.current) onSelectCandleRef.current(foundCandle);
-            setReplayTime(clickTime);
-          } else if (!isMobileDevice) {
-            if (onSelectCandleRef.current) onSelectCandleRef.current(foundCandle);
-          }
+        if (foundCandle && replayToolActiveRef.current) {
+          if (onSelectCandleRef.current) onSelectCandleRef.current(foundCandle);
+          setReplayTime(clickTime);
         }
       }
     });
