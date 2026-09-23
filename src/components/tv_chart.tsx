@@ -3051,6 +3051,7 @@ export default function TVChart({
               <DebugComponentBadge name="TVChart" />
               <SymbolTimeframeSelector
                 multiSelect={false}
+                showLabel={false}
                 symbol={symbol}
                 onSymbolChange={onSymbolChange}
                 timeframe={timeframe}
