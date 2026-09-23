@@ -421,6 +421,154 @@ class IndicatorHandler:
                 })
         return fvgs
 
+    @staticmethod
+    def volume_profile(df: pd.DataFrame, period_mode: str = 'daily', num_bins: int = 40, value_area_pct: float = 0.70) -> list:
+        """
+        Calculates Volume Profiles across periodic buckets or the whole dataset.
+        Returns a list of profile objects containing bins (price, total_vol, buy_vol, sell_vol),
+        POC, Value Area High (VAH), and Value Area Low (VAL).
+        """
+        if df.empty or 'time' not in df.columns or 'volume' not in df.columns:
+            return []
+
+        df_calc = df.copy()
+        df_calc['time'] = pd.to_numeric(df_calc['time'])
+        df_calc['open'] = pd.to_numeric(df_calc['open'])
+        df_calc['high'] = pd.to_numeric(df_calc['high'])
+        df_calc['low'] = pd.to_numeric(df_calc['low'])
+        df_calc['close'] = pd.to_numeric(df_calc['close'])
+        df_calc['volume'] = pd.to_numeric(df_calc['volume']).fillna(0)
+
+        # Estimate buy/sell volume split based on candle direction and body/range
+        is_bull = df_calc['close'] >= df_calc['open']
+        candle_range = (df_calc['high'] - df_calc['low']).replace(0, np.nan)
+        body = (df_calc['close'] - df_calc['open']).abs()
+        
+        # Bullish ratio: baseline 0.5 + directional skew
+        bull_ratio = np.where(candle_range.isna(), 0.5, 0.5 + (0.5 * (df_calc['close'] - df_calc['open']) / candle_range))
+        bull_ratio = np.clip(bull_ratio, 0.05, 0.95)
+        
+        df_calc['buy_vol'] = df_calc['volume'] * bull_ratio
+        df_calc['sell_vol'] = df_calc['volume'] * (1.0 - bull_ratio)
+
+        # Determine grouping bucket
+        mode = str(period_mode).lower().strip()
+        times = df_calc['time'].to_numpy()
+        
+        if mode == '15m':
+            bucket_sec = 15 * 60
+            groups = times // bucket_sec
+        elif mode == 'hourly' or mode == '1h':
+            bucket_sec = 3600
+            groups = times // bucket_sec
+        elif mode == '4h':
+            bucket_sec = 4 * 3600
+            groups = times // bucket_sec
+        elif mode == 'weekly' or mode == '1w':
+            bucket_sec = 7 * 86400
+            groups = times // bucket_sec
+        elif mode == 'entire_range' or mode == 'visible' or mode == 'all':
+            groups = np.zeros(len(df_calc), dtype=int)
+        else: # 'daily' or '1d' default
+            # 86400 UTC bucket
+            groups = times // 86400
+
+        df_calc['group_id'] = groups
+        profiles = []
+
+        for gid, grp in df_calc.groupby('group_id', sort=True):
+            if grp.empty:
+                continue
+            
+            p_min = float(grp['low'].min())
+            p_max = float(grp['high'].max())
+            t_start = int(grp['time'].min())
+            t_end = int(grp['time'].max())
+            total_grp_vol = float(grp['volume'].sum())
+
+            if p_max <= p_min or total_grp_vol <= 0 or len(grp) < 1:
+                continue
+
+            bins_count = max(10, min(int(num_bins), 150))
+            step = (p_max - p_min) / bins_count
+            
+            bin_prices = [p_min + (i + 0.5) * step for i in range(bins_count)]
+            bin_buy_vol = np.zeros(bins_count)
+            bin_sell_vol = np.zeros(bins_count)
+
+            # Distribute each candle's volume across its covered price bins
+            for _, row in grp.iterrows():
+                c_low = row['low']
+                c_high = row['high']
+                c_buy = row['buy_vol']
+                c_sell = row['sell_vol']
+
+                if c_high <= c_low:
+                    # Point candle
+                    b_idx = int(np.clip((c_low - p_min) / step, 0, bins_count - 1))
+                    bin_buy_vol[b_idx] += c_buy
+                    bin_sell_vol[b_idx] += c_sell
+                else:
+                    b_start = int(np.clip(np.floor((c_low - p_min) / step), 0, bins_count - 1))
+                    b_end = int(np.clip(np.floor((c_high - p_min) / step), 0, bins_count - 1))
+                    num_cov = max(1, b_end - b_start + 1)
+                    v_buy_each = c_buy / num_cov
+                    v_sell_each = c_sell / num_cov
+                    for b in range(b_start, b_end + 1):
+                        bin_buy_vol[b] += v_buy_each
+                        bin_sell_vol[b] += v_sell_each
+
+            bin_total_vol = bin_buy_vol + bin_sell_vol
+            max_bin_idx = int(np.argmax(bin_total_vol))
+            poc_price = float(bin_prices[max_bin_idx])
+
+            # Calculate Value Area (e.g. 70% of total volume around POC)
+            target_va_vol = total_grp_vol * float(value_area_pct)
+            current_va_vol = bin_total_vol[max_bin_idx]
+            va_low_idx = max_bin_idx
+            va_high_idx = max_bin_idx
+
+            while current_va_vol < target_va_vol and (va_low_idx > 0 or va_high_idx < bins_count - 1):
+                next_low_vol = bin_total_vol[va_low_idx - 1] if va_low_idx > 0 else -1
+                next_high_vol = bin_total_vol[va_high_idx + 1] if va_high_idx < bins_count - 1 else -1
+
+                if next_high_vol >= next_low_vol and next_high_vol >= 0:
+                    va_high_idx += 1
+                    current_va_vol += next_high_vol
+                elif next_low_vol >= 0:
+                    va_low_idx -= 1
+                    current_va_vol += next_low_vol
+                else:
+                    break
+
+            vah = float(bin_prices[va_high_idx] + 0.5 * step)
+            val = float(bin_prices[va_low_idx] - 0.5 * step)
+
+            bins_list = []
+            for i in range(bins_count):
+                bins_list.append({
+                    "price": float(bin_prices[i]),
+                    "buyVol": float(bin_buy_vol[i]),
+                    "sellVol": float(bin_sell_vol[i]),
+                    "totalVol": float(bin_total_vol[i]),
+                    "inValueArea": bool(va_low_idx <= i <= va_high_idx)
+                })
+
+            profiles.append({
+                "timeStart": t_start,
+                "timeEnd": t_end,
+                "priceMin": p_min,
+                "priceMax": p_max,
+                "poc": poc_price,
+                "vah": vah,
+                "val": val,
+                "totalVolume": total_grp_vol,
+                "maxBinVolume": float(np.max(bin_total_vol)),
+                "bins": bins_list
+            })
+
+        return profiles
+
     # --- Dynamic Dispatcher & Catalog ---
     @staticmethod
     def compute(df: pd.DataFrame, name: str, **kwargs):
@@ -587,6 +735,34 @@ class IndicatorHandler:
                 "params": {
                     "period": {"type": "int", "default": 14, "min": 1, "max": 200, "label": "Period"},
                     "smoothing": {"type": "select", "default": "rma", "options": ["rma", "sma", "ema", "wma"], "label": "Smoothing"}
+                }
+            },
+            "volume_profile": {
+                "name": "Volume Profile (VP)",
+                "category": "Volume & Flow",
+                "pane": "overlay",
+                "description": "Horizontal volume histogram showing volume distribution by price level, Point of Control (POC), and Value Area (VAH/VAL).",
+                "params": {
+                    "period_mode": {
+                        "type": "select",
+                        "default": "daily",
+                        "options": ["daily", "hourly", "15m", "4h", "weekly", "visible"],
+                        "label": "Range / Bucket Mode"
+                    },
+                    "num_bins": {
+                        "type": "int",
+                        "default": 40,
+                        "min": 10,
+                        "max": 150,
+                        "label": "Number of Price Rows"
+                    },
+                    "value_area_pct": {
+                        "type": "float",
+                        "default": 0.70,
+                        "min": 0.1,
+                        "max": 1.0,
+                        "label": "Value Area % (e.g. 0.70)"
+                    }
                 }
             }
         }

@@ -15,8 +15,140 @@ import {
   loadStoredIndicators,
   saveStoredIndicators,
   calculateIndicatorsBackend,
+  calculateVolumeProfilesClient,
   type IndicatorConfig,
+  type VolumeProfileBucket,
 } from '../services/indicatorService';
+
+class VolumeProfileRenderer implements SeriesPrimitivePaneRenderer {
+  private _profiles: any[];
+
+  constructor(profiles: any[]) {
+    this._profiles = profiles;
+  }
+
+  draw(target: any) {
+    target.useMediaCoordinateSpace((scope: any) => {
+      const ctx = scope.context;
+      ctx.save();
+
+      this._profiles.forEach(p => {
+        const { x1, x2, bins, pocY, vahY, valY, showPoc, showVa, buyColor, sellColor, pocColor } = p;
+        const bucketWidth = Math.max(20, x2 - x1);
+        if (bucketWidth <= 0 || !bins || bins.length === 0) return;
+
+        // Render histogram bins
+        bins.forEach((b: any) => {
+          const { yTop, yBottom, buyRatio, sellRatio, inValueArea } = b;
+          const h = Math.max(1, yBottom - yTop);
+          const maxBarWidth = bucketWidth * 0.85;
+
+          const totalWidth = (b.totalVol / p.maxBinVolume) * maxBarWidth;
+          if (totalWidth <= 0.5) return;
+
+          const buyWidth = totalWidth * buyRatio;
+          const sellWidth = totalWidth * sellRatio;
+
+          const alphaMultiplier = inValueArea ? 0.75 : 0.28;
+
+          // Buy bar (left part)
+          if (buyWidth > 0) {
+            ctx.fillStyle = buyColor || 'rgba(34, 197, 94, 0.7)';
+            ctx.globalAlpha = alphaMultiplier;
+            ctx.fillRect(x1, yTop, buyWidth, h);
+          }
+
+          // Sell bar (stacked right next to buy bar)
+          if (sellWidth > 0) {
+            ctx.fillStyle = sellColor || 'rgba(239, 68, 68, 0.7)';
+            ctx.globalAlpha = alphaMultiplier;
+            ctx.fillRect(x1 + buyWidth, yTop, sellWidth, h);
+          }
+        });
+
+        // Render Value Area High (VAH) & Value Area Low (VAL) lines
+        if (showVa !== false) {
+          ctx.globalAlpha = 0.85;
+          ctx.strokeStyle = '#38bdf8';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([3, 3]);
+
+          if (vahY !== null && !isNaN(vahY)) {
+            ctx.beginPath();
+            ctx.moveTo(x1, vahY);
+            ctx.lineTo(x2, vahY);
+            ctx.stroke();
+
+            ctx.fillStyle = '#38bdf8';
+            ctx.font = '9px monospace';
+            ctx.textAlign = 'right';
+            ctx.fillText('VAH', x2 - 2, vahY - 2);
+          }
+
+          if (valY !== null && !isNaN(valY)) {
+            ctx.beginPath();
+            ctx.moveTo(x1, valY);
+            ctx.lineTo(x2, valY);
+            ctx.stroke();
+
+            ctx.fillStyle = '#38bdf8';
+            ctx.font = '9px monospace';
+            ctx.textAlign = 'right';
+            ctx.fillText('VAL', x2 - 2, valY + 9);
+          }
+        }
+
+        // Render Point of Control (POC) line
+        if (showPoc !== false && pocY !== null && !isNaN(pocY)) {
+          ctx.globalAlpha = 0.95;
+          ctx.strokeStyle = pocColor || '#f59e0b';
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([]);
+
+          ctx.beginPath();
+          ctx.moveTo(x1, pocY);
+          ctx.lineTo(x2, pocY);
+          ctx.stroke();
+
+          ctx.fillStyle = pocColor || '#f59e0b';
+          ctx.font = 'bold 9px monospace';
+          ctx.textAlign = 'left';
+          ctx.fillText('POC', x1 + 4, pocY - 2);
+        }
+      });
+
+      ctx.restore();
+    });
+  }
+}
+
+class VolumeProfilePrimitive implements ISeriesPrimitive {
+  private _profiles: any[];
+  private _requestUpdate?: () => void;
+
+  constructor(profiles: any[]) {
+    this._profiles = profiles;
+  }
+
+  updateProfiles(profiles: any[]) {
+    this._profiles = profiles;
+    if (this._requestUpdate) {
+      this._requestUpdate();
+    }
+  }
+
+  update(requestUpdate: () => void) {
+    this._requestUpdate = requestUpdate;
+  }
+
+  paneViews(): readonly SeriesPrimitivePaneView[] {
+    return [
+      {
+        renderer: () => new VolumeProfileRenderer(this._profiles)
+      }
+    ];
+  }
+}
 
 class SessionBoxRenderer implements SeriesPrimitivePaneRenderer {
   private _sessionCoords: any[];
@@ -623,6 +755,7 @@ export default function TVChart({
   const resistanceLineSeriesRef = useRef<any>(null);
   const smaLineSeriesRef = useRef<any>(null);
   const sessionBoxPrimitiveRef = useRef<any>(null);
+  const volumeProfilePrimitiveRef = useRef<any>(null);
 
   // Drawing Tools State
   const [activeTool, setActiveTool] = useState<'none' | 'trendline' | 'rectangle' | 'delete'>('none');
@@ -643,6 +776,11 @@ export default function TVChart({
   const customFromRef = useRef(customFrom);
   const customToRef = useRef(customTo);
   const sessionsRef = useRef(sessions);
+  const indicatorsRef = useRef(indicators);
+  useEffect(() => {
+    indicatorsRef.current = indicators;
+    updateDrawingCoordinates();
+  }, [indicators]);
 
   // References to dynamically generated trade level LineSeries
   const dynamicLineSeriesRef = useRef<any[]>([]);
@@ -1339,6 +1477,108 @@ export default function TVChart({
       setSessionCoords([]);
     }
 
+    // Volume Profile Primitive Update
+    const activeVpIndicators = (indicatorsRef.current || []).filter(
+      (ind) => ind.visible && ind.name === 'volume_profile'
+    );
+
+    if (activeVpIndicators.length > 0 && candlesRef.current && candlesRef.current.length > 0) {
+      const allProfiles: any[] = [];
+      const currentCandles = candlesRef.current;
+
+      activeVpIndicators.forEach((vpInd) => {
+        const periodMode = vpInd.params?.period_mode || 'daily';
+        const numBins = Number(vpInd.params?.num_bins) || 40;
+        const valueAreaPct = Number(vpInd.params?.value_area_pct) || 0.70;
+        const buyColor = vpInd.params?.buy_color || '#22c55e';
+        const sellColor = vpInd.params?.sell_color || '#ef4444';
+        const pocColor = vpInd.color || '#f59e0b';
+        const showPoc = vpInd.params?.show_poc !== false;
+        const showVa = vpInd.params?.show_va !== false;
+
+        let inputCandles = currentCandles;
+        if (periodMode === 'visible' && visibleRange) {
+          const fromIdx = Math.max(0, Math.floor(visibleRange.from));
+          const toIdx = Math.min(currentCandles.length - 1, Math.ceil(visibleRange.to));
+          inputCandles = currentCandles.slice(fromIdx, toIdx + 1);
+        }
+
+        const buckets = calculateVolumeProfilesClient(inputCandles, periodMode, numBins, valueAreaPct);
+
+        buckets.forEach((b: VolumeProfileBucket) => {
+          let x1: number | null = null;
+          let x2: number | null = null;
+
+          if (periodMode === 'visible' || periodMode === 'entire_range') {
+            if (visibleRange) {
+              const leftCoord = timeScale.logicalToCoordinate(visibleRange.from as any);
+              const rightCoord = timeScale.logicalToCoordinate(visibleRange.to as any);
+              x1 = leftCoord !== null ? leftCoord : timeScale.timeToCoordinate(b.timeStart as any);
+              x2 = rightCoord !== null ? rightCoord : timeScale.timeToCoordinate(b.timeEnd as any);
+            } else {
+              x1 = timeScale.timeToCoordinate(b.timeStart as any);
+              x2 = timeScale.timeToCoordinate(b.timeEnd as any);
+            }
+          } else {
+            x1 = timeScale.timeToCoordinate(b.timeStart as any);
+            x2 = timeScale.timeToCoordinate(b.timeEnd as any);
+          }
+
+          if (x1 === null && x2 === null) return;
+          if (x1 === null) x1 = x2! - 40;
+          if (x2 === null) x2 = x1! + 40;
+          if (Math.abs(x2 - x1) < 15) {
+            x2 = x1 + 35;
+          }
+
+          const pocY = series.priceToCoordinate(b.poc);
+          const vahY = series.priceToCoordinate(b.vah);
+          const valY = series.priceToCoordinate(b.val);
+
+          const projectedBins = b.bins.map((bin) => {
+            const yCenter = series.priceToCoordinate(bin.price);
+            const stepPrice = (b.priceMax - b.priceMin) / b.bins.length;
+            const yTop = series.priceToCoordinate(bin.price + stepPrice * 0.5);
+            const yBottom = series.priceToCoordinate(bin.price - stepPrice * 0.5);
+
+            const buyRatio = bin.totalVol > 0 ? bin.buyVol / bin.totalVol : 0.5;
+            const sellRatio = bin.totalVol > 0 ? bin.sellVol / bin.totalVol : 0.5;
+
+            return {
+              ...bin,
+              yTop: yTop !== null ? yTop : (yCenter ? yCenter - 2 : 0),
+              yBottom: yBottom !== null ? yBottom : (yCenter ? yCenter + 2 : 4),
+              buyRatio,
+              sellRatio,
+            };
+          });
+
+          allProfiles.push({
+            x1,
+            x2,
+            pocY,
+            vahY,
+            valY,
+            showPoc,
+            showVa,
+            buyColor,
+            sellColor,
+            pocColor,
+            maxBinVolume: b.maxBinVolume,
+            bins: projectedBins,
+          });
+        });
+      });
+
+      if (volumeProfilePrimitiveRef.current) {
+        volumeProfilePrimitiveRef.current.updateProfiles(allProfiles);
+      }
+    } else {
+      if (volumeProfilePrimitiveRef.current) {
+        volumeProfilePrimitiveRef.current.updateProfiles([]);
+      }
+    }
+
     const currentCandles = candlesRef.current;
     if (currentCandles && currentCandles.length > 0) {
       const startIdxLimit = visibleRange ? Math.max(0, Math.floor(visibleRange.from) - 5) : 0;
@@ -1646,6 +1886,10 @@ export default function TVChart({
     const sessionBoxPrimitive = new SessionBoxPrimitive([]);
     candlestickSeries.attachPrimitive(sessionBoxPrimitive);
     sessionBoxPrimitiveRef.current = sessionBoxPrimitive;
+
+    const volumeProfilePrimitive = new VolumeProfilePrimitive([]);
+    candlestickSeries.attachPrimitive(volumeProfilePrimitive);
+    volumeProfilePrimitiveRef.current = volumeProfilePrimitive;
 
     const selectedTradePathSeries = mainChart.addSeries(LineSeries, {
       color: '#10b981',
@@ -2298,6 +2542,20 @@ export default function TVChart({
 
       // Update / create series for each active indicator
       for (const ind of activeList) {
+        if (ind.name === 'volume_profile') {
+          const buckets = calculateVolumeProfilesClient(
+            activeCandles,
+            ind.params?.period_mode || 'daily',
+            Number(ind.params?.num_bins) || 40,
+            Number(ind.params?.value_area_pct) || 0.70
+          );
+          if (buckets.length > 0) {
+            const lastB = buckets[buckets.length - 1];
+            latestVals[ind.id] = `POC: ${lastB.poc.toFixed(5)} [VAL: ${lastB.val.toFixed(5)} - VAH: ${lastB.vah.toFixed(5)}]`;
+          }
+          continue;
+        }
+
         const result = calculatedData[ind.id];
         if (!result) continue;
 
