@@ -23,20 +23,21 @@ export default function TVChartIndicatorPane({
   onEdit,
   onRemove,
 }: TVChartIndicatorPaneProps) {
-  const isVisible = indicators.some((i) => i.pane === 'subpane' && i.visible);
+  const isVisible = indicators.some((i) => (i.pane === 'subpane' || (i.name && ['rsi', 'macd', 'stochastic', 'atr'].includes(i.name.toLowerCase()))) && i.visible);
 
   return (
     <div
       style={{
         position: 'relative',
         width: '100%',
-        height,
+        height: isVisible ? height : 0,
         display: isVisible ? 'block' : 'none',
+        overflow: 'hidden',
       }}
     >
       <div
         ref={containerRef}
-        style={{ width: '100%', height: '100%', touchAction: 'none' }}
+        style={{ width: '100%', height: `${height}px`, touchAction: 'none' }}
       />
 
       {/* Indicators Subpane Legend */}

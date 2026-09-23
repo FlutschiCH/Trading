@@ -1688,7 +1688,7 @@ export default function TVChart({
 
     const handleResize = () => {
       const isMobileSize = window.innerWidth < 768;
-      const hasSubpane = indicators.some((i) => i.pane === 'subpane' && i.visible);
+      const hasSubpane = indicators.some((i) => (i.pane === 'subpane' || ['rsi', 'macd', 'stochastic', 'atr'].includes((i.name || '').toLowerCase())) && i.visible);
       let newChartH = isMobileSize ? 380 : 680;
       let newWeisH = chartSettings.showVolume !== false ? (isMobileSize ? 90 : 120) : 0;
       let newSubpaneH = hasSubpane ? (isMobileSize ? 100 : 140) : 0;
@@ -1754,7 +1754,7 @@ export default function TVChart({
         const parentHeight = parentCard.clientHeight;
         if (parentHeight > 200) {
           const usableHeight = parentHeight - 55;
-          const hasSubpane = indicators.some((i) => i.pane === 'subpane' && i.visible);
+          const hasSubpane = indicators.some((i) => (i.pane === 'subpane' || ['rsi', 'macd', 'stochastic', 'atr'].includes((i.name || '').toLowerCase())) && i.visible);
           const showVol = chartSettings.showVolume !== false;
 
           let newChartH: number;
@@ -2274,7 +2274,7 @@ export default function TVChart({
       const latestVals: Record<string, string> = {};
 
       // Cleanup overlay series that are no longer active
-      const activeOverlayIds = new Set(activeList.filter(i => i.pane !== 'subpane').map((ind) => ind.id));
+      const activeOverlayIds = new Set(activeList.filter(i => i.pane !== 'subpane' && !['rsi', 'macd', 'stochastic', 'atr'].includes((i.name || '').toLowerCase())).map((ind) => ind.id));
       indicatorSeriesMapRef.current.forEach((series, key) => {
         const baseId = key.split('__')[0];
         if (!activeOverlayIds.has(baseId)) {
@@ -2286,7 +2286,7 @@ export default function TVChart({
       });
 
       // Cleanup subpane series that are no longer active
-      const activeSubpaneIds = new Set(activeList.filter(i => i.pane === 'subpane').map((ind) => ind.id));
+      const activeSubpaneIds = new Set(activeList.filter(i => i.pane === 'subpane' || ['rsi', 'macd', 'stochastic', 'atr'].includes((i.name || '').toLowerCase())).map((ind) => ind.id));
       subpaneSeriesMapRef.current.forEach((series, key) => {
         const baseId = key.split('__')[0];
         if (!activeSubpaneIds.has(baseId)) {
@@ -2302,7 +2302,7 @@ export default function TVChart({
         const result = calculatedData[ind.id];
         if (!result) continue;
 
-        const isSubpane = ind.pane === 'subpane';
+        const isSubpane = ind.pane === 'subpane' || ['rsi', 'macd', 'stochastic', 'atr'].includes((ind.name || '').toLowerCase());
         const targetChart = isSubpane ? subpaneChartRef.current : chartRef.current;
         const targetSeriesMap = isSubpane ? subpaneSeriesMapRef.current : indicatorSeriesMapRef.current;
 
@@ -2485,7 +2485,7 @@ export default function TVChart({
 
   // Dynamically adjust subpane indicators chart panel height when subpane indicators are active
   useEffect(() => {
-    const hasSubpane = indicators.some((i) => i.pane === 'subpane' && i.visible);
+    const hasSubpane = indicators.some((i) => (i.pane === 'subpane' || ['rsi', 'macd', 'stochastic', 'atr'].includes((i.name || '').toLowerCase())) && i.visible);
     const isMobileSize = window.innerWidth < 768;
     const targetSubpaneH = hasSubpane ? (isMobileSize ? 100 : 140) : 0;
 
