@@ -1130,7 +1130,8 @@ export default function Dashboard() {
         });
       } else {
         const dy = e.clientY - activeResize.startPos;
-        const newHeight = Math.min(800, Math.max(200, activeResize.startSize + dy));
+        const maxHeightLimit = activeResize.id === 'chart' ? 2400 : 1600;
+        const newHeight = Math.min(maxHeightLimit, Math.max(200, activeResize.startSize + dy));
         setCardHeights(prev => {
           const next = {
             ...prev,
@@ -3284,7 +3285,7 @@ export default function Dashboard() {
                   const dragStyles = {
                     width: cardWidths[panelId] ? `${cardWidths[panelId]}px` : defaultWidth,
                     height: isCollapsed ? 'auto' : (cardHeights[panelId] ? `${cardHeights[panelId]}px` : undefined),
-                    maxHeight: isCollapsed ? 'none' : (panelId === 'backtester' ? 'none' : '800px'),
+                    maxHeight: isCollapsed ? 'none' : (panelId === 'chart' || panelId === 'backtester' ? 'none' : '1200px'),
                     display: 'flex',
                     flexDirection: 'column' as const,
                     flexGrow: cardWidths[panelId] ? 0 : 1,
