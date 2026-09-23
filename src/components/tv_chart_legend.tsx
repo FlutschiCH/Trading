@@ -74,55 +74,35 @@ export const TVChartLegend: React.FC<TVChartLegendProps> = ({
               opacity: ind.visible ? 1 : 0.75,
             }}
           >
-            {/* Left section: indicator info & value (fixed structure so button alignment remains stable) */}
-            <div
+            {/* Indicator Dot & Name */}
+            <span
               style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                backgroundColor: ind.color,
+                display: 'inline-block',
+                flexShrink: 0,
+                opacity: ind.visible ? 1 : 0.4,
+              }}
+            />
+            <span
+              style={{
+                fontWeight: 'bold',
+                color: ind.color,
+                opacity: ind.visible ? 1 : 0.6,
               }}
             >
-              <span
-                style={{
-                  width: '8px',
-                  height: '8px',
-                  borderRadius: '50%',
-                  backgroundColor: ind.color,
-                  display: 'inline-block',
-                  flexShrink: 0,
-                  opacity: ind.visible ? 1 : 0.4,
-                }}
-              />
-              <span
-                style={{
-                  fontWeight: 'bold',
-                  color: ind.color,
-                  opacity: ind.visible ? 1 : 0.6,
-                }}
-              >
-                {labelText}
-              </span>
-              <span
-                style={{
-                  fontFamily: 'monospace',
-                  fontWeight: 600,
-                  color: isLight ? '#334155' : '#cbd5e1',
-                  minWidth: valStr ? undefined : '0px',
-                  visibility: ind.visible && valStr ? 'visible' : 'hidden',
-                  display: valStr ? 'inline-block' : 'none',
-                }}
-              >
-                {valStr || ''}
-              </span>
-            </div>
+              {labelText}
+            </span>
 
-            {/* Action buttons (Eye, Settings, Remove) */}
+            {/* Action buttons (Eye, Settings, Remove) placed FIRST after the label */}
             <div
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '3px',
-                marginLeft: '6px',
+                marginLeft: '4px',
               }}
             >
               <button
@@ -178,6 +158,20 @@ export const TVChartLegend: React.FC<TVChartLegendProps> = ({
                 <X size={12} />
               </button>
             </div>
+
+            {/* Price / Value placed AFTER the action buttons */}
+            {ind.visible && valStr && (
+              <span
+                style={{
+                  fontFamily: 'monospace',
+                  fontWeight: 600,
+                  color: isLight ? '#334155' : '#cbd5e1',
+                  marginLeft: '6px',
+                }}
+              >
+                {valStr}
+              </span>
+            )}
           </div>
         );
       })}
