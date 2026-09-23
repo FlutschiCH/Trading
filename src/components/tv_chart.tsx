@@ -234,6 +234,7 @@ export default function TVChart({
 
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const weisContainerRef = useRef<HTMLDivElement>(null);
+  const subpaneContainerRef = useRef<HTMLDivElement>(null);
 
   const [liveStrategyState, setLiveStrategyState] = useState<any>(null);
 
@@ -599,6 +600,7 @@ export default function TVChart({
 
   const chartRef = useRef<any>(null);
   const weisChartRef = useRef<any>(null);
+  const subpaneChartRef = useRef<any>(null);
 
   const candlestickSeriesRef = useRef<any>(null);
   const markersPluginRef = useRef<any>(null);
@@ -764,9 +766,11 @@ export default function TVChart({
 
   // Candle polling handled centrally by CandleStore (15s interval)
   const [chartHeight, setChartHeight] = useState(window.innerWidth < 768 ? 380 : 680);
-  const [weisHeight, setWeisHeight] = useState(window.innerWidth < 768 ? 100 : 140);
+  const [weisHeight, setWeisHeight] = useState(window.innerWidth < 768 ? 90 : 120);
+  const [subpaneHeight, setSubpaneHeight] = useState(window.innerWidth < 768 ? 100 : 140);
   const chartHeightRef = useRef(chartHeight);
   const weisHeightRef = useRef(weisHeight);
+  const subpaneHeightRef = useRef(subpaneHeight);
 
   // Drag state for interactive SL / TP position badges
   const [draggingBadge, setDraggingBadge] = useState<{
@@ -916,7 +920,8 @@ export default function TVChart({
   useEffect(() => {
     chartHeightRef.current = chartHeight;
     weisHeightRef.current = weisHeight;
-  }, [chartHeight, weisHeight]);
+    subpaneHeightRef.current = subpaneHeight;
+  }, [chartHeight, weisHeight, subpaneHeight]);
 
   const handleChartContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -1005,41 +1010,37 @@ export default function TVChart({
   };
 
   useEffect(() => {
-    if (chartRef.current) {
-      chartRef.current.applyOptions({
-        localization: {
-          timeFormatter: getChartTimeFormatter(sessionsTimezone),
-        },
-        timeScale: {
-          tickMarkFormatter: getChartTickMarkFormatter(sessionsTimezone),
-        }
-      });
-    }
-    if (weisChartRef.current) {
-      weisChartRef.current.applyOptions({
-        localization: {
-          timeFormatter: getChartTimeFormatter(sessionsTimezone),
-        },
-        timeScale: {
-          tickMarkFormatter: getChartTickMarkFormatter(sessionsTimezone),
-        }
-      });
-    }
+    const locOpts = {
+      localization: {
+        timeFormatter: getChartTimeFormatter(sessionsTimezone),
+      },
+      timeScale: {
+        tickMarkFormatter: getChartTickMarkFormatter(sessionsTimezone),
+      }
+    };
+    if (chartRef.current) chartRef.current.applyOptions(locOpts);
+    if (weisChartRef.current) weisChartRef.current.applyOptions(locOpts);
+    if (subpaneChartRef.current) subpaneChartRef.current.applyOptions(locOpts);
   }, [sessionsTimezone]);
 
   const toggleFullscreen = () => {
     if (!isFullscreen) {
       const totalH = window.innerHeight;
       const isMobileSize = window.innerWidth < 768;
-      const newWeisH = isMobileSize ? 100 : 150;
-      const newChartH = totalH - (isMobileSize ? 200 : 250);
-      setChartHeight(newChartH);
+      const hasSubpane = indicators.some((i) => i.pane === 'subpane' && i.visible);
+      const newWeisH = chartSettings.showVolume !== false ? (isMobileSize ? 80 : 110) : 0;
+      const newSubpaneH = hasSubpane ? (isMobileSize ? 90 : 130) : 0;
+      const newChartH = totalH - (isMobileSize ? 180 : 220) - newWeisH - newSubpaneH;
+      setChartHeight(Math.max(200, newChartH));
       setWeisHeight(newWeisH);
+      setSubpaneHeight(newSubpaneH);
       setIsFullscreen(true);
     } else {
       const isMobileSize = window.innerWidth < 768;
+      const hasSubpane = indicators.some((i) => i.pane === 'subpane' && i.visible);
       setChartHeight(isMobileSize ? 380 : 680);
-      setWeisHeight(isMobileSize ? 100 : 140);
+      setWeisHeight(chartSettings.showVolume !== false ? (isMobileSize ? 90 : 120) : 0);
+      setSubpaneHeight(hasSubpane ? (isMobileSize ? 100 : 140) : 0);
       setIsFullscreen(false);
     }
   };
@@ -1051,8 +1052,11 @@ export default function TVChart({
     if (weisChartRef.current && weisContainerRef.current) {
       weisChartRef.current.resize(weisContainerRef.current.clientWidth, weisHeight);
     }
+    if (subpaneChartRef.current && subpaneContainerRef.current) {
+      subpaneChartRef.current.resize(subpaneContainerRef.current.clientWidth, subpaneHeight);
+    }
     updateDrawingCoordinates();
-  }, [chartHeight, weisHeight]);
+  }, [chartHeight, weisHeight, subpaneHeight]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -1401,7 +1405,7 @@ export default function TVChart({
 
   // Sync Charts & Render Data
   useEffect(() => {
-    if (!chartContainerRef.current || !weisContainerRef.current) return;
+    if (!chartContainerRef.current || !weisContainerRef.current || !subpaneContainerRef.current) return;
 
     const isLight = theme === 'light';
     const chartBg = isLight ? '#ffffff' : '#111827';
@@ -1497,6 +1501,7 @@ export default function TVChart({
       priceLineVisible: false,
     });
 
+    // Pane 2: Volume Only Chart
     const weisChart = createChart(weisContainerRef.current, {
       layout: {
         background: { type: ColorType.Solid, color: chartBg },
@@ -1533,7 +1538,7 @@ export default function TVChart({
         timeFormatter: getChartTimeFormatter(sessionsTimezone),
       },
       width: weisContainerRef.current.clientWidth || (window.innerWidth - 32),
-      height: window.innerWidth < 768 ? 100 : 140,
+      height: window.innerWidth < 768 ? 90 : 120,
     });
 
     const weisSeries = weisChart.addSeries(HistogramSeries, {
@@ -1543,6 +1548,46 @@ export default function TVChart({
       },
     });
 
+    // Pane 3: Dedicated Indicators Chart (RSI, MACD, ATR, Stochastic, etc.)
+    const subpaneChart = createChart(subpaneContainerRef.current, {
+      layout: {
+        background: { type: ColorType.Solid, color: chartBg },
+        textColor: textColor,
+      },
+      grid: {
+        vertLines: { color: gridColor },
+        horzLines: { color: gridColor },
+      },
+      crosshair: {
+        mode: CrosshairMode.Normal,
+      },
+      handleScroll: {
+        mouseWheel: true,
+        pressedMouseMove: true,
+        horzTouchDrag: true,
+        vertTouchDrag: true,
+      },
+      handleScale: {
+        mouseWheel: true,
+        pinch: true,
+        axisPressedMouseMove: {
+          time: true,
+          price: true,
+        },
+      },
+      timeScale: {
+        fixRightEdge: false,
+        timeVisible: true,
+        secondsVisible: false,
+        tickMarkFormatter: getChartTickMarkFormatter(sessionsTimezone),
+      },
+      localization: {
+        timeFormatter: getChartTimeFormatter(sessionsTimezone),
+      },
+      width: subpaneContainerRef.current.clientWidth || (window.innerWidth - 32),
+      height: window.innerWidth < 768 ? 100 : 140,
+    });
+
     let isSyncing = false;
     let animationFrameId: number | null = null;
     mainChart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
@@ -1550,6 +1595,7 @@ export default function TVChart({
       isSyncing = true;
       try {
         weisChart.timeScale().setVisibleLogicalRange(range);
+        subpaneChart.timeScale().setVisibleLogicalRange(range);
       } catch (e) { }
       if (animationFrameId !== null) {
         cancelAnimationFrame(animationFrameId);
@@ -1565,12 +1611,24 @@ export default function TVChart({
       isSyncing = true;
       try {
         mainChart.timeScale().setVisibleLogicalRange(range);
+        subpaneChart.timeScale().setVisibleLogicalRange(range);
+      } catch (e) { }
+      isSyncing = false;
+    });
+
+    subpaneChart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+      if (isSyncing || !range) return;
+      isSyncing = true;
+      try {
+        mainChart.timeScale().setVisibleLogicalRange(range);
+        weisChart.timeScale().setVisibleLogicalRange(range);
       } catch (e) { }
       isSyncing = false;
     });
 
     chartRef.current = mainChart;
     weisChartRef.current = weisChart;
+    subpaneChartRef.current = subpaneChart;
     candlestickSeriesRef.current = candlestickSeries;
     markersPluginRef.current = markersPlugin;
     weisSeriesRef.current = weisSeries;
@@ -1629,23 +1687,30 @@ export default function TVChart({
 
     const handleResize = () => {
       const isMobileSize = window.innerWidth < 768;
+      const hasSubpane = indicators.some((i) => i.pane === 'subpane' && i.visible);
       let newChartH = isMobileSize ? 380 : 680;
-      let newWeisH = isMobileSize ? 100 : 140;
+      let newWeisH = chartSettings.showVolume !== false ? (isMobileSize ? 90 : 120) : 0;
+      let newSubpaneH = hasSubpane ? (isMobileSize ? 100 : 140) : 0;
 
       if (document.getElementById('tv-chart-fullscreen-container')) {
         const totalH = window.innerHeight;
-        newWeisH = isMobileSize ? 100 : 150;
-        newChartH = totalH - (isMobileSize ? 200 : 250);
+        newWeisH = chartSettings.showVolume !== false ? (isMobileSize ? 80 : 110) : 0;
+        newSubpaneH = hasSubpane ? (isMobileSize ? 90 : 130) : 0;
+        newChartH = totalH - (isMobileSize ? 180 : 220) - newWeisH - newSubpaneH;
       }
 
-      setChartHeight(newChartH);
+      setChartHeight(Math.max(200, newChartH));
       setWeisHeight(newWeisH);
+      setSubpaneHeight(newSubpaneH);
 
       if (chartContainerRef.current && mainChart) {
-        mainChart.resize(chartContainerRef.current.clientWidth || (window.innerWidth - 32), newChartH);
+        mainChart.resize(chartContainerRef.current.clientWidth || (window.innerWidth - 32), Math.max(200, newChartH));
       }
       if (weisContainerRef.current && weisChart) {
         weisChart.resize(weisContainerRef.current.clientWidth || (window.innerWidth - 32), newWeisH);
+      }
+      if (subpaneContainerRef.current && subpaneChart) {
+        subpaneChart.resize(subpaneContainerRef.current.clientWidth || (window.innerWidth - 32), newSubpaneH);
       }
       updateDrawingCoordinates();
     };
@@ -1654,13 +1719,13 @@ export default function TVChart({
 
     // Dynamic theme options update
     const updateThemeOptions = () => {
-      if (!mainChart || !weisChart) return;
+      if (!mainChart || !weisChart || !subpaneChart) return;
       const isL = theme === 'light';
       const cBg = isL ? '#ffffff' : '#111827';
       const tCol = isL ? '#0f172a' : '#d1d5db';
       const gCol = isL ? '#e2e8f0' : '#1f2937';
 
-      mainChart.applyOptions({
+      const themeOpts = {
         layout: {
           background: { type: ColorType.Solid, color: cBg },
           textColor: tCol,
@@ -1669,17 +1734,11 @@ export default function TVChart({
           vertLines: { color: gCol },
           horzLines: { color: gCol },
         },
-      });
-      weisChart.applyOptions({
-        layout: {
-          background: { type: ColorType.Solid, color: cBg },
-          textColor: tCol,
-        },
-        grid: {
-          vertLines: { color: gCol },
-          horzLines: { color: gCol },
-        },
-      });
+      };
+
+      mainChart.applyOptions(themeOpts);
+      weisChart.applyOptions(themeOpts);
+      subpaneChart.applyOptions(themeOpts);
     };
     updateThemeOptions();
 
@@ -1688,18 +1747,36 @@ export default function TVChart({
       if (!chartContainerRef.current || !mainChart) return;
       const width = chartContainerRef.current.clientWidth;
 
-      // Dynamically calculate chart and weis heights based on parent card height if defined
+      // Dynamically calculate chart, weis, and subpane heights based on parent card height if defined
       const parentCard = chartContainerRef.current.closest('.no-drag')?.parentElement;
       if (parentCard) {
         const parentHeight = parentCard.clientHeight;
         if (parentHeight > 200) {
-          // Total space inside card minus header desk height (~48px)
           const usableHeight = parentHeight - 55;
-          // Allocate 75% to main chart and 25% to Weis Wave volume
-          const newChartH = Math.max(120, Math.floor(usableHeight * 0.72));
-          const newWeisH = Math.max(60, Math.floor(usableHeight * 0.24));
+          const hasSubpane = indicators.some((i) => i.pane === 'subpane' && i.visible);
+          const showVol = chartSettings.showVolume !== false;
+
+          let newChartH: number;
+          let newWeisH = 0;
+          let newSubpaneH = 0;
+
+          if (showVol && hasSubpane) {
+            newChartH = Math.max(120, Math.floor(usableHeight * 0.60));
+            newWeisH = Math.max(50, Math.floor(usableHeight * 0.18));
+            newSubpaneH = Math.max(50, Math.floor(usableHeight * 0.22));
+          } else if (showVol) {
+            newChartH = Math.max(120, Math.floor(usableHeight * 0.75));
+            newWeisH = Math.max(60, Math.floor(usableHeight * 0.25));
+          } else if (hasSubpane) {
+            newChartH = Math.max(120, Math.floor(usableHeight * 0.75));
+            newSubpaneH = Math.max(60, Math.floor(usableHeight * 0.25));
+          } else {
+            newChartH = usableHeight;
+          }
+
           setChartHeight(newChartH);
           setWeisHeight(newWeisH);
+          setSubpaneHeight(newSubpaneH);
         }
       }
 
@@ -1707,6 +1784,9 @@ export default function TVChart({
         mainChart.resize(width, chartHeightRef.current);
         if (weisContainerRef.current && weisChart) {
           weisChart.resize(weisContainerRef.current.clientWidth, weisHeightRef.current);
+        }
+        if (subpaneContainerRef.current && subpaneChart) {
+          subpaneChart.resize(subpaneContainerRef.current.clientWidth, subpaneHeightRef.current);
         }
         updateDrawingCoordinates();
       }
@@ -1736,7 +1816,7 @@ export default function TVChart({
       indicatorSeriesMapRef.current.clear();
       subpaneSeriesMapRef.current.forEach((series) => {
         try {
-          weisChart.removeSeries(series);
+          subpaneChart.removeSeries(series);
         } catch (e) { }
       });
       subpaneSeriesMapRef.current.clear();
@@ -1745,6 +1825,7 @@ export default function TVChart({
       }
       mainChart.remove();
       weisChart.remove();
+      subpaneChart.remove();
     };
   }, []);
 
@@ -2187,7 +2268,7 @@ export default function TVChart({
       }
 
       const calculatedData = await calculateIndicatorsBackend(activeCandles, activeList);
-      if (!isSubscribed || !chartRef.current || !weisChartRef.current) return;
+      if (!isSubscribed || !chartRef.current || !weisChartRef.current || !subpaneChartRef.current) return;
 
       const latestVals: Record<string, string> = {};
 
@@ -2209,7 +2290,7 @@ export default function TVChart({
         const baseId = key.split('__')[0];
         if (!activeSubpaneIds.has(baseId)) {
           try {
-            weisChartRef.current.removeSeries(series);
+            subpaneChartRef.current.removeSeries(series);
           } catch (e) { }
           subpaneSeriesMapRef.current.delete(key);
         }
@@ -2221,7 +2302,7 @@ export default function TVChart({
         if (!result) continue;
 
         const isSubpane = ind.pane === 'subpane';
-        const targetChart = isSubpane ? weisChartRef.current : chartRef.current;
+        const targetChart = isSubpane ? subpaneChartRef.current : chartRef.current;
         const targetSeriesMap = isSubpane ? subpaneSeriesMapRef.current : indicatorSeriesMapRef.current;
 
         if (result.type === 'dataframe' && result.columns) {
@@ -2401,13 +2482,25 @@ export default function TVChart({
     };
   }, [indicators, activeCandles]);
 
-  // Dynamically adjust lower chart panel height when subpane indicators are active
+  // Dynamically adjust subpane indicators chart panel height when subpane indicators are active
   useEffect(() => {
     const hasSubpane = indicators.some((i) => i.pane === 'subpane' && i.visible);
     const isMobileSize = window.innerWidth < 768;
-    const baseWeisH = isMobileSize ? 100 : 140;
-    const expandedWeisH = isMobileSize ? 140 : 180;
-    const targetWeisH = hasSubpane ? expandedWeisH : baseWeisH;
+    const targetSubpaneH = hasSubpane ? (isMobileSize ? 100 : 140) : 0;
+
+    if (subpaneHeightRef.current !== targetSubpaneH) {
+      setSubpaneHeight(targetSubpaneH);
+      subpaneHeightRef.current = targetSubpaneH;
+      if (subpaneChartRef.current && subpaneContainerRef.current) {
+        subpaneChartRef.current.resize(subpaneContainerRef.current.clientWidth || (window.innerWidth - 32), targetSubpaneH);
+      }
+    }
+  }, [indicators]);
+
+  // Dynamically adjust Volume pane height when showVolume toggles
+  useEffect(() => {
+    const isMobileSize = window.innerWidth < 768;
+    const targetWeisH = chartSettings.showVolume !== false ? (isMobileSize ? 90 : 120) : 0;
 
     if (weisHeightRef.current !== targetWeisH) {
       setWeisHeight(targetWeisH);
@@ -2416,7 +2509,7 @@ export default function TVChart({
         weisChartRef.current.resize(weisContainerRef.current.clientWidth || (window.innerWidth - 32), targetWeisH);
       }
     }
-  }, [indicators]);
+  }, [chartSettings.showVolume]);
 
   // Update price format and precision dynamically based on candle data
   useEffect(() => {
@@ -3811,10 +3904,11 @@ export default function TVChart({
           </svg>
         </div>
 
-        <div style={{ position: 'relative', width: '100%', height: weisHeight }}>
+        {/* Pane 2: Dedicated Volume Histogram Pane */}
+        <div style={{ position: 'relative', width: '100%', height: weisHeight, display: chartSettings.showVolume !== false ? 'block' : 'none' }}>
           <div ref={weisContainerRef} style={{ width: '100%', height: '100%', touchAction: 'none' }} />
 
-          {/* Subpane Status Legend (Volume Indicator + Oscillators: RSI, ATR, MACD, Stochastic) */}
+          {/* Volume Pane Legend */}
           <div
             style={{
               position: 'absolute',
@@ -3921,8 +4015,29 @@ export default function TVChart({
                 </span>
               )}
             </div>
+          </div>
+        </div>
 
-            {/* Custom Dynamic Subpane Indicators (RSI, ATR, MACD, etc.) */}
+        {/* Pane 3: Dedicated Indicators / Oscillators Pane (RSI, ATR, MACD, Stochastic, etc.) */}
+        <div style={{ position: 'relative', width: '100%', height: subpaneHeight, display: indicators.some((i) => i.pane === 'subpane' && i.visible) ? 'block' : 'none' }}>
+          <div ref={subpaneContainerRef} style={{ width: '100%', height: '100%', touchAction: 'none' }} />
+
+          {/* Indicators Subpane Legend */}
+          <div
+            style={{
+              position: 'absolute',
+              top: '8px',
+              left: '14px',
+              zIndex: 20,
+              display: 'flex',
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              gap: '6px',
+              pointerEvents: 'auto',
+              maxWidth: '90%',
+            }}
+          >
             <TVChartLegend
               indicators={indicators}
               pane="subpane"
