@@ -4318,142 +4318,22 @@ export default function Backtester({
               {backtestResults && (
                 <>
                   {backtestResults.dailyLossBreached && (
-
-
-                  <div style={{
-                    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-                    border: '1px solid #ef4444',
-                    borderRadius: '8px',
-                    padding: '8px',
-                    color: '#ef4444',
-                    fontSize: '11px',
-                    fontWeight: 'bold',
-                    textAlign: 'center',
-                    marginTop: '4px'
-                  }}>
-                    ⚠️ FTMO 5% Daily Loss Rule Breached!
-                  </div>
-                )}
-
-                {/* AI Assistant Helpers */}
-                <div style={{
-                  backgroundColor: 'rgba(30, 41, 59, 0.4)',
-                  border: '1px solid #1e293b',
-                  borderRadius: '8px',
-                  padding: '10px',
-                  marginTop: '8px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '8px'
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ color: '#cbd5e1', fontSize: '10px', fontWeight: 'bold', letterSpacing: '0.5px' }}>ASK AI ASSISTANT</span>
-                    {copied && <span style={{ color: '#10b981', fontSize: '10px', fontWeight: 'bold' }}>✓ Copied!</span>}
-                  </div>
-
-                  <button
-                    onClick={handleCopy}
-                    style={{
-                      backgroundColor: copied ? '#065f46' : '#2563eb',
-                      border: 'none',
-                      color: '#ffffff',
-                      padding: '6px 12px',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
+                    <div style={{
+                      backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                      border: '1px solid #ef4444',
+                      borderRadius: '8px',
+                      padding: '8px',
+                      color: '#ef4444',
                       fontSize: '11px',
                       fontWeight: 'bold',
-                      transition: 'all 0.2s',
                       textAlign: 'center',
-                      width: '100%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '4px'
-                    }}
-                  >
-                    {copied ? '✓ JSON Copied!' : '📋 Copy backtest_results.json'}
-                  </button>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px' }}>
-                    <a
-                      href="https://gemini.google.com/"
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{
-                        backgroundColor: '#1e293b',
-                        border: '1px solid #334155',
-                        color: '#60a5fa',
-                        padding: '6px 4px',
-                        borderRadius: '4px',
-                        textDecoration: 'none',
-                        textAlign: 'center',
-                        fontSize: '11px',
-                        fontWeight: 'bold',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '4px',
-                        transition: 'background-color 0.2s'
-                      }}
-                      onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#334155')}
-                      onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#1e293b')}
-                    >
-                      ✨ Gemini
-                    </a>
-                    <a
-                      href="https://chatgpt.com/"
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{
-                        backgroundColor: '#1e293b',
-                        border: '1px solid #334155',
-                        color: '#10b981',
-                        padding: '6px 4px',
-                        borderRadius: '4px',
-                        textDecoration: 'none',
-                        textAlign: 'center',
-                        fontSize: '11px',
-                        fontWeight: 'bold',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '4px',
-                        transition: 'background-color 0.2s'
-                      }}
-                      onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#334155')}
-                      onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#1e293b')}
-                    >
-                      💬 ChatGPT
-                    </a>
-                    <a
-                      href="https://grok.com/"
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{
-                        backgroundColor: '#1e293b',
-                        border: '1px solid #334155',
-                        color: '#f59e0b',
-                        padding: '6px 4px',
-                        borderRadius: '4px',
-                        textDecoration: 'none',
-                        textAlign: 'center',
-                        fontSize: '11px',
-                        fontWeight: 'bold',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '4px',
-                        transition: 'background-color 0.2s'
-                      }}
-                      onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#334155')}
-                      onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#1e293b')}
-                    >
-                      🚀 Grok
-                    </a>
-                  </div>
-                </div>
-              </>
-            )}
+                      marginTop: '4px'
+                    }}>
+                      ⚠️ FTMO 5% Daily Loss Rule Breached!
+                    </div>
+                  )}
+                </>
+              )}
 
             <div style={{
               display: 'flex',
