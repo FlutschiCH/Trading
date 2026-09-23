@@ -279,6 +279,7 @@ class LiveWorker:
                         f"🏦 **Broker:** `{target_broker}` (Acc: `{target_acc_id}`)\n"
                         f"📊 **Symbol:** `{symbol}` | ➡️ **Side:** `{direction}`\n"
                         f"📦 **Volume:** `{params['qty']}` | 💵 **Entry:** `{params['entry_price']:.5f}`\n"
+                    )
             except Exception as ex:
                 err_text = str(ex)
                 print(f"{Fore.RED}[LiveWorker Error]{Style.RESET_ALL} Error executing trade: {err_text}", flush=True)

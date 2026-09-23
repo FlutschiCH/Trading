@@ -341,5 +341,16 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     set_console_quick_edit(args.quickedit)
-    worker = LiquidityWorker(strategy_id=args.strategy_id)
-    worker.run()
+    try:
+        worker = LiquidityWorker(strategy_id=args.strategy_id)
+        worker.run()
+    except Exception as e:
+        set_console_quick_edit(True)
+        print(f"\n{Fore.RED}[LiquidityWorker Fatal Error]{Style.RESET_ALL} Unhandled exception in liquidity worker: {e}", flush=True)
+        import traceback
+        traceback.print_exc()
+        print(f"\n{Fore.YELLOW}[LiquidityWorker]{Style.RESET_ALL} Window kept open for debugging. Press Enter to exit...", flush=True)
+        try:
+            input()
+        except Exception:
+            pass
