@@ -3822,10 +3822,12 @@ export default function TVChart({
               left: '14px',
               zIndex: 20,
               display: 'flex',
-              flexDirection: 'column',
-              gap: '4px',
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              gap: '6px',
               pointerEvents: 'auto',
-              maxWidth: '80%',
+              maxWidth: '90%',
             }}
           >
             {/* Volume indicator item with hide / show button */}

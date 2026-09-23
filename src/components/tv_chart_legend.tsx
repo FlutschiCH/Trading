@@ -9,6 +9,7 @@ interface TVChartLegendProps {
   theme?: 'dark' | 'light';
   top?: string | number;
   left?: string | number;
+  direction?: 'column' | 'row';
   onToggleVisibility: (id: string) => void;
   onEdit: (id: string) => void;
   onRemove: (id: string) => void;
@@ -21,6 +22,7 @@ export const TVChartLegend: React.FC<TVChartLegendProps> = ({
   theme = 'dark',
   top = '12px',
   left = '14px',
+  direction = 'row',
   onToggleVisibility,
   onEdit,
   onRemove,
@@ -35,15 +37,17 @@ export const TVChartLegend: React.FC<TVChartLegendProps> = ({
   return (
     <div
       style={{
-        position: 'absolute',
+        position: top !== undefined && left !== undefined ? 'absolute' : 'relative',
         top,
         left,
         zIndex: 20,
         display: 'flex',
-        flexDirection: 'column',
-        gap: '4px',
+        flexDirection: direction,
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        gap: '6px',
         pointerEvents: 'auto',
-        maxWidth: '80%',
+        maxWidth: '90%',
       }}
     >
       {paneIndicators.map((ind) => {
