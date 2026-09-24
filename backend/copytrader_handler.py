@@ -168,6 +168,13 @@ class CopytraderHandler:
             return [dict(c) for c in cls._configs_cache.values()]
 
     @classmethod
+    def get_config(cls, config_id: str):
+        cls._ensure_cache_loaded()
+        with cls._lock:
+            cfg = cls._configs_cache.get(config_id)
+            return dict(cfg) if cfg else None
+
+    @classmethod
     def save_config(cls, config: dict) -> bool:
         cls.init_db()
         cfg_id = config.get("id") or f"copytrader_{int(time.time()*1000)}"
@@ -235,6 +242,8 @@ class CopytraderHandler:
             for k in to_remove:
                 cls._mappings_cache.pop(k, None)
 
+        cls.stop_worker(config_id)
+
         query = "DELETE FROM copytrader_configs WHERE id = %s"
         res = SQLHandler.execute_query(query, (config_id,))
         if res is None:
@@ -288,54 +297,188 @@ class CopytraderHandler:
                     return True
         return False
 
-    @classmethod
-    def spawn_worker(cls, quickedit: bool = False):
-        """
-        Spawns the standalone Copytrader Worker in its own console window.
-        """
-        import subprocess
-        python_exe = sys.executable
-        worker_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "copytrader_worker.py")
-        cmd = [python_exe, worker_script]
-        if quickedit:
-            cmd.append("--quickedit")
-        else:
-            try:
-                from system_handler import SystemHandler
-                if SystemHandler.get_quick_edit().get('enabled'):
-                    cmd.append("--quickedit")
-            except Exception:
-                pass
+    _workers = {}  # {config_id: subprocess.Popen}
+    _stop_event = threading.Event()
+    _supervisor_thread = None
 
-        try:
-            if sys.platform == "win32":
-                CREATE_NEW_CONSOLE = 0x00000010
-                proc = subprocess.Popen(
-                    cmd,
-                    creationflags=CREATE_NEW_CONSOLE,
-                    cwd=os.path.dirname(os.path.abspath(__file__))
-                )
+    @classmethod
+    def spawn_worker(cls, config_id: str, quickedit: bool = False):
+        """
+        Spawns a dedicated Copytrader Worker console for a specific configuration ID.
+        """
+        with cls._lock:
+            existing_proc = cls._workers.get(config_id)
+            if existing_proc and existing_proc.poll() is None:
+                return existing_proc
+
+            cfg = cls.get_config(config_id)
+            if not cfg:
+                return None
+
+            import subprocess
+            python_exe = sys.executable
+            worker_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "copytrader_worker.py")
+            cmd = [python_exe, worker_script, "--config_id", str(config_id)]
+            if quickedit:
+                cmd.append("--quickedit")
             else:
-                proc = subprocess.Popen(
-                    cmd,
-                    cwd=os.path.dirname(os.path.abspath(__file__))
-                )
-            print(f"[Copytrader Engine] Spawned standalone Copytrader Worker (PID: {proc.pid})", flush=True)
-            return proc
-        except Exception as ex:
-            print(f"[Copytrader Engine] Failed to spawn Copytrader Worker: {ex}", flush=True)
-            return None
+                try:
+                    from system_handler import SystemHandler
+                    if SystemHandler.get_quick_edit().get('enabled'):
+                        cmd.append("--quickedit")
+                except Exception:
+                    pass
+
+            try:
+                if sys.platform == "win32":
+                    CREATE_NEW_CONSOLE = 0x00000010
+                    proc = subprocess.Popen(
+                        cmd,
+                        creationflags=CREATE_NEW_CONSOLE,
+                        cwd=os.path.dirname(os.path.abspath(__file__))
+                    )
+                else:
+                    proc = subprocess.Popen(
+                        cmd,
+                        cwd=os.path.dirname(os.path.abspath(__file__))
+                    )
+                cls._workers[config_id] = proc
+                print(f"[Copytrader Engine] Spawned dedicated Copytrader Worker for '{cfg.get('name')}' (ID: {config_id}, PID: {proc.pid})", flush=True)
+                return proc
+            except Exception as ex:
+                print(f"[Copytrader Engine] Failed to spawn Copytrader Worker for {config_id}: {ex}", flush=True)
+                return None
 
     @classmethod
-    def start(cls, as_worker_process: bool = True):
-        if as_worker_process:
-            return cls.spawn_worker()
+    def stop_worker(cls, config_id: str):
+        """
+        Terminates the dedicated worker process for a specific configuration.
+        """
+        with cls._lock:
+            proc = cls._workers.pop(config_id, None)
+            if proc:
+                try:
+                    if proc.poll() is None:
+                        proc.terminate()
+                        try:
+                            proc.wait(timeout=2)
+                        except Exception:
+                            proc.kill()
+                    print(f"[Copytrader Engine] Stopped worker process for config {config_id}", flush=True)
+                except Exception as ex:
+                    print(f"[Copytrader Engine] Error stopping worker for {config_id}: {ex}", flush=True)
 
-        if cls._is_running:
+    @classmethod
+    def _supervisor_loop(cls):
+        """
+        Background watchdog managing dedicated worker processes per configuration.
+        """
+        while not cls._stop_event.is_set():
+            try:
+                current_host = socket.gethostname().strip().lower()
+                configs = cls.get_all_configs()
+                active_configs = []
+                for cfg in configs:
+                    if cfg.get("status") == "active":
+                        target_comp = str(cfg.get("target_computer", "All")).strip().lower()
+                        if target_comp == "all" or target_comp == current_host:
+                            active_configs.append(cfg)
+
+                active_ids = {c["id"] for c in active_configs}
+
+                # 1. Terminate workers for configs no longer active
+                with cls._lock:
+                    for c_id in list(cls._workers.keys()):
+                        if c_id not in active_ids:
+                            cls.stop_worker(c_id)
+
+                # 2. Spawn / recover workers for active configs
+                for cfg in active_configs:
+                    if cls._stop_event.is_set():
+                        break
+                    c_id = cfg["id"]
+                    proc = cls._workers.get(c_id)
+                    is_dead = proc is None or proc.poll() is not None
+                    if is_dead:
+                        cls.spawn_worker(c_id)
+
+            except Exception as ex:
+                logPrint(f"[Copytrader Supervisor Error]: {ex}")
+
+            cls._stop_event.wait(10)
+
+    @classmethod
+    def start(cls):
+        """
+        Starts the Copytrader Engine supervisor to maintain dedicated worker windows per configuration.
+        """
+        if cls._supervisor_thread and cls._supervisor_thread.is_alive():
             return
-        cls._is_running = True
-        cls._sync_thread = threading.Thread(target=cls._sync_loop, daemon=True)
-        cls._sync_thread.start()
+        cls._stop_event.clear()
+        cls._supervisor_thread = threading.Thread(target=cls._supervisor_loop, daemon=True)
+        cls._supervisor_thread.start()
+
+        # Log & notify engine startup status
+        try:
+            current_host = socket.gethostname().strip().lower()
+            configs = cls.get_all_configs()
+            active_configs = []
+            total_slaves = 0
+
+            for cfg in configs:
+                if cfg.get("status") != "active":
+                    continue
+                target_comp = str(cfg.get("target_computer", "All")).strip().lower()
+                if target_comp != "all" and target_comp != current_host:
+                    continue
+                active_configs.append(cfg)
+                slaves = cfg.get("slaves", [])
+                active_slaves = [s for s in slaves if s.get("status") != "paused"]
+                total_slaves += len(active_slaves)
+
+            config_count = len(active_configs)
+            from colorama import Fore, Style
+            lines = [
+                f"\n{Fore.CYAN}[Copytrader Engine]{Style.RESET_ALL} 🚀 Starting Copytrader Supervisor:",
+                f"   • Active Configurations Found: {Style.BRIGHT}{config_count}{Style.RESET_ALL}",
+                f"   • Total Active Slaves Connected: {Style.BRIGHT}{total_slaves}{Style.RESET_ALL}",
+                f"   • Host Machine: {Style.BRIGHT}{current_host}{Style.RESET_ALL}"
+            ]
+            for idx, cfg in enumerate(active_configs, start=1):
+                cfg_name = cfg.get("name", f"Config #{idx}")
+                cfg_id = cfg.get("id")
+                m_acc = cfg.get("master_account", "Unknown")
+                m_brk = str(cfg.get("master_broker", "metatrader")).upper()
+                target_comp = cfg.get("target_computer", "All")
+                slaves = [s for s in cfg.get("slaves", []) if s.get("status") != "paused"]
+                
+                cfg_symbols = cfg.get("symbols", "All")
+                lines.append(f"   [{idx}] {Fore.YELLOW}{cfg_name}{Style.RESET_ALL} (ID: `{cfg_id}` | Host: {target_comp} | Symbols: {cfg_symbols})")
+                lines.append(f"       Master: {Fore.GREEN}{m_acc}{Style.RESET_ALL} [{m_brk}]")
+                if not slaves:
+                    lines.append(f"       Slaves: {Fore.RED}None active{Style.RESET_ALL}")
+                for s in slaves:
+                    s_acc = s.get("account_id", "Unknown")
+                    s_brk = str(s.get("broker", "metatrader")).upper()
+                    mode = s.get("mode", "direct")
+                    mult = s.get("multiplier", 1.0)
+                    sizing_str = f"{mode} (x{mult})" if mode in ("multiplier", "divider") else mode
+                    lines.append(f"       └── ➜ Slave: {Fore.CYAN}{s_acc}{Style.RESET_ALL} [{s_brk}] | Sizing: {sizing_str}")
+
+            summary_msg = "\n".join(lines) + "\n" 
+            print(summary_msg, flush=True)
+            logPrint(f"[Copytrader Engine] Supervisor started ({config_count} active configs, {total_slaves} active slaves).")
+        except Exception as e:
+            from colorama import Fore, Style
+            logPrint(f"{Fore.RED}[Copytrader Engine]{Style.RESET_ALL} Error building start message: {e}")
+
+    @classmethod
+    def stop(cls):
+        cls._stop_event.set()
+        with cls._lock:
+            for c_id in list(cls._workers.keys()):
+                cls.stop_worker(c_id)
+            cls._workers.clear()
 
     @staticmethod
     def _is_symbol_allowed(symbol: str, allowed_symbols) -> bool:
@@ -597,6 +740,210 @@ class CopytraderHandler:
             return lots
 
     @classmethod
+    def sync_config(cls, cfg: dict):
+        if not cfg or cfg.get("status") != "active":
+            return
+
+        master_acc = cfg.get("master_account")
+        master_broker = cfg.get("master_broker", "metatrader")
+        slaves = cfg.get("slaves", [])
+        cfg_symbols = cfg.get("symbols", "All")
+
+        if not master_acc or not slaves:
+            return
+
+        try:
+            with cls._lock:
+                # 1. Fetch live master positions and filter by config symbols
+                raw_master_positions = cls._get_account_positions(master_acc, master_broker) or []
+                master_positions = []
+                for m_pos in raw_master_positions:
+                    sym = m_pos.get("symbol", "")
+                    if cls._is_symbol_allowed(sym, cfg_symbols):
+                        master_positions.append(m_pos)
+
+                # 2. Synchronize directly with each active slave account
+                for slave in slaves:
+                    if slave.get("status") == "paused":
+                        continue
+
+                    slave_acc = str(slave.get("account_id"))
+                    slave_broker = slave.get("broker", "metatrader")
+                    slave_symbols = slave.get("symbols", "All")
+                    mode = slave.get("mode", "direct")
+                    multiplier = float(slave.get("multiplier", 1.0))
+
+                    # Fetch current live positions on slave
+                    slave_positions = cls._get_account_positions(slave_acc, slave_broker) or []
+                    unmatched_slaves = list(slave_positions)
+
+                    # Filter master positions for this specific slave's symbol rules
+                    slave_target_master_positions = [
+                        p for p in master_positions if cls._is_symbol_allowed(p.get("symbol", ""), slave_symbols)
+                    ]
+
+                    # A) For each master open position, ensure it exists on slave
+                    for m_pos in slave_target_master_positions:
+                        m_sym = m_pos.get("symbol", "")
+                        # Master trade side is explicitly "trade_side" (SELL or BUY)
+                        m_side = str(m_pos.get("trade_side") or m_pos.get("side") or "").strip().upper()
+                        if m_side not in ("BUY", "SELL"):
+                            m_side = "BUY" if str(m_pos.get("type")) == "0" else "SELL"
+
+                        m_lots = float(m_pos.get("volume") or m_pos.get("lots") or m_pos.get("size") or 0.01)
+                        sl = float(m_pos.get("stop_loss") or m_pos.get("sl") or 0.0)
+                        tp = float(m_pos.get("take_profit") or m_pos.get("tp") or 0.0)
+
+                        # Look for matching open position on slave
+                        match_idx = -1
+                        for idx_s, s_pos in enumerate(unmatched_slaves):
+                            s_sym = str(s_pos.get("symbol", ""))
+                            s_side = str(s_pos.get("trade_side") or s_pos.get("side") or "").strip().upper()
+                            if s_side not in ("BUY", "SELL"):
+                                amt = float(s_pos.get("positionAmt") or 0)
+                                if amt != 0:
+                                    s_side = "BUY" if amt > 0 else "SELL"
+                                else:
+                                    s_side = "BUY" if str(s_pos.get("type")) == "0" else "SELL"
+                        
+                            if s_side == m_side and cls._are_symbols_matching(m_sym, s_sym, slave_acc):
+                                match_idx = idx_s
+                                break
+
+                        if match_idx >= 0:
+                            # Position already open on slave -> Retain and sync SL / TP if changed
+                            matched_s_pos = unmatched_slaves.pop(match_idx)
+                            if sl > 0 or tp > 0:
+                                s_ticket = str(matched_s_pos.get("position_id") or matched_s_pos.get("ticket") or matched_s_pos.get("id") or "")
+                                curr_sl = float(matched_s_pos.get("stop_loss") or matched_s_pos.get("sl") or 0.0)
+                                curr_tp = float(matched_s_pos.get("take_profit") or matched_s_pos.get("tp") or 0.0)
+
+                                # Normalize target SL and TP to match broker precision formatting
+                                formatted_target_sl = sl
+                                formatted_target_tp = tp
+                                if "binance" in str(slave_broker).lower():
+                                    from binance_handler import BinanceFuturesHandler
+                                    mapped_b_sym = BinanceFuturesHandler.validate_and_format_symbol(m_sym)
+                                    if mapped_b_sym:
+                                        if sl > 0:
+                                            formatted_target_sl = BinanceFuturesHandler._format_price(mapped_b_sym, sl)
+                                        if tp > 0:
+                                            formatted_target_tp = BinanceFuturesHandler._format_price(mapped_b_sym, tp)
+
+                                needs_sl_mod = sl > 0 and abs(curr_sl - formatted_target_sl) > 1e-4
+                                needs_tp_mod = tp > 0 and abs(curr_tp - formatted_target_tp) > 1e-4
+
+                                if needs_sl_mod or needs_tp_mod:
+                                    cls._modify_position(slave_broker, slave_acc, s_ticket, m_sym, formatted_target_sl, formatted_target_tp)
+                        else:
+                            # Position missing on slave -> OPEN IT!
+                            m_open_price = float(m_pos.get("entry_price") or m_pos.get("open_price") or m_pos.get("price") or 0.0)
+                            slave_lots = cls._calculate_lots(
+                                master_lots=m_lots,
+                                mode=mode,
+                                multiplier=multiplier,
+                                entry_price=m_open_price,
+                                sl=sl,
+                                direction=m_side,
+                                slave_account=slave_acc,
+                                slave_broker=slave_broker,
+                                symbol=m_sym
+                            )
+                            print(f"[Copytrader Sync] Master has {m_side} {m_lots} {m_sym} -> Not on slave {slave_acc} ({slave_broker}) -> Opening {m_side} {slave_lots} {m_sym} (Mode: {mode})", flush=True)
+                            logPrint(f"[Copytrader] Opening trade on slave {slave_acc} ({slave_broker}): {m_side} {slave_lots} {m_sym} (Mode: {mode})")
+                        
+                            res = cls._execute_order(
+                                broker=slave_broker,
+                                account_id=slave_acc,
+                                symbol=m_sym,
+                                action=m_side,
+                                lots=slave_lots,
+                                sl=sl,
+                                tp=tp,
+                                comment=""
+                            )
+                            print(f"   -> Order Execution Result on {slave_acc}: {res}", flush=True)
+                            if isinstance(res, dict) and ("error" in res or res.get("code") == -2019):
+                                err_text = str(res.get("error") or res.get("msg") or res.get("message") or "")
+                                logPrint(f"[Copytrader Error] Failed to open {m_sym} on {slave_acc}: {err_text}")
+                            
+                                # Check for insufficient margin
+                                if "margin is insufficient" in err_text.lower() or res.get("code") == -2019:
+                                    # Calculate required margin details
+                                    margin_calc_str = ""
+                                    try:
+                                        from broker_handler import BrokerHandler
+                                        acct_data = BrokerHandler.get_account_info(broker_name=slave_broker, account_id=slave_acc)
+                                        avail_bal = None
+                                        if acct_data:
+                                            if isinstance(acct_data.get("data"), dict):
+                                                avail_bal = float(acct_data["data"].get("availableBalance") or acct_data["data"].get("balance") or 0.0)
+                                            else:
+                                                avail_bal = float(acct_data.get("availableBalance") or acct_data.get("balance") or 0.0)
+
+                                        ref_price = m_open_price if m_open_price > 0 else 0.0
+                                        notional = slave_lots * ref_price if ref_price > 0 else 0.0
+                                    
+                                        margin_calc_str = (
+                                            f"[Margin Details] Slave: {slave_broker.upper()} | "
+                                            f"Attempted Qty: {slave_lots} {m_sym} @ ~{ref_price:.2f} (Notional Value: ${notional:.2f}) | "
+                                            f"Available Margin/Balance: ${avail_bal:.2f} | "
+                                            f"Req Margin: ~${notional:.2f} (1x) / ~${(notional/20.0):.2f} (20x) / ~${(notional/50.0):.2f} (50x)"
+                                        )
+                                        print(margin_calc_str, flush=True)
+                                    except Exception as m_calc_err:
+                                        margin_calc_str = f"[Margin Details] Error calculating required margin: {m_calc_err}"
+                                        print(margin_calc_str, flush=True)
+
+                                    print(f"[Copytrader Alert] Insufficient margin detected on slave {slave_acc} ({slave_broker}). Pausing setup '{cfg_name}' (ID: {cfg_id}) in memory", flush=True)
+                                    logPrint(f"[Copytrader] Insufficient margin on slave {slave_acc}. Pausing copytrader configuration '{cfg_name}' in memory.")
+                                
+                                    # Pause slave and config in-memory only (DB remains unchanged so next app restart or manual resume restores it)
+                                    slave["status"] = "paused"
+                                    with cls._lock:
+                                        if cls._configs_cache and cfg_id in cls._configs_cache:
+                                            cls._configs_cache[cfg_id]["status"] = "paused"
+
+                                    # Send Discord Notification
+                                    try:
+                                        from discord_handler import send_discord_message
+                                        discord_msg = (
+                                            f"⚠️ **Copytrader Paused: Insufficient Margin**\n"
+                                            f"🎛️ **Configuration:** `{cfg_name}` (ID: `{cfg_id}`)\n"
+                                            f"🏦 **Slave Account:** `{slave_acc}` ({slave_broker.upper()})\n"
+                                            f"📊 **Attempted Order:** `{m_side} {slave_lots} {m_sym}`\n"
+                                            f"💰 **Margin Info:** `{margin_calc_str}`\n"
+                                            f"❌ **Error:** `{err_text or 'Margin is insufficient'}`\n"
+                                            f"⏸️ **Action:** Copytrader configuration has been **PAUSED** to prevent spam. Please add funds and restart/resume copytrader."
+                                        )
+                                        send_discord_message(discord_msg)
+                                    except Exception as d_err:
+                                        print(f"[Copytrader Alert Error] Failed to send Discord alert: {d_err}", flush=True)
+                                    break
+
+                    # B) For any position on slave that NO LONGER EXISTS on master -> CLOSE / DELETE IT!
+                    for s_pos in unmatched_slaves:
+                        s_sym = str(s_pos.get("symbol", ""))
+                        if not cls._is_symbol_allowed(s_sym, slave_symbols) or not cls._is_symbol_allowed(s_sym, cfg_symbols):
+                            continue
+
+                        amt = float(s_pos.get("positionAmt") or s_pos.get("volume") or s_pos.get("lots") or 0)
+                        s_side = str(s_pos.get("trade_side") or s_pos.get("side") or "").strip().upper()
+                        if s_side not in ("BUY", "SELL"):
+                            if amt != 0:
+                                s_side = "BUY" if amt > 0 else "SELL"
+                            else:
+                                s_side = "BUY" if str(s_pos.get("type")) == "0" else "SELL"
+                        s_ticket = str(s_pos.get("position_id") or s_pos.get("ticket") or s_pos.get("id") or "")
+                        s_vol = float(s_pos.get("volume") or abs(amt) or s_pos.get("size") or 0.0)
+
+                        print(f"[Copytrader Sync] Master has no open {s_side} {s_sym} -> Closing slave position #{s_ticket} on {slave_acc} ({slave_broker})", flush=True)
+                        logPrint(f"[Copytrader] Master position closed. Closing slave position #{s_ticket} ({s_side} {s_vol} {s_sym}) on {slave_acc}")
+                        cls._close_position(slave_broker, slave_acc, s_ticket, symbol=s_sym, lots=s_vol)
+        except Exception as e:
+            logPrint(f"[Copytrader Sync Exception]: {e}")
+
+    @classmethod
     def sync_once(cls):
         current_host = socket.gethostname().strip().lower()
         try:
@@ -604,211 +951,12 @@ class CopytraderHandler:
             for cfg in configs:
                 if cfg.get("status") != "active":
                     continue
-                
-                cfg_id = cfg.get("id")
-                cfg_name = cfg.get("name") or "Unnamed Config"
                 target_comp = str(cfg.get("target_computer", "All")).strip().lower()
                 if target_comp != "all" and target_comp != current_host:
                     continue
-
-                master_acc = cfg.get("master_account")
-                master_broker = cfg.get("master_broker", "metatrader")
-                slaves = cfg.get("slaves", [])
-                cfg_symbols = cfg.get("symbols", "All")
-
-                if not master_acc or not slaves:
-                    continue
-
-                with cls._lock:
-                    # 1. Fetch live master positions and filter by config symbols
-                    raw_master_positions = cls._get_account_positions(master_acc, master_broker) or []
-                    master_positions = []
-                    for m_pos in raw_master_positions:
-                        sym = m_pos.get("symbol", "")
-                        if cls._is_symbol_allowed(sym, cfg_symbols):
-                            master_positions.append(m_pos)
-
-                    # 2. Synchronize directly with each active slave account
-                    for slave in slaves:
-                        if slave.get("status") == "paused":
-                            continue
-
-                        slave_acc = str(slave.get("account_id"))
-                        slave_broker = slave.get("broker", "metatrader")
-                        slave_symbols = slave.get("symbols", "All")
-                        mode = slave.get("mode", "direct")
-                        multiplier = float(slave.get("multiplier", 1.0))
-
-                        # Fetch current live positions on slave
-                        slave_positions = cls._get_account_positions(slave_acc, slave_broker) or []
-                        unmatched_slaves = list(slave_positions)
-
-                        # Filter master positions for this specific slave's symbol rules
-                        slave_target_master_positions = [
-                            p for p in master_positions if cls._is_symbol_allowed(p.get("symbol", ""), slave_symbols)
-                        ]
-
-                        # A) For each master open position, ensure it exists on slave
-                        for m_pos in slave_target_master_positions:
-                            m_sym = m_pos.get("symbol", "")
-                            # Master trade side is explicitly "trade_side" (SELL or BUY)
-                            m_side = str(m_pos.get("trade_side") or m_pos.get("side") or "").strip().upper()
-                            if m_side not in ("BUY", "SELL"):
-                                m_side = "BUY" if str(m_pos.get("type")) == "0" else "SELL"
-
-                            m_lots = float(m_pos.get("volume") or m_pos.get("lots") or m_pos.get("size") or 0.01)
-                            sl = float(m_pos.get("stop_loss") or m_pos.get("sl") or 0.0)
-                            tp = float(m_pos.get("take_profit") or m_pos.get("tp") or 0.0)
-
-                            # Look for matching open position on slave
-                            match_idx = -1
-                            for idx_s, s_pos in enumerate(unmatched_slaves):
-                                s_sym = str(s_pos.get("symbol", ""))
-                                s_side = str(s_pos.get("trade_side") or s_pos.get("side") or "").strip().upper()
-                                if s_side not in ("BUY", "SELL"):
-                                    amt = float(s_pos.get("positionAmt") or 0)
-                                    if amt != 0:
-                                        s_side = "BUY" if amt > 0 else "SELL"
-                                    else:
-                                        s_side = "BUY" if str(s_pos.get("type")) == "0" else "SELL"
-                                
-                                if s_side == m_side and cls._are_symbols_matching(m_sym, s_sym, slave_acc):
-                                    match_idx = idx_s
-                                    break
-
-                            if match_idx >= 0:
-                                # Position already open on slave -> Retain and sync SL / TP if changed
-                                matched_s_pos = unmatched_slaves.pop(match_idx)
-                                if sl > 0 or tp > 0:
-                                    s_ticket = str(matched_s_pos.get("position_id") or matched_s_pos.get("ticket") or matched_s_pos.get("id") or "")
-                                    curr_sl = float(matched_s_pos.get("stop_loss") or matched_s_pos.get("sl") or 0.0)
-                                    curr_tp = float(matched_s_pos.get("take_profit") or matched_s_pos.get("tp") or 0.0)
-
-                                    # Normalize target SL and TP to match broker precision formatting
-                                    formatted_target_sl = sl
-                                    formatted_target_tp = tp
-                                    if "binance" in str(slave_broker).lower():
-                                        from binance_handler import BinanceFuturesHandler
-                                        mapped_b_sym = BinanceFuturesHandler.validate_and_format_symbol(m_sym)
-                                        if mapped_b_sym:
-                                            if sl > 0:
-                                                formatted_target_sl = BinanceFuturesHandler._format_price(mapped_b_sym, sl)
-                                            if tp > 0:
-                                                formatted_target_tp = BinanceFuturesHandler._format_price(mapped_b_sym, tp)
-
-                                    needs_sl_mod = sl > 0 and abs(curr_sl - formatted_target_sl) > 1e-4
-                                    needs_tp_mod = tp > 0 and abs(curr_tp - formatted_target_tp) > 1e-4
-
-                                    if needs_sl_mod or needs_tp_mod:
-                                        cls._modify_position(slave_broker, slave_acc, s_ticket, m_sym, formatted_target_sl, formatted_target_tp)
-                            else:
-                                # Position missing on slave -> OPEN IT!
-                                m_open_price = float(m_pos.get("entry_price") or m_pos.get("open_price") or m_pos.get("price") or 0.0)
-                                slave_lots = cls._calculate_lots(
-                                    master_lots=m_lots,
-                                    mode=mode,
-                                    multiplier=multiplier,
-                                    entry_price=m_open_price,
-                                    sl=sl,
-                                    direction=m_side,
-                                    slave_account=slave_acc,
-                                    slave_broker=slave_broker,
-                                    symbol=m_sym
-                                )
-                                print(f"[Copytrader Sync] Master has {m_side} {m_lots} {m_sym} -> Not on slave {slave_acc} ({slave_broker}) -> Opening {m_side} {slave_lots} {m_sym} (Mode: {mode})", flush=True)
-                                logPrint(f"[Copytrader] Opening trade on slave {slave_acc} ({slave_broker}): {m_side} {slave_lots} {m_sym} (Mode: {mode})")
-                                
-                                res = cls._execute_order(
-                                    broker=slave_broker,
-                                    account_id=slave_acc,
-                                    symbol=m_sym,
-                                    action=m_side,
-                                    lots=slave_lots,
-                                    sl=sl,
-                                    tp=tp,
-                                    comment=""
-                                )
-                                print(f"   -> Order Execution Result on {slave_acc}: {res}", flush=True)
-                                if isinstance(res, dict) and ("error" in res or res.get("code") == -2019):
-                                    err_text = str(res.get("error") or res.get("msg") or res.get("message") or "")
-                                    logPrint(f"[Copytrader Error] Failed to open {m_sym} on {slave_acc}: {err_text}")
-                                    
-                                    # Check for insufficient margin
-                                    if "margin is insufficient" in err_text.lower() or res.get("code") == -2019:
-                                        # Calculate required margin details
-                                        margin_calc_str = ""
-                                        try:
-                                            from broker_handler import BrokerHandler
-                                            acct_data = BrokerHandler.get_account_info(broker_name=slave_broker, account_id=slave_acc)
-                                            avail_bal = None
-                                            if acct_data:
-                                                if isinstance(acct_data.get("data"), dict):
-                                                    avail_bal = float(acct_data["data"].get("availableBalance") or acct_data["data"].get("balance") or 0.0)
-                                                else:
-                                                    avail_bal = float(acct_data.get("availableBalance") or acct_data.get("balance") or 0.0)
-
-                                            ref_price = m_open_price if m_open_price > 0 else 0.0
-                                            notional = slave_lots * ref_price if ref_price > 0 else 0.0
-                                            
-                                            margin_calc_str = (
-                                                f"[Margin Details] Slave: {slave_broker.upper()} | "
-                                                f"Attempted Qty: {slave_lots} {m_sym} @ ~{ref_price:.2f} (Notional Value: ${notional:.2f}) | "
-                                                f"Available Margin/Balance: ${avail_bal:.2f} | "
-                                                f"Req Margin: ~${notional:.2f} (1x) / ~${(notional/20.0):.2f} (20x) / ~${(notional/50.0):.2f} (50x)"
-                                            )
-                                            print(margin_calc_str, flush=True)
-                                        except Exception as m_calc_err:
-                                            margin_calc_str = f"[Margin Details] Error calculating required margin: {m_calc_err}"
-                                            print(margin_calc_str, flush=True)
-
-                                        print(f"[Copytrader Alert] Insufficient margin detected on slave {slave_acc} ({slave_broker}). Pausing setup '{cfg_name}' (ID: {cfg_id}) in memory", flush=True)
-                                        logPrint(f"[Copytrader] Insufficient margin on slave {slave_acc}. Pausing copytrader configuration '{cfg_name}' in memory.")
-                                        
-                                        # Pause slave and config in-memory only (DB remains unchanged so next app restart or manual resume restores it)
-                                        slave["status"] = "paused"
-                                        with cls._lock:
-                                            if cls._configs_cache and cfg_id in cls._configs_cache:
-                                                cls._configs_cache[cfg_id]["status"] = "paused"
-
-                                        # Send Discord Notification
-                                        try:
-                                            from discord_handler import send_discord_message
-                                            discord_msg = (
-                                                f"⚠️ **Copytrader Paused: Insufficient Margin**\n"
-                                                f"🎛️ **Configuration:** `{cfg_name}` (ID: `{cfg_id}`)\n"
-                                                f"🏦 **Slave Account:** `{slave_acc}` ({slave_broker.upper()})\n"
-                                                f"📊 **Attempted Order:** `{m_side} {slave_lots} {m_sym}`\n"
-                                                f"💰 **Margin Info:** `{margin_calc_str}`\n"
-                                                f"❌ **Error:** `{err_text or 'Margin is insufficient'}`\n"
-                                                f"⏸️ **Action:** Copytrader configuration has been **PAUSED** to prevent spam. Please add funds and restart/resume copytrader."
-                                            )
-                                            send_discord_message(discord_msg)
-                                        except Exception as d_err:
-                                            print(f"[Copytrader Alert Error] Failed to send Discord alert: {d_err}", flush=True)
-                                        break
-
-                        # B) For any position on slave that NO LONGER EXISTS on master -> CLOSE / DELETE IT!
-                        for s_pos in unmatched_slaves:
-                            s_sym = str(s_pos.get("symbol", ""))
-                            if not cls._is_symbol_allowed(s_sym, slave_symbols) or not cls._is_symbol_allowed(s_sym, cfg_symbols):
-                                continue
-
-                            amt = float(s_pos.get("positionAmt") or s_pos.get("volume") or s_pos.get("lots") or 0)
-                            s_side = str(s_pos.get("trade_side") or s_pos.get("side") or "").strip().upper()
-                            if s_side not in ("BUY", "SELL"):
-                                if amt != 0:
-                                    s_side = "BUY" if amt > 0 else "SELL"
-                                else:
-                                    s_side = "BUY" if str(s_pos.get("type")) == "0" else "SELL"
-                            s_ticket = str(s_pos.get("position_id") or s_pos.get("ticket") or s_pos.get("id") or "")
-                            s_vol = float(s_pos.get("volume") or abs(amt) or s_pos.get("size") or 0.0)
-
-                            print(f"[Copytrader Sync] Master has no open {s_side} {s_sym} -> Closing slave position #{s_ticket} on {slave_acc} ({slave_broker})", flush=True)
-                            logPrint(f"[Copytrader] Master position closed. Closing slave position #{s_ticket} ({s_side} {s_vol} {s_sym}) on {slave_acc}")
-                            cls._close_position(slave_broker, slave_acc, s_ticket, symbol=s_sym, lots=s_vol)
+                cls.sync_config(cfg)
         except Exception as e:
             logPrint(f"[Copytrader Sync Exception]: {e}")
-
     @staticmethod
     def _sync_loop():
         while CopytraderHandler._is_running:
