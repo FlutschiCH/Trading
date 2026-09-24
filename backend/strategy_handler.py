@@ -180,11 +180,28 @@ class StrategyHandler:
                     print(f"Error initializing strategies DB: {e}", flush=True)
 
             # Alter table migrations for existing databases
-            try:
-                SQLHandler.execute_query("ALTER TABLE live_strategies ADD COLUMN beOffsetMode VARCHAR(32) DEFAULT 'half_r'")
-            except Exception:
+            migrations = [
+                ("beOffsetMode", "VARCHAR(32) DEFAULT 'half_r'"),
+                ("useEntryCutoff", "TINYINT(1) DEFAULT 0"),
+                ("entryCutoffTime", "VARCHAR(32) DEFAULT ''"),
+                ("useGlobalClose", "TINYINT(1) DEFAULT 0"),
+                ("globalCloseTime", "VARCHAR(32) DEFAULT ''"),
+                ("entryStabilityRule", "VARCHAR(64) DEFAULT 'default'"),
+                ("broker", "VARCHAR(64) DEFAULT 'metatrader'"),
+                ("account_id", "VARCHAR(128) DEFAULT ''"),
+                ("target_computer", "VARCHAR(128) DEFAULT 'All'"),
+                ("dateRangeOption", "VARCHAR(64) DEFAULT 'last_candles'"),
+                ("customFrom", "VARCHAR(64) DEFAULT ''"),
+                ("customTo", "VARCHAR(64) DEFAULT ''"),
+                ("candleLimit", "INT DEFAULT 1000"),
+                ("dailyFirstSignalsMode", "VARCHAR(64) DEFAULT 'disabled'"),
+                ("dailyFirstSignalsCount", "INT DEFAULT 1"),
+                ("dailyFirstSignalsRiskMult", "DOUBLE DEFAULT 0.5"),
+                ("live_state", "LONGTEXT"),
+            ]
+            for col, col_type in migrations:
                 try:
-                    SQLHandler.execute_query("ALTER TABLE live_strategies ADD COLUMN beOffsetMode TEXT DEFAULT 'half_r'")
+                    SQLHandler.execute_query(f"ALTER TABLE live_strategies ADD COLUMN {col} {col_type}")
                 except Exception:
                     pass
 
