@@ -1,5 +1,6 @@
 import React from 'react';
 import { createChart, ColorType, AreaSeries } from 'lightweight-charts';
+import { Trash2 } from 'lucide-react';
 import { formatPrice } from '../App';
 import { API_BASE_URL } from '../api';
 import DeployModal from './deploy_modal';
@@ -1591,6 +1592,14 @@ export default function Backtester({
       handleCancelEdit();
     }
     setTradingSessions(tradingSessions.filter(s => s.id !== id));
+  };
+
+  const handleClearAllSessions = () => {
+    handleCancelEdit();
+    setTradingSessions([]);
+    try {
+      localStorage.removeItem('wyckoff_trading_sessions');
+    } catch (e) {}
   };
 
   const toggleSessionActive = (id: string) => {
@@ -3267,7 +3276,31 @@ export default function Backtester({
           {/* Sessions List */}
           {tradingSessions.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label style={{ color: '#cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>Active Sessions:</label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label style={{ color: '#cbd5e1', fontSize: '11px', fontWeight: 'bold' }}>
+                  Active Sessions ({tradingSessions.length}):
+                </label>
+                <button
+                  type="button"
+                  onClick={handleClearAllSessions}
+                  style={{
+                    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                    color: '#ef4444',
+                    border: '1px solid rgba(239, 68, 68, 0.35)',
+                    borderRadius: '4px',
+                    padding: '2px 7px',
+                    fontSize: '10px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                  title="Clear all active trading sessions"
+                >
+                  <Trash2 size={11} /> Clear All
+                </button>
+              </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '150px', overflowY: 'auto' }}>
                 {tradingSessions.map((s, idx) => {
                   const daysStr = s.weekdays.map((d: number) => ['M', 'T', 'W', 'T', 'F', 'S', 'S'][d - 1]).join(',');
