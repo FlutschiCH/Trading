@@ -153,15 +153,37 @@ class IndicatorHandler:
 
     @staticmethod
     def vwap(df: pd.DataFrame, high_col: str = 'high', low_col: str = 'low',
-             close_col: str = 'close', vol_col: str = 'volume') -> pd.Series:
-        """Volume Weighted Average Price (VWAP)."""
+             close_col: str = 'close', vol_col: str = 'volume', time_col: str = 'time',
+             session_reset: bool = True) -> pd.Series:
+        """Volume Weighted Average Price (VWAP) with daily session midnight (00:00 UTC) reset."""
         high = df[high_col] if high_col in df.columns else df['close']
         low = df[low_col] if low_col in df.columns else df['close']
         close = df[close_col] if close_col in df.columns else df['close']
-        vol = df[vol_col] if vol_col in df.columns else pd.Series(1, index=df.index)
+        vol = df[vol_col] if vol_col in df.columns else pd.Series(1.0, index=df.index)
 
         typical_price = (high + low + close) / 3.0
-        cum_pv = (typical_price * vol).cumsum()
+        pv = typical_price * vol
+
+        if session_reset:
+            dt_series = None
+            t_col = time_col if time_col in df.columns else ('timestamp' if 'timestamp' in df.columns else None)
+            if t_col is not None:
+                t_raw = df[t_col]
+                if pd.api.types.is_numeric_dtype(t_raw):
+                    first_val = float(t_raw.iloc[0]) if len(t_raw) > 0 else 0.0
+                    unit = 'ms' if first_val > 2000000000 else 's'
+                    dt_series = pd.to_datetime(t_raw, unit=unit, utc=True).dt.date
+                else:
+                    dt_series = pd.to_datetime(t_raw, utc=True, errors='coerce').dt.date
+            elif isinstance(df.index, pd.DatetimeIndex):
+                dt_series = pd.Series(df.index.date, index=df.index)
+
+            if dt_series is not None and not dt_series.isna().all():
+                cum_pv = pv.groupby(dt_series).cumsum()
+                cum_vol = vol.groupby(dt_series).cumsum()
+                return cum_pv / cum_vol.replace(0, np.nan)
+
+        cum_pv = pv.cumsum()
         cum_vol = vol.cumsum()
         return cum_pv / cum_vol.replace(0, np.nan)
 
