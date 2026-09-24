@@ -707,7 +707,14 @@ export default function Backtester({
         const data = await res.json();
         if (isSubscribed && data.status === 'success' && Array.isArray(data.jobs)) {
           const activeOnly = data.jobs.filter((j: any) => j && ['running', 'queued', 'interrupted'].includes(j.status));
-          setRunningBacktestJobs(activeOnly);
+          setRunningBacktestJobs((prev) => {
+            if (prev.length !== activeOnly.length) return activeOnly;
+            const isDifferent = activeOnly.some((job: any, idx: number) => {
+              const p = prev[idx];
+              return !p || p.job_id !== job.job_id || p.status !== job.status || p.progress !== job.progress;
+            });
+            return isDifferent ? activeOnly : prev;
+          });
         }
       } catch (err) {
         // Silently catch polling error

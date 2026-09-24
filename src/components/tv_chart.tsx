@@ -785,10 +785,11 @@ export default function TVChart({
     updateDrawingCoordinates();
   }, [indicators]);
 
-  // References to dynamically generated trade level LineSeries
   const dynamicLineSeriesRef = useRef<any[]>([]);
   const activePositionsRef = useRef<any[]>([]);
   const selectedTradePathSeriesRef = useRef<any>(null);
+  const lastCandlesFingerprintRef = useRef<string>('');
+  const lastIndicatorsFingerprintRef = useRef<string>('');
 
   useEffect(() => {
     tradesRef.current = visibleTrades;
@@ -2156,8 +2157,18 @@ export default function TVChart({
   useEffect(() => {
     if (!activeCandles || activeCandles.length === 0) return;
 
+    const firstCandle = activeCandles[0];
+    const lastCandle = activeCandles[activeCandles.length - 1];
+    const currentFingerprint = `${activeCandles.length}_${firstCandle?.time}_${lastCandle?.time}_${lastCandle?.close}`;
+    const candlesChanged = lastCandlesFingerprintRef.current !== currentFingerprint;
+    if (candlesChanged) {
+      lastCandlesFingerprintRef.current = currentFingerprint;
+    }
+
     if (candlestickSeriesRef.current) {
-      candlestickSeriesRef.current.setData(activeCandles);
+      if (candlesChanged) {
+        candlestickSeriesRef.current.setData(activeCandles);
+      }
 
       const tradeEntryMap = new Map<number, any>();
       (visibleTrades || []).forEach((t) => {
@@ -2424,12 +2435,14 @@ export default function TVChart({
         }
       });
 
-      supportLineSeriesRef.current.setData(chartSettings.showTrLines ? supportData : []);
-      resistanceLineSeriesRef.current.setData(chartSettings.showTrLines ? resistanceData : []);
-      smaLineSeriesRef.current.setData(smaData);
+      if (candlesChanged) {
+        supportLineSeriesRef.current.setData(chartSettings.showTrLines ? supportData : []);
+        resistanceLineSeriesRef.current.setData(chartSettings.showTrLines ? resistanceData : []);
+        smaLineSeriesRef.current.setData(smaData);
+      }
     }
 
-    if (weisSeriesRef.current) {
+    if (weisSeriesRef.current && candlesChanged) {
       if (chartSettings.showVolume === false) {
         weisSeriesRef.current.setData([]);
       } else {
@@ -2587,8 +2600,19 @@ export default function TVChart({
           try { series.setData([]); } catch (e) { }
         });
         setIndicatorLatestValues({});
+        lastIndicatorsFingerprintRef.current = 'empty';
         return;
       }
+
+      const firstCandle = activeCandles[0];
+      const lastCandle = activeCandles[activeCandles.length - 1];
+      const indSummary = activeList.map(i => `${i.id}_${i.name}_${i.period}_${i.visible}_${i.color}_${i.multiplier || ''}`).join('|');
+      const indFingerprint = `${activeCandles.length}_${firstCandle?.time}_${lastCandle?.time}_${indSummary}`;
+
+      if (lastIndicatorsFingerprintRef.current === indFingerprint) {
+        return;
+      }
+      lastIndicatorsFingerprintRef.current = indFingerprint;
 
       const calculatedData = await calculateIndicatorsBackend(activeCandles, activeList);
       if (!isSubscribed || !chartRef.current || !weisChartRef.current || !subpaneChartRef.current) return;
