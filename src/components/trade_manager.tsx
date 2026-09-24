@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { usePositionsStore } from '../services/positionsStore';
 import DebugComponentBadge from './debug_component_badge';
-import { RefreshCw, TrendingUp, TrendingDown, Clock, Layers, Calendar, DollarSign, Percent } from 'lucide-react';
+import { API_BASE_URL } from '../api';
+import { RefreshCw, TrendingUp, TrendingDown, Clock, Layers, Calendar, DollarSign, Percent, Shield, ExternalLink, ChevronDown } from 'lucide-react';
 
 export interface Position {
   position_id: number | string;
@@ -45,33 +46,219 @@ export interface HistoryTrade {
   fee?: number;
 }
 
+export interface AccountItem {
+  id?: string | number;
+  account_id?: string | number;
+  name?: string;
+  broker?: string;
+  broker_type?: string;
+  server?: string;
+  is_active?: boolean;
+}
+
 export interface TradeManagerProps {
-  dailyPnl: number;
-  weeklyPnl: number;
+  dailyPnl?: number;
+  weeklyPnl?: number;
   openPositions?: Position[];
   historyTrades?: HistoryTrade[];
   loadingHistory?: boolean;
   onRefreshHistory?: () => void;
-  handleClosePosition: (position: Position) => void;
+  handleClosePosition?: (position: Position) => void;
   isMobileLayout?: boolean;
+  accounts?: AccountItem[];
+  activeAccount?: AccountItem | null;
 }
 
 export default function TradeManager({
-  dailyPnl,
-  weeklyPnl,
+  dailyPnl: propsDailyPnl,
+  weeklyPnl: propsWeeklyPnl,
   openPositions: propsPositions,
-  historyTrades = [],
-  loadingHistory = false,
+  historyTrades: propsHistoryTrades,
+  loadingHistory: propsLoadingHistory,
   onRefreshHistory,
-  handleClosePosition,
+  handleClosePosition: propsHandleClosePosition,
   isMobileLayout = false,
+  accounts: propsAccounts,
+  activeAccount: propsActiveAccount,
 }: TradeManagerProps) {
   const [activeTab, setActiveTab] = useState<'live' | 'history'>('live');
   const [historySearch, setHistorySearch] = useState('');
   const [historyFilterSide, setHistoryFilterSide] = useState<'ALL' | 'BUY' | 'SELL'>('ALL');
 
-  const { positions: storePositions } = usePositionsStore();
-  const openPositions = storePositions.length > 0 ? storePositions : (propsPositions || []);
+  // Accounts state & selection
+  const [accounts, setAccounts] = useState<AccountItem[]>(() => {
+    if (propsAccounts && propsAccounts.length > 0) return propsAccounts;
+    try {
+      const saved = localStorage.getItem('wyckoff_accounts');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Selected Broker/Account for TradeManager ('active' or specific account_id or specific broker like 'binance')
+  const [selectedBrokerAcc, setSelectedBrokerAcc] = useState<string>(() => {
+    return localStorage.getItem('wyckoff_trade_manager_broker_acc') || 'active';
+  });
+
+  // Self-managed state for when TradeManager is querying specific brokers (like Binance / custom account)
+  const [customPositions, setCustomPositions] = useState<Position[] | null>(null);
+  const [customHistory, setCustomHistory] = useState<HistoryTrade[] | null>(null);
+  const [loadingCustom, setLoadingCustom] = useState(false);
+  const [tradeActionLoading, setTradeActionLoading] = useState<string | number | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  // Sync props accounts
+  useEffect(() => {
+    if (propsAccounts && propsAccounts.length > 0) {
+      setAccounts(propsAccounts);
+    } else {
+      fetch(`${API_BASE_URL}/api/accounts`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.status === 'success' && Array.isArray(data.data)) {
+            setAccounts(data.data);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [propsAccounts]);
+
+  // Global store positions
+  const { positions: storePositions, refreshPositions: storeRefreshPositions } = usePositionsStore();
+
+  // Determine current effective broker and account_id
+  const currentTarget = useMemo(() => {
+    if (selectedBrokerAcc === 'active') {
+      const acc = propsActiveAccount || accounts.find(a => a.is_active) || accounts[0] || null;
+      const bType = (acc?.broker_type || acc?.broker || 'metatrader').toLowerCase();
+      const aId = acc ? String(acc.account_id || acc.id || '') : '';
+      return { isCustom: false, broker: bType, accountId: aId, label: acc ? `${acc.name || aId} (${bType.toUpperCase()})` : 'Active Account' };
+    }
+
+    if (selectedBrokerAcc === 'binance_futures' || selectedBrokerAcc === 'binance') {
+      const binanceAcc = accounts.find(a => (a.broker_type || a.broker || '').toLowerCase().includes('binance'));
+      const aId = binanceAcc ? String(binanceAcc.account_id || binanceAcc.id || '') : 'binance';
+      return { isCustom: true, broker: 'binance', accountId: aId, label: 'Binance Futures' };
+    }
+
+    // Specific Account ID
+    const acc = accounts.find(a => String(a.account_id || a.id) === String(selectedBrokerAcc));
+    if (acc) {
+      const bType = (acc.broker_type || acc.broker || 'metatrader').toLowerCase();
+      const aId = String(acc.account_id || acc.id || '');
+      return { isCustom: true, broker: bType, accountId: aId, label: `${acc.name || aId} (${bType.toUpperCase()})` };
+    }
+
+    return { isCustom: false, broker: 'metatrader', accountId: '', label: 'Default' };
+  }, [selectedBrokerAcc, propsActiveAccount, accounts]);
+
+  // Fetch custom trades/positions when custom broker/account is selected
+  const fetchCustomTrades = useCallback(async () => {
+    if (!currentTarget.isCustom) {
+      setCustomPositions(null);
+      setCustomHistory(null);
+      return;
+    }
+
+    setLoadingCustom(true);
+    setActionError(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/trade_manager/overview`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          broker: currentTarget.broker,
+          account_id: currentTarget.accountId
+        })
+      });
+      const json = await res.json();
+      if (json.status === 'success' && json.data) {
+        setCustomPositions(json.data.positions || []);
+        setCustomHistory(json.data.history || []);
+      } else {
+        setActionError(json.message || 'Failed to fetch trade overview.');
+      }
+    } catch (e: any) {
+      setActionError(e.message || 'Error connecting to trade manager API');
+    } finally {
+      setLoadingCustom(false);
+    }
+  }, [currentTarget]);
+
+  useEffect(() => {
+    localStorage.setItem('wyckoff_trade_manager_broker_acc', selectedBrokerAcc);
+    if (currentTarget.isCustom) {
+      fetchCustomTrades();
+    } else {
+      setCustomPositions(null);
+      setCustomHistory(null);
+    }
+  }, [selectedBrokerAcc, currentTarget.isCustom, fetchCustomTrades]);
+
+  // Active positions resolution
+  const openPositions: Position[] = useMemo(() => {
+    if (currentTarget.isCustom && customPositions !== null) {
+      return customPositions;
+    }
+    return storePositions.length > 0 ? storePositions : (propsPositions || []);
+  }, [currentTarget.isCustom, customPositions, storePositions, propsPositions]);
+
+  // History trades resolution
+  const historyTrades: HistoryTrade[] = useMemo(() => {
+    if (currentTarget.isCustom && customHistory !== null) {
+      return customHistory;
+    }
+    return propsHistoryTrades || [];
+  }, [currentTarget.isCustom, customHistory, propsHistoryTrades]);
+
+  const isLoadingHistory = currentTarget.isCustom ? loadingCustom : (propsLoadingHistory || false);
+
+  // Handle Refresh
+  const handleRefresh = () => {
+    if (currentTarget.isCustom) {
+      fetchCustomTrades();
+    } else {
+      if (onRefreshHistory) onRefreshHistory();
+      if (storeRefreshPositions) storeRefreshPositions();
+    }
+  };
+
+  // Handle Close Position
+  const handleClose = async (position: Position) => {
+    if (currentTarget.isCustom) {
+      const posId = position.position_id;
+      setTradeActionLoading(posId);
+      setActionError(null);
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/trade_manager/close`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            broker: currentTarget.broker,
+            account_id: currentTarget.accountId,
+            position_id: posId,
+            symbol: position.symbol,
+            volume: position.volume
+          })
+        });
+        const json = await res.json();
+        if (json.status === 'success') {
+          fetchCustomTrades();
+        } else {
+          setActionError(json.message || 'Failed to close position.');
+        }
+      } catch (e: any) {
+        setActionError(e.message || 'Error closing position.');
+      } finally {
+        setTradeActionLoading(null);
+      }
+    } else {
+      if (propsHandleClosePosition) {
+        propsHandleClosePosition(position);
+      }
+    }
+  };
 
   // Filtered History Trades
   const filteredHistory = useMemo(() => {
@@ -103,6 +290,21 @@ export default function TradeManager({
     return { totalPnl, wins, losses, totalTrades, winRate };
   }, [historyTrades]);
 
+  // Dynamic PnL calculation if custom broker selected
+  const activeDailyPnl = useMemo(() => {
+    if (currentTarget.isCustom) {
+      return openPositions.reduce((acc, p) => acc + Number(p.unrealized_profit || 0), 0);
+    }
+    return propsDailyPnl ?? 0;
+  }, [currentTarget.isCustom, openPositions, propsDailyPnl]);
+
+  const activeWeeklyPnl = useMemo(() => {
+    if (currentTarget.isCustom) {
+      return historyStats.totalPnl;
+    }
+    return propsWeeklyPnl ?? 0;
+  }, [currentTarget.isCustom, historyStats.totalPnl, propsWeeklyPnl]);
+
   const formatDate = (val: number | string | undefined) => {
     if (!val) return '-';
     try {
@@ -123,75 +325,126 @@ export default function TradeManager({
     return raw;
   };
 
+  // Broker Selector Component
+  const renderBrokerSelector = (isMobileView: boolean) => {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <select
+          value={selectedBrokerAcc}
+          onChange={e => setSelectedBrokerAcc(e.target.value)}
+          style={{
+            backgroundColor: 'var(--app-bg, #0b0f19)',
+            border: '1px solid var(--app-card-border, #1f2937)',
+            borderRadius: '6px',
+            padding: isMobileView ? '5px 8px' : '3px 8px',
+            fontSize: isMobileView ? '11px' : '10px',
+            color: 'var(--app-text, #f8fafc)',
+            fontWeight: '600',
+            cursor: 'pointer',
+            maxWidth: isMobileView ? '150px' : '170px'
+          }}
+          title="Filter trades by Broker Account"
+        >
+          <option value="active">⚡ Active Account</option>
+          <option value="binance">🟡 Binance Futures</option>
+          {accounts.map(acc => {
+            const id = String(acc.account_id || acc.id);
+            const broker = (acc.broker_type || acc.broker || '').toUpperCase();
+            return (
+              <option key={id} value={id}>
+                {acc.name ? `${acc.name} (${broker})` : `${broker} #${id}`}
+              </option>
+            );
+          })}
+        </select>
+
+        <button
+          onClick={handleRefresh}
+          disabled={isLoadingHistory || loadingCustom}
+          style={{
+            backgroundColor: 'transparent',
+            border: '1px solid var(--app-card-border, #1f2937)',
+            borderRadius: '6px',
+            padding: isMobileView ? '5px 8px' : '3px 6px',
+            color: 'var(--app-text-muted, #94a3b8)',
+            cursor: isLoadingHistory || loadingCustom ? 'not-allowed' : 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            fontSize: isMobileView ? '11px' : '10px'
+          }}
+          title="Refresh Trades & History"
+        >
+          <RefreshCw size={isMobileView ? 12 : 10} className={isLoadingHistory || loadingCustom ? 'animate-spin' : ''} />
+          {!isMobileView && 'Sync'}
+        </button>
+      </div>
+    );
+  };
+
   // -------------------------------------------------------------
   // Mobile Layout
   // -------------------------------------------------------------
   if (isMobileLayout) {
     return (
       <div style={{ padding: '16px' }}>
-        {/* Header & Tabs */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <button
-              onClick={() => setActiveTab('live')}
-              style={{
-                backgroundColor: activeTab === 'live' ? 'var(--app-accent, #3b82f6)' : 'rgba(255,255,255,0.05)',
-                color: activeTab === 'live' ? '#ffffff' : 'var(--app-text-muted, #94a3b8)',
-                border: '1px solid ' + (activeTab === 'live' ? 'var(--app-accent, #3b82f6)' : 'var(--app-card-border, #1f2937)'),
-                borderRadius: '6px',
-                padding: '6px 12px',
-                fontSize: '12px',
-                fontWeight: 'bold',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px'
-              }}
-            >
-              <TrendingUp size={13} />
-              Live Positions ({openPositions.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('history')}
-              style={{
-                backgroundColor: activeTab === 'history' ? 'var(--app-accent, #3b82f6)' : 'rgba(255,255,255,0.05)',
-                color: activeTab === 'history' ? '#ffffff' : 'var(--app-text-muted, #94a3b8)',
-                border: '1px solid ' + (activeTab === 'history' ? 'var(--app-accent, #3b82f6)' : 'var(--app-card-border, #1f2937)'),
-                borderRadius: '6px',
-                padding: '6px 12px',
-                fontSize: '12px',
-                fontWeight: 'bold',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px'
-              }}
-            >
-              <Clock size={13} />
-              History ({historyTrades.length})
-            </button>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            {activeTab === 'history' && onRefreshHistory && (
-              <button
-                onClick={onRefreshHistory}
-                disabled={loadingHistory}
-                style={{
-                  backgroundColor: 'transparent',
-                  border: '1px solid var(--app-card-border, #1f2937)',
-                  borderRadius: '6px',
-                  padding: '5px 8px',
-                  color: 'var(--app-text-muted, #94a3b8)',
-                  cursor: loadingHistory ? 'not-allowed' : 'pointer'
-                }}
-                title="Refresh History"
-              >
-                <RefreshCw size={12} className={loadingHistory ? 'animate-spin' : ''} />
-              </button>
-            )}
-            <DebugComponentBadge name="TradeManager" />
-          </div>
+        {/* Top Controls: Selector & Badge */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+          {renderBrokerSelector(true)}
+          <DebugComponentBadge name="TradeManager" />
         </div>
+
+        {/* Tab Buttons */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '16px' }}>
+          <button
+            onClick={() => setActiveTab('live')}
+            style={{
+              flex: 1,
+              backgroundColor: activeTab === 'live' ? 'var(--app-accent, #3b82f6)' : 'rgba(255,255,255,0.05)',
+              color: activeTab === 'live' ? '#ffffff' : 'var(--app-text-muted, #94a3b8)',
+              border: '1px solid ' + (activeTab === 'live' ? 'var(--app-accent, #3b82f6)' : 'var(--app-card-border, #1f2937)'),
+              borderRadius: '6px',
+              padding: '7px 10px',
+              fontSize: '12px',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px'
+            }}
+          >
+            <TrendingUp size={13} />
+            Live ({openPositions.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('history')}
+            style={{
+              flex: 1,
+              backgroundColor: activeTab === 'history' ? 'var(--app-accent, #3b82f6)' : 'rgba(255,255,255,0.05)',
+              color: activeTab === 'history' ? '#ffffff' : 'var(--app-text-muted, #94a3b8)',
+              border: '1px solid ' + (activeTab === 'history' ? 'var(--app-accent, #3b82f6)' : 'var(--app-card-border, #1f2937)'),
+              borderRadius: '6px',
+              padding: '7px 10px',
+              fontSize: '12px',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px'
+            }}
+          >
+            <Clock size={13} />
+            History ({historyTrades.length})
+          </button>
+        </div>
+
+        {actionError && (
+          <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444', borderRadius: '6px', padding: '8px 12px', fontSize: '11px', color: '#ef4444', marginBottom: '12px' }}>
+            {actionError}
+          </div>
+        )}
 
         {/* TAB 1: Live Positions */}
         {activeTab === 'live' && (
@@ -199,23 +452,27 @@ export default function TradeManager({
             {/* Stats Grid */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
               <div style={{ backgroundColor: 'var(--app-bg, #0b0f19)', border: '1px solid var(--app-card-border, #1f2937)', borderRadius: '8px', padding: '12px' }}>
-                <span style={{ fontSize: '10px', color: 'var(--app-text-muted, #94a3b8)', display: 'block' }}>DAILY P&L</span>
-                <span style={{ fontSize: '16px', fontWeight: 'bold', color: (dailyPnl ?? 0) >= 0 ? '#10b981' : '#ef4444' }}>
-                  {(dailyPnl ?? 0) >= 0 ? '+' : ''}${Number(dailyPnl || 0).toFixed(2)}
+                <span style={{ fontSize: '10px', color: 'var(--app-text-muted, #94a3b8)', display: 'block' }}>UNREALIZED P&L</span>
+                <span style={{ fontSize: '16px', fontWeight: 'bold', color: activeDailyPnl >= 0 ? '#10b981' : '#ef4444' }}>
+                  {activeDailyPnl >= 0 ? '+' : ''}${Number(activeDailyPnl || 0).toFixed(2)}
                 </span>
               </div>
               <div style={{ backgroundColor: 'var(--app-bg, #0b0f19)', border: '1px solid var(--app-card-border, #1f2937)', borderRadius: '8px', padding: '12px' }}>
-                <span style={{ fontSize: '10px', color: 'var(--app-text-muted, #94a3b8)', display: 'block' }}>WEEKLY P&L</span>
-                <span style={{ fontSize: '16px', fontWeight: 'bold', color: (weeklyPnl ?? 0) >= 0 ? '#10b981' : '#ef4444' }}>
-                  {(weeklyPnl ?? 0) >= 0 ? '+' : ''}${Number(weeklyPnl || 0).toFixed(2)}
+                <span style={{ fontSize: '10px', color: 'var(--app-text-muted, #94a3b8)', display: 'block' }}>TOTAL CLOSED P&L</span>
+                <span style={{ fontSize: '16px', fontWeight: 'bold', color: activeWeeklyPnl >= 0 ? '#10b981' : '#ef4444' }}>
+                  {activeWeeklyPnl >= 0 ? '+' : ''}${Number(activeWeeklyPnl || 0).toFixed(2)}
                 </span>
               </div>
             </div>
 
             {/* Open Positions List */}
-            <h4 style={{ margin: '0 0 10px 0', fontSize: '13px', color: 'var(--app-text, #f8fafc)', fontWeight: 'bold' }}>Active Positions</h4>
+            <h4 style={{ margin: '0 0 10px 0', fontSize: '13px', color: 'var(--app-text, #f8fafc)', fontWeight: 'bold' }}>
+              Active Positions {currentTarget.isCustom && `(${currentTarget.broker.toUpperCase()})`}
+            </h4>
             {openPositions.length === 0 ? (
-              <div style={{ color: 'var(--app-text-muted, #64748b)', fontSize: '12px', paddingBottom: '20px' }}>No active positions.</div>
+              <div style={{ color: 'var(--app-text-muted, #64748b)', fontSize: '12px', paddingBottom: '20px' }}>
+                {loadingCustom ? 'Loading active positions...' : 'No active positions.'}
+              </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
                 {openPositions.map(p => (
@@ -244,7 +501,8 @@ export default function TradeManager({
                         {(p.unrealized_profit ?? 0) >= 0 ? '+' : ''}${Number(p.unrealized_profit || 0).toFixed(2)}
                       </span>
                       <button 
-                        onClick={() => handleClosePosition(p)}
+                        onClick={() => handleClose(p)}
+                        disabled={tradeActionLoading === p.position_id}
                         style={{
                           backgroundColor: 'rgba(239, 68, 68, 0.1)',
                           color: '#ef4444',
@@ -252,11 +510,11 @@ export default function TradeManager({
                           borderRadius: '6px',
                           padding: '4px 10px',
                           fontSize: '11px',
-                          cursor: 'pointer',
+                          cursor: tradeActionLoading === p.position_id ? 'not-allowed' : 'pointer',
                           fontWeight: 'bold'
                         }}
                       >
-                        Close
+                        {tradeActionLoading === p.position_id ? 'Closing...' : 'Close'}
                       </button>
                     </div>
                   </div>
@@ -323,7 +581,7 @@ export default function TradeManager({
             {/* History Deals List */}
             {filteredHistory.length === 0 ? (
               <div style={{ color: 'var(--app-text-muted, #64748b)', fontSize: '12px', padding: '12px 0' }}>
-                {loadingHistory ? 'Loading history deals...' : 'No trade history found.'}
+                {isLoadingHistory ? 'Loading history deals...' : 'No trade history found.'}
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px' }}>
@@ -394,7 +652,8 @@ export default function TradeManager({
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* Top Header Controls */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', gap: '8px', flexWrap: 'wrap' }}>
+        {/* Tab Buttons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: 'rgba(255,255,255,0.03)', padding: '2px', borderRadius: '6px', border: '1px solid var(--app-card-border, #1f2937)' }}>
           <button
             onClick={() => setActiveTab('live')}
@@ -436,32 +695,18 @@ export default function TradeManager({
           </button>
         </div>
 
+        {/* Broker Selector & Badge */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          {activeTab === 'history' && onRefreshHistory && (
-            <button
-              onClick={onRefreshHistory}
-              disabled={loadingHistory}
-              style={{
-                backgroundColor: 'transparent',
-                border: '1px solid var(--app-card-border, #1f2937)',
-                borderRadius: '4px',
-                padding: '3px 6px',
-                color: 'var(--app-text-muted, #94a3b8)',
-                cursor: loadingHistory ? 'not-allowed' : 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                fontSize: '10px'
-              }}
-              title="Refresh History"
-            >
-              <RefreshCw size={10} className={loadingHistory ? 'animate-spin' : ''} />
-              Sync
-            </button>
-          )}
+          {renderBrokerSelector(false)}
           <DebugComponentBadge name="TradeManager" />
         </div>
       </div>
+
+      {actionError && (
+        <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444', borderRadius: '4px', padding: '6px 8px', fontSize: '10px', color: '#ef4444', marginBottom: '8px' }}>
+          {actionError}
+        </div>
+      )}
 
       {/* Content Container */}
       <div style={{ flex: 1, overflowY: 'auto' }}>
@@ -471,23 +716,27 @@ export default function TradeManager({
             {/* Stats Grid */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
               <div style={{ backgroundColor: 'var(--app-bg, #0b0f19)', border: '1px solid var(--app-card-border, #1f2937)', borderRadius: '6px', padding: '8px' }}>
-                <span style={{ fontSize: '9px', color: 'var(--app-text-muted, #94a3b8)', display: 'block' }}>DAILY P&L</span>
-                <span style={{ fontSize: '13px', fontWeight: 'bold', color: (dailyPnl ?? 0) >= 0 ? '#10b981' : '#ef4444' }}>
-                  {(dailyPnl ?? 0) >= 0 ? '+' : ''}${Number(dailyPnl || 0).toFixed(2)}
+                <span style={{ fontSize: '9px', color: 'var(--app-text-muted, #94a3b8)', display: 'block' }}>UNREALIZED P&L</span>
+                <span style={{ fontSize: '13px', fontWeight: 'bold', color: activeDailyPnl >= 0 ? '#10b981' : '#ef4444' }}>
+                  {activeDailyPnl >= 0 ? '+' : ''}${Number(activeDailyPnl || 0).toFixed(2)}
                 </span>
               </div>
               <div style={{ backgroundColor: 'var(--app-bg, #0b0f19)', border: '1px solid var(--app-card-border, #1f2937)', borderRadius: '6px', padding: '8px' }}>
-                <span style={{ fontSize: '9px', color: 'var(--app-text-muted, #94a3b8)', display: 'block' }}>WEEKLY P&L</span>
-                <span style={{ fontSize: '13px', fontWeight: 'bold', color: (weeklyPnl ?? 0) >= 0 ? '#10b981' : '#ef4444' }}>
-                  {(weeklyPnl ?? 0) >= 0 ? '+' : ''}${Number(weeklyPnl || 0).toFixed(2)}
+                <span style={{ fontSize: '9px', color: 'var(--app-text-muted, #94a3b8)', display: 'block' }}>TOTAL CLOSED P&L</span>
+                <span style={{ fontSize: '13px', fontWeight: 'bold', color: activeWeeklyPnl >= 0 ? '#10b981' : '#ef4444' }}>
+                  {activeWeeklyPnl >= 0 ? '+' : ''}${Number(activeWeeklyPnl || 0).toFixed(2)}
                 </span>
               </div>
             </div>
 
             {/* Positions List */}
-            <h4 style={{ margin: '0 0 6px 0', fontSize: '11px', color: 'var(--app-text, #f8fafc)', fontWeight: 'bold' }}>Active Positions</h4>
+            <h4 style={{ margin: '0 0 6px 0', fontSize: '11px', color: 'var(--app-text, #f8fafc)', fontWeight: 'bold' }}>
+              Active Positions {currentTarget.isCustom && `(${currentTarget.broker.toUpperCase()})`}
+            </h4>
             {openPositions.length === 0 ? (
-              <div style={{ color: 'var(--app-text-muted, #64748b)', fontSize: '11px', paddingBottom: '16px' }}>No active positions.</div>
+              <div style={{ color: 'var(--app-text-muted, #64748b)', fontSize: '11px', paddingBottom: '16px' }}>
+                {loadingCustom ? 'Loading active positions...' : 'No active positions.'}
+              </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '12px' }}>
                 {openPositions.map(p => (
@@ -516,7 +765,8 @@ export default function TradeManager({
                         {(p.unrealized_profit ?? 0) >= 0 ? '+' : ''}${Number(p.unrealized_profit || 0).toFixed(2)}
                       </span>
                       <button 
-                        onClick={() => handleClosePosition(p)}
+                        onClick={() => handleClose(p)}
+                        disabled={tradeActionLoading === p.position_id}
                         style={{
                           backgroundColor: 'rgba(239, 68, 68, 0.1)',
                           color: '#ef4444',
@@ -524,10 +774,10 @@ export default function TradeManager({
                           borderRadius: '4px',
                           padding: '2px 6px',
                           fontSize: '9px',
-                          cursor: 'pointer'
+                          cursor: tradeActionLoading === p.position_id ? 'not-allowed' : 'pointer'
                         }}
                       >
-                        Close
+                        {tradeActionLoading === p.position_id ? 'Closing...' : 'Close'}
                       </button>
                     </div>
                   </div>
@@ -594,7 +844,7 @@ export default function TradeManager({
             {/* History Table / Cards */}
             {filteredHistory.length === 0 ? (
               <div style={{ color: 'var(--app-text-muted, #64748b)', fontSize: '11px', padding: '8px 0' }}>
-                {loadingHistory ? 'Loading history...' : 'No closed trades in history.'}
+                {isLoadingHistory ? 'Loading history...' : 'No closed trades in history.'}
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '12px' }}>

@@ -3163,6 +3163,8 @@ export default function Dashboard() {
                         onRefreshHistory={() => fetchHistoryTrades(undefined, undefined, true)}
                         handleClosePosition={handleClosePosition}
                         isMobileLayout={true}
+                        accounts={accounts}
+                        activeAccount={activeAccount}
                       />
                     </div>
                   </div>
@@ -3713,6 +3715,8 @@ export default function Dashboard() {
                             onRefreshHistory={() => fetchHistoryTrades(undefined, undefined, true)}
                             handleClosePosition={handleClosePosition}
                             isMobileLayout={false}
+                            accounts={accounts}
+                            activeAccount={activeAccount}
                           />
                         </div>
                         {!isCollapsed && renderResizeHandle('trades')}
