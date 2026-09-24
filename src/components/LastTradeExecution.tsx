@@ -19,7 +19,7 @@ export const LastTradeExecution: React.FC<LastTradeExecutionProps> = ({
   timeframe,
   backtestResults,
   defaultSize = '0.01',
-  defaultSL = '0.0015',
+  defaultSL = '1.0',
   defaultRR = '2.0',
   onClose,
 }) => {
@@ -41,16 +41,63 @@ export const LastTradeExecution: React.FC<LastTradeExecutionProps> = ({
   const rawTrades = backtestResults?.trades || [];
   const lastTrade = rawTrades.length > 0 ? rawTrades[rawTrades.length - 1] : null;
 
+  const tradeSide = ((lastTrade?.type || lastTrade?.side || 'BUY') as string).toUpperCase();
+  const isBuy = tradeSide === 'BUY';
+  const entryPrice = parseFloat(lastTrade?.entryPrice || lastTrade?.entry_price || lastTrade?.price || '0');
+
+  // Extract SL / TP from all possible backend property naming conventions
+  const rawSL = lastTrade?.slPrice ?? lastTrade?.originalSlPrice ?? lastTrade?.sl_price ?? lastTrade?.stop_loss ?? lastTrade?.stopLoss ?? lastTrade?.sl;
+  const rawTP = lastTrade?.tpPrice ?? lastTrade?.tp_price ?? lastTrade?.take_profit ?? lastTrade?.takeProfit ?? lastTrade?.tp;
+
+  // Fallback calculation if not explicitly embedded on the trade object
+  const getDerivedSL = (): number | undefined => {
+    if (rawSL !== undefined && rawSL !== null && !isNaN(Number(rawSL)) && Number(rawSL) > 0) {
+      return Number(rawSL);
+    }
+    if (entryPrice > 0 && defaultSL) {
+      const slNum = parseFloat(defaultSL);
+      if (!isNaN(slNum) && slNum > 0) {
+        // Check if sl is in percent or absolute distance
+        const dist = slNum < 1 && entryPrice > 10 ? entryPrice * (slNum / 100) : slNum;
+        return isBuy ? entryPrice - dist : entryPrice + dist;
+      }
+    }
+    return undefined;
+  };
+
+  const getDerivedTP = (slVal?: number): number | undefined => {
+    if (rawTP !== undefined && rawTP !== null && !isNaN(Number(rawTP)) && Number(rawTP) > 0) {
+      return Number(rawTP);
+    }
+    if (entryPrice > 0 && slVal && defaultRR) {
+      const rrNum = parseFloat(defaultRR) || 2.0;
+      const slDist = Math.abs(entryPrice - slVal);
+      if (slDist > 0) {
+        return isBuy ? entryPrice + (slDist * rrNum) : entryPrice - (slDist * rrNum);
+      }
+    }
+    return undefined;
+  };
+
+  const initialSL = getDerivedSL();
+  const initialTP = getDerivedTP(initialSL);
+
+  const [customSL, setCustomSL] = useState<string>(initialSL ? initialSL.toFixed(5) : '');
+  const [customTP, setCustomTP] = useState<string>(initialTP ? initialTP.toFixed(5) : '');
+
+  useEffect(() => {
+    if (initialSL && !customSL) setCustomSL(initialSL.toFixed(5));
+    if (initialTP && !customTP) setCustomTP(initialTP.toFixed(5));
+  }, [initialSL, initialTP]);
+
   const handleExecute = async () => {
     if (!lastTrade) {
       setStatusMessage({ type: 'error', text: 'No backtest trade found to execute.' });
       return;
     }
 
-    const tradeSide = (lastTrade.type || lastTrade.side || 'BUY').toUpperCase();
-    const entryPrice = parseFloat(lastTrade.entryPrice || lastTrade.price || '0');
-    const stopLoss = lastTrade.stopLoss ? parseFloat(lastTrade.stopLoss) : (lastTrade.sl ? parseFloat(lastTrade.sl) : undefined);
-    const takeProfit = lastTrade.takeProfit ? parseFloat(lastTrade.takeProfit) : (lastTrade.tp ? parseFloat(lastTrade.tp) : undefined);
+    const stopLoss = customSL ? parseFloat(customSL) : initialSL;
+    const takeProfit = customTP ? parseFloat(customTP) : initialTP;
     const vol = parseFloat(customVolume) || parseFloat(defaultSize) || 0.01;
 
     setLoading(true);
@@ -66,7 +113,7 @@ export const LastTradeExecution: React.FC<LastTradeExecutionProps> = ({
           message: `🚨 **Manual Signal Trigger**\n` +
             `• **Symbol:** \`${symbol.toUpperCase()}\` (${timeframe})\n` +
             `• **Action:** \`${tradeSide}\`\n` +
-            `• **Entry Price:** \`${entryPrice ? entryPrice.toFixed(5) : 'Market'}\`\n` +
+            `• **Entry Price:** \`${entryPrice > 0 ? entryPrice.toFixed(5) : 'Market'}\`\n` +
             `• **Stop Loss:** \`${stopLoss ? stopLoss.toFixed(5) : 'None'}\`\n` +
             `• **Take Profit:** \`${takeProfit ? takeProfit.toFixed(5) : 'None'}\`\n` +
             `• **Volume:** \`${vol}\`\n` +
@@ -170,17 +217,13 @@ export const LastTradeExecution: React.FC<LastTradeExecutionProps> = ({
     );
   }
 
-  const tradeSide = (lastTrade.type || lastTrade.side || 'BUY').toUpperCase();
-  const isBuy = tradeSide === 'BUY';
-  const entryPrice = parseFloat(lastTrade.entryPrice || lastTrade.price || '0');
-  const stopLoss = lastTrade.stopLoss || lastTrade.sl;
-  const takeProfit = lastTrade.takeProfit || lastTrade.tp;
-
   // Calculate RR if available
   let calculatedRR = defaultRR;
-  if (entryPrice > 0 && stopLoss && takeProfit) {
-    const slDiff = Math.abs(entryPrice - Number(stopLoss));
-    const tpDiff = Math.abs(Number(takeProfit) - entryPrice);
+  const currentSLNum = customSL ? parseFloat(customSL) : initialSL;
+  const currentTPNum = customTP ? parseFloat(customTP) : initialTP;
+  if (entryPrice > 0 && currentSLNum && currentTPNum) {
+    const slDiff = Math.abs(entryPrice - currentSLNum);
+    const tpDiff = Math.abs(currentTPNum - entryPrice);
     if (slDiff > 0) {
       calculatedRR = (tpDiff / slDiff).toFixed(2);
     }
@@ -282,18 +325,58 @@ export const LastTradeExecution: React.FC<LastTradeExecutionProps> = ({
           <span style={{ color: '#38bdf8', fontWeight: 700 }}>1 : {calculatedRR}</span>
         </div>
         <div>
-          <span style={{ color: '#64748b', fontSize: '10px', display: 'block', fontWeight: 600 }}>STOP LOSS</span>
-          <span style={{ color: stopLoss ? '#f87171' : '#64748b', fontWeight: 700 }}>{stopLoss ? Number(stopLoss).toFixed(5) : 'None'}</span>
-        </div>
-        <div>
-          <span style={{ color: '#64748b', fontSize: '10px', display: 'block', fontWeight: 600 }}>TAKE PROFIT</span>
-          <span style={{ color: takeProfit ? '#34d399' : '#64748b', fontWeight: 700 }}>{takeProfit ? Number(takeProfit).toFixed(5) : 'None'}</span>
-        </div>
-        <div>
           <span style={{ color: '#64748b', fontSize: '10px', display: 'block', fontWeight: 600 }}>TIME</span>
           <span style={{ color: '#cbd5e1', fontSize: '10px' }}>
             {lastTrade.time || (lastTrade.entryTimestamp ? new Date(Number(lastTrade.entryTimestamp) * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Latest')}
           </span>
+        </div>
+      </div>
+
+      {/* Editable SL & TP Row */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <label style={{ fontSize: '10px', fontWeight: 700, color: '#f87171' }}>STOP LOSS (SL)</label>
+          <input
+            type="number"
+            step="any"
+            value={customSL}
+            onChange={(e) => setCustomSL(e.target.value)}
+            placeholder="e.g. 62500.00"
+            style={{
+              width: '100%',
+              backgroundColor: 'rgba(30, 41, 59, 0.8)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              borderRadius: '6px',
+              padding: '6px 10px',
+              color: '#f87171',
+              fontSize: '12px',
+              fontWeight: 700,
+              outline: 'none',
+              boxSizing: 'border-box'
+            }}
+          />
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <label style={{ fontSize: '10px', fontWeight: 700, color: '#34d399' }}>TAKE PROFIT (TP)</label>
+          <input
+            type="number"
+            step="any"
+            value={customTP}
+            onChange={(e) => setCustomTP(e.target.value)}
+            placeholder="e.g. 63200.00"
+            style={{
+              width: '100%',
+              backgroundColor: 'rgba(30, 41, 59, 0.8)',
+              border: '1px solid rgba(16, 185, 129, 0.3)',
+              borderRadius: '6px',
+              padding: '6px 10px',
+              color: '#34d399',
+              fontSize: '12px',
+              fontWeight: 700,
+              outline: 'none',
+              boxSizing: 'border-box'
+            }}
+          />
         </div>
       </div>
 
