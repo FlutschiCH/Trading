@@ -55,9 +55,6 @@ class BinanceFuturesHandler(BaseBrokerHandler):
 
         session = cls.get_session()
         t0 = time.time()
-        # Clean params for logging (hide full signature)
-        log_params = {k: (v if k != 'signature' else v[:8] + '...') for k, v in params.items()} if params else {}
-        print(f"[Binance API Request] ➔ {method.upper()} {endpoint} | signed={signed} | params={log_params}", flush=True)
         try:
             if method.upper() == 'GET':
                 response = session.get(url, headers=headers, params=params, timeout=10)
@@ -73,12 +70,6 @@ class BinanceFuturesHandler(BaseBrokerHandler):
             elapsed_ms = int((time.time() - t0) * 1000)
             try:
                 res_json = response.json()
-                # Debug logging response
-                res_preview = str(res_json)
-                if len(res_preview) > 200:
-                    res_preview = res_preview[:200] + '...'
-                print(f"[Binance API Response] ⬅ {method.upper()} {endpoint} | HTTP {response.status_code} ({elapsed_ms}ms) | {res_preview}", flush=True)
-
                 if isinstance(res_json, dict) and 'code' in res_json:
                     code_val = res_json.get('code')
                     msg_val = str(res_json.get('msg', '')).lower()
