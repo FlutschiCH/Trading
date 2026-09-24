@@ -8,6 +8,7 @@ import LiveOverviewPanel from './live_overview_panel';
 import SymbolMappingsView from './symbol_mappings_view';
 import ComputerManager from './computer_manager';
 import Header from './header';
+import DashboardNavMenu from './dashboard_nav_menu';
 import LandscapeMobileOverview from './landscape_mobile_overview';
 import MobileTabNav, { type MobileTab } from './mobile_tab_nav';
 import { API_BASE_URL } from '../api';
@@ -2771,114 +2772,7 @@ export default function Dashboard() {
           <main style={styles.mainLayout}>
             {/* Quick Card Navigator Side Dock (Desktop / Tablet) */}
             {!isMobile && (
-              <div
-                style={{
-                  position: 'fixed',
-                  left: isSideMenuExpanded ? '16px' : '8px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  zIndex: 999,
-                  backgroundColor: 'rgba(15, 23, 42, 0.92)',
-                  backdropFilter: 'blur(12px)',
-                  WebkitBackdropFilter: 'blur(12px)',
-                  border: '1px solid rgba(59, 130, 246, 0.3)',
-                  borderRadius: isSideMenuExpanded ? '14px' : '10px',
-                  padding: isSideMenuExpanded ? '10px 8px' : '6px 4px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '6px',
-                  boxShadow: '0 20px 30px -10px rgba(0, 0, 0, 0.7), 0 0 15px rgba(59, 130, 246, 0.2)',
-                  transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-                  maxWidth: isSideMenuExpanded ? '210px' : '44px',
-                }}
-              >
-                {/* Header / Toggle Button */}
-                <button
-                  type="button"
-                  onClick={toggleSideMenu}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: isSideMenuExpanded ? 'space-between' : 'center',
-                    backgroundColor: 'rgba(59, 130, 246, 0.15)',
-                    border: '1px solid rgba(59, 130, 246, 0.3)',
-                    color: '#60a5fa',
-                    borderRadius: '8px',
-                    padding: isSideMenuExpanded ? '6px 10px' : '6px',
-                    cursor: 'pointer',
-                    fontSize: '11px',
-                    fontWeight: 'bold',
-                    outline: 'none',
-                    transition: 'all 0.15s ease',
-                  }}
-                  title={isSideMenuExpanded ? 'Collapse Navigation Bar' : 'Expand Card Quick Navigation'}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Compass size={16} />
-                    {isSideMenuExpanded && <span>Card Jump</span>}
-                  </div>
-                  {isSideMenuExpanded ? (
-                    <ChevronRight size={14} style={{ transform: 'rotate(180deg)' }} />
-                  ) : null}
-                </button>
-
-                {/* Card Jump Navigation Buttons */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '2px' }}>
-                  {[
-                    { id: 'chart', label: 'Chart & Wave', icon: <BarChart2 size={15} color="#38bdf8" /> },
-                    { id: 'backtester', label: 'Backtester', icon: <Sliders size={15} color="#a855f7" /> },
-                    { id: 'trades', label: 'Live Trades', icon: <LineChart size={15} color="#10b981" /> },
-                    { id: 'live_overview', label: 'Live Strategies', icon: <Zap size={15} color="#f59e0b" /> },
-                    { id: 'symbol_mapping', label: 'Symbol Maps', icon: <Link size={15} color="#6366f1" /> },
-                    { id: 'analyzer', label: 'AI Analyzer', icon: <Bot size={15} color="#ec4899" /> },
-                    { id: 'scalper', label: 'Void Scalper', icon: <Activity size={15} color="#14b8a6" /> },
-                    { id: 'copytrader-bottom', label: 'Copytrader', icon: <Cpu size={15} color="#f97316" /> },
-                    ...(showTerminal ? [{ id: 'terminal', label: 'Terminal Logs', icon: <TerminalIcon size={15} color="#4ade80" /> }] : []),
-                    { id: 'collector', label: '1M Collector', icon: <Database size={15} color="#94a3b8" /> },
-                  ].map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => jumpToCard(item.id)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        backgroundColor: 'transparent',
-                        border: '1px solid transparent',
-                        borderRadius: '6px',
-                        padding: isSideMenuExpanded ? '6px 8px' : '6px',
-                        justifyContent: isSideMenuExpanded ? 'flex-start' : 'center',
-                        color: 'var(--app-text, #f3f4f6)',
-                        cursor: 'pointer',
-                        fontSize: '11px',
-                        fontWeight: 500,
-                        textAlign: 'left',
-                        outline: 'none',
-                        transition: 'all 0.15s ease',
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.2)';
-                        e.currentTarget.style.borderColor = 'rgba(59, 130, 246, 0.4)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = 'transparent';
-                        e.currentTarget.style.borderColor = 'transparent';
-                      }}
-                      title={`Jump to ${item.label}`}
-                    >
-                      <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        {item.icon}
-                      </span>
-                      {isSideMenuExpanded && (
-                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {item.label}
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <DashboardNavMenu showTerminal={showTerminal} />
             )}
 
 

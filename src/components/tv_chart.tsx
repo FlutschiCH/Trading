@@ -2668,7 +2668,7 @@ export default function TVChart({
 
       const firstCandle = activeCandles[0];
       const lastCandle = activeCandles[activeCandles.length - 1];
-      const indSummary = activeList.map(i => `${i.id}_${i.name}_${i.period}_${i.visible}_${i.color}_${i.multiplier || ''}`).join('|');
+      const indSummary = activeList.map(i => `${i.id}_${i.name}_${i.visible}_${i.color}_${JSON.stringify(i.params || {})}`).join('|');
       const indFingerprint = `${activeCandles.length}_${firstCandle?.time}_${lastCandle?.time}_${indSummary}`;
 
       if (lastIndicatorsFingerprintRef.current === indFingerprint) {
