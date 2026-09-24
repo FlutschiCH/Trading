@@ -22,6 +22,7 @@ export const LastTradeExecution: React.FC<LastTradeExecutionProps> = ({
   defaultSL = '1.0',
   defaultRR = '2.0',
   onClose,
+}) => {
   const { accounts } = useAccountsStore();
 
   const [selectedAccountId, setSelectedAccountId] = useState<string>(() => {
