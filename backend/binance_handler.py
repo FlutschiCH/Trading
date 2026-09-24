@@ -54,6 +54,10 @@ class BinanceFuturesHandler(BaseBrokerHandler):
         url = f"{base_host}{endpoint}"
 
         session = cls.get_session()
+        t0 = time.time()
+        # Clean params for logging (hide full signature)
+        log_params = {k: (v if k != 'signature' else v[:8] + '...') for k, v in params.items()} if params else {}
+        print(f"[Binance API Request] ➔ {method.upper()} {endpoint} | signed={signed} | params={log_params}", flush=True)
         try:
             if method.upper() == 'GET':
                 response = session.get(url, headers=headers, params=params, timeout=10)
@@ -66,8 +70,15 @@ class BinanceFuturesHandler(BaseBrokerHandler):
             else:
                 return {'error': f'Unsupported HTTP method: {method}'}
 
+            elapsed_ms = int((time.time() - t0) * 1000)
             try:
                 res_json = response.json()
+                # Debug logging response
+                res_preview = str(res_json)
+                if len(res_preview) > 200:
+                    res_preview = res_preview[:200] + '...'
+                print(f"[Binance API Response] ⬅ {method.upper()} {endpoint} | HTTP {response.status_code} ({elapsed_ms}ms) | {res_preview}", flush=True)
+
                 if isinstance(res_json, dict) and 'code' in res_json:
                     code_val = res_json.get('code')
                     msg_val = str(res_json.get('msg', '')).lower()
@@ -77,10 +88,11 @@ class BinanceFuturesHandler(BaseBrokerHandler):
                             res_json['error'] = res_json.get('msg', f"Binance error code {code_val}")
                 return res_json
             except Exception as parse_err:
-                print(f"[Binance ERROR] Failed to parse JSON on {endpoint}: {parse_err}", flush=True)
+                print(f"[Binance ERROR] Failed to parse JSON on {endpoint} (HTTP {response.status_code}, {elapsed_ms}ms): {parse_err} | Text: {response.text[:300]}", flush=True)
                 return {'error': f"HTTP {response.status_code}: {response.text}"}
         except Exception as e:
-            print(f"[Binance ERROR] Network/HTTP Exception: {e}", flush=True)
+            elapsed_ms = int((time.time() - t0) * 1000)
+            print(f"[Binance ERROR] Network/HTTP Exception on {endpoint} ({elapsed_ms}ms): {e}", flush=True)
             return {'error': str(e)}
 
     @classmethod
