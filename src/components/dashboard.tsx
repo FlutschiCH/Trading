@@ -3,7 +3,7 @@ import { Activity, X, TrendingUp, TrendingDown, Clock, HelpCircle, RefreshCw, Me
 import TVChart from './tv_chart';
 import Backtester from './backtest';
 import HowToPage from './how_to_page';
-import LiveTradesPanel from './live_trades_panel';
+import TradeManager from './trade_manager';
 import LiveOverviewPanel from './live_overview_panel';
 import SymbolMappingsView from './symbol_mappings_view';
 import ComputerManager from './computer_manager';
@@ -3154,10 +3154,13 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <div style={{ padding: '16px', overflowY: 'auto' }}>
-                      <LiveTradesPanel
+                      <TradeManager
                         dailyPnl={dailyPnl}
                         weeklyPnl={weeklyPnl}
                         openPositions={positions}
+                        historyTrades={historyTrades}
+                        loadingHistory={loadingHistory}
+                        onRefreshHistory={() => fetchHistoryTrades(undefined, undefined, true)}
                         handleClosePosition={handleClosePosition}
                         isMobileLayout={true}
                       />
@@ -3701,10 +3704,13 @@ export default function Dashboard() {
                           </div>
                         </div>
                         <div className="no-drag" style={{ ...contentStyle, display: isCollapsed ? 'none' : 'block' }}>
-                          <LiveTradesPanel
+                          <TradeManager
                             dailyPnl={dailyPnl}
                             weeklyPnl={weeklyPnl}
                             openPositions={positions}
+                            historyTrades={historyTrades}
+                            loadingHistory={loadingHistory}
+                            onRefreshHistory={() => fetchHistoryTrades(undefined, undefined, true)}
                             handleClosePosition={handleClosePosition}
                             isMobileLayout={false}
                           />

@@ -100,6 +100,13 @@ def modify_position():
 
 @trading_routes.route('/trade/history', methods=['POST'])
 def history():
-    payload = request.get_json(force=True) or {}
-    handler = _get_handler(payload)
-    return jsonify(handler.get_history())
+    payload = request.get_json(silent=True) or {}
+    broker = payload.get('broker')
+    account_id = payload.get('account_id')
+    date_from = payload.get('date_from')
+    date_to = payload.get('date_to')
+    symbol = payload.get('symbol')
+    data = BrokerHandler.get_history(broker_name=broker, account_id=account_id, date_from=date_from, date_to=date_to, symbol=symbol)
+    if isinstance(data, dict) and "status" in data:
+        return jsonify(data)
+    return jsonify({"status": "success", "data": data})
