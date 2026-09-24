@@ -3,7 +3,7 @@ import { usePositionsStore } from '../services/positionsStore';
 import DebugComponentBadge from './debug_component_badge';
 import { SymbolTimeframeSelector } from './symbol_timeframe_selector';
 import { API_BASE_URL } from '../api';
-import { RefreshCw, TrendingUp, TrendingDown, Clock, Layers, Calendar, DollarSign, Percent, Shield, ExternalLink, ChevronDown, ChevronRight, Filter, X, Tag, Hash, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { RefreshCw, TrendingUp, TrendingDown, Clock, Layers, Calendar, DollarSign, Percent, Shield, ExternalLink, ChevronDown, ChevronRight, ChevronLeft, Filter, X, Tag, Hash, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 
 export interface Position {
   position_id: number | string;
@@ -99,6 +99,7 @@ export default function TradeManager({
   const [activeTab, setActiveTab] = useState<'live' | 'history'>('live');
   const [selectedSymbol, setSelectedSymbol] = useState<string>('ALL');
   const [historyFilterSide, setHistoryFilterSide] = useState<'ALL' | 'BUY' | 'SELL'>('ALL');
+  const [historyPage, setHistoryPage] = useState<number>(1);
   const [expandedTradeId, setExpandedTradeId] = useState<string | number | null>(null);
 
   // Accounts state & selection
@@ -250,6 +251,26 @@ export default function TradeManager({
       return matchSymbol && matchSide;
     });
   }, [rawHistoryTrades, selectedSymbol, historyFilterSide]);
+
+  const HISTORY_PAGE_SIZE = 10;
+  const totalHistoryPages = Math.max(1, Math.ceil(filteredHistory.length / HISTORY_PAGE_SIZE));
+
+  // Reset to page 1 on filter changes or if current page exceeds total
+  useEffect(() => {
+    setHistoryPage(1);
+  }, [selectedSymbol, historyFilterSide]);
+
+  useEffect(() => {
+    if (historyPage > totalHistoryPages) {
+      setHistoryPage(totalHistoryPages);
+    }
+  }, [totalHistoryPages, historyPage]);
+
+  // Paginated 10 items for current view
+  const paginatedHistory = useMemo(() => {
+    const startIndex = (historyPage - 1) * HISTORY_PAGE_SIZE;
+    return filteredHistory.slice(startIndex, startIndex + HISTORY_PAGE_SIZE);
+  }, [filteredHistory, historyPage]);
 
   const isLoadingHistory = currentTarget.isCustom ? loadingCustom : (propsLoadingHistory || false);
 
@@ -691,80 +712,132 @@ export default function TradeManager({
                 {isLoadingHistory ? 'Loading history deals...' : 'No trade history found.'}
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px' }}>
-                {filteredHistory.map((t, idx) => {
-                  const profit = getTradeProfit(t);
-                  const side = getTradeSide(t);
-                  const vol = getTradeVolume(t);
-                  const price = getTradePrice(t);
-                  const tradeId = t.ticket || t.id || t.deal_id || idx;
-                  const isExpanded = expandedTradeId === tradeId;
+              <>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+                  {paginatedHistory.map((t, idx) => {
+                    const profit = getTradeProfit(t);
+                    const side = getTradeSide(t);
+                    const vol = getTradeVolume(t);
+                    const price = getTradePrice(t);
+                    const tradeId = t.ticket || t.id || t.deal_id || idx;
+                    const isExpanded = expandedTradeId === tradeId;
 
-                  return (
-                    <div
-                      key={tradeId}
-                      onClick={() => toggleExpandTrade(tradeId)}
-                      style={{
-                        backgroundColor: 'var(--app-bg, #0b0f19)',
-                        border: '1px solid var(--app-card-border, #1f2937)',
-                        borderRadius: '8px',
-                        padding: '10px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '6px',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--app-text, #f8fafc)' }}>
-                              {t.symbol} ({vol})
-                            </span>
-                            <span
-                              style={{
-                                fontSize: '9px',
-                                padding: '1px 5px',
-                                borderRadius: '3px',
-                                fontWeight: 'bold',
-                                backgroundColor: side === 'BUY' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                                color: side === 'BUY' ? '#10b981' : '#ef4444'
-                              }}
-                            >
-                              {side}
-                            </span>
-                          </div>
-                          <div style={{ fontSize: '9px', color: 'var(--app-text-muted, #94a3b8)' }}>
-                            {formatDate(t.close_time || t.time || t.timestamp || t.open_time)}
-                            {t.ticket ? ` • #${t.ticket}` : ''}
-                          </div>
-                        </div>
-                        <div style={{ textAlign: 'right' }}>
-                          <span style={{ fontSize: '13px', fontWeight: 'bold', color: profit >= 0 ? '#10b981' : '#ef4444' }}>
-                            {profit >= 0 ? '+' : ''}${profit.toFixed(2)}
-                          </span>
-                          {price > 0 && (
-                            <div style={{ fontSize: '9px', color: 'var(--app-text-muted, #94a3b8)' }}>
-                              @{price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 5 })}
+                    return (
+                      <div
+                        key={tradeId}
+                        onClick={() => toggleExpandTrade(tradeId)}
+                        style={{
+                          backgroundColor: 'var(--app-bg, #0b0f19)',
+                          border: '1px solid var(--app-card-border, #1f2937)',
+                          borderRadius: '8px',
+                          padding: '10px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '6px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--app-text, #f8fafc)' }}>
+                                {t.symbol} ({vol})
+                              </span>
+                              <span
+                                style={{
+                                  fontSize: '9px',
+                                  padding: '1px 5px',
+                                  borderRadius: '3px',
+                                  fontWeight: 'bold',
+                                  backgroundColor: side === 'BUY' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                                  color: side === 'BUY' ? '#10b981' : '#ef4444'
+                                }}
+                              >
+                                {side}
+                              </span>
                             </div>
-                          )}
+                            <div style={{ fontSize: '9px', color: 'var(--app-text-muted, #94a3b8)' }}>
+                              {formatDate(t.close_time || t.time || t.timestamp || t.open_time)}
+                              {t.ticket ? ` • #${t.ticket}` : ''}
+                            </div>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <span style={{ fontSize: '13px', fontWeight: 'bold', color: profit >= 0 ? '#10b981' : '#ef4444' }}>
+                              {profit >= 0 ? '+' : ''}${profit.toFixed(2)}
+                            </span>
+                            {price > 0 && (
+                              <div style={{ fontSize: '9px', color: 'var(--app-text-muted, #94a3b8)' }}>
+                                @{price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 5 })}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
 
-                      {/* Expanded Trade Details */}
-                      {isExpanded && (
-                        <div style={{ borderTop: '1px dashed var(--app-card-border, #1f2937)', paddingTop: '6px', marginTop: '4px', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px', fontSize: '10px', color: 'var(--app-text-muted, #94a3b8)' }}>
-                          <div><span style={{ color: '#64748b' }}>Order ID:</span> {t.order || t.ticket || '-'}</div>
-                          <div><span style={{ color: '#64748b' }}>Exec Price:</span> {price > 0 ? price : '-'}</div>
-                          <div><span style={{ color: '#64748b' }}>Commission:</span> ${Number(t.commission ?? t.fee ?? 0).toFixed(2)}</div>
-                          <div><span style={{ color: '#64748b' }}>Swap/Interest:</span> ${Number(t.swap ?? 0).toFixed(2)}</div>
-                          {t.comment && <div style={{ gridColumn: 'span 2' }}><span style={{ color: '#64748b' }}>Comment:</span> {t.comment}</div>}
-                        </div>
-                      )}
+                        {/* Expanded Trade Details */}
+                        {isExpanded && (
+                          <div style={{ borderTop: '1px dashed var(--app-card-border, #1f2937)', paddingTop: '6px', marginTop: '4px', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px', fontSize: '10px', color: 'var(--app-text-muted, #94a3b8)' }}>
+                            <div><span style={{ color: '#64748b' }}>Order ID:</span> {t.order || t.ticket || '-'}</div>
+                            <div><span style={{ color: '#64748b' }}>Exec Price:</span> {price > 0 ? price : '-'}</div>
+                            <div><span style={{ color: '#64748b' }}>Commission:</span> ${Number(t.commission ?? t.fee ?? 0).toFixed(2)}</div>
+                            <div><span style={{ color: '#64748b' }}>Swap/Interest:</span> ${Number(t.swap ?? 0).toFixed(2)}</div>
+                            {t.comment && <div style={{ gridColumn: 'span 2' }}><span style={{ color: '#64748b' }}>Comment:</span> {t.comment}</div>}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Mobile Pagination Toolbar */}
+                {totalHistoryPages > 1 && (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 4px', borderTop: '1px solid var(--app-card-border, #1f2937)', marginBottom: '16px' }}>
+                    <span style={{ fontSize: '11px', color: 'var(--app-text-muted, #94a3b8)' }}>
+                      Showing {(historyPage - 1) * HISTORY_PAGE_SIZE + 1}-{Math.min(historyPage * HISTORY_PAGE_SIZE, filteredHistory.length)} of {filteredHistory.length}
+                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <button
+                        disabled={historyPage <= 1}
+                        onClick={() => setHistoryPage(p => Math.max(1, p - 1))}
+                        style={{
+                          backgroundColor: 'var(--app-bg, #0b0f19)',
+                          border: '1px solid var(--app-card-border, #1f2937)',
+                          color: historyPage <= 1 ? '#475569' : 'var(--app-text, #f8fafc)',
+                          borderRadius: '4px',
+                          padding: '4px 8px',
+                          cursor: historyPage <= 1 ? 'not-allowed' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '2px',
+                          fontSize: '11px'
+                        }}
+                      >
+                        <ChevronLeft size={12} /> Prev
+                      </button>
+                      <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--app-text, #f8fafc)', padding: '0 4px' }}>
+                        {historyPage} / {totalHistoryPages}
+                      </span>
+                      <button
+                        disabled={historyPage >= totalHistoryPages}
+                        onClick={() => setHistoryPage(p => Math.min(totalHistoryPages, p + 1))}
+                        style={{
+                          backgroundColor: 'var(--app-bg, #0b0f19)',
+                          border: '1px solid var(--app-card-border, #1f2937)',
+                          color: historyPage >= totalHistoryPages ? '#475569' : 'var(--app-text, #f8fafc)',
+                          borderRadius: '4px',
+                          padding: '4px 8px',
+                          cursor: historyPage >= totalHistoryPages ? 'not-allowed' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '2px',
+                          fontSize: '11px'
+                        }}
+                      >
+                        Next <ChevronRight size={12} />
+                      </button>
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
@@ -982,80 +1055,132 @@ export default function TradeManager({
                 {isLoadingHistory ? 'Loading history...' : 'No closed trades in history.'}
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '12px' }}>
-                {filteredHistory.map((t, idx) => {
-                  const profit = getTradeProfit(t);
-                  const side = getTradeSide(t);
-                  const vol = getTradeVolume(t);
-                  const price = getTradePrice(t);
-                  const tradeId = t.ticket || t.id || t.deal_id || idx;
-                  const isExpanded = expandedTradeId === tradeId;
+              <>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '8px' }}>
+                  {paginatedHistory.map((t, idx) => {
+                    const profit = getTradeProfit(t);
+                    const side = getTradeSide(t);
+                    const vol = getTradeVolume(t);
+                    const price = getTradePrice(t);
+                    const tradeId = t.ticket || t.id || t.deal_id || idx;
+                    const isExpanded = expandedTradeId === tradeId;
 
-                  return (
-                    <div
-                      key={tradeId}
-                      onClick={() => toggleExpandTrade(tradeId)}
-                      style={{
-                        backgroundColor: 'var(--app-bg, #0b0f19)',
-                        border: '1px solid var(--app-card-border, #1f2937)',
-                        borderRadius: '6px',
-                        padding: '6px 8px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '4px',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--app-text, #f8fafc)' }}>
-                              {t.symbol} ({vol})
-                            </span>
-                            <span
-                              style={{
-                                fontSize: '8px',
-                                padding: '1px 4px',
-                                borderRadius: '2px',
-                                fontWeight: 'bold',
-                                backgroundColor: side === 'BUY' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                                color: side === 'BUY' ? '#10b981' : '#ef4444'
-                              }}
-                            >
-                              {side}
-                            </span>
-                          </div>
-                          <div style={{ fontSize: '8px', color: 'var(--app-text-muted, #94a3b8)' }}>
-                            {formatDate(t.close_time || t.time || t.timestamp || t.open_time)}
-                            {t.ticket ? ` • #${t.ticket}` : ''}
-                          </div>
-                        </div>
-                        <div style={{ textAlign: 'right' }}>
-                          <span style={{ fontSize: '11px', fontWeight: 'bold', color: profit >= 0 ? '#10b981' : '#ef4444' }}>
-                            {profit >= 0 ? '+' : ''}${profit.toFixed(2)}
-                          </span>
-                          {price > 0 && (
-                            <div style={{ fontSize: '8px', color: 'var(--app-text-muted, #94a3b8)' }}>
-                              @{price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 5 })}
+                    return (
+                      <div
+                        key={tradeId}
+                        onClick={() => toggleExpandTrade(tradeId)}
+                        style={{
+                          backgroundColor: 'var(--app-bg, #0b0f19)',
+                          border: '1px solid var(--app-card-border, #1f2937)',
+                          borderRadius: '6px',
+                          padding: '6px 8px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '4px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--app-text, #f8fafc)' }}>
+                                {t.symbol} ({vol})
+                              </span>
+                              <span
+                                style={{
+                                  fontSize: '8px',
+                                  padding: '1px 4px',
+                                  borderRadius: '2px',
+                                  fontWeight: 'bold',
+                                  backgroundColor: side === 'BUY' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                                  color: side === 'BUY' ? '#10b981' : '#ef4444'
+                                }}
+                              >
+                                {side}
+                              </span>
                             </div>
-                          )}
+                            <div style={{ fontSize: '8px', color: 'var(--app-text-muted, #94a3b8)' }}>
+                              {formatDate(t.close_time || t.time || t.timestamp || t.open_time)}
+                              {t.ticket ? ` • #${t.ticket}` : ''}
+                            </div>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <span style={{ fontSize: '11px', fontWeight: 'bold', color: profit >= 0 ? '#10b981' : '#ef4444' }}>
+                              {profit >= 0 ? '+' : ''}${profit.toFixed(2)}
+                            </span>
+                            {price > 0 && (
+                              <div style={{ fontSize: '8px', color: 'var(--app-text-muted, #94a3b8)' }}>
+                                @{price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 5 })}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
 
-                      {/* Expanded Trade Details */}
-                      {isExpanded && (
-                        <div style={{ borderTop: '1px dashed var(--app-card-border, #1f2937)', paddingTop: '4px', marginTop: '2px', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '4px', fontSize: '9px', color: 'var(--app-text-muted, #94a3b8)' }}>
-                          <div><span style={{ color: '#64748b' }}>Order ID:</span> {t.order || t.ticket || '-'}</div>
-                          <div><span style={{ color: '#64748b' }}>Exec Price:</span> {price > 0 ? price : '-'}</div>
-                          <div><span style={{ color: '#64748b' }}>Commission:</span> ${Number(t.commission ?? t.fee ?? 0).toFixed(2)}</div>
-                          <div><span style={{ color: '#64748b' }}>Swap:</span> ${Number(t.swap ?? 0).toFixed(2)}</div>
-                          {t.comment && <div style={{ gridColumn: 'span 2' }}><span style={{ color: '#64748b' }}>Comment:</span> {t.comment}</div>}
-                        </div>
-                      )}
+                        {/* Expanded Trade Details */}
+                        {isExpanded && (
+                          <div style={{ borderTop: '1px dashed var(--app-card-border, #1f2937)', paddingTop: '4px', marginTop: '2px', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '4px', fontSize: '9px', color: 'var(--app-text-muted, #94a3b8)' }}>
+                            <div><span style={{ color: '#64748b' }}>Order ID:</span> {t.order || t.ticket || '-'}</div>
+                            <div><span style={{ color: '#64748b' }}>Exec Price:</span> {price > 0 ? price : '-'}</div>
+                            <div><span style={{ color: '#64748b' }}>Commission:</span> ${Number(t.commission ?? t.fee ?? 0).toFixed(2)}</div>
+                            <div><span style={{ color: '#64748b' }}>Swap:</span> ${Number(t.swap ?? 0).toFixed(2)}</div>
+                            {t.comment && <div style={{ gridColumn: 'span 2' }}><span style={{ color: '#64748b' }}>Comment:</span> {t.comment}</div>}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Desktop Pagination Toolbar */}
+                {totalHistoryPages > 1 && (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 2px', borderTop: '1px solid var(--app-card-border, #1f2937)', marginBottom: '10px' }}>
+                    <span style={{ fontSize: '10px', color: 'var(--app-text-muted, #94a3b8)' }}>
+                      {(historyPage - 1) * HISTORY_PAGE_SIZE + 1}-{Math.min(historyPage * HISTORY_PAGE_SIZE, filteredHistory.length)} of {filteredHistory.length}
+                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <button
+                        disabled={historyPage <= 1}
+                        onClick={() => setHistoryPage(p => Math.max(1, p - 1))}
+                        style={{
+                          backgroundColor: 'var(--app-bg, #0b0f19)',
+                          border: '1px solid var(--app-card-border, #1f2937)',
+                          color: historyPage <= 1 ? '#475569' : 'var(--app-text, #f8fafc)',
+                          borderRadius: '3px',
+                          padding: '2px 6px',
+                          cursor: historyPage <= 1 ? 'not-allowed' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '2px',
+                          fontSize: '10px'
+                        }}
+                      >
+                        <ChevronLeft size={10} /> Prev
+                      </button>
+                      <span style={{ fontSize: '10px', fontWeight: 'bold', color: 'var(--app-text, #f8fafc)', padding: '0 2px' }}>
+                        {historyPage} / {totalHistoryPages}
+                      </span>
+                      <button
+                        disabled={historyPage >= totalHistoryPages}
+                        onClick={() => setHistoryPage(p => Math.min(totalHistoryPages, p + 1))}
+                        style={{
+                          backgroundColor: 'var(--app-bg, #0b0f19)',
+                          border: '1px solid var(--app-card-border, #1f2937)',
+                          color: historyPage >= totalHistoryPages ? '#475569' : 'var(--app-text, #f8fafc)',
+                          borderRadius: '3px',
+                          padding: '2px 6px',
+                          cursor: historyPage >= totalHistoryPages ? 'not-allowed' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '2px',
+                          fontSize: '10px'
+                        }}
+                      >
+                        Next <ChevronRight size={10} />
+                      </button>
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
