@@ -1280,7 +1280,23 @@ export default function TVChart({
   }, [drawingPreview]);
 
   const updateDrawingCoordinates = () => {
-    if (!chartRef.current || !candlestickSeriesRef.current) return;
+    if (!chartRef.current || !candlestickSeriesRef.current || !candlesRef.current || candlesRef.current.length === 0) {
+      setPixelDrawings([]);
+      setPixelPreview(null);
+      setSelectedTradeCoords(null);
+      setDateRangeCoords(null);
+      setWyckoffZones([]);
+      setOversoldCoords([]);
+      setOverboughtCoords([]);
+      setFvgCoords([]);
+      if (sessionBoxPrimitiveRef.current) {
+        try { sessionBoxPrimitiveRef.current.updateSessionCoords([]); } catch (e) { }
+      }
+      if (volumeProfilePrimitiveRef.current) {
+        try { volumeProfilePrimitiveRef.current.updateProfiles([]); } catch (e) { }
+      }
+      return;
+    }
     const timeScale = chartRef.current.timeScale();
     const series = candlestickSeriesRef.current;
 
@@ -2155,7 +2171,46 @@ export default function TVChart({
 
   // Update Data Series
   useEffect(() => {
-    if (!activeCandles || activeCandles.length === 0) return;
+    if (!activeCandles || activeCandles.length === 0) {
+      if (candlestickSeriesRef.current) {
+        try { candlestickSeriesRef.current.setData([]); } catch (e) { }
+      }
+      if (markersPluginRef.current) {
+        try { markersPluginRef.current.setMarkers([]); } catch (e) { }
+      }
+      if (trHighSeriesRef.current) {
+        try { trHighSeriesRef.current.setData([]); } catch (e) { }
+      }
+      if (trLowSeriesRef.current) {
+        try { trLowSeriesRef.current.setData([]); } catch (e) { }
+      }
+      if (supportLineSeriesRef.current) {
+        try { supportLineSeriesRef.current.setData([]); } catch (e) { }
+      }
+      if (resistanceLineSeriesRef.current) {
+        try { resistanceLineSeriesRef.current.setData([]); } catch (e) { }
+      }
+      if (smaLineSeriesRef.current) {
+        try { smaLineSeriesRef.current.setData([]); } catch (e) { }
+      }
+      if (weisSeriesRef.current) {
+        try { weisSeriesRef.current.setData([]); } catch (e) { }
+      }
+      if (chartRef.current) {
+        dynamicLineSeriesRef.current.forEach((series) => {
+          try { chartRef.current.removeSeries(series); } catch (e) { }
+        });
+        dynamicLineSeriesRef.current = [];
+      }
+      if (volumeProfilePrimitiveRef.current) {
+        try { volumeProfilePrimitiveRef.current.updateProfiles([]); } catch (e) { }
+      }
+      if (sessionBoxPrimitiveRef.current) {
+        try { sessionBoxPrimitiveRef.current.updateSessionCoords([]); } catch (e) { }
+      }
+      lastCandlesFingerprintRef.current = '';
+      return;
+    }
 
     const firstCandle = activeCandles[0];
     const lastCandle = activeCandles[activeCandles.length - 1];
@@ -2585,6 +2640,13 @@ export default function TVChart({
           series.setData([]);
         } catch (e) { }
       });
+      subpaneSeriesMapRef.current.forEach((series) => {
+        try {
+          series.setData([]);
+        } catch (e) { }
+      });
+      setIndicatorLatestValues({});
+      lastIndicatorsFingerprintRef.current = '';
       return;
     }
 
@@ -3696,30 +3758,32 @@ export default function TVChart({
           <div ref={chartContainerRef} onContextMenu={handleChartContextMenu} style={{ width: '100%', height: '100%', touchAction: 'none' }} />
 
           {/* Top-Left On-Chart Indicators Status Legend (Overlays only) */}
-          <TVChartLegend
-            indicators={indicators}
-            pane="main"
-            indicatorLatestValues={hoveredIndicatorValues || indicatorLatestValues}
-            theme={theme}
-            top="12px"
-            left="14px"
-            onToggleVisibility={(id) => {
-              const next = indicators.map((item) =>
-                item.id === id ? { ...item, visible: !item.visible } : item
-              );
-              setIndicators(next);
-              saveStoredIndicators(next);
-            }}
-            onEdit={(id) => {
-              setEditingIndicatorId(id);
-              setShowIndicatorModal(true);
-            }}
-            onRemove={(id) => {
-              const next = indicators.filter((item) => item.id !== id);
-              setIndicators(next);
-              saveStoredIndicators(next);
-            }}
-          />
+          {activeCandles && activeCandles.length > 0 && (
+            <TVChartLegend
+              indicators={indicators}
+              pane="main"
+              indicatorLatestValues={hoveredIndicatorValues || indicatorLatestValues}
+              theme={theme}
+              top="12px"
+              left="14px"
+              onToggleVisibility={(id) => {
+                const next = indicators.map((item) =>
+                  item.id === id ? { ...item, visible: !item.visible } : item
+                );
+                setIndicators(next);
+                saveStoredIndicators(next);
+              }}
+              onEdit={(id) => {
+                setEditingIndicatorId(id);
+                setShowIndicatorModal(true);
+              }}
+              onRemove={(id) => {
+                const next = indicators.filter((item) => item.id !== id);
+                setIndicators(next);
+                saveStoredIndicators(next);
+              }}
+            />
+          )}
 
           {/* Context Menu for Price Alert */}
           {contextMenu && (
@@ -4310,147 +4374,151 @@ export default function TVChart({
         </div>
 
         {/* Pane 2: Dedicated Volume Histogram Pane */}
-        <div style={{ position: 'relative', width: '100%', height: weisHeight, display: chartSettings.showVolume !== false ? 'block' : 'none' }}>
-          <div ref={weisContainerRef} style={{ width: '100%', height: '100%', touchAction: 'none' }} />
+        {activeCandles && activeCandles.length > 0 && (
+          <div style={{ position: 'relative', width: '100%', height: weisHeight, display: chartSettings.showVolume !== false ? 'block' : 'none' }}>
+            <div ref={weisContainerRef} style={{ width: '100%', height: '100%', touchAction: 'none' }} />
 
-          {/* Volume Pane Legend */}
-          <div
-            style={{
-              position: 'absolute',
-              top: '8px',
-              left: '14px',
-              zIndex: 20,
-              display: 'flex',
-              flexDirection: 'row',
-              flexWrap: 'wrap',
-              alignItems: 'center',
-              gap: '6px',
-              pointerEvents: 'auto',
-              maxWidth: '90%',
-            }}
-          >
-            {/* Volume indicator item with hide / show button */}
+            {/* Volume Pane Legend */}
             <div
               style={{
-                display: 'inline-flex',
+                position: 'absolute',
+                top: '8px',
+                left: '14px',
+                zIndex: 20,
+                display: 'flex',
+                flexDirection: 'row',
+                flexWrap: 'wrap',
                 alignItems: 'center',
-                whiteSpace: 'nowrap',
-                backgroundColor: isLight
-                  ? 'rgba(255, 255, 255, 0.88)'
-                  : 'rgba(15, 23, 42, 0.88)',
-                backdropFilter: 'blur(4px)',
-                border: isLight ? '1px solid #cbd5e1' : '1px solid #334155',
-                borderRadius: '6px',
-                padding: '3px 10px',
-                fontSize: '11px',
-                lineHeight: '1.2',
-                color: isLight ? '#0f172a' : '#ffffff',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                opacity: chartSettings.showVolume !== false ? 1 : 0.75,
-                flexShrink: 0,
+                gap: '6px',
+                pointerEvents: 'auto',
+                maxWidth: '90%',
               }}
             >
-              <span
-                style={{
-                  width: '8px',
-                  height: '8px',
-                  borderRadius: '50%',
-                  backgroundColor: '#26a69a',
-                  display: 'inline-block',
-                  flexShrink: 0,
-                  opacity: chartSettings.showVolume !== false ? 1 : 0.4,
-                }}
-              />
-              <span
-                style={{
-                  fontWeight: 'bold',
-                  color: '#26a69a',
-                  opacity: chartSettings.showVolume !== false ? 1 : 0.6,
-                  marginLeft: '5px',
-                  marginRight: '3px',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                Vol
-              </span>
-
-              {/* Hide / Show Eye Toggle Button */}
+              {/* Volume indicator item with hide / show button */}
               <div
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '3px',
-                  marginLeft: '4px',
+                  whiteSpace: 'nowrap',
+                  backgroundColor: isLight
+                    ? 'rgba(255, 255, 255, 0.88)'
+                    : 'rgba(15, 23, 42, 0.88)',
+                  backdropFilter: 'blur(4px)',
+                  border: isLight ? '1px solid #cbd5e1' : '1px solid #334155',
+                  borderRadius: '6px',
+                  padding: '3px 10px',
+                  fontSize: '11px',
+                  lineHeight: '1.2',
+                  color: isLight ? '#0f172a' : '#ffffff',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                  opacity: chartSettings.showVolume !== false ? 1 : 0.75,
+                  flexShrink: 0,
                 }}
               >
-                <button
-                  type="button"
-                  onClick={() => {
-                    setChartSettings(prev => ({
-                      ...prev,
-                      showVolume: prev.showVolume === false ? true : false,
-                    }));
-                  }}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    padding: '1px',
-                    cursor: 'pointer',
-                    color: chartSettings.showVolume !== false
-                      ? isLight
-                        ? '#3b82f6'
-                        : '#60a5fa'
-                      : '#94a3b8',
-                    display: 'flex',
-                    alignItems: 'center',
-                  }}
-                  title={chartSettings.showVolume !== false ? 'Hide volume' : 'Show volume'}
-                >
-                  {chartSettings.showVolume !== false ? <Eye size={12} /> : <EyeOff size={12} />}
-                </button>
-              </div>
-
-              {/* Volume latest / hovered value */}
-              {chartSettings.showVolume !== false && activeCandles.length > 0 && (
                 <span
                   style={{
-                    fontFamily: 'monospace',
-                    fontWeight: 600,
-                    color: isLight ? '#334155' : '#cbd5e1',
-                    marginLeft: '6px',
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    backgroundColor: '#26a69a',
+                    display: 'inline-block',
+                    flexShrink: 0,
+                    opacity: chartSettings.showVolume !== false ? 1 : 0.4,
+                  }}
+                />
+                <span
+                  style={{
+                    fontWeight: 'bold',
+                    color: '#26a69a',
+                    opacity: chartSettings.showVolume !== false ? 1 : 0.6,
+                    marginLeft: '5px',
+                    marginRight: '3px',
+                    whiteSpace: 'nowrap',
                   }}
                 >
-                  {Number((hoveredPoint?.candle ? hoveredPoint.candle.volume : activeCandles[activeCandles.length - 1]?.volume) || 0).toLocaleString()}
+                  Vol
                 </span>
-              )}
+
+                {/* Hide / Show Eye Toggle Button */}
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '3px',
+                    marginLeft: '4px',
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setChartSettings(prev => ({
+                        ...prev,
+                        showVolume: prev.showVolume === false ? true : false,
+                      }));
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      padding: '1px',
+                      cursor: 'pointer',
+                      color: chartSettings.showVolume !== false
+                        ? isLight
+                          ? '#3b82f6'
+                          : '#60a5fa'
+                        : '#94a3b8',
+                      display: 'flex',
+                      alignItems: 'center',
+                    }}
+                    title={chartSettings.showVolume !== false ? 'Hide volume' : 'Show volume'}
+                  >
+                    {chartSettings.showVolume !== false ? <Eye size={12} /> : <EyeOff size={12} />}
+                  </button>
+                </div>
+
+                {/* Volume latest / hovered value */}
+                {chartSettings.showVolume !== false && activeCandles.length > 0 && (
+                  <span
+                    style={{
+                      fontFamily: 'monospace',
+                      fontWeight: 600,
+                      color: isLight ? '#334155' : '#cbd5e1',
+                      marginLeft: '6px',
+                    }}
+                  >
+                    {Number((hoveredPoint?.candle ? hoveredPoint.candle.volume : activeCandles[activeCandles.length - 1]?.volume) || 0).toLocaleString()}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Pane 3: Dedicated Indicators / Oscillators Pane (RSI, ATR, MACD, Stochastic, etc.) */}
-        <TVChartIndicatorPane
-          containerRef={subpaneContainerRef}
-          height={subpaneHeight}
-          indicators={indicators}
-          indicatorLatestValues={hoveredIndicatorValues || indicatorLatestValues}
-          theme={theme}
-          onToggleVisibility={(id) => {
-            const next = indicators.map((item) =>
-              item.id === id ? { ...item, visible: !item.visible } : item
-            );
-            setIndicators(next);
-            saveStoredIndicators(next);
-          }}
-          onEdit={(id) => {
-            setEditingIndicatorId(id);
-            setShowIndicatorModal(true);
-          }}
-          onRemove={(id) => {
-            const next = indicators.filter((item) => item.id !== id);
-            setIndicators(next);
-            saveStoredIndicators(next);
-          }}
-        />
+        {activeCandles && activeCandles.length > 0 && (
+          <TVChartIndicatorPane
+            containerRef={subpaneContainerRef}
+            height={subpaneHeight}
+            indicators={indicators}
+            indicatorLatestValues={hoveredIndicatorValues || indicatorLatestValues}
+            theme={theme}
+            onToggleVisibility={(id) => {
+              const next = indicators.map((item) =>
+                item.id === id ? { ...item, visible: !item.visible } : item
+              );
+              setIndicators(next);
+              saveStoredIndicators(next);
+            }}
+            onEdit={(id) => {
+              setEditingIndicatorId(id);
+              setShowIndicatorModal(true);
+            }}
+            onRemove={(id) => {
+              const next = indicators.filter((item) => item.id !== id);
+              setIndicators(next);
+              saveStoredIndicators(next);
+            }}
+          />
+        )}
       </div>
 
       {/* Interactive SL / TP Edit Modal */}
