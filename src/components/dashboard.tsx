@@ -3165,6 +3165,8 @@ export default function Dashboard() {
                         isMobileLayout={true}
                         accounts={accounts}
                         activeAccount={activeAccount}
+                        availableSymbols={availableSymbols}
+                        isLight={theme === 'light'}
                       />
                     </div>
                   </div>
@@ -3717,6 +3719,8 @@ export default function Dashboard() {
                             isMobileLayout={false}
                             accounts={accounts}
                             activeAccount={activeAccount}
+                            availableSymbols={availableSymbols}
+                            isLight={theme === 'light'}
                           />
                         </div>
                         {!isCollapsed && renderResizeHandle('trades')}

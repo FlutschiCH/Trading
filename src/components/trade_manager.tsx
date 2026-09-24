@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { usePositionsStore } from '../services/positionsStore';
 import DebugComponentBadge from './debug_component_badge';
+import { SymbolTimeframeSelector } from './symbol_timeframe_selector';
 import { API_BASE_URL } from '../api';
-import { RefreshCw, TrendingUp, TrendingDown, Clock, Layers, Calendar, DollarSign, Percent, Shield, ExternalLink, ChevronDown } from 'lucide-react';
+import { RefreshCw, TrendingUp, TrendingDown, Clock, Layers, Calendar, DollarSign, Percent, Shield, ExternalLink, ChevronDown, Filter, X } from 'lucide-react';
 
 export interface Position {
   position_id: number | string;
@@ -67,6 +68,8 @@ export interface TradeManagerProps {
   isMobileLayout?: boolean;
   accounts?: AccountItem[];
   activeAccount?: AccountItem | null;
+  availableSymbols?: string[];
+  isLight?: boolean;
 }
 
 export default function TradeManager({
@@ -80,9 +83,11 @@ export default function TradeManager({
   isMobileLayout = false,
   accounts: propsAccounts,
   activeAccount: propsActiveAccount,
+  availableSymbols = [],
+  isLight = false,
 }: TradeManagerProps) {
   const [activeTab, setActiveTab] = useState<'live' | 'history'>('live');
-  const [historySearch, setHistorySearch] = useState('');
+  const [selectedSymbol, setSelectedSymbol] = useState<string>('ALL');
   const [historyFilterSide, setHistoryFilterSide] = useState<'ALL' | 'BUY' | 'SELL'>('ALL');
 
   // Accounts state & selection
@@ -197,20 +202,43 @@ export default function TradeManager({
   }, [selectedBrokerAcc, currentTarget.isCustom, fetchCustomTrades]);
 
   // Active positions resolution
-  const openPositions: Position[] = useMemo(() => {
+  const rawOpenPositions: Position[] = useMemo(() => {
     if (currentTarget.isCustom && customPositions !== null) {
       return customPositions;
     }
     return storePositions.length > 0 ? storePositions : (propsPositions || []);
   }, [currentTarget.isCustom, customPositions, storePositions, propsPositions]);
 
+  // Filtered positions based on selectedSymbol
+  const openPositions: Position[] = useMemo(() => {
+    if (!selectedSymbol || selectedSymbol === 'ALL') {
+      return rawOpenPositions;
+    }
+    const cleanSym = selectedSymbol.trim().toUpperCase();
+    return rawOpenPositions.filter(p => {
+      const sym = (p.symbol || '').toUpperCase();
+      return sym === cleanSym || sym.includes(cleanSym) || cleanSym.includes(sym);
+    });
+  }, [rawOpenPositions, selectedSymbol]);
+
   // History trades resolution
-  const historyTrades: HistoryTrade[] = useMemo(() => {
+  const rawHistoryTrades: HistoryTrade[] = useMemo(() => {
     if (currentTarget.isCustom && customHistory !== null) {
       return customHistory;
     }
     return propsHistoryTrades || [];
   }, [currentTarget.isCustom, customHistory, propsHistoryTrades]);
+
+  // Filtered History Trades based on selectedSymbol & side
+  const filteredHistory: HistoryTrade[] = useMemo(() => {
+    return rawHistoryTrades.filter(t => {
+      const sym = (t.symbol || '').toUpperCase();
+      const matchSymbol = !selectedSymbol || selectedSymbol === 'ALL' || sym === selectedSymbol.toUpperCase() || sym.includes(selectedSymbol.toUpperCase()) || selectedSymbol.toUpperCase().includes(sym);
+      const side = ((t.side || t.type || t.trade_side || '').toUpperCase());
+      const matchSide = historyFilterSide === 'ALL' || side.includes(historyFilterSide);
+      return matchSymbol && matchSide;
+    });
+  }, [rawHistoryTrades, selectedSymbol, historyFilterSide]);
 
   const isLoadingHistory = currentTarget.isCustom ? loadingCustom : (propsLoadingHistory || false);
 
@@ -260,50 +288,45 @@ export default function TradeManager({
     }
   };
 
-  // Filtered History Trades
-  const filteredHistory = useMemo(() => {
-    return historyTrades.filter(t => {
-      const sym = (t.symbol || '').toUpperCase();
-      const matchSearch = !historySearch || sym.includes(historySearch.trim().toUpperCase());
-      const side = ((t.side || t.type || t.trade_side || '').toUpperCase());
-      const matchSide = historyFilterSide === 'ALL' || side.includes(historyFilterSide);
-      return matchSearch && matchSide;
-    });
-  }, [historyTrades, historySearch, historyFilterSide]);
-
   // History Stats
   const historyStats = useMemo(() => {
     let totalPnl = 0;
     let wins = 0;
     let losses = 0;
 
-    historyTrades.forEach(t => {
+    filteredHistory.forEach(t => {
       const p = Number(t.profit ?? t.net_profit ?? 0);
       totalPnl += p;
       if (p > 0) wins++;
       else if (p < 0) losses++;
     });
 
-    const totalTrades = historyTrades.length;
+    const totalTrades = filteredHistory.length;
     const winRate = totalTrades > 0 ? (wins / totalTrades) * 100 : 0;
 
     return { totalPnl, wins, losses, totalTrades, winRate };
-  }, [historyTrades]);
+  }, [filteredHistory]);
 
-  // Dynamic PnL calculation if custom broker selected
+  // Dynamic PnL calculation
   const activeDailyPnl = useMemo(() => {
+    if (selectedSymbol && selectedSymbol !== 'ALL') {
+      return openPositions.reduce((acc, p) => acc + Number(p.unrealized_profit || 0), 0);
+    }
     if (currentTarget.isCustom) {
       return openPositions.reduce((acc, p) => acc + Number(p.unrealized_profit || 0), 0);
     }
     return propsDailyPnl ?? 0;
-  }, [currentTarget.isCustom, openPositions, propsDailyPnl]);
+  }, [selectedSymbol, currentTarget.isCustom, openPositions, propsDailyPnl]);
 
   const activeWeeklyPnl = useMemo(() => {
+    if (selectedSymbol && selectedSymbol !== 'ALL') {
+      return historyStats.totalPnl;
+    }
     if (currentTarget.isCustom) {
       return historyStats.totalPnl;
     }
     return propsWeeklyPnl ?? 0;
-  }, [currentTarget.isCustom, historyStats.totalPnl, propsWeeklyPnl]);
+  }, [selectedSymbol, currentTarget.isCustom, historyStats.totalPnl, propsWeeklyPnl]);
 
   const formatDate = (val: number | string | undefined) => {
     if (!val) return '-';
@@ -325,10 +348,48 @@ export default function TradeManager({
     return raw;
   };
 
-  // Broker Selector Component
-  const renderBrokerSelector = (isMobileView: boolean) => {
+  // Top Controls Bar (Broker Selector + SymbolTimeframeSelector + Sync)
+  const renderHeaderControls = (isMobileView: boolean) => {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+        {/* Symbol Selector using SymbolTimeframeSelector with showTimeframe=false */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <SymbolTimeframeSelector
+            multiSelect={false}
+            showTimeframe={false}
+            showLabel={false}
+            symbol={selectedSymbol === 'ALL' ? '' : selectedSymbol}
+            onSymbolChange={(sym) => setSelectedSymbol(sym || 'ALL')}
+            placeholder="All Symbols"
+            availableSymbols={availableSymbols}
+            isLight={isLight}
+            accountId={currentTarget.accountId}
+          />
+          {selectedSymbol && selectedSymbol !== 'ALL' && (
+            <button
+              onClick={() => setSelectedSymbol('ALL')}
+              style={{
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                border: '1px solid rgba(239, 68, 68, 0.2)',
+                borderRadius: '4px',
+                padding: '4px 6px',
+                color: '#ef4444',
+                fontSize: '10px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '2px'
+              }}
+              title="Clear symbol filter"
+            >
+              <X size={11} />
+              All
+            </button>
+          )}
+        </div>
+
+        {/* Broker Selector */}
         <select
           value={selectedBrokerAcc}
           onChange={e => setSelectedBrokerAcc(e.target.value)}
@@ -336,12 +397,12 @@ export default function TradeManager({
             backgroundColor: 'var(--app-bg, #0b0f19)',
             border: '1px solid var(--app-card-border, #1f2937)',
             borderRadius: '6px',
-            padding: isMobileView ? '5px 8px' : '3px 8px',
+            padding: isMobileView ? '5px 8px' : '4px 8px',
             fontSize: isMobileView ? '11px' : '10px',
             color: 'var(--app-text, #f8fafc)',
             fontWeight: '600',
             cursor: 'pointer',
-            maxWidth: isMobileView ? '150px' : '170px'
+            maxWidth: isMobileView ? '135px' : '150px'
           }}
           title="Filter trades by Broker Account"
         >
@@ -358,6 +419,7 @@ export default function TradeManager({
           })}
         </select>
 
+        {/* Sync Button */}
         <button
           onClick={handleRefresh}
           disabled={isLoadingHistory || loadingCustom}
@@ -365,7 +427,7 @@ export default function TradeManager({
             backgroundColor: 'transparent',
             border: '1px solid var(--app-card-border, #1f2937)',
             borderRadius: '6px',
-            padding: isMobileView ? '5px 8px' : '3px 6px',
+            padding: isMobileView ? '5px 8px' : '4px 6px',
             color: 'var(--app-text-muted, #94a3b8)',
             cursor: isLoadingHistory || loadingCustom ? 'not-allowed' : 'pointer',
             display: 'flex',
@@ -390,7 +452,7 @@ export default function TradeManager({
       <div style={{ padding: '16px' }}>
         {/* Top Controls: Selector & Badge */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
-          {renderBrokerSelector(true)}
+          {renderHeaderControls(true)}
           <DebugComponentBadge name="TradeManager" />
         </div>
 
@@ -436,7 +498,7 @@ export default function TradeManager({
             }}
           >
             <Clock size={13} />
-            History ({historyTrades.length})
+            History ({filteredHistory.length})
           </button>
         </div>
 
@@ -466,12 +528,14 @@ export default function TradeManager({
             </div>
 
             {/* Open Positions List */}
-            <h4 style={{ margin: '0 0 10px 0', fontSize: '13px', color: 'var(--app-text, #f8fafc)', fontWeight: 'bold' }}>
-              Active Positions {currentTarget.isCustom && `(${currentTarget.broker.toUpperCase()})`}
-            </h4>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <h4 style={{ margin: 0, fontSize: '13px', color: 'var(--app-text, #f8fafc)', fontWeight: 'bold' }}>
+                Active Positions {selectedSymbol && selectedSymbol !== 'ALL' ? `(${selectedSymbol})` : ''} {currentTarget.isCustom && `[${currentTarget.broker.toUpperCase()}]`}
+              </h4>
+            </div>
             {openPositions.length === 0 ? (
               <div style={{ color: 'var(--app-text-muted, #64748b)', fontSize: '12px', paddingBottom: '20px' }}>
-                {loadingCustom ? 'Loading active positions...' : 'No active positions.'}
+                {loadingCustom ? 'Loading active positions...' : 'No active positions found.'}
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
@@ -545,25 +609,11 @@ export default function TradeManager({
 
             {/* Filter controls */}
             <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-              <input
-                type="text"
-                placeholder="Filter Symbol..."
-                value={historySearch}
-                onChange={e => setHistorySearch(e.target.value)}
-                style={{
-                  flex: 1,
-                  backgroundColor: 'var(--app-bg, #0b0f19)',
-                  border: '1px solid var(--app-card-border, #1f2937)',
-                  borderRadius: '6px',
-                  padding: '6px 10px',
-                  fontSize: '11px',
-                  color: 'var(--app-text, #f8fafc)'
-                }}
-              />
               <select
                 value={historyFilterSide}
                 onChange={e => setHistoryFilterSide(e.target.value as any)}
                 style={{
+                  width: '100%',
                   backgroundColor: 'var(--app-bg, #0b0f19)',
                   border: '1px solid var(--app-card-border, #1f2937)',
                   borderRadius: '6px',
@@ -572,9 +622,9 @@ export default function TradeManager({
                   color: 'var(--app-text, #f8fafc)'
                 }}
               >
-                <option value="ALL">All Sides</option>
-                <option value="BUY">BUY</option>
-                <option value="SELL">SELL</option>
+                <option value="ALL">All Sides (BUY & SELL)</option>
+                <option value="BUY">BUY Deals Only</option>
+                <option value="SELL">SELL Deals Only</option>
               </select>
             </div>
 
@@ -691,13 +741,13 @@ export default function TradeManager({
             }}
           >
             <Clock size={12} />
-            History ({historyTrades.length})
+            History ({filteredHistory.length})
           </button>
         </div>
 
-        {/* Broker Selector & Badge */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          {renderBrokerSelector(false)}
+        {/* Right Header Controls: SymbolTimeframeSelector + Broker Selector + Sync & Badge */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+          {renderHeaderControls(false)}
           <DebugComponentBadge name="TradeManager" />
         </div>
       </div>
@@ -730,12 +780,14 @@ export default function TradeManager({
             </div>
 
             {/* Positions List */}
-            <h4 style={{ margin: '0 0 6px 0', fontSize: '11px', color: 'var(--app-text, #f8fafc)', fontWeight: 'bold' }}>
-              Active Positions {currentTarget.isCustom && `(${currentTarget.broker.toUpperCase()})`}
-            </h4>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <h4 style={{ margin: 0, fontSize: '11px', color: 'var(--app-text, #f8fafc)', fontWeight: 'bold' }}>
+                Active Positions {selectedSymbol && selectedSymbol !== 'ALL' ? `(${selectedSymbol})` : ''} {currentTarget.isCustom && `[${currentTarget.broker.toUpperCase()}]`}
+              </h4>
+            </div>
             {openPositions.length === 0 ? (
               <div style={{ color: 'var(--app-text-muted, #64748b)', fontSize: '11px', paddingBottom: '16px' }}>
-                {loadingCustom ? 'Loading active positions...' : 'No active positions.'}
+                {loadingCustom ? 'Loading active positions...' : 'No active positions found.'}
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '12px' }}>
@@ -806,27 +858,13 @@ export default function TradeManager({
               </div>
             </div>
 
-            {/* Quick Filter */}
+            {/* Quick Side Filter */}
             <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
-              <input
-                type="text"
-                placeholder="Filter Symbol..."
-                value={historySearch}
-                onChange={e => setHistorySearch(e.target.value)}
-                style={{
-                  flex: 1,
-                  backgroundColor: 'var(--app-bg, #0b0f19)',
-                  border: '1px solid var(--app-card-border, #1f2937)',
-                  borderRadius: '4px',
-                  padding: '4px 8px',
-                  fontSize: '10px',
-                  color: 'var(--app-text, #f8fafc)'
-                }}
-              />
               <select
                 value={historyFilterSide}
                 onChange={e => setHistoryFilterSide(e.target.value as any)}
                 style={{
+                  width: '100%',
                   backgroundColor: 'var(--app-bg, #0b0f19)',
                   border: '1px solid var(--app-card-border, #1f2937)',
                   borderRadius: '4px',
@@ -835,9 +873,9 @@ export default function TradeManager({
                   color: 'var(--app-text, #f8fafc)'
                 }}
               >
-                <option value="ALL">All</option>
-                <option value="BUY">BUY</option>
-                <option value="SELL">SELL</option>
+                <option value="ALL">All Sides (BUY & SELL)</option>
+                <option value="BUY">BUY Deals Only</option>
+                <option value="SELL">SELL Deals Only</option>
               </select>
             </div>
 
