@@ -22,18 +22,82 @@ export const LastTradeExecution: React.FC<LastTradeExecutionProps> = ({
   defaultSL = '1.0',
   defaultRR = '2.0',
   onClose,
-}) => {
   const { accounts } = useAccountsStore();
-  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
-  const [executionMode, setExecutionMode] = useState<'both' | 'discord' | 'live'>('both');
-  const [customVolume, setCustomVolume] = useState<string>(defaultSize);
-  const [customComment, setCustomComment] = useState<string>('Backtest Signal Trigger');
+
+  const [selectedAccountId, setSelectedAccountId] = useState<string>(() => {
+    try {
+      return localStorage.getItem('last_trade_account_id') || '';
+    } catch {
+      return '';
+    }
+  });
+
+  const [executionMode, setExecutionMode] = useState<'both' | 'discord' | 'live'>(() => {
+    try {
+      const saved = localStorage.getItem('last_trade_execution_mode');
+      if (saved === 'both' || saved === 'discord' || saved === 'live') {
+        return saved;
+      }
+      return 'discord';
+    } catch {
+      return 'discord';
+    }
+  });
+
+  const [customVolume, setCustomVolume] = useState<string>(() => {
+    try {
+      return localStorage.getItem('last_trade_volume') || defaultSize;
+    } catch {
+      return defaultSize;
+    }
+  });
+
+  const [customComment, setCustomComment] = useState<string>(() => {
+    try {
+      return localStorage.getItem('last_trade_comment') || 'Backtest Signal Trigger';
+    } catch {
+      return 'Backtest Signal Trigger';
+    }
+  });
+
   const [loading, setLoading] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
+    try {
+      localStorage.setItem('last_trade_execution_mode', executionMode);
+    } catch {}
+  }, [executionMode]);
+
+  useEffect(() => {
+    if (selectedAccountId) {
+      try {
+        localStorage.setItem('last_trade_account_id', selectedAccountId);
+      } catch {}
+    }
+  }, [selectedAccountId]);
+
+  useEffect(() => {
+    if (customVolume) {
+      try {
+        localStorage.setItem('last_trade_volume', customVolume);
+      } catch {}
+    }
+  }, [customVolume]);
+
+  useEffect(() => {
+    if (customComment) {
+      try {
+        localStorage.setItem('last_trade_comment', customComment);
+      } catch {}
+    }
+  }, [customComment]);
+
+  useEffect(() => {
     if (accounts && accounts.length > 0 && !selectedAccountId) {
-      setSelectedAccountId(String(accounts[0].account_id));
+      const savedAcc = localStorage.getItem('last_trade_account_id');
+      const match = savedAcc && accounts.some(a => String(a.account_id) === String(savedAcc));
+      setSelectedAccountId(match ? String(savedAcc) : String(accounts[0].account_id));
     }
   }, [accounts, selectedAccountId]);
 
