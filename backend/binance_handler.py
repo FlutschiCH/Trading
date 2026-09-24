@@ -636,36 +636,58 @@ class BinanceFuturesHandler(BaseBrokerHandler):
         return {'symbols': symbols}
 
     @classmethod
-    def get_history(cls, symbol: str = "BTCUSDT", api_key: str = None, secret_key: str = None, limit: int = 100, **kwargs) -> list:
-        b_sym = cls.validate_and_format_symbol(symbol)
-        if not b_sym:
-            print(f"[BinanceHandler] Warning: Symbol '{symbol}' has no mapping on Binance. Skipping get_history.", flush=True)
-            return []
+    def get_history(cls, symbol: str = None, api_key: str = None, secret_key: str = None, limit: int = 100, account_id: str = None, **kwargs) -> list:
+        from symbol_mapping_handler import SymbolMappingHandler
+        acc_id = str(account_id) if account_id else None
 
-        params = {
-            'symbol': b_sym,
-            'limit': limit
-        }
-        res = cls._request('GET', '/fapi/v1/userTrades', params=params, api_key=api_key, secret_key=secret_key, signed=True)
-        if isinstance(res, dict) and 'error' in res:
-            return res
-        if not isinstance(res, list):
-            return []
+        # Resolve symbol if provided
+        target_symbols = []
+        if symbol and str(symbol).strip() and str(symbol).strip().upper() not in ('NONE', 'NULL', 'UNDEFINED', 'ALL', ''):
+            # Check custom mapping first if account_id is present
+            mapped = SymbolMappingHandler.map_to_broker(symbol, acc_id) if acc_id else None
+            b_sym = cls.validate_and_format_symbol(mapped or symbol)
+            if not b_sym:
+                print(f"[BinanceHandler] Warning: Symbol '{symbol}' has no mapping on Binance. Skipping get_history.", flush=True)
+                return []
+            target_symbols = [b_sym]
+        else:
+            # If symbol is None or 'ALL', fetch user trades for all mapped symbols or top active Binance symbols
+            if acc_id:
+                mappings = SymbolMappingHandler.get_mappings(account_id=acc_id)
+                for m in mappings:
+                    b_mapped = cls.validate_and_format_symbol(m.get('broker_symbol') or m.get('main_symbol'))
+                    if b_mapped and b_mapped not in target_symbols:
+                        target_symbols.append(b_mapped)
 
-        trades = []
-        for t in res:
-            trades.append({
-                'ticket': t.get('id'),
-                'order': t.get('orderId'),
-                'symbol': t.get('symbol'),
-                'trade_side': 'BUY' if t.get('side') == 'BUY' else 'SELL',
-                'volume': float(t.get('qty', 0)),
-                'price': float(t.get('price', 0)),
-                'profit': float(t.get('realizedPnl', 0)),
-                'commission': float(t.get('commission', 0)),
-                'timestamp': int(t.get('time', 0) / 1000)
-            })
-        return trades
+            if not target_symbols:
+                # Default popular futures symbols if no specific mappings configured
+                target_symbols = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT', 'DOGEUSDT']
+
+        all_trades = []
+        for b_sym in target_symbols:
+            params = {
+                'symbol': b_sym,
+                'limit': limit
+            }
+            res = cls._request('GET', '/fapi/v1/userTrades', params=params, api_key=api_key, secret_key=secret_key, signed=True)
+            if isinstance(res, list):
+                for t in res:
+                    trade_sym = t.get('symbol', b_sym)
+                    main_sym = SymbolMappingHandler.map_to_main(trade_sym, acc_id) if acc_id else trade_sym
+                    all_trades.append({
+                        'ticket': t.get('id'),
+                        'order': t.get('orderId'),
+                        'symbol': main_sym or trade_sym,
+                        'trade_side': 'BUY' if t.get('side') == 'BUY' else 'SELL',
+                        'volume': float(t.get('qty', 0)),
+                        'price': float(t.get('price', 0)),
+                        'profit': float(t.get('realizedPnl', 0)),
+                        'commission': float(t.get('commission', 0)),
+                        'timestamp': int(t.get('time', 0) / 1000)
+                    })
+
+        all_trades.sort(key=lambda x: x.get('timestamp', 0), reverse=True)
+        return all_trades[:limit]
 
 if __name__ == '__main__':
     from account_handler import AccountHandler

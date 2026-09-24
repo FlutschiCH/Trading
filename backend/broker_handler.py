@@ -215,7 +215,7 @@ class BrokerHandler:
             raise ValueError("pls select account first")
         broker_inst = cls.get_instance(broker_name, account_id)
         kwargs = cls._prepare_kwargs(broker_name, account_id, kwargs)
-        mapped_symbol = cls._resolve_symbol(symbol, broker_name, account_id) if symbol else symbol
+        mapped_symbol = cls._resolve_symbol(symbol, broker_name, account_id) if symbol else None
         return handler.get_history(symbol=mapped_symbol, account_id=account_id, broker_inst=broker_inst, **kwargs)
 
 if __name__ == '__main__':
