@@ -171,15 +171,32 @@ export const LastTradeExecution: React.FC<LastTradeExecutionProps> = ({
     const results: string[] = [];
     let hasError = false;
 
+    // Compute BE trigger price based on R trigger (default 1.0R) or trade metadata
+    const computedBEPrice = (() => {
+      if (lastTrade?.bePrice !== undefined && lastTrade?.bePrice !== null) {
+        return Number(lastTrade.bePrice);
+      }
+      if (entryPrice > 0 && stopLoss) {
+        const slDistance = Math.abs(entryPrice - stopLoss);
+        if (slDistance > 0) {
+          const beR = parseFloat(localStorage.getItem('wyckoff_backtest_be') || '1.0') || 1.0;
+          return isBuy ? entryPrice + (slDistance * beR) : entryPrice - (slDistance * beR);
+        }
+      }
+      return undefined;
+    })();
+
     // 1. Send Discord Notification if requested
     if (executionMode === 'discord' || executionMode === 'both') {
       try {
+        const beLine = computedBEPrice ? `• **BE Trigger Price:** \`${computedBEPrice.toFixed(5)}\`\n` : '';
         const discordPayload = {
           message: `🚨 **Manual Signal Trigger**\n` +
             `• **Symbol:** \`${symbol.toUpperCase()}\` (${timeframe})\n` +
             `• **Action:** \`${tradeSide}\`\n` +
             `• **Entry Price:** \`${entryPrice > 0 ? entryPrice.toFixed(5) : 'Market'}\`\n` +
             `• **Stop Loss:** \`${stopLoss ? stopLoss.toFixed(5) : 'None'}\`\n` +
+            beLine +
             `• **Take Profit:** \`${takeProfit ? takeProfit.toFixed(5) : 'None'}\`\n` +
             `• **Volume:** \`${vol}\`\n` +
             `• **Note:** ${customComment || 'Triggered from Backtest Last Trade Execution'}`
@@ -388,6 +405,20 @@ export const LastTradeExecution: React.FC<LastTradeExecutionProps> = ({
         <div>
           <span style={{ color: '#64748b', fontSize: '10px', display: 'block', fontWeight: 600 }}>R : R</span>
           <span style={{ color: '#38bdf8', fontWeight: 700 }}>1 : {calculatedRR}</span>
+        </div>
+        <div>
+          <span style={{ color: '#64748b', fontSize: '10px', display: 'block', fontWeight: 600 }}>BE TRIGGER</span>
+          <span style={{ color: '#fbbf24', fontWeight: 700 }}>
+            {(() => {
+              if (lastTrade?.bePrice) return Number(lastTrade.bePrice).toFixed(5);
+              if (entryPrice > 0 && currentSLNum) {
+                const slDist = Math.abs(entryPrice - currentSLNum);
+                const beR = parseFloat(localStorage.getItem('wyckoff_backtest_be') || '1.0') || 1.0;
+                return (isBuy ? entryPrice + (slDist * beR) : entryPrice - (slDist * beR)).toFixed(5);
+              }
+              return 'N/A';
+            })()}
+          </span>
         </div>
         <div>
           <span style={{ color: '#64748b', fontSize: '10px', display: 'block', fontWeight: 600 }}>TIME</span>
