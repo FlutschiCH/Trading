@@ -1262,6 +1262,7 @@ export default function Dashboard() {
 
     setLoadingBacktest(true);
     try {
+      console.time("Backtest execution duration");
       setBacktestProgress(0);
       const bounds = calculateDateBounds(dateRangeOption, customFrom, customTo);
       const reqSymbol = rangeParams?.symbol || symbol;
@@ -1405,7 +1406,7 @@ export default function Dashboard() {
         console.error("Failed to run backtest on backend:", e);
       }
     } finally {
-      console.timeEnd("Backtest execution duration");
+      try { console.timeEnd("Backtest execution duration"); } catch (_) { }
       if (backtestAbortControllerRef.current === controller) {
         backtestAbortControllerRef.current = null;
         setLoadingBacktest(false);
@@ -1425,6 +1426,7 @@ export default function Dashboard() {
 
     setLoadingBacktest(true);
     try {
+      console.time("Optimization execution duration");
       setBacktestProgress(0);
       setBacktestRunInfo(null);
       setOptimizationResults(null);
@@ -1539,7 +1541,7 @@ export default function Dashboard() {
         console.error("Failed to run optimization on backend:", e);
       }
     } finally {
-      console.timeEnd("Backtest execution duration");
+      try { console.timeEnd("Optimization execution duration"); } catch (_) { }
       if (backtestAbortControllerRef.current === controller) {
         backtestAbortControllerRef.current = null;
         setLoadingBacktest(false);

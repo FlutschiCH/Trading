@@ -1,6 +1,6 @@
 import React from 'react';
 import { createChart, ColorType, AreaSeries } from 'lightweight-charts';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Zap } from 'lucide-react';
 import { formatPrice } from '../App';
 import { API_BASE_URL } from '../api';
 import DeployModal from './deploy_modal';
@@ -421,6 +421,7 @@ export default function Backtester({
   onLoadSavedPayload,
 }: WyckoffBacktesterProps) {
   // Strategy Selection Tab: 'wyckoff' | 'scalper'
+  const [showLastTradeMenu, setShowLastTradeMenu] = React.useState<boolean>(false);
   const [strategyType, setStrategyType] = React.useState<'wyckoff' | 'scalper'>(() => {
     try {
       return (localStorage.getItem('backtest_active_strategy_type') as 'wyckoff' | 'scalper') || 'wyckoff';
@@ -2012,6 +2013,88 @@ export default function Backtester({
               {isDeploying ? '⏳ Deploying...' : '🚀 Deploy Live'}
             </button>
           )}
+
+          {/* Last Trade Execution Overlay Trigger */}
+          <div style={{ position: 'relative' }}>
+            {(() => {
+              const lastTradeObj = backtestResults?.trades && backtestResults.trades.length > 0
+                ? backtestResults.trades[backtestResults.trades.length - 1]
+                : null;
+              const lastTradeDir = lastTradeObj
+                ? (lastTradeObj.type || lastTradeObj.side || 'BUY').toUpperCase()
+                : null;
+
+              return (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setShowLastTradeMenu(prev => !prev)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      background: showLastTradeMenu
+                        ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)'
+                        : (lastTradeDir === 'BUY'
+                          ? 'linear-gradient(135deg, #059669 0%, #047857 100%)'
+                          : (lastTradeDir === 'SELL'
+                            ? 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)'
+                            : 'linear-gradient(135deg, #475569 0%, #334155 100%)')),
+                      color: '#ffffff',
+                      border: '1px solid rgba(255, 255, 255, 0.2)',
+                      padding: '7px 13px',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontWeight: 600,
+                      fontSize: '11px',
+                      boxShadow: showLastTradeMenu ? '0 4px 14px rgba(245, 158, 11, 0.4)' : '0 4px 12px rgba(0, 0, 0, 0.25)',
+                      transition: 'all 0.2s',
+                    }}
+                    title="Execute last identified backtest signal or send Discord alert"
+                  >
+                    <Zap size={13} fill="#ffffff" />
+                    <span>{lastTradeDir ? `⚡ Last Signal (${lastTradeDir})` : '⚡ Last Signal'}</span>
+                  </button>
+
+                  {showLastTradeMenu && (
+                    <>
+                      <div
+                        onClick={() => setShowLastTradeMenu(false)}
+                        style={{
+                          position: 'fixed',
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          zIndex: 9998,
+                        }}
+                      />
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: 'calc(100% + 8px)',
+                          right: 0,
+                          zIndex: 9999,
+                          minWidth: '380px',
+                        }}
+                      >
+                        <LastTradeExecution
+                          symbol={symbol}
+                          timeframe={timeframe}
+                          backtestResults={backtestResults}
+                          defaultSize={backtestSize}
+                          defaultSL={backtestSL}
+                          defaultRR={backtestRR}
+                          onClose={() => setShowLastTradeMenu(false)}
+                        />
+                      </div>
+                    </>
+                  )}
+                </>
+              );
+            })()}
+          </div>
           </div>
         </div>
 
@@ -4286,14 +4369,6 @@ export default function Backtester({
 
             {backtestTab === 'trades' && backtestResults && (
               <>
-                <LastTradeExecution
-                  symbol={symbol}
-                  timeframe={timeframe}
-                  backtestResults={backtestResults}
-                  defaultSize={backtestSize}
-                  defaultSL={backtestSL}
-                  defaultRR={backtestRR}
-                />
                 <div style={{ display: 'flex', gap: '6px', padding: '4px 0', alignItems: 'center', marginBottom: '6px' }}>
                   <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 600 }}>FILTER:</span>
                   <button
