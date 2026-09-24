@@ -9,6 +9,11 @@ from colorama import init, Fore, Style
 init(autoreset=True)
 
 def set_console_quick_edit(enabled: bool):
+    """
+    Enable or disable Windows Console QuickEdit mode.
+    Disabling QuickEdit mode prevents accidental mouse clicks in the console window
+    from suspending process execution and output streams.
+    """
     if sys.platform == "win32":
         try:
             import ctypes
@@ -17,12 +22,15 @@ def set_console_quick_edit(enabled: bool):
             mode = ctypes.c_ulong()
             if kernel32.GetConsoleMode(h_input, ctypes.byref(mode)):
                 if enabled:
-                    new_mode = (mode.value | 0x0040) | 0x0080
+                    new_mode = (mode.value | 0x0040 | 0x0010) | 0x0080
                 else:
-                    new_mode = (mode.value & ~0x0040) | 0x0080
+                    new_mode = (mode.value & ~0x0040 & ~0x0010) | 0x0080
                 kernel32.SetConsoleMode(h_input, new_mode)
         except Exception:
             pass
+
+# Ensure QuickEdit is turned off immediately so console clicks do not pause backtests
+set_console_quick_edit(False)
 
 # Ensure backend root directory is in sys.path
 backend_dir = os.path.dirname(os.path.abspath(__file__))
