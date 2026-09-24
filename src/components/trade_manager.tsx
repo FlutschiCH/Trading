@@ -419,7 +419,7 @@ export default function TradeManager({
           })}
         </select>
 
-        {/* Sync Button */}
+        {/* Refresh Button */}
         <button
           onClick={handleRefresh}
           disabled={isLoadingHistory || loadingCustom}
@@ -427,7 +427,7 @@ export default function TradeManager({
             backgroundColor: 'transparent',
             border: '1px solid var(--app-card-border, #1f2937)',
             borderRadius: '6px',
-            padding: isMobileView ? '5px 8px' : '4px 6px',
+            padding: isMobileView ? '5px 8px' : '4px 7px',
             color: 'var(--app-text-muted, #94a3b8)',
             cursor: isLoadingHistory || loadingCustom ? 'not-allowed' : 'pointer',
             display: 'flex',
@@ -435,10 +435,10 @@ export default function TradeManager({
             gap: '4px',
             fontSize: isMobileView ? '11px' : '10px'
           }}
-          title="Refresh Trades & History"
+          title="Refresh Data"
         >
-          <RefreshCw size={isMobileView ? 12 : 10} className={isLoadingHistory || loadingCustom ? 'animate-spin' : ''} />
-          {!isMobileView && 'Sync'}
+          <RefreshCw size={isMobileView ? 12 : 11} className={isLoadingHistory || loadingCustom ? 'animate-spin' : ''} />
+          {!isMobileView && 'Refresh'}
         </button>
       </div>
     );
