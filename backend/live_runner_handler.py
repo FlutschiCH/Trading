@@ -166,9 +166,19 @@ class LiveRunner:
 
             python_exe = sys.executable
             strat = LiveStrategyHandler.get_strategy(strategy_id)
-            is_scalper = False
-            if strat:
-                is_scalper = strat.get("strategy_type") == "scalper" or "scalper" in str(strat.get("name", "")).lower()
+            if not strat:
+                return None
+
+            # Verify target computer before spawning
+            target_comp = strat.get("target_computer", "All")
+            try:
+                local_comp = socket.gethostname().strip().lower()
+            except Exception:
+                local_comp = "unknown"
+            if target_comp != "All" and target_comp.strip().lower() != local_comp:
+                return None
+
+            is_scalper = strat.get("strategy_type") == "scalper" or "scalper" in str(strat.get("name", "")).lower()
 
             worker_file = "liquidity_worker.py" if is_scalper else "live_worker.py"
             worker_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), worker_file)
