@@ -51,13 +51,15 @@ interface LiveOverviewPanelProps {
   selectedStrategyId?: string;
   onSelectStrategy?: (strategyId: string) => void;
   isLiveFeed?: boolean;
+  onLoadStrategySettings?: (strategy: LiveStrategy) => void;
 }
 
 export default function LiveOverviewPanel({ 
   isMobileLayout = false,
   selectedStrategyId = '',
   onSelectStrategy,
-  isLiveFeed = false
+  isLiveFeed = false,
+  onLoadStrategySettings
 }: LiveOverviewPanelProps) {
   const [strategies, setStrategies] = useState<LiveStrategy[]>([]);
   const [loading, setLoading] = useState(true);
@@ -271,14 +273,15 @@ export default function LiveOverviewPanel({
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap', width: isMobile ? '100%' : 'auto' }}>
-                    {onSelectStrategy && (
+                    {onLoadStrategySettings && (
                       <button
-                        onClick={() => onSelectStrategy(strategy.id)}
+                        onClick={() => onLoadStrategySettings(strategy)}
+                        title="Load strategy settings into Backtester"
                         style={{
                           flex: isMobile ? '1 1 120px' : 'none',
-                          backgroundColor: selectedStrategyId === strategy.id && isLiveFeed ? 'rgba(16, 185, 129, 0.15)' : '#1e293b',
-                          color: selectedStrategyId === strategy.id && isLiveFeed ? '#10b981' : '#d1d5db',
-                          border: `1px solid ${selectedStrategyId === strategy.id && isLiveFeed ? '#10b981' : '#334155'}`,
+                          backgroundColor: '#1e293b',
+                          color: '#38bdf8',
+                          border: '1px solid #0284c7',
                           borderRadius: '6px',
                           padding: '6px 10px',
                           cursor: 'pointer',
@@ -288,7 +291,7 @@ export default function LiveOverviewPanel({
                           whiteSpace: 'nowrap'
                         }}
                       >
-                        {selectedStrategyId === strategy.id && isLiveFeed ? '📺 Displaying' : '📊 Display on Chart'}
+                        ⚙️ Set Backtest Settings
                       </button>
                     )}
                     <button

@@ -1584,6 +1584,41 @@ export default function Dashboard() {
     }
   };
 
+  const handleLoadStrategyToBacktest = (strat: any) => {
+    if (!strat) return;
+    setIsLiveFeed(false);
+    localStorage.setItem('wyckoff_is_live_feed', 'false');
+    if (strat.symbol) {
+      setSymbol(strat.symbol);
+    }
+    if (strat.timeframe) {
+      setTimeframe(strat.timeframe);
+    }
+    const settingsToApply: any = {
+      backtestSL: strat.slVal !== undefined ? String(strat.slVal) : undefined,
+      backtestSLType: strat.slType || undefined,
+      backtestRR: strat.rr !== undefined ? String(strat.rr) : undefined,
+      backtestSize: strat.size !== undefined ? String(strat.size) : undefined,
+      useRiskSizing: strat.useRiskSizing !== undefined ? Boolean(strat.useRiskSizing) : undefined,
+      backtestRiskPct: strat.riskPct !== undefined ? String(strat.riskPct) : undefined,
+      useBreakEven: strat.useBreakEven !== undefined ? Boolean(strat.useBreakEven) : undefined,
+      backtestBE: strat.beTriggerR !== undefined ? String(strat.beTriggerR) : (strat.beVal !== undefined ? String(strat.beVal) : undefined),
+      lookbackWindow: strat.lookbackWindow !== undefined ? String(strat.lookbackWindow) : undefined,
+      entryStabilityRule: strat.entryStabilityRule !== undefined ? strat.entryStabilityRule : undefined,
+      sessionsTimezone: strat.timezone || undefined,
+      tradingSessions: strat.sessions || undefined,
+      useGlobalClose: strat.useGlobalClose !== undefined ? Boolean(strat.useGlobalClose) : undefined,
+      globalCloseTime: strat.globalCloseTime || undefined,
+      useEntryCutoff: strat.useEntryCutoff !== undefined ? Boolean(strat.useEntryCutoff) : undefined,
+      entryCutoffTime: strat.entryCutoffTime || undefined,
+      dailyRetryLimit: strat.dailyRetryLimit !== undefined ? String(strat.dailyRetryLimit) : undefined,
+      allowOppositeClose: strat.allowOppositeClose !== undefined ? Boolean(strat.allowOppositeClose) : undefined,
+    };
+    applyBacktestSettingsObject(settingsToApply);
+    setIsOptimizeMode(false);
+    localStorage.setItem('wyckoff_optimize_mode', 'false');
+  };
+
   const handleLoadSavedBacktestById = async (id: string) => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/backtest/saved/${id}`);
@@ -3156,13 +3191,9 @@ export default function Dashboard() {
                         isMobileLayout={true}
                         selectedStrategyId={selectedStrategyId}
                         isLiveFeed={isLiveFeed}
-                        onSelectStrategy={(id) => {
-                          setSelectedStrategyId(id);
-                          localStorage.setItem('wyckoff_selected_live_strategy_id', id);
-                          setIsLiveFeed(true);
-                          localStorage.setItem('wyckoff_is_live_feed', 'true');
-                          setMobileTab('chart');
-                          setTimeout(() => fetchCandles(), 50);
+                        onLoadStrategySettings={(strat) => {
+                          handleLoadStrategyToBacktest(strat);
+                          setMobileTab('backtest');
                         }}
                       />
                     </div>
@@ -3710,13 +3741,8 @@ export default function Dashboard() {
                             isMobileLayout={false}
                             selectedStrategyId={selectedStrategyId}
                             isLiveFeed={isLiveFeed}
-                            onSelectStrategy={(id) => {
-                              setSelectedStrategyId(id);
-                              localStorage.setItem('wyckoff_selected_live_strategy_id', id);
-                              setIsLiveFeed(true);
-                              localStorage.setItem('wyckoff_is_live_feed', 'true');
-                              // Trigger candle fetch on active display update
-                              setTimeout(() => fetchCandles(), 50);
+                            onLoadStrategySettings={(strat) => {
+                              handleLoadStrategyToBacktest(strat);
                             }}
                           />
                         </div>
