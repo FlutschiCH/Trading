@@ -286,80 +286,54 @@ class CopytraderHandler:
                     return True
         return False
 
-    @staticmethod
-    def start():
-        if CopytraderHandler._is_running:
-            return
-        CopytraderHandler._is_running = True
-        CopytraderHandler._sync_thread = threading.Thread(target=CopytraderHandler._sync_loop, daemon=True)
-        CopytraderHandler._sync_thread.start()
+    @classmethod
+    def spawn_worker(cls, quickedit: bool = False):
+        """
+        Spawns the standalone Copytrader Worker in its own console window.
+        """
+        import subprocess
+        python_exe = sys.executable
+        worker_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "copytrader_worker.py")
+        cmd = [python_exe, worker_script]
+        if quickedit:
+            cmd.append("--quickedit")
+        else:
+            try:
+                from system_handler import SystemHandler
+                if SystemHandler.get_quick_edit().get('enabled'):
+                    cmd.append("--quickedit")
+            except Exception:
+                pass
 
-        # Log & notify engine startup status
         try:
-            current_host = socket.gethostname().strip().lower()
-            configs = CopytraderHandler.get_all_configs()
-            active_configs = []
-            total_slaves = 0
+            if sys.platform == "win32":
+                CREATE_NEW_CONSOLE = 0x00000010
+                proc = subprocess.Popen(
+                    cmd,
+                    creationflags=CREATE_NEW_CONSOLE,
+                    cwd=os.path.dirname(os.path.abspath(__file__))
+                )
+            else:
+                proc = subprocess.Popen(
+                    cmd,
+                    cwd=os.path.dirname(os.path.abspath(__file__))
+                )
+            print(f"[Copytrader Engine] Spawned standalone Copytrader Worker (PID: {proc.pid})", flush=True)
+            return proc
+        except Exception as ex:
+            print(f"[Copytrader Engine] Failed to spawn Copytrader Worker: {ex}", flush=True)
+            return None
 
-            for cfg in configs:
-                if cfg.get("status") != "active":
-                    continue
-                target_comp = str(cfg.get("target_computer", "All")).strip().lower()
-                if target_comp != "all" and target_comp != current_host:
-                    continue
-                active_configs.append(cfg)
-                slaves = cfg.get("slaves", [])
-                active_slaves = [s for s in slaves if s.get("status") != "paused"]
-                total_slaves += len(active_slaves)
+    @classmethod
+    def start(cls, as_worker_process: bool = True):
+        if as_worker_process:
+            return cls.spawn_worker()
 
-            # Ensure active master & slave accounts are initialized and connected
-            for cfg in active_configs:
-                master_acc = cfg.get("master_account")
-                master_brk = cfg.get("master_broker", "metatrader")
-                if master_acc:
-                    CopytraderHandler._ensure_account_connected(master_acc, master_brk)
-
-                for slave in cfg.get("slaves", []):
-                    if slave.get("status") != "paused":
-                        s_acc = slave.get("account_id")
-                        s_brk = slave.get("broker", "metatrader")
-                        if s_acc:
-                            CopytraderHandler._ensure_account_connected(s_acc, s_brk)
-
-            config_count = len(active_configs)
-            from colorama import Fore, Style
-            lines = [
-                f"\n{Fore.CYAN}[Copytrader Engine]{Style.RESET_ALL} 🚀 Starting Copytrader Engine:",
-                f"   • Active Configurations Found: {Style.BRIGHT}{config_count}{Style.RESET_ALL}",
-                f"   • Total Active Slaves Connected: {Style.BRIGHT}{total_slaves}{Style.RESET_ALL}",
-                f"   • Host Machine: {Style.BRIGHT}{current_host}{Style.RESET_ALL}"
-            ]
-            for idx, cfg in enumerate(active_configs, start=1):
-                cfg_name = cfg.get("name", f"Config #{idx}")
-                m_acc = cfg.get("master_account", "Unknown")
-                m_brk = str(cfg.get("master_broker", "metatrader")).upper()
-                target_comp = cfg.get("target_computer", "All")
-                slaves = [s for s in cfg.get("slaves", []) if s.get("status") != "paused"]
-                
-                cfg_symbols = cfg.get("symbols", "All")
-                lines.append(f"   [{idx}] {Fore.YELLOW}{cfg_name}{Style.RESET_ALL} (Host: {target_comp} | Symbols: {cfg_symbols})")
-                lines.append(f"       Master: {Fore.GREEN}{m_acc}{Style.RESET_ALL} [{m_brk}]")
-                if not slaves:
-                    lines.append(f"       Slaves: {Fore.RED}None active{Style.RESET_ALL}")
-                for s in slaves:
-                    s_acc = s.get("account_id", "Unknown")
-                    s_brk = str(s.get("broker", "metatrader")).upper()
-                    mode = s.get("mode", "direct")
-                    mult = s.get("multiplier", 1.0)
-                    sizing_str = f"{mode} (x{mult})" if mode in ("multiplier", "divider") else mode
-                    lines.append(f"       └── ➜ Slave: {Fore.CYAN}{s_acc}{Style.RESET_ALL} [{s_brk}] | Sizing: {sizing_str}")
-
-            summary_msg = "\n".join(lines) + "\n" 
-            print(summary_msg, flush=True)
-            logPrint(f"[Copytrader Engine] Background monitor started ({config_count} active configs, {total_slaves} active slaves).")
-        except Exception as e:
-            from colorama import Fore, Style
-            logPrint(f"{Fore.RED}[Copytrader Engine]{Style.RESET_ALL} Error building start message: {e}")
+        if cls._is_running:
+            return
+        cls._is_running = True
+        cls._sync_thread = threading.Thread(target=cls._sync_loop, daemon=True)
+        cls._sync_thread.start()
 
     @staticmethod
     def _is_symbol_allowed(symbol: str, allowed_symbols) -> bool:

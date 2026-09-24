@@ -26,8 +26,8 @@ class SystemHandler:
                             continue
                         cmdline = p.info.get('cmdline') or []
                         cmd_str = " ".join(cmdline)
-                        if "live_worker.py" in cmd_str and "backtest_worker.py" not in cmd_str:
-                            print(f"[SystemHandler] Killing live_worker process (PID {p.info['pid']})...", flush=True)
+                        if ("live_worker.py" in cmd_str or "copytrader_worker.py" in cmd_str) and "backtest_worker.py" not in cmd_str:
+                            print(f"[SystemHandler] Killing worker process {p.info['name']} (PID {p.info['pid']})...", flush=True)
                             p.kill()
                     except (psutil.NoSuchProcess, psutil.AccessDenied):
                         pass
@@ -37,7 +37,7 @@ class SystemHandler:
                     lock_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".worker_locks")
                     if os.path.exists(lock_dir):
                         for f in os.listdir(lock_dir):
-                            if f.startswith("live_worker_") and f.endswith(".lock"):
+                            if (f.startswith("live_worker_") or f.startswith("copytrader_worker")) and f.endswith(".lock"):
                                 fpath = os.path.join(lock_dir, f)
                                 try:
                                     with open(fpath, "r") as lf:
