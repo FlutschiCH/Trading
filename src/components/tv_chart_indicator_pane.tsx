@@ -47,11 +47,6 @@ export default function TVChartIndicatorPane({
           top: '8px',
           left: '14px',
           zIndex: 20,
-          display: 'flex',
-          flexDirection: 'row',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          gap: '6px',
           pointerEvents: 'auto',
           maxWidth: '90%',
         }}
