@@ -78,6 +78,14 @@ class SymbolMappingHandler:
             return list(cls._all_rows_cache) if cls._all_rows_cache is not None else []
 
     @classmethod
+    def get_mappings(cls, account_id: str = None) -> list:
+        all_maps = cls.get_all_mappings()
+        if not account_id:
+            return all_maps
+        acc_str = str(account_id).strip()
+        return [m for m in all_maps if str(m.get('account_id', '')).strip() == acc_str]
+
+    @classmethod
     def add_mapping(cls, main_symbol: str, account_id: str, broker_symbol: str) -> bool:
         cls.init_db()
         m_sym = main_symbol.upper().strip()
