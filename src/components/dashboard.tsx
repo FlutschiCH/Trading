@@ -2936,7 +2936,18 @@ export default function Dashboard() {
                       onCandleSourceChange={setCandleSource}
                       availableSymbols={availableSymbols}
                       availableTimeframes={availableTimeframes}
-                      candles={backtestResults?.candles || candles}
+                      candles={(() => {
+                        const btCandles = backtestResults?.candles || [];
+                        if (btCandles.length === 0) return candles;
+                        if (!isLiveFeed) return btCandles;
+                        const mergedMap = new Map<number, Candle>();
+                        candles.forEach((c: Candle) => mergedMap.set(c.time, c));
+                        btCandles.forEach((c: Candle) => {
+                          const existing = mergedMap.get(c.time);
+                          mergedMap.set(c.time, existing ? { ...existing, ...c } : c);
+                        });
+                        return Array.from(mergedMap.values()).sort((a, b) => a.time - b.time);
+                      })()}
                       loading={loading}
                       loadingStrategy={loadingStrategy}
                       onRefresh={(broker, isBg) => fetchCandles(broker, isBg, true)}
@@ -3424,10 +3435,14 @@ export default function Dashboard() {
                             availableTimeframes={availableTimeframes}
                             candles={(() => {
                               const btCandles = backtestResults?.candles || [];
-                              if (!isLiveFeed || btCandles.length === 0) return isLiveFeed ? candles : (btCandles.length > 0 ? btCandles : candles);
+                              if (btCandles.length === 0) return candles;
+                              if (!isLiveFeed) return btCandles;
                               const mergedMap = new Map<number, Candle>();
-                              btCandles.forEach((c: Candle) => mergedMap.set(c.time, c));
                               candles.forEach((c: Candle) => mergedMap.set(c.time, c));
+                              btCandles.forEach((c: Candle) => {
+                                const existing = mergedMap.get(c.time);
+                                mergedMap.set(c.time, existing ? { ...existing, ...c } : c);
+                              });
                               return Array.from(mergedMap.values()).sort((a, b) => a.time - b.time);
                             })()}
                             loading={loading}
