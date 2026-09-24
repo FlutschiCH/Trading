@@ -7,6 +7,7 @@ import DeployModal from './deploy_modal';
 import SavedRuns from './saved_runs';
 import { SymbolTimeframeSelector } from './symbol_timeframe_selector';
 import DebugComponentBadge from './debug_component_badge';
+import LastTradeExecution from './LastTradeExecution';
 
 const BacktestEquityChart = ({ backtestResults, backtestBalance }: { backtestResults: any; backtestBalance?: string }) => {
   const chartContainerRef = React.useRef<HTMLDivElement>(null);
@@ -4284,57 +4285,67 @@ export default function Backtester({
             )}
 
             {backtestTab === 'trades' && backtestResults && (
-              <div style={{ display: 'flex', gap: '6px', padding: '8px 0', alignItems: 'center', marginBottom: '6px' }}>
-                <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 600 }}>FILTER:</span>
-                <button
-                  onClick={() => setTradeFilter('all')}
-                  style={{
-                    background: tradeFilter === 'all' ? 'rgba(51, 65, 85, 0.8)' : 'rgba(30, 41, 59, 0.4)',
-                    border: tradeFilter === 'all' ? '1px solid #64748b' : '1px solid rgba(255, 255, 255, 0.08)',
-                    color: tradeFilter === 'all' ? '#ffffff' : '#94a3b8',
-                    fontSize: '10px',
-                    fontWeight: 600,
-                    padding: '3px 10px',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s'
-                  }}
-                >
-                  All ({backtestResults.trades.length})
-                </button>
-                <button
-                  onClick={() => setTradeFilter('wins')}
-                  style={{
-                    background: tradeFilter === 'wins' ? 'rgba(16, 185, 129, 0.25)' : 'rgba(30, 41, 59, 0.4)',
-                    border: tradeFilter === 'wins' ? '1px solid #10b981' : '1px solid rgba(255, 255, 255, 0.08)',
-                    color: tradeFilter === 'wins' ? '#34d399' : '#94a3b8',
-                    fontSize: '10px',
-                    fontWeight: 600,
-                    padding: '3px 10px',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s'
-                  }}
-                >
-                  Wins ({backtestResults.trades.filter((t: any) => t.pnl >= 0).length})
-                </button>
-                <button
-                  onClick={() => setTradeFilter('losses')}
-                  style={{
-                    background: tradeFilter === 'losses' ? 'rgba(239, 68, 68, 0.25)' : 'rgba(30, 41, 59, 0.4)',
-                    border: tradeFilter === 'losses' ? '1px solid #ef4444' : '1px solid rgba(255, 255, 255, 0.08)',
-                    color: tradeFilter === 'losses' ? '#f87171' : '#94a3b8',
-                    fontSize: '10px',
-                    fontWeight: 600,
-                    padding: '3px 10px',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s'
-                  }}
-                >
-                  Losses ({backtestResults.trades.filter((t: any) => t.pnl < 0).length})
-                </button>
-              </div>
+              <>
+                <LastTradeExecution
+                  symbol={symbol}
+                  timeframe={timeframe}
+                  backtestResults={backtestResults}
+                  defaultSize={backtestSize}
+                  defaultSL={backtestSL}
+                  defaultRR={backtestRR}
+                />
+                <div style={{ display: 'flex', gap: '6px', padding: '4px 0', alignItems: 'center', marginBottom: '6px' }}>
+                  <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 600 }}>FILTER:</span>
+                  <button
+                    onClick={() => setTradeFilter('all')}
+                    style={{
+                      background: tradeFilter === 'all' ? 'rgba(51, 65, 85, 0.8)' : 'rgba(30, 41, 59, 0.4)',
+                      border: tradeFilter === 'all' ? '1px solid #64748b' : '1px solid rgba(255, 255, 255, 0.08)',
+                      color: tradeFilter === 'all' ? '#ffffff' : '#94a3b8',
+                      fontSize: '10px',
+                      fontWeight: 600,
+                      padding: '3px 10px',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s'
+                    }}
+                  >
+                    All ({backtestResults.trades.length})
+                  </button>
+                  <button
+                    onClick={() => setTradeFilter('wins')}
+                    style={{
+                      background: tradeFilter === 'wins' ? 'rgba(16, 185, 129, 0.25)' : 'rgba(30, 41, 59, 0.4)',
+                      border: tradeFilter === 'wins' ? '1px solid #10b981' : '1px solid rgba(255, 255, 255, 0.08)',
+                      color: tradeFilter === 'wins' ? '#34d399' : '#94a3b8',
+                      fontSize: '10px',
+                      fontWeight: 600,
+                      padding: '3px 10px',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s'
+                    }}
+                  >
+                    Wins ({backtestResults.trades.filter((t: any) => t.pnl >= 0).length})
+                  </button>
+                  <button
+                    onClick={() => setTradeFilter('losses')}
+                    style={{
+                      background: tradeFilter === 'losses' ? 'rgba(239, 68, 68, 0.25)' : 'rgba(30, 41, 59, 0.4)',
+                      border: tradeFilter === 'losses' ? '1px solid #ef4444' : '1px solid rgba(255, 255, 255, 0.08)',
+                      color: tradeFilter === 'losses' ? '#f87171' : '#94a3b8',
+                      fontSize: '10px',
+                      fontWeight: 600,
+                      padding: '3px 10px',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s'
+                    }}
+                  >
+                    Losses ({backtestResults.trades.filter((t: any) => t.pnl < 0).length})
+                  </button>
+                </div>
+              </>
             )}
 
             <div style={{ ...styles.positionsList, maxHeight: '380px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
