@@ -298,11 +298,14 @@ const CollapsibleCard = ({ title, isCollapsed, onToggle, children, style }: Coll
           ▾
         </span>
       </div>
-      {!isCollapsed && (
-        <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {children}
-        </div>
-      )}
+      <div style={{
+        padding: '12px 14px',
+        display: isCollapsed ? 'none' : 'flex',
+        flexDirection: 'column',
+        gap: '12px'
+      }}>
+        {children}
+      </div>
     </div>
   );
 };
