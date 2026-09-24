@@ -17,6 +17,8 @@ def get_strategies():
     return jsonify({"status": "success", "strategies": strategies})
 
 @live_strategy_routes.route('/live/strategy', methods=['POST'])
+@live_strategy_routes.route('/live-strategy/deploy', methods=['POST'])
+@live_strategy_routes.route('/live/strategy/deploy', methods=['POST'])
 def save_strategy():
     """
     Deploy or update an active live strategy and manage worker lifecycle.
@@ -53,8 +55,13 @@ def save_strategy():
         "dateRangeOption": payload.get("dateRangeOption") or "last_candles",
         "customFrom": payload.get("customFrom") or "",
         "customTo": payload.get("customTo") or "",
-        "candleLimit": int(payload.get("candleLimit") or 1000)
+        "candleLimit": int(payload.get("candleLimit") or 1000),
+        **{k: v for k, v in payload.items() if k not in ["id", "deployedAt"]}
     }
+    if payload.get("id"):
+        strategy_config["id"] = payload["id"]
+    if payload.get("deployedAt"):
+        strategy_config["deployedAt"] = payload["deployedAt"]
     
     success = LiveStrategyHandler.save_strategy(strategy_config)
     if success:

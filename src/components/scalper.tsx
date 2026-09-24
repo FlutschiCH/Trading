@@ -181,7 +181,7 @@ export const ScalperCard: React.FC<ScalperCardProps> = ({
         max_spread_pips: maxSpreadPips
       };
 
-      const res = await fetch(`${API_BASE_URL}/api/live-strategy/deploy`, {
+      const res = await fetch(`${API_BASE_URL}/api/live/strategy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(stratPayload)
