@@ -387,6 +387,9 @@ export default function TVChart({
   const [showIndicatorModal, setShowIndicatorModal] = useState<boolean>(false);
   const [editingIndicatorId, setEditingIndicatorId] = useState<string | null>(null);
   const [indicatorLatestValues, setIndicatorLatestValues] = useState<Record<string, string>>({});
+  const [hoveredPoint, setHoveredPoint] = useState<{ time: number; candle?: any } | null>(null);
+  const [hoveredIndicatorValues, setHoveredIndicatorValues] = useState<Record<string, string> | null>(null);
+  const indicatorPointsCacheRef = useRef<Map<string, { time: number; value: number }[]>>(new Map());
   const indicatorSeriesMapRef = useRef<Map<string, any>>(new Map());
   const subpaneSeriesMapRef = useRef<Map<string, any>>(new Map());
 
@@ -1901,6 +1904,82 @@ export default function TVChart({
     });
     selectedTradePathSeriesRef.current = selectedTradePathSeries;
 
+    // Crosshair synchronization across Main Chart, Volume Chart (Weis), and Indicator Subpane
+    let isSyncingCrosshair = false;
+    const syncCrosshairs = (sourceChart: any, param: any) => {
+      if (isSyncingCrosshair) return;
+      isSyncingCrosshair = true;
+
+      const time = param?.time;
+      const point = param?.point;
+
+      if (!time || !point || point.x < 0) {
+        if (sourceChart !== mainChart && mainChart) {
+          try { mainChart.clearCrosshairPosition(); } catch (e) { }
+        }
+        if (sourceChart !== weisChart && weisChart) {
+          try { weisChart.clearCrosshairPosition(); } catch (e) { }
+        }
+        if (sourceChart !== subpaneChart && subpaneChart) {
+          try { subpaneChart.clearCrosshairPosition(); } catch (e) { }
+        }
+        setHoveredPoint(null);
+        setHoveredIndicatorValues(null);
+        isSyncingCrosshair = false;
+        return;
+      }
+
+      // Find candle info at hovered timestamp
+      const candle = candlesRef.current?.find((c: any) => Number(c.time) === Number(time));
+      const closePrice = candle ? Number(candle.close) : 0;
+      const volValue = candle ? Number(candle.volume || 0) : 0;
+
+      // Sync Main Chart
+      if (sourceChart !== mainChart && mainChart && candlestickSeriesRef.current) {
+        try {
+          mainChart.setCrosshairPosition(closePrice, time, candlestickSeriesRef.current);
+        } catch (e) { }
+      }
+
+      // Sync Volume Chart
+      if (sourceChart !== weisChart && weisChart && weisSeriesRef.current) {
+        try {
+          weisChart.setCrosshairPosition(volValue, time, weisSeriesRef.current);
+        } catch (e) { }
+      }
+
+      // Sync Subpane Chart
+      if (sourceChart !== subpaneChart && subpaneChart) {
+        try {
+          const firstSubSeries = subpaneSeriesMapRef.current?.values()?.next()?.value;
+          if (firstSubSeries) {
+            subpaneChart.setCrosshairPosition(0, time, firstSubSeries);
+          }
+        } catch (e) { }
+      }
+
+      setHoveredPoint({ time: Number(time), candle });
+
+      if (indicatorPointsCacheRef.current && indicatorPointsCacheRef.current.size > 0) {
+        const hoveredVals: Record<string, string> = {};
+        indicatorPointsCacheRef.current.forEach((pts, id) => {
+          const pt = pts.find((p: any) => Number(p.time) === Number(time));
+          if (pt) {
+            const ind = indicatorsRef.current?.find((i: any) => i.id === id);
+            const isRsiOrStoch = ind && (ind.name === 'rsi' || ind.name === 'stochastic');
+            hoveredVals[id] = isRsiOrStoch ? pt.value.toFixed(2) : pt.value.toFixed(5);
+          }
+        });
+        setHoveredIndicatorValues(hoveredVals);
+      }
+
+      isSyncingCrosshair = false;
+    };
+
+    mainChart.subscribeCrosshairMove((param) => syncCrosshairs(mainChart, param));
+    weisChart.subscribeCrosshairMove((param) => syncCrosshairs(weisChart, param));
+    subpaneChart.subscribeCrosshairMove((param) => syncCrosshairs(subpaneChart, param));
+
     mainChart.subscribeClick((param) => {
       if (!param.time) return;
       const clickTime = param.time as number;
@@ -2723,7 +2802,8 @@ export default function TVChart({
             series.setData(points);
           }
 
-          if (points.length > 0) {
+          if (points && points.length > 0) {
+            indicatorPointsCacheRef.current.set(ind.id, points);
             const lastPt = points[points.length - 1];
             latestVals[ind.id] = ind.name === 'rsi' || ind.name === 'stochastic' ? lastPt.value.toFixed(2) : lastPt.value.toFixed(5);
           }
@@ -3595,7 +3675,7 @@ export default function TVChart({
           <TVChartLegend
             indicators={indicators}
             pane="main"
-            indicatorLatestValues={indicatorLatestValues}
+            indicatorLatestValues={hoveredIndicatorValues || indicatorLatestValues}
             theme={theme}
             top="12px"
             left="14px"
@@ -4306,7 +4386,7 @@ export default function TVChart({
                 </button>
               </div>
 
-              {/* Volume latest value */}
+              {/* Volume latest / hovered value */}
               {chartSettings.showVolume !== false && activeCandles.length > 0 && (
                 <span
                   style={{
@@ -4316,7 +4396,7 @@ export default function TVChart({
                     marginLeft: '6px',
                   }}
                 >
-                  {Number(activeCandles[activeCandles.length - 1]?.volume || 0).toLocaleString()}
+                  {Number((hoveredPoint?.candle ? hoveredPoint.candle.volume : activeCandles[activeCandles.length - 1]?.volume) || 0).toLocaleString()}
                 </span>
               )}
             </div>
@@ -4328,7 +4408,7 @@ export default function TVChart({
           containerRef={subpaneContainerRef}
           height={subpaneHeight}
           indicators={indicators}
-          indicatorLatestValues={indicatorLatestValues}
+          indicatorLatestValues={hoveredIndicatorValues || indicatorLatestValues}
           theme={theme}
           onToggleVisibility={(id) => {
             const next = indicators.map((item) =>
