@@ -121,24 +121,35 @@ class CopytraderWorker:
         """
         Ensures only one CopytraderWorker process runs for this configuration ID at any time.
         If another active instance is running, this process halts and exits.
+        If a lock file exists but the holding process is dead or invalid, the stale lock is removed.
         """
         lock_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".worker_locks")
         os.makedirs(lock_dir, exist_ok=True)
         lock_path = os.path.join(lock_dir, f"copytrader_worker_{self.config_id}.lock")
 
-        # Check existing PID inside lock file first
+        # 1. Read existing PID if present and check if it's currently running
         if os.path.exists(lock_path):
+            existing_pid = None
             try:
                 with open(lock_path, "r") as existing_f:
                     raw_pid = existing_f.read().strip()
                     if raw_pid and raw_pid.isdigit():
                         existing_pid = int(raw_pid)
-                        if existing_pid != os.getpid() and is_process_running(existing_pid):
-                            print(f"{Fore.YELLOW}[CopytraderWorker Duplicate Check]{Style.RESET_ALL} Worker for config '{self.config_id}' is already actively running in PID {existing_pid}.", flush=True)
-                            pause_and_exit(0, "Duplicate worker detected. Window will close automatically in 60 seconds (or press Enter)...", timeout=60)
             except Exception:
                 pass
 
+            if existing_pid and existing_pid != os.getpid():
+                if is_process_running(existing_pid):
+                    print(f"{Fore.YELLOW}[CopytraderWorker Duplicate Check]{Style.RESET_ALL} Worker for config '{self.config_id}' is already actively running in PID {existing_pid}.", flush=True)
+                    pause_and_exit(0, "Duplicate worker detected. Window will close automatically in 60 seconds (or press Enter)...", timeout=60)
+                else:
+                    # Previous process terminated without cleaning up lock file
+                    try:
+                        os.remove(lock_path)
+                    except Exception:
+                        pass
+
+        # 2. Acquire file-descriptor level lock
         try:
             self.lock_file = open(lock_path, "a+")
             self.lock_file.seek(0)
@@ -159,10 +170,25 @@ class CopytraderWorker:
 
                     if existing_pid and is_process_running(existing_pid):
                         print(f"{Fore.YELLOW}[CopytraderWorker Duplicate Check]{Style.RESET_ALL} Worker for config '{self.config_id}' is actively running in PID {existing_pid}.", flush=True)
+                        self.lock_file.close()
+                        pause_and_exit(0, "Duplicate worker detected. Window will close automatically in 60 seconds (or press Enter)...", timeout=60)
+                    elif existing_pid and not is_process_running(existing_pid):
+                        # The PID in the lock file is definitely not running; force-recover
+                        print(f"{Fore.YELLOW}[CopytraderWorker Lock Notice]{Style.RESET_ALL} Previous PID {existing_pid} is no longer running. Recovering lock for config '{self.config_id}'...", flush=True)
+                        self.lock_file.close()
+                        try:
+                            os.remove(lock_path)
+                        except Exception:
+                            pass
+                        self.lock_file = open(lock_path, "w+")
+                        try:
+                            msvcrt.locking(self.lock_file.fileno(), msvcrt.LK_NBLCK, 1)
+                        except Exception:
+                            pass
                     else:
                         print(f"{Fore.YELLOW}[CopytraderWorker Duplicate Check]{Style.RESET_ALL} Worker for config '{self.config_id}' is locked by another process.", flush=True)
-                    self.lock_file.close()
-                    pause_and_exit(0, "Duplicate worker detected. Window will close automatically in 60 seconds (or press Enter)...", timeout=60)
+                        self.lock_file.close()
+                        pause_and_exit(0, "Duplicate worker detected. Window will close automatically in 60 seconds (or press Enter)...", timeout=60)
             else:
                 import fcntl
                 try:
