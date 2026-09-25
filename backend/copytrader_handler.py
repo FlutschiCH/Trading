@@ -783,6 +783,8 @@ class CopytraderHandler:
         if not cfg or cfg.get("status") != "active":
             return
 
+        cfg_id = str(cfg.get("id") or "")
+        cfg_name = cfg.get("name", "Setup")
         master_acc = cfg.get("master_account")
         master_broker = cfg.get("master_broker", "metatrader")
         slaves = cfg.get("slaves", [])
@@ -815,6 +817,7 @@ class CopytraderHandler:
                     # Fetch current live positions on slave
                     slave_positions = cls._get_account_positions(slave_acc, slave_broker) or []
                     unmatched_slaves = list(slave_positions)
+                    opened_in_cycle = set()
 
                     # Filter master positions for this specific slave's symbol rules
                     slave_target_master_positions = [
@@ -916,10 +919,12 @@ class CopytraderHandler:
                                     slave_ticket = str(res.get("ticket") or res.get("position_id") or f"slv_{int(time.time())}")
                                     is_success = True
 
-                            if is_success and slave_ticket:
-                                m_ticket = str(m_pos.get("ticket") or m_pos.get("position_id") or m_pos.get("id") or f"mst_{int(time.time())}")
-                                logPrint(f"[Copytrader] ✅ Trade copied to slave {slave_acc}: Master #{m_ticket} -> Slave #{slave_ticket} ({m_side} {slave_lots} {m_sym})")
-                                cls._record_mapping(cfg_id, m_ticket, slave_acc, slave_ticket, m_sym, m_side, slave_lots)
+                            if is_success:
+                                opened_in_cycle.add((m_sym.upper(), m_side))
+                                if slave_ticket:
+                                    m_ticket = str(m_pos.get("ticket") or m_pos.get("position_id") or m_pos.get("id") or f"mst_{int(time.time())}")
+                                    logPrint(f"[Copytrader] ✅ Trade copied to slave {slave_acc}: Master #{m_ticket} -> Slave #{slave_ticket} ({m_side} {slave_lots} {m_sym})")
+                                    cls._record_mapping(cfg_id, m_ticket, slave_acc, slave_ticket, m_sym, m_side, slave_lots)
 
                             if isinstance(res, dict) and ("error" in res or res.get("status") == "error" or res.get("code") == -2019):
                                 err_text = str(res.get("error") or res.get("message") or res.get("msg") or "")
@@ -1000,6 +1005,24 @@ class CopytraderHandler:
                                 s_side = "BUY" if amt > 0 else "SELL"
                             else:
                                 s_side = "BUY" if str(s_pos.get("type")) == "0" else "SELL"
+
+                        # Guard: If master still has any position matching this slave symbol & side, DO NOT close it!
+                        has_master_match = False
+                        for m_pos in slave_target_master_positions:
+                            m_s = str(m_pos.get("trade_side") or m_pos.get("side") or "").strip().upper()
+                            if m_s not in ("BUY", "SELL"):
+                                m_s = "BUY" if str(m_pos.get("type")) == "0" else "SELL"
+                            if m_s == s_side and cls._are_symbols_matching(m_pos.get("symbol", ""), s_sym, slave_acc):
+                                has_master_match = True
+                                break
+
+                        if has_master_match:
+                            continue
+
+                        # Guard: If trade was just opened in this cycle, do not close it
+                        if any(s_side == opened_side and cls._are_symbols_matching(opened_sym, s_sym, slave_acc) for opened_sym, opened_side in opened_in_cycle):
+                            continue
+
                         s_ticket = str(s_pos.get("position_id") or s_pos.get("ticket") or s_pos.get("id") or "")
                         s_vol = float(s_pos.get("volume") or abs(amt) or s_pos.get("size") or 0.0)
 
