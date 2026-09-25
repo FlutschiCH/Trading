@@ -115,13 +115,13 @@ class LiveWorker:
         """
         lock_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".worker_locks")
         os.makedirs(lock_dir, exist_ok=True)
-        lock_path = os.path.join(lock_dir, f"live_worker_{self.strategy_id}.lock")
+        self.lock_path = os.path.join(lock_dir, f"live_worker_{self.strategy_id}.lock")
 
-        # 1. Read existing PID if present and check if it's currently running
-        if os.path.exists(lock_path):
+        # 1. Read existing PID if present and verify if it's an active process
+        if os.path.exists(self.lock_path):
             existing_pid = None
             try:
-                with open(lock_path, "r") as existing_f:
+                with open(self.lock_path, "r", encoding="utf-8", errors="ignore") as existing_f:
                     raw_pid = existing_f.read().strip()
                     if raw_pid and raw_pid.isdigit():
                         existing_pid = int(raw_pid)
@@ -130,22 +130,25 @@ class LiveWorker:
 
             if existing_pid and existing_pid != os.getpid():
                 if is_process_running(existing_pid):
-                    print(f"{Fore.YELLOW}[LiveWorker Duplicate Check]{Style.RESET_ALL} Worker for Strategy {self.strategy_id} is already actively running in PID {existing_pid}.", flush=True)
+                    print(f"{Fore.YELLOW}[LiveWorker Duplicate Check]{Style.RESET_ALL} Worker for Strategy {self.strategy_id} is already actively running in PID {existing_pid} (current PID: {os.getpid()}).", flush=True)
                     pause_and_exit(0, "Duplicate worker detected. Window will close automatically in 60 seconds (or press Enter)...", timeout=60)
                 else:
-                    # Previous process terminated without cleaning up lock file
                     try:
-                        os.remove(lock_path)
+                        os.remove(self.lock_path)
                     except Exception:
                         pass
 
-        # 2. Acquire file-descriptor level lock
+        # 2. Acquire lock and persist current PID
         try:
-            self.lock_file = open(lock_path, "a+")
-            self.lock_file.seek(0)
+            if not os.path.exists(self.lock_path):
+                self.lock_file = open(self.lock_path, "w+", encoding="utf-8")
+            else:
+                self.lock_file = open(self.lock_path, "r+", encoding="utf-8")
+
             if sys.platform == "win32":
                 import msvcrt
                 try:
+                    self.lock_file.seek(0)
                     msvcrt.locking(self.lock_file.fileno(), msvcrt.LK_NBLCK, 1)
                 except (IOError, OSError):
                     existing_pid = None
@@ -158,23 +161,24 @@ class LiveWorker:
                         pass
 
                     if existing_pid and is_process_running(existing_pid):
-                        print(f"{Fore.YELLOW}[LiveWorker Duplicate Check]{Style.RESET_ALL} Worker for Strategy {self.strategy_id} is actively running in PID {existing_pid}.", flush=True)
+                        print(f"{Fore.YELLOW}[LiveWorker Duplicate Check]{Style.RESET_ALL} Worker for Strategy {self.strategy_id} is actively running in PID {existing_pid} (current PID: {os.getpid()}).", flush=True)
                         self.lock_file.close()
                         pause_and_exit(0, "Duplicate worker detected. Window will close automatically in 60 seconds (or press Enter)...", timeout=60)
                     elif existing_pid and not is_process_running(existing_pid):
-                        print(f"{Fore.YELLOW}[LiveWorker Lock Notice]{Style.RESET_ALL} Previous PID {existing_pid} is no longer running. Recovering lock for Strategy {self.strategy_id}...", flush=True)
+                        print(f"{Fore.YELLOW}[LiveWorker Lock Notice]{Style.RESET_ALL} Previous PID {existing_pid} is dead. Recovering lock for Strategy {self.strategy_id}...", flush=True)
                         self.lock_file.close()
                         try:
-                            os.remove(lock_path)
+                            os.remove(self.lock_path)
                         except Exception:
                             pass
-                        self.lock_file = open(lock_path, "w+")
+                        self.lock_file = open(self.lock_path, "w+", encoding="utf-8")
                         try:
+                            self.lock_file.seek(0)
                             msvcrt.locking(self.lock_file.fileno(), msvcrt.LK_NBLCK, 1)
                         except Exception:
                             pass
                     else:
-                        print(f"{Fore.YELLOW}[LiveWorker Duplicate Check]{Style.RESET_ALL} Worker for Strategy {self.strategy_id} is locked by another process.", flush=True)
+                        print(f"{Fore.YELLOW}[LiveWorker Duplicate Check]{Style.RESET_ALL} Worker for Strategy {self.strategy_id} is locked by another process (current PID: {os.getpid()}).", flush=True)
                         self.lock_file.close()
                         pause_and_exit(0, "Duplicate worker detected. Window will close automatically in 60 seconds (or press Enter)...", timeout=60)
             else:
@@ -189,7 +193,7 @@ class LiveWorker:
             # Record current PID inside the lock file
             self.lock_file.seek(0)
             self.lock_file.truncate()
-            self.lock_file.write(str(os.getpid()))
+            self.lock_file.write(f"{os.getpid()}\n")
             self.lock_file.flush()
 
         except Exception as ex:
@@ -198,7 +202,7 @@ class LiveWorker:
 
     def _release_instance_lock(self):
         """
-        Releases the single-instance lock upon exit.
+        Releases the single-instance lock upon exit and removes the lock file.
         """
         if self.lock_file:
             try:
@@ -219,6 +223,12 @@ class LiveWorker:
             except Exception:
                 pass
             self.lock_file = None
+
+        if hasattr(self, 'lock_path') and self.lock_path and os.path.exists(self.lock_path):
+            try:
+                os.remove(self.lock_path)
+            except Exception:
+                pass
 
     def send_update_or_heartbeat(self, state_info: dict = None, status_msg: str = None):
         """

@@ -331,6 +331,7 @@ class CopytraderHandler:
         return False
 
     _workers = {}  # {config_id: subprocess.Popen}
+    _last_spawn_times = {}  # {config_id: float timestamp}
     _stop_event = threading.Event()
     _supervisor_thread = None
 
@@ -366,6 +367,12 @@ class CopytraderHandler:
             env["PYTHONIOENCODING"] = "utf-8"
             env["PYTHONUTF8"] = "1"
 
+            # Debounce spawn attempts (don't respawn within 5 seconds if previous spawn just exited)
+            last_spawn = cls._last_spawn_times.get(config_id, 0)
+            if time.time() - last_spawn < 5.0:
+                return None
+            cls._last_spawn_times[config_id] = time.time()
+
             try:
                 if sys.platform == "win32":
                     CREATE_NEW_CONSOLE = 0x00000010
@@ -373,13 +380,15 @@ class CopytraderHandler:
                         cmd,
                         creationflags=CREATE_NEW_CONSOLE,
                         cwd=os.path.dirname(os.path.abspath(__file__)),
-                        env=env
+                        env=env,
+                        close_fds=True
                     )
                 else:
                     proc = subprocess.Popen(
                         cmd,
                         cwd=os.path.dirname(os.path.abspath(__file__)),
-                        env=env
+                        env=env,
+                        close_fds=True
                     )
                 cls._workers[config_id] = proc
                 print(f"[Copytrader Engine] Spawned dedicated Copytrader Worker for '{cfg.get('name')}' (ID: {config_id}, PID: {proc.pid})", flush=True)

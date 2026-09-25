@@ -190,18 +190,28 @@ class LiveRunner:
             except Exception:
                 pass
 
+            # Debounce spawn attempts (don't respawn within 5 seconds if previous spawn just exited)
+            if not hasattr(cls, '_last_spawn_times'):
+                cls._last_spawn_times = {}
+            last_spawn = cls._last_spawn_times.get(strategy_id, 0)
+            if time.time() - last_spawn < 5.0:
+                return None
+            cls._last_spawn_times[strategy_id] = time.time()
+
             try:
                 if sys.platform == "win32":
                     CREATE_NEW_CONSOLE = 0x00000010
                     proc = subprocess.Popen(
                         cmd,
                         creationflags=CREATE_NEW_CONSOLE,
-                        cwd=os.path.dirname(os.path.abspath(__file__))
+                        cwd=os.path.dirname(os.path.abspath(__file__)),
+                        close_fds=True
                     )
                 else:
                     proc = subprocess.Popen(
                         cmd,
-                        cwd=os.path.dirname(os.path.abspath(__file__))
+                        cwd=os.path.dirname(os.path.abspath(__file__)),
+                        close_fds=True
                     )
                 cls._workers[strategy_id] = proc
                 cls._worker_heartbeats[strategy_id] = time.time()
