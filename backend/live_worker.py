@@ -51,6 +51,7 @@ class LiveWorker:
         self.cache_config_fingerprint = None
         self.http_failed = False
         self.last_heartbeat_time = 0
+        self.be_triggered_positions = set()
 
     def _acquire_instance_lock(self):
         """
@@ -339,6 +340,10 @@ class LiveWorker:
                     if not pos_id:
                         continue
 
+                    pos_key = f"{target_broker}_{target_acc_id}_{pos_id}"
+                    if pos_key in self.be_triggered_positions:
+                        continue
+
                     entry_price = float(p.get("entry_price") or p.get("price_open") or p.get("open_price", 0.0))
                     current_price = float(p.get("price_current") or p.get("current_price", entry_price))
                     current_sl = float(p.get("stop_loss") or p.get("sl", 0.0))
@@ -394,60 +399,70 @@ class LiveWorker:
                         recent_low = min([float(c.get("low", current_price)) for c in self.candles_cache[-5:]] + [current_price])
 
                     if trade_side in ("BUY", "POSITION_TYPE_BUY", "0"):
+                        new_sl = round(entry_price + be_offset, 5)
+                        # Check if position already has SL at or above BE
+                        if current_sl >= (new_sl - (pip_size * 0.1)):
+                            self.be_triggered_positions.add(pos_key)
+                            continue
+
                         if max(current_price, recent_high) >= (entry_price + be_trigger_dist):
-                            new_sl = round(entry_price + be_offset, 5)
-                            # Only update if current SL is below the desired BE SL
-                            if current_sl < (new_sl - (pip_size * 0.1)):
-                                print(f"{Fore.GREEN}[LiveWorker BE]{Style.RESET_ALL} Modifying BUY position {pos_id} to BE ({new_sl:.5f}) on {target_acc_id} ({symbol}). Entry: {entry_price:.5f}, High: {recent_high:.5f}", flush=True)
-                                mod_res = BrokerHandler.modify_position(
-                                    target_broker,
-                                    target_acc_id,
-                                    position_id=pos_id,
-                                    stop_loss=new_sl,
-                                    take_profit=current_tp,
-                                    symbol=broker_symbol
+                            print(f"{Fore.GREEN}[LiveWorker BE]{Style.RESET_ALL} Modifying BUY position {pos_id} to BE ({new_sl:.5f}) on {target_acc_id} ({symbol}). Entry: {entry_price:.5f}, High: {recent_high:.5f}", flush=True)
+                            mod_res = BrokerHandler.modify_position(
+                                target_broker,
+                                target_acc_id,
+                                position_id=pos_id,
+                                stop_loss=new_sl,
+                                take_profit=current_tp,
+                                symbol=broker_symbol
+                            )
+                            # Always mark as triggered to prevent hammering the broker and spamming notifications
+                            self.be_triggered_positions.add(pos_key)
+                            if mod_res and (mod_res.get("status") != "error" or mod_res.get("status") == "success"):
+                                msg = (
+                                    f"🛡️ **Break-Even Triggered!**\n"
+                                    f"🎛️ **Strategy ID:** `{strategy_id}`\n"
+                                    f"🏦 **Account:** `{target_acc_id}` ({target_broker})\n"
+                                    f"📊 **Symbol:** `{symbol}` | ➡️ **BUY Ticket:** `{pos_id}`\n"
+                                    f"💵 **Entry:** `{entry_price:.5f}` | 📈 **High:** `{recent_high:.5f}`\n"
+                                    f"🔒 **New SL:** `{new_sl:.5f}` (BE Set)"
                                 )
-                                if mod_res and (mod_res.get("status") != "error" or mod_res.get("status") == "success"):
-                                    msg = (
-                                        f"🛡️ **Break-Even Triggered!**\n"
-                                        f"🎛️ **Strategy ID:** `{strategy_id}`\n"
-                                        f"🏦 **Account:** `{target_acc_id}` ({target_broker})\n"
-                                        f"📊 **Symbol:** `{symbol}` | ➡️ **BUY Ticket:** `{pos_id}`\n"
-                                        f"💵 **Entry:** `{entry_price:.5f}` | 📈 **High:** `{recent_high:.5f}`\n"
-                                        f"🔒 **New SL:** `{new_sl:.5f}` (BE Set)"
-                                    )
-                                    from discord_handler import send_discord_message
-                                    from notification_handler import NotificationHandler
-                                    NotificationHandler.send_notification(msg, sound_type="break_even")
-                                    send_discord_message(msg)
+                                from discord_handler import send_discord_message
+                                from notification_handler import NotificationHandler
+                                NotificationHandler.send_notification(msg, sound_type="break_even")
+                                send_discord_message(msg)
 
                     elif trade_side in ("SELL", "POSITION_TYPE_SELL", "1"):
+                        new_sl = round(entry_price - be_offset, 5)
+                        # Check if position already has SL set at or below BE
+                        if current_sl > 0.0 and current_sl <= (new_sl + (pip_size * 0.1)):
+                            self.be_triggered_positions.add(pos_key)
+                            continue
+
                         if min(current_price, recent_low) <= (entry_price - be_trigger_dist):
-                            new_sl = round(entry_price - be_offset, 5)
-                            # Only update if current SL is unset (0.0) or above the desired BE SL
-                            if current_sl == 0.0 or current_sl > (new_sl + (pip_size * 0.1)):
-                                print(f"{Fore.GREEN}[LiveWorker BE]{Style.RESET_ALL} Modifying SELL position {pos_id} to BE ({new_sl:.5f}) on {target_acc_id} ({symbol}). Entry: {entry_price:.5f}, Low: {recent_low:.5f}", flush=True)
-                                mod_res = BrokerHandler.modify_position(
-                                    target_broker,
-                                    target_acc_id,
-                                    position_id=pos_id,
-                                    stop_loss=new_sl,
-                                    take_profit=current_tp,
-                                    symbol=broker_symbol
+                            print(f"{Fore.GREEN}[LiveWorker BE]{Style.RESET_ALL} Modifying SELL position {pos_id} to BE ({new_sl:.5f}) on {target_acc_id} ({symbol}). Entry: {entry_price:.5f}, Low: {recent_low:.5f}", flush=True)
+                            mod_res = BrokerHandler.modify_position(
+                                target_broker,
+                                target_acc_id,
+                                position_id=pos_id,
+                                stop_loss=new_sl,
+                                take_profit=current_tp,
+                                symbol=broker_symbol
+                            )
+                            # Always mark as triggered to prevent hammering the broker and spamming notifications
+                            self.be_triggered_positions.add(pos_key)
+                            if mod_res and (mod_res.get("status") != "error" or mod_res.get("status") == "success"):
+                                msg = (
+                                    f"🛡️ **Break-Even Triggered!**\n"
+                                    f"🎛️ **Strategy ID:** `{strategy_id}`\n"
+                                    f"🏦 **Account:** `{target_acc_id}` ({target_broker})\n"
+                                    f"📊 **Symbol:** `{symbol}` | ➡️ **SELL Ticket:** `{pos_id}`\n"
+                                    f"💵 **Entry:** `{entry_price:.5f}` | 📉 **Low:** `{recent_low:.5f}`\n"
+                                    f"🔒 **New SL:** `{new_sl:.5f}` (BE Set)"
                                 )
-                                if mod_res and (mod_res.get("status") != "error" or mod_res.get("status") == "success"):
-                                    msg = (
-                                        f"🛡️ **Break-Even Triggered!**\n"
-                                        f"🎛️ **Strategy ID:** `{strategy_id}`\n"
-                                        f"🏦 **Account:** `{target_acc_id}` ({target_broker})\n"
-                                        f"📊 **Symbol:** `{symbol}` | ➡️ **SELL Ticket:** `{pos_id}`\n"
-                                        f"💵 **Entry:** `{entry_price:.5f}` | 📉 **Low:** `{recent_low:.5f}`\n"
-                                        f"🔒 **New SL:** `{new_sl:.5f}` (BE Set)"
-                                    )
-                                    from discord_handler import send_discord_message
-                                    from notification_handler import NotificationHandler
-                                    NotificationHandler.send_notification(msg, sound_type="break_even")
-                                    send_discord_message(msg)
+                                from discord_handler import send_discord_message
+                                from notification_handler import NotificationHandler
+                                NotificationHandler.send_notification(msg, sound_type="break_even")
+                                send_discord_message(msg)
 
             except Exception as be_err:
                 print(f"{Fore.RED}[LiveWorker BE Error]{Style.RESET_ALL} Error checking Break-Even on target {target}: {be_err}", flush=True)
