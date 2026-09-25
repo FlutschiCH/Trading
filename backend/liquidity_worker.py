@@ -25,6 +25,60 @@ def set_console_quick_edit(enabled: bool):
         except Exception:
             pass
 
+def pause_and_exit(exit_code: int = 0, message: str = "Window will close automatically in 60 seconds (or press Enter)...", timeout: int = 60):
+    """
+    Ensures the console stays open after shutdown or errors so the user can inspect output,
+    with a countdown delay matching backtest_worker.py and QuickEdit enabled for easy copying.
+    """
+    set_console_quick_edit(True)
+    prefix_color = Fore.GREEN if exit_code == 0 else Fore.YELLOW
+    print(f"\n{prefix_color}[LiquidityWorker]{Style.RESET_ALL} {message}", flush=True)
+    try:
+        if sys.platform == "win32":
+            import msvcrt
+            start_wait = time.time()
+            while time.time() - start_wait < timeout:
+                if msvcrt.kbhit():
+                    ch = msvcrt.getch()
+                    if ch in (b'\r', b'\n'):
+                        break
+                time.sleep(0.5)
+        else:
+            time.sleep(timeout)
+    except Exception:
+        time.sleep(timeout)
+    sys.exit(exit_code)
+
+
+def is_process_running(pid: int) -> bool:
+    """
+    Checks if a process with the given PID is currently active.
+    """
+    if not pid or pid <= 0:
+        return False
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+            SYNCHRONIZE = 0x00100000
+            kernel32 = ctypes.windll.kernel32
+            handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, False, int(pid))
+            if not handle:
+                return False
+            exit_code = ctypes.c_ulong()
+            kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code))
+            kernel32.CloseHandle(handle)
+            return exit_code.value == 259  # STILL_ACTIVE
+        except Exception:
+            return False
+    else:
+        try:
+            os.kill(int(pid), 0)
+            return True
+        except (OSError, ProcessLookupError):
+            return False
+
+
 # Ensure backend root directory is in sys.path
 backend_dir = os.path.dirname(os.path.abspath(__file__))
 if backend_dir not in sys.path:
@@ -63,30 +117,80 @@ class LiquidityWorker:
         os.makedirs(lock_dir, exist_ok=True)
         lock_path = os.path.join(lock_dir, f"liquidity_worker_{self.strategy_id}.lock")
 
+        # 1. Read existing PID if present and check if it's currently running
+        if os.path.exists(lock_path):
+            existing_pid = None
+            try:
+                with open(lock_path, "r") as existing_f:
+                    raw_pid = existing_f.read().strip()
+                    if raw_pid and raw_pid.isdigit():
+                        existing_pid = int(raw_pid)
+            except Exception:
+                pass
+
+            if existing_pid and existing_pid != os.getpid():
+                if is_process_running(existing_pid):
+                    print(f"{Fore.YELLOW}[LiquidityWorker Duplicate Check]{Style.RESET_ALL} Worker for Strategy {self.strategy_id} is already actively running in PID {existing_pid}.", flush=True)
+                    pause_and_exit(0, "Duplicate worker detected. Window will close automatically in 60 seconds (or press Enter)...", timeout=60)
+                else:
+                    try:
+                        os.remove(lock_path)
+                    except Exception:
+                        pass
+
+        # 2. Acquire file-descriptor level lock
         try:
-            self.lock_file = open(lock_path, "w+")
+            self.lock_file = open(lock_path, "a+")
+            self.lock_file.seek(0)
             if sys.platform == "win32":
                 import msvcrt
                 try:
                     msvcrt.locking(self.lock_file.fileno(), msvcrt.LK_NBLCK, 1)
                 except (IOError, OSError):
-                    print(f"{Fore.YELLOW}[LiquidityWorker Lock]{Style.RESET_ALL} Worker for Strategy {self.strategy_id} is already running in another process. Exiting...", flush=True)
-                    self.lock_file.close()
-                    sys.exit(0)
+                    existing_pid = None
+                    try:
+                        self.lock_file.seek(0)
+                        pid_txt = self.lock_file.read().strip()
+                        if pid_txt.isdigit():
+                            existing_pid = int(pid_txt)
+                    except Exception:
+                        pass
+
+                    if existing_pid and is_process_running(existing_pid):
+                        print(f"{Fore.YELLOW}[LiquidityWorker Duplicate Check]{Style.RESET_ALL} Worker for Strategy {self.strategy_id} is actively running in PID {existing_pid}.", flush=True)
+                        self.lock_file.close()
+                        pause_and_exit(0, "Duplicate worker detected. Window will close automatically in 60 seconds (or press Enter)...", timeout=60)
+                    elif existing_pid and not is_process_running(existing_pid):
+                        print(f"{Fore.YELLOW}[LiquidityWorker Lock Notice]{Style.RESET_ALL} Previous PID {existing_pid} is no longer running. Recovering lock for Strategy {self.strategy_id}...", flush=True)
+                        self.lock_file.close()
+                        try:
+                            os.remove(lock_path)
+                        except Exception:
+                            pass
+                        self.lock_file = open(lock_path, "w+")
+                        try:
+                            msvcrt.locking(self.lock_file.fileno(), msvcrt.LK_NBLCK, 1)
+                        except Exception:
+                            pass
+                    else:
+                        print(f"{Fore.YELLOW}[LiquidityWorker Duplicate Check]{Style.RESET_ALL} Worker for Strategy {self.strategy_id} is locked by another process.", flush=True)
+                        self.lock_file.close()
+                        pause_and_exit(0, "Duplicate worker detected. Window will close automatically in 60 seconds (or press Enter)...", timeout=60)
             else:
                 import fcntl
                 try:
                     fcntl.flock(self.lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
                 except (IOError, OSError):
-                    print(f"{Fore.YELLOW}[LiquidityWorker Lock]{Style.RESET_ALL} Worker for Strategy {self.strategy_id} is already running in another process. Exiting...", flush=True)
+                    print(f"{Fore.YELLOW}[LiquidityWorker Duplicate Check]{Style.RESET_ALL} Worker for Strategy {self.strategy_id} is already running in another process.", flush=True)
                     self.lock_file.close()
-                    sys.exit(0)
+                    pause_and_exit(0, "Duplicate worker detected. Window will close automatically in 60 seconds (or press Enter)...", timeout=60)
 
             self.lock_file.seek(0)
             self.lock_file.truncate()
             self.lock_file.write(str(os.getpid()))
             self.lock_file.flush()
         except Exception as ex:
+            set_console_quick_edit(True)
             print(f"{Fore.RED}[LiquidityWorker Lock Error]{Style.RESET_ALL} Failed to acquire lock: {ex}", flush=True)
 
     def _release_instance_lock(self):
@@ -344,13 +448,10 @@ if __name__ == '__main__':
     try:
         worker = LiquidityWorker(strategy_id=args.strategy_id)
         worker.run()
+        pause_and_exit(0, "Worker execution finished. Window will close automatically in 60 seconds (or press Enter)...", timeout=60)
     except Exception as e:
         set_console_quick_edit(True)
         print(f"\n{Fore.RED}[LiquidityWorker Fatal Error]{Style.RESET_ALL} Unhandled exception in liquidity worker: {e}", flush=True)
         import traceback
         traceback.print_exc()
-        print(f"\n{Fore.YELLOW}[LiquidityWorker]{Style.RESET_ALL} Window kept open for debugging. Press Enter to exit...", flush=True)
-        try:
-            input()
-        except Exception:
-            pass
+        pause_and_exit(1, "QuickEdit enabled. Window will close automatically in 60 seconds (or press Enter)...", timeout=60)
