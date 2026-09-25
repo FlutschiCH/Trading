@@ -42,6 +42,32 @@ def set_console_quick_edit(enabled: bool):
         except Exception:
             pass
 
+
+def pause_and_exit(exit_code: int = 0, message: str = "Window will close automatically in 60 seconds (or press Enter)...", timeout: int = 60):
+    """
+    Ensures the console stays open after shutdown or errors so the user can inspect output,
+    with a countdown delay matching backtest_worker.py and QuickEdit enabled for easy copying.
+    """
+    set_console_quick_edit(True)
+    prefix_color = Fore.GREEN if exit_code == 0 else Fore.YELLOW
+    print(f"\n{prefix_color}[CopytraderWorker]{Style.RESET_ALL} {message}", flush=True)
+    try:
+        if sys.platform == "win32":
+            import msvcrt
+            start_wait = time.time()
+            while time.time() - start_wait < timeout:
+                if msvcrt.kbhit():
+                    ch = msvcrt.getch()
+                    if ch in (b'\r', b'\n'):
+                        break
+                time.sleep(0.5)
+        else:
+            time.sleep(timeout)
+    except Exception:
+        time.sleep(timeout)
+    sys.exit(exit_code)
+
+
 # Ensure backend root directory is in sys.path
 backend_dir = os.path.dirname(os.path.abspath(__file__))
 if backend_dir not in sys.path:
@@ -78,17 +104,17 @@ class CopytraderWorker:
                 try:
                     msvcrt.locking(self.lock_file.fileno(), msvcrt.LK_NBLCK, 1)
                 except (IOError, OSError):
-                    print(f"{Fore.YELLOW}[CopytraderWorker Duplicate Check]{Style.RESET_ALL} Worker for config '{self.config_id}' is already running in another process. Exiting...", flush=True)
+                    print(f"{Fore.YELLOW}[CopytraderWorker Duplicate Check]{Style.RESET_ALL} Worker for config '{self.config_id}' is already running in another process.", flush=True)
                     self.lock_file.close()
-                    sys.exit(0)
+                    pause_and_exit(0, "Duplicate worker detected. Window will close automatically in 60 seconds (or press Enter)...", timeout=60)
             else:
                 import fcntl
                 try:
                     fcntl.flock(self.lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
                 except (IOError, OSError):
-                    print(f"{Fore.YELLOW}[CopytraderWorker Duplicate Check]{Style.RESET_ALL} Worker for config '{self.config_id}' is already running in another process. Exiting...", flush=True)
+                    print(f"{Fore.YELLOW}[CopytraderWorker Duplicate Check]{Style.RESET_ALL} Worker for config '{self.config_id}' is already running in another process.", flush=True)
                     self.lock_file.close()
-                    sys.exit(0)
+                    pause_and_exit(0, "Duplicate worker detected. Window will close automatically in 60 seconds (or press Enter)...", timeout=60)
 
             # Record current PID inside the lock file
             self.lock_file.seek(0)
@@ -225,7 +251,7 @@ class CopytraderWorker:
             set_console_quick_edit(True)
             print(f"{Fore.RED}[CopytraderWorker Error]{Style.RESET_ALL} Configuration '{self.config_id}' not found in database.", flush=True)
             self._release_instance_lock()
-            return
+            pause_and_exit(1, "Configuration not found. Window will close automatically in 60 seconds (or press Enter)...", timeout=60)
 
         # Pre-connect master and slave broker instances
         master_acc = cfg.get("master_account")
@@ -270,17 +296,6 @@ class CopytraderWorker:
         self._release_instance_lock()
 
 
-def pause_and_exit(exit_code: int = 0, message: str = "Press Enter to close this window..."):
-    """
-    Ensures the console stays open after shutdown or errors so the user can inspect output.
-    """
-    set_console_quick_edit(True)
-    print(f"\n{Fore.YELLOW}[CopytraderWorker]{Style.RESET_ALL} {message}", flush=True)
-    try:
-        input()
-    except Exception:
-        pass
-    sys.exit(exit_code)
 
 
 if __name__ == '__main__':
@@ -296,7 +311,7 @@ if __name__ == '__main__':
     try:
         worker = CopytraderWorker(config_id=args.config_id, sync_interval=args.interval)
         worker.run()
-        pause_and_exit(0, "Worker stopped. Press Enter to close this window...")
+        pause_and_exit(0, "Worker stopped. Window will close automatically in 60 seconds (or press Enter)...", timeout=60)
     except Exception as e:
         # Re-enable QuickEdit upon fatal error so user can inspect and select text
         set_console_quick_edit(True)
@@ -306,4 +321,4 @@ if __name__ == '__main__':
         print(f"\n{Fore.RED}[CopytraderWorker Fatal Error]{Style.RESET_ALL} Unhandled exception in copytrader worker for config {args.config_id}: {e}", flush=True)
         import traceback
         traceback.print_exc()
-        pause_and_exit(1, "QuickEdit enabled. Press Enter to close this window...")
+        pause_and_exit(1, "QuickEdit enabled. Window will close automatically in 60 seconds (or press Enter)...", timeout=60)
