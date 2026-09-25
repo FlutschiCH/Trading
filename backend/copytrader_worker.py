@@ -97,6 +97,7 @@ class CopytraderWorker:
             self.lock_file.flush()
 
         except Exception as ex:
+            set_console_quick_edit(True)
             print(f"{Fore.RED}[CopytraderWorker Lock Error]{Style.RESET_ALL} Failed to check/acquire lock for config {self.config_id}: {ex}", flush=True)
 
     def _release_instance_lock(self):
@@ -216,10 +217,12 @@ class CopytraderWorker:
             SymbolMappingHandler._ensure_cache_loaded()
             CopytraderHandler._ensure_cache_loaded()
         except Exception as init_err:
+            set_console_quick_edit(True)
             print(f"{Fore.RED}[CopytraderWorker Init Error]{Style.RESET_ALL} Failed to load caches: {init_err}", flush=True)
 
         cfg = CopytraderHandler.get_config(self.config_id)
         if not cfg:
+            set_console_quick_edit(True)
             print(f"{Fore.RED}[CopytraderWorker Error]{Style.RESET_ALL} Configuration '{self.config_id}' not found in database.", flush=True)
             self._release_instance_lock()
             return
@@ -251,6 +254,7 @@ class CopytraderWorker:
 
                 CopytraderHandler.sync_config(current_cfg)
             except Exception as loop_err:
+                set_console_quick_edit(True)
                 print(f"{Fore.RED}[CopytraderWorker Loop Exception]{Style.RESET_ALL} {loop_err}", flush=True)
 
             # Use 4.0s interval if Binance is involved, otherwise standard sync_interval
