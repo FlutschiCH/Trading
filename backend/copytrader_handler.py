@@ -896,6 +896,25 @@ class CopytraderHandler:
                                 comment=""
                             )
                             print(f"   -> Order Execution Result on {slave_acc}: {res}", flush=True)
+                            is_success = False
+                            slave_ticket = None
+                            if isinstance(res, dict) and "error" not in res and res.get("code") != -2019:
+                                if "main_order" in res and isinstance(res["main_order"], dict):
+                                    slave_ticket = str(res["main_order"].get("orderId") or res["main_order"].get("clientOrderId") or "")
+                                    if slave_ticket:
+                                        is_success = True
+                                elif res.get("orderId") or res.get("ticket") or res.get("position_id") or res.get("positionId"):
+                                    slave_ticket = str(res.get("orderId") or res.get("ticket") or res.get("position_id") or res.get("positionId"))
+                                    is_success = True
+                                elif res.get("status") == "success":
+                                    slave_ticket = str(res.get("ticket") or res.get("position_id") or f"slv_{int(time.time())}")
+                                    is_success = True
+
+                            if is_success and slave_ticket:
+                                m_ticket = str(m_pos.get("ticket") or m_pos.get("position_id") or m_pos.get("id") or f"mst_{int(time.time())}")
+                                logPrint(f"[Copytrader] ✅ Trade copied to slave {slave_acc}: Master #{m_ticket} -> Slave #{slave_ticket} ({m_side} {slave_lots} {m_sym})")
+                                cls._record_mapping(cfg_id, m_ticket, slave_acc, slave_ticket, m_sym, m_side, slave_lots)
+
                             if isinstance(res, dict) and ("error" in res or res.get("code") == -2019):
                                 err_text = str(res.get("error") or res.get("msg") or res.get("message") or "")
                                 logPrint(f"[Copytrader Error] Failed to open {m_sym} on {slave_acc}: {err_text}")
@@ -973,6 +992,15 @@ class CopytraderHandler:
                         print(f"[Copytrader Sync] Master has no open {s_side} {s_sym} -> Closing slave position #{s_ticket} on {slave_acc} ({slave_broker})", flush=True)
                         logPrint(f"[Copytrader] Master position closed. Closing slave position #{s_ticket} ({s_side} {s_vol} {s_sym}) on {slave_acc}")
                         cls._close_position(slave_broker, slave_acc, s_ticket, symbol=s_sym, lots=s_vol)
+
+                        # Find matching mapping in database and mark closed
+                        try:
+                            find_q = "UPDATE copytrader_mappings SET status = 'closed' WHERE config_id = %s AND slave_account = %s AND (slave_ticket = %s OR symbol = %s)"
+                            res_u = SQLHandler.execute_query(find_q, (cfg_id, slave_acc, str(s_ticket), s_sym))
+                            if res_u is None:
+                                SQLHandler.execute_query("UPDATE copytrader_mappings SET status = 'closed' WHERE config_id = ? AND slave_account = ? AND (slave_ticket = ? OR symbol = ?)", (cfg_id, slave_acc, str(s_ticket), s_sym))
+                        except Exception as map_close_err:
+                            print(f"[Copytrader] Error updating closed mapping in DB: {map_close_err}", flush=True)
         except Exception as e:
             logPrint(f"[Copytrader Sync Exception]: {e}")
 
