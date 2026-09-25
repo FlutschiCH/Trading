@@ -32,6 +32,80 @@ disable_quick_edit()
 from colorama import init, Fore, Style
 init(autoreset=True)
 
+def cleanup_stale_worker_locks():
+    """
+    Cleans up stale lock files in .worker_locks on fresh backend startup.
+    If a lock references a dead PID, it is deleted immediately.
+    If a process is still active from an old session, it terminates it and removes the lock.
+    """
+    lock_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".worker_locks")
+    if not os.path.exists(lock_dir):
+        return
+
+    print(f"{Fore.CYAN}[INIT]{Style.RESET_ALL} Checking and freeing worker lock files in {lock_dir}...", flush=True)
+    current_pid = os.getpid()
+
+    def is_pid_alive(pid: int) -> bool:
+        if pid <= 0 or pid == current_pid:
+            return False
+        if sys.platform == "win32":
+            try:
+                import ctypes
+                PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+                SYNCHRONIZE = 0x00100000
+                kernel32 = ctypes.windll.kernel32
+                handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, False, int(pid))
+                if not handle:
+                    return False
+                exit_code = ctypes.c_ulong()
+                kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code))
+                kernel32.CloseHandle(handle)
+                return exit_code.value == 259  # STILL_ACTIVE
+            except Exception:
+                return False
+        else:
+            try:
+                os.kill(int(pid), 0)
+                return True
+            except (OSError, ProcessLookupError):
+                return False
+
+    cleaned = 0
+    for fname in os.listdir(lock_dir):
+        if fname.endswith(".lock"):
+            fpath = os.path.join(lock_dir, fname)
+            try:
+                pid = None
+                with open(fpath, "r") as f:
+                    content = f.read().strip()
+                    if content.isdigit():
+                        pid = int(content)
+
+                if pid and is_pid_alive(pid):
+                    # Terminate leftover worker process from previous session
+                    try:
+                        if sys.platform == "win32":
+                            os.system(f"taskkill /F /PID {pid} >nul 2>&1")
+                        else:
+                            os.kill(pid, 9)
+                        print(f"  {Fore.YELLOW}•{Style.RESET_ALL} Terminated leftover worker PID {pid} ({fname})", flush=True)
+                    except Exception:
+                        pass
+
+                # Remove the lock file
+                try:
+                    os.remove(fpath)
+                    cleaned += 1
+                except Exception:
+                    pass
+            except Exception:
+                pass
+
+    if cleaned > 0:
+        print(f"  {Fore.GREEN}✓{Style.RESET_ALL} Cleaned {cleaned} stale worker lock(s)", flush=True)
+
+cleanup_stale_worker_locks()
+
 print(f"{Fore.CYAN}[INIT]{Style.RESET_ALL} Loading SQL Handler...")
 from sql_handler import SQLHandler
 import threading
