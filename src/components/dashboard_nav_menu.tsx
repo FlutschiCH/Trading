@@ -13,17 +13,23 @@ import {
   Cpu,
   Terminal as TerminalIcon,
   Database,
-  Menu
+  Menu,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 
 export interface DashboardNavMenuProps {
   showTerminal?: boolean;
   onNavigate?: (cardId: string) => void;
+  isCardsMaxWidth?: boolean;
+  onToggleCardsMaxWidth?: () => void;
 }
 
 export const DashboardNavMenu: React.FC<DashboardNavMenuProps> = ({
   showTerminal = false,
-  onNavigate
+  onNavigate,
+  isCardsMaxWidth = false,
+  onToggleCardsMaxWidth
 }) => {
   const [isExpanded, setIsExpanded] = useState<boolean>(() => {
     return localStorage.getItem('wyckoff_side_menu_expanded') === 'true';
@@ -175,6 +181,29 @@ export const DashboardNavMenu: React.FC<DashboardNavMenuProps> = ({
             <ChevronRight size={14} style={{ transform: 'rotate(180deg)' }} />
           ) : null}
         </button>
+
+        {onToggleCardsMaxWidth && (
+          <button
+            type="button"
+            onClick={onToggleCardsMaxWidth}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: isCardsMaxWidth ? 'rgba(59, 130, 246, 0.35)' : 'rgba(255, 255, 255, 0.05)',
+              border: `1px solid ${isCardsMaxWidth ? 'rgba(59, 130, 246, 0.6)' : 'rgba(255, 255, 255, 0.15)'}`,
+              color: isCardsMaxWidth ? '#60a5fa' : '#9ca3af',
+              borderRadius: '8px',
+              padding: '6px',
+              cursor: 'pointer',
+              outline: 'none',
+              transition: 'all 0.15s ease',
+            }}
+            title={isCardsMaxWidth ? 'Cards: Full Width (Scroll Mode) - Click to restore grid' : 'Cards: Standard Grid - Click for 100% full width stack'}
+          >
+            {isCardsMaxWidth ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+          </button>
+        )}
 
         {isExpanded && (
           <button

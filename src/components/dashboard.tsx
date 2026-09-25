@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Activity, X, TrendingUp, TrendingDown, Clock, HelpCircle, RefreshCw, Menu, ChevronDown, Sun, Moon, Settings, ShieldAlert, Compass, ChevronRight, Layers, BarChart2, Sliders, LineChart, Cpu, Link, Bot, Terminal as TerminalIcon, Database, Zap } from 'lucide-react';
+import { Activity, X, TrendingUp, TrendingDown, Clock, HelpCircle, RefreshCw, Menu, ChevronDown, Sun, Moon, Settings, ShieldAlert, Compass, ChevronRight, Layers, BarChart2, Sliders, LineChart, Cpu, Link, Bot, Terminal as TerminalIcon, Database, Zap, Maximize2, Minimize2 } from 'lucide-react';
 import TVChart from './tv_chart';
 import Backtester from './backtest';
 import HowToPage from './how_to_page';
@@ -1099,6 +1099,22 @@ export default function Dashboard() {
     return localStorage.getItem('wyckoff_card_side_menu_expanded') === 'true';
   });
 
+  const [isCardsMaxWidth, setIsCardsMaxWidth] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('wyckoff_cards_max_width') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleCardsMaxWidth = () => {
+    setIsCardsMaxWidth(prev => {
+      const next = !prev;
+      localStorage.setItem('wyckoff_cards_max_width', String(next));
+      return next;
+    });
+  };
+
   const toggleSideMenu = () => {
     setIsSideMenuExpanded(prev => {
       const next = !prev;
@@ -1194,33 +1210,35 @@ export default function Dashboard() {
 
   const renderResizeHandle = (id: string) => (
     <>
-      {/* Right border width resize handle */}
-      <div
-        onMouseDown={(e) => {
-          const rect = e.currentTarget.parentElement?.getBoundingClientRect();
-          const currentWidth = rect ? rect.width : 400;
-          handleResizeMouseDown(e, id, 'horizontal', currentWidth);
-        }}
-        style={{
-          position: 'absolute',
-          top: 0,
-          right: 0,
-          width: '6px',
-          height: '100%',
-          cursor: 'col-resize',
-          backgroundColor: activeResize?.id === id && activeResize?.direction === 'horizontal' ? '#3b82f6' : 'transparent',
-          transition: 'background-color 0.2s',
-          zIndex: 100,
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.4)';
-        }}
-        onMouseLeave={(e) => {
-          if (!(activeResize?.id === id && activeResize?.direction === 'horizontal')) {
-            e.currentTarget.style.backgroundColor = 'transparent';
-          }
-        }}
-      />
+      {/* Right border width resize handle (only active in multi-column grid mode) */}
+      {!isCardsMaxWidth && (
+        <div
+          onMouseDown={(e) => {
+            const rect = e.currentTarget.parentElement?.getBoundingClientRect();
+            const currentWidth = rect ? rect.width : 400;
+            handleResizeMouseDown(e, id, 'horizontal', currentWidth);
+          }}
+          style={{
+            position: 'absolute',
+            top: 0,
+            right: 0,
+            width: '6px',
+            height: '100%',
+            cursor: 'col-resize',
+            backgroundColor: activeResize?.id === id && activeResize?.direction === 'horizontal' ? '#3b82f6' : 'transparent',
+            transition: 'background-color 0.2s',
+            zIndex: 100,
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.4)';
+          }}
+          onMouseLeave={(e) => {
+            if (!(activeResize?.id === id && activeResize?.direction === 'horizontal')) {
+              e.currentTarget.style.backgroundColor = 'transparent';
+            }
+          }}
+        />
+      )}
       {/* Bottom border height resize handle */}
       <div
         onMouseDown={(e) => {
@@ -2813,7 +2831,45 @@ export default function Dashboard() {
           <main style={styles.mainLayout}>
             {/* Quick Card Navigator Side Dock (Desktop / Tablet) */}
             {!isMobile && (
-              <DashboardNavMenu showTerminal={showTerminal} />
+              <DashboardNavMenu
+                showTerminal={showTerminal}
+                isCardsMaxWidth={isCardsMaxWidth}
+                onToggleCardsMaxWidth={toggleCardsMaxWidth}
+              />
+            )}
+
+            {!isMobile && (
+              <div style={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                alignItems: 'center',
+                marginBottom: '16px',
+                width: '100%',
+              }}>
+                <button
+                  type="button"
+                  onClick={toggleCardsMaxWidth}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '6px 14px',
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    backgroundColor: isCardsMaxWidth ? 'rgba(59, 130, 246, 0.2)' : 'var(--app-card-bg)',
+                    border: `1px solid ${isCardsMaxWidth ? '#3b82f6' : 'var(--app-card-border)'}`,
+                    color: isCardsMaxWidth ? '#60a5fa' : 'var(--app-text-muted, #9ca3af)',
+                    boxShadow: isCardsMaxWidth ? '0 0 12px rgba(59, 130, 246, 0.2)' : 'none',
+                  }}
+                  title={isCardsMaxWidth ? 'Click to switch back to customizable multi-column grid' : 'Click to expand all cards to full width for vertical scrolling'}
+                >
+                  {isCardsMaxWidth ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+                  <span>{isCardsMaxWidth ? 'Cards Layout: 100% Full Width' : 'Cards Layout: Standard Grid'}</span>
+                </button>
+              </div>
             )}
 
 
@@ -3251,7 +3307,8 @@ export default function Dashboard() {
             ) : (
               <div style={{
                 display: 'flex',
-                flexWrap: 'wrap',
+                flexDirection: isCardsMaxWidth ? 'column' : 'row',
+                flexWrap: isCardsMaxWidth ? 'nowrap' : 'wrap',
                 gap: '24px',
                 width: '100%',
               }}>
@@ -3259,19 +3316,21 @@ export default function Dashboard() {
                   const isDragOver = dragOverId === panelId;
                   const isCollapsed = !!collapsedCards[panelId];
                   const defaultWidth = panelId === 'chart' ? 'calc(50% - 16px)' : 'calc(25% - 16px)';
+                  const cardWidth = isCardsMaxWidth ? '100%' : (cardWidths[panelId] ? `${cardWidths[panelId]}px` : defaultWidth);
                   const dragStyles = {
-                    width: cardWidths[panelId] ? `${cardWidths[panelId]}px` : defaultWidth,
+                    width: cardWidth,
+                    maxWidth: '100%',
                     height: isCollapsed ? 'auto' : (cardHeights[panelId] ? `${cardHeights[panelId]}px` : undefined),
                     maxHeight: isCollapsed ? 'none' : (panelId === 'chart' || panelId === 'backtester' ? 'none' : '1200px'),
                     display: 'flex',
                     flexDirection: 'column' as const,
-                    flexGrow: cardWidths[panelId] ? 0 : 1,
-                    flexShrink: 1,
-                    minWidth: '280px',
+                    flexGrow: isCardsMaxWidth ? 1 : (cardWidths[panelId] ? 0 : 1),
+                    flexShrink: isCardsMaxWidth ? 0 : 1,
+                    minWidth: isCardsMaxWidth ? '100%' : '280px',
                     border: isDragOver ? '2px dashed #3b82f6' : '1px solid var(--app-card-border)',
                     borderRadius: '12px',
                     backgroundColor: 'var(--app-card-bg)',
-                    transition: activeResize ? 'none' : 'border 0.2s, opacity 0.2s, height 0.2s',
+                    transition: activeResize ? 'none' : 'border 0.2s, opacity 0.2s, height 0.2s, width 0.2s',
                     opacity: isDragOver ? 0.75 : 1,
                     position: 'relative' as const,
                     overflow: 'hidden',
