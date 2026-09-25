@@ -241,13 +241,13 @@ class CopytraderWorker:
             except Exception as loop_err:
                 print(f"{Fore.RED}[CopytraderWorker Loop Exception]{Style.RESET_ALL} {loop_err}", flush=True)
 
-            # Use 2.0s interval if Binance is involved, otherwise standard sync_interval
+            # Use 4.0s interval if Binance is involved, otherwise standard sync_interval
             interval = self.sync_interval
             has_binance = "binance" in str(current_cfg.get("master_broker", "")).lower() or any(
                 "binance" in str(s.get("broker", "")).lower() for s in (current_cfg.get("slaves") or [])
             )
-            if has_binance and interval < 2.0:
-                interval = 2.0
+            if has_binance and interval < 4.0:
+                interval = 4.0
 
             time.sleep(interval)
 
