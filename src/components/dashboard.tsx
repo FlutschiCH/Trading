@@ -1555,12 +1555,18 @@ export default function Dashboard() {
     setIsLiveFeed(false);
     setIsOptimizeMode(false);
     localStorage.setItem('wyckoff_optimize_mode', 'false');
+    localStorage.setItem('wyckoff_backtester_global_range_mode', 'false');
     if (payload.symbol) setSymbol(payload.symbol);
     if (payload.timeframe) setTimeframe(payload.timeframe);
     if (payload.settings && Object.keys(payload.settings).length > 0) {
-      applyBacktestSettingsObject(payload.settings);
+      applyBacktestSettingsObject({
+        ...payload.settings,
+        globalRangeMode: false,
+        isOptimizeMode: false
+      });
       setIsOptimizeMode(false);
       localStorage.setItem('wyckoff_optimize_mode', 'false');
+      localStorage.setItem('wyckoff_backtester_global_range_mode', 'false');
     }
     const resultsObj = {
       trades: payload.trades || [],

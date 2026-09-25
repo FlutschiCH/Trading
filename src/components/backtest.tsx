@@ -1408,19 +1408,12 @@ export default function Backtester({
 
         // 5. Optimization & Range Parameters (Always swap to single backtesting mode on saved run load)
         setIsOptimizeMode(false);
+        setGlobalRangeMode(false);
         replacements.isOptimizeMode = false;
+        replacements.globalRangeMode = false;
         localStorage.setItem('wyckoff_optimize_mode', 'false');
+        localStorage.setItem('wyckoff_backtester_global_range_mode', 'false');
 
-        if (s.globalRangeMode !== undefined) {
-          const val = Boolean(s.globalRangeMode);
-          setGlobalRangeMode(val);
-          replacements.globalRangeMode = val;
-        }
-        if (s.rrRangeMode !== undefined) {
-          const val = Boolean(s.rrRangeMode);
-          setGlobalRangeMode(val);
-          replacements.rrRangeMode = val;
-        }
         if (s.rrStart !== undefined) {
           setRRStart(s.rrStart);
           replacements.rrStart = s.rrStart;
@@ -1434,11 +1427,6 @@ export default function Backtester({
           replacements.rrStep = s.rrStep;
         }
 
-        if (s.slRangeMode !== undefined) {
-          const val = Boolean(s.slRangeMode);
-          setGlobalRangeMode(val);
-          replacements.slRangeMode = val;
-        }
         if (s.slStart !== undefined) {
           const val = String(s.slStart);
           setSLStart(val);
@@ -1455,11 +1443,6 @@ export default function Backtester({
           replacements.slStep = val;
         }
 
-        if (s.beRangeMode !== undefined) {
-          const val = Boolean(s.beRangeMode);
-          setGlobalRangeMode(val);
-          replacements.beRangeMode = val;
-        }
         if (s.beStart !== undefined) {
           const val = String(s.beStart);
           setBEStart(val);
@@ -1494,6 +1477,8 @@ export default function Backtester({
         window.dispatchEvent(new CustomEvent('wyckoff_settings_loaded', {
           detail: {
             ...s,
+            globalRangeMode: false,
+            isOptimizeMode: false,
             tradingSessions: loadedSessions,
             sessionsTimezone: loadedTimezone,
             symbol: loadedSymbol,
