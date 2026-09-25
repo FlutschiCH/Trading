@@ -362,18 +362,24 @@ class CopytraderHandler:
                 except Exception:
                     pass
 
+            env = os.environ.copy()
+            env["PYTHONIOENCODING"] = "utf-8"
+            env["PYTHONUTF8"] = "1"
+
             try:
                 if sys.platform == "win32":
                     CREATE_NEW_CONSOLE = 0x00000010
                     proc = subprocess.Popen(
                         cmd,
                         creationflags=CREATE_NEW_CONSOLE,
-                        cwd=os.path.dirname(os.path.abspath(__file__))
+                        cwd=os.path.dirname(os.path.abspath(__file__)),
+                        env=env
                     )
                 else:
                     proc = subprocess.Popen(
                         cmd,
-                        cwd=os.path.dirname(os.path.abspath(__file__))
+                        cwd=os.path.dirname(os.path.abspath(__file__)),
+                        env=env
                     )
                 cls._workers[config_id] = proc
                 print(f"[Copytrader Engine] Spawned dedicated Copytrader Worker for '{cfg.get('name')}' (ID: {config_id}, PID: {proc.pid})", flush=True)

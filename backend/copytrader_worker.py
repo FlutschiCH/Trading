@@ -5,7 +5,19 @@ import time
 import argparse
 import signal
 import socket
+import io
 from datetime import datetime
+
+# Ensure stdout and stderr handle UTF-8 on Windows without crashing on non-ASCII characters
+if sys.platform == "win32":
+    try:
+        if sys.stdout and hasattr(sys.stdout, 'reconfigure'):
+            sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        if sys.stderr and hasattr(sys.stderr, 'reconfigure'):
+            sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+
 from colorama import init, Fore, Style
 init(autoreset=True)
 
@@ -169,17 +181,17 @@ class CopytraderWorker:
                 pass
 
         print(f"\n{Fore.CYAN}{Style.BRIGHT}{'='*65}", flush=True)
-        print(f"{Fore.CYAN}{Style.BRIGHT}  🚀 COPYTRADER ENGINE WORKER INITIALIZED", flush=True)
+        print(f"{Fore.CYAN}{Style.BRIGHT}  [*] COPYTRADER ENGINE WORKER INITIALIZED", flush=True)
         print(f"{Fore.CYAN}{Style.BRIGHT}{'='*65}{Style.RESET_ALL}", flush=True)
-        print(f"  {Fore.WHITE}• Configuration Name      :{Style.RESET_ALL} {Style.BRIGHT}{cfg_name}{Style.RESET_ALL}", flush=True)
-        print(f"  {Fore.WHITE}• Configuration ID        :{Style.RESET_ALL} {Style.BRIGHT}{self.config_id}{Style.RESET_ALL}", flush=True)
-        print(f"  {Fore.WHITE}• Host Machine            :{Style.RESET_ALL} {self.current_host} (Target: {Fore.MAGENTA}{target_comp}{Style.RESET_ALL})", flush=True)
-        print(f"  {Fore.WHITE}• Worker Process PID      :{Style.RESET_ALL} {os.getpid()}", flush=True)
-        print(f"  {Fore.WHITE}• Sync Polling Interval   :{Style.RESET_ALL} {self.sync_interval}s", flush=True)
-        print(f"  {Fore.WHITE}• QuickEdit Status        :{Style.RESET_ALL} {Fore.GREEN}Disabled (Safe Mode){Style.RESET_ALL}", flush=True)
-        print(f"  {Fore.WHITE}• Master Account          :{Style.RESET_ALL} {Fore.GREEN}{m_acc}{Style.RESET_ALL} [{m_brk}]", flush=True)
-        print(f"  {Fore.WHITE}• Allowed Symbols         :{Style.RESET_ALL} {Fore.YELLOW}{symbols}{Style.RESET_ALL}", flush=True)
-        print(f"  {Fore.WHITE}• Slaves Connected ({len(slaves)})   :{Style.RESET_ALL}", flush=True)
+        print(f"  {Fore.WHITE}* Configuration Name      :{Style.RESET_ALL} {Style.BRIGHT}{cfg_name}{Style.RESET_ALL}", flush=True)
+        print(f"  {Fore.WHITE}* Configuration ID        :{Style.RESET_ALL} {Style.BRIGHT}{self.config_id}{Style.RESET_ALL}", flush=True)
+        print(f"  {Fore.WHITE}* Host Machine            :{Style.RESET_ALL} {self.current_host} (Target: {Fore.MAGENTA}{target_comp}{Style.RESET_ALL})", flush=True)
+        print(f"  {Fore.WHITE}* Worker Process PID      :{Style.RESET_ALL} {os.getpid()}", flush=True)
+        print(f"  {Fore.WHITE}* Sync Polling Interval   :{Style.RESET_ALL} {self.sync_interval}s", flush=True)
+        print(f"  {Fore.WHITE}* QuickEdit Status        :{Style.RESET_ALL} {Fore.GREEN}Disabled (Safe Mode){Style.RESET_ALL}", flush=True)
+        print(f"  {Fore.WHITE}* Master Account          :{Style.RESET_ALL} {Fore.GREEN}{m_acc}{Style.RESET_ALL} [{m_brk}]", flush=True)
+        print(f"  {Fore.WHITE}* Allowed Symbols         :{Style.RESET_ALL} {Fore.YELLOW}{symbols}{Style.RESET_ALL}", flush=True)
+        print(f"  {Fore.WHITE}* Slaves Connected ({len(slaves)})   :{Style.RESET_ALL}", flush=True)
 
         if not slaves:
             print(f"      {Fore.RED}None active{Style.RESET_ALL}", flush=True)
@@ -191,7 +203,7 @@ class CopytraderWorker:
                 mult = s.get("multiplier", 1.0)
                 s_syms = s.get("symbols", "All")
                 sizing_str = f"{mode} (x{mult})" if mode in ("multiplier", "divider") else mode
-                print(f"      └── ➜ Slave: {Fore.CYAN}{s_acc}{Style.RESET_ALL} [{s_brk}] | Sizing: {sizing_str} | Symbols: {s_syms}", flush=True)
+                print(f"      |-- -> Slave: {Fore.CYAN}{s_acc}{Style.RESET_ALL} [{s_brk}] | Sizing: {sizing_str} | Symbols: {s_syms}", flush=True)
 
         print(f"{Fore.CYAN}{Style.BRIGHT}{'='*65}\n{Style.RESET_ALL}", flush=True)
 
@@ -271,7 +283,7 @@ if __name__ == '__main__':
         # Re-enable QuickEdit upon fatal error so user can inspect and select text
         set_console_quick_edit(True)
         print(f"\n{Fore.RED}{Style.BRIGHT}{'='*70}", flush=True)
-        print(f"{Fore.RED}{Style.BRIGHT}  ❌ COPYTRADER WORKER FATAL ERROR", flush=True)
+        print(f"{Fore.RED}{Style.BRIGHT}  [!] COPYTRADER WORKER FATAL ERROR", flush=True)
         print(f"{Fore.RED}{Style.BRIGHT}{'='*70}{Style.RESET_ALL}", flush=True)
         print(f"\n{Fore.RED}[CopytraderWorker Fatal Error]{Style.RESET_ALL} Unhandled exception in copytrader worker for config {args.config_id}: {e}", flush=True)
         import traceback
