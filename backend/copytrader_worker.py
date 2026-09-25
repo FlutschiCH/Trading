@@ -220,9 +220,9 @@ class CopytraderWorker:
 
         cfg = CopytraderHandler.get_config(self.config_id)
         if not cfg:
-            print(f"{Fore.RED}[CopytraderWorker Error]{Style.RESET_ALL} Configuration '{self.config_id}' not found in database. Exiting...", flush=True)
+            print(f"{Fore.RED}[CopytraderWorker Error]{Style.RESET_ALL} Configuration '{self.config_id}' not found in database.", flush=True)
             self._release_instance_lock()
-            sys.exit(0)
+            return
 
         # Pre-connect master and slave broker instances
         master_acc = cfg.get("master_account")
@@ -266,6 +266,19 @@ class CopytraderWorker:
         self._release_instance_lock()
 
 
+def pause_and_exit(exit_code: int = 0, message: str = "Press Enter to close this window..."):
+    """
+    Ensures the console stays open after shutdown or errors so the user can inspect output.
+    """
+    set_console_quick_edit(True)
+    print(f"\n{Fore.YELLOW}[CopytraderWorker]{Style.RESET_ALL} {message}", flush=True)
+    try:
+        input()
+    except Exception:
+        pass
+    sys.exit(exit_code)
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Standalone Dedicated Copytrader Worker Process")
     parser.add_argument('--config_id', type=str, required=True, help="Copytrader configuration ID to run")
@@ -279,6 +292,7 @@ if __name__ == '__main__':
     try:
         worker = CopytraderWorker(config_id=args.config_id, sync_interval=args.interval)
         worker.run()
+        pause_and_exit(0, "Worker stopped. Press Enter to close this window...")
     except Exception as e:
         # Re-enable QuickEdit upon fatal error so user can inspect and select text
         set_console_quick_edit(True)
@@ -288,9 +302,4 @@ if __name__ == '__main__':
         print(f"\n{Fore.RED}[CopytraderWorker Fatal Error]{Style.RESET_ALL} Unhandled exception in copytrader worker for config {args.config_id}: {e}", flush=True)
         import traceback
         traceback.print_exc()
-        print(f"\n{Fore.YELLOW}[CopytraderWorker]{Style.RESET_ALL} QuickEdit enabled. Press Enter to exit...", flush=True)
-        try:
-            input()
-        except Exception:
-            pass
-        sys.exit(1)
+        pause_and_exit(1, "QuickEdit enabled. Press Enter to close this window...")
