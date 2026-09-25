@@ -2668,15 +2668,35 @@ export default function TVChart({
 
       const firstCandle = activeCandles[0];
       const lastCandle = activeCandles[activeCandles.length - 1];
-      const indSummary = activeList.map(i => `${i.id}_${i.name}_${i.visible}_${i.color}_${JSON.stringify(i.params || {})}`).join('|');
-      const indFingerprint = `${activeCandles.length}_${firstCandle?.time}_${lastCandle?.time}_${indSummary}`;
+      const indSummary = activeList.map(i => `${i.id}_${i.name}_${i.timeframe || 'chart'}_${i.visible}_${i.color}_${JSON.stringify(i.params || {})}`).join('|');
+      const indFingerprint = `${activeCandles.length}_${firstCandle?.time}_${lastCandle?.time}_${timeframe}_${indSummary}`;
 
       if (lastIndicatorsFingerprintRef.current === indFingerprint) {
         return;
       }
       lastIndicatorsFingerprintRef.current = indFingerprint;
 
-      const calculatedData = await calculateIndicatorsBackend(activeCandles, activeList);
+      let activeAccId: string | undefined = undefined;
+      let activeBroker = candleSource || 'metatrader';
+      try {
+        const savedAcc = localStorage.getItem('wyckoff_active_account');
+        if (savedAcc) {
+          const parsed = JSON.parse(savedAcc);
+          activeAccId = parsed?.account_id || parsed?.id;
+          const b = (parsed?.broker_type || parsed?.broker || '').toLowerCase();
+          if (b) activeBroker = b;
+        }
+      } catch (e) {}
+      if (!activeAccId) {
+        activeAccId = localStorage.getItem('broker_account') || localStorage.getItem('wyckoff_active_account_id') || localStorage.getItem('active_account_id') || undefined;
+      }
+
+      const calculatedData = await calculateIndicatorsBackend(activeCandles, activeList, {
+        symbol,
+        timeframe,
+        broker: activeBroker,
+        account_id: activeAccId,
+      });
       if (!isSubscribed || !chartRef.current || !weisChartRef.current || !subpaneChartRef.current) return;
 
       const latestVals: Record<string, string> = {};
@@ -2904,7 +2924,7 @@ export default function TVChart({
     return () => {
       isSubscribed = false;
     };
-  }, [indicators, activeCandles]);
+  }, [indicators, activeCandles, timeframe, symbol, candleSource]);
 
   // Dynamically adjust subpane indicators chart panel height when subpane indicators are active
   useEffect(() => {

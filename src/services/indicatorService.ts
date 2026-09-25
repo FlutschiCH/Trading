@@ -31,6 +31,7 @@ export interface IndicatorConfig {
   color: string;
   lineWidth: 1 | 2 | 3 | 4;
   lineStyle: number; // 0: Solid, 1: Dotted, 2: Dashed
+  timeframe?: string; // Optional custom timeframe ('chart' or empty for base chart timeframe, or '1m', '5m', '15m', '1h', '4h', '1d', etc.)
   params: Record<string, any>;
 }
 
@@ -364,13 +365,21 @@ export async function fetchIndicatorCatalog(): Promise<CatalogIndicatorItem[]> {
   ];
 }
 
+export interface IndicatorCalculationContext {
+  symbol?: string;
+  timeframe?: string;
+  broker?: string;
+  account_id?: string;
+}
+
 /**
  * Sends active candles and active indicator configs to the Python backend
  * to calculate exact values using IndicatorHandler.
  */
 export async function calculateIndicatorsBackend(
   candles: Candle[] | any[],
-  indicators: IndicatorConfig[]
+  indicators: IndicatorConfig[],
+  context?: IndicatorCalculationContext
 ): Promise<CalculatedIndicatorData> {
   const activeIndicators = indicators.filter((ind) => ind.visible);
   if (!candles || candles.length === 0 || activeIndicators.length === 0) {
@@ -389,6 +398,7 @@ export async function calculateIndicatorsBackend(
   const payloadIndicators = activeIndicators.map((ind) => ({
     id: ind.id,
     name: ind.name,
+    timeframe: ind.timeframe || ind.params?.timeframe || 'chart',
     params: ind.params || {},
   }));
 
@@ -399,6 +409,10 @@ export async function calculateIndicatorsBackend(
       body: JSON.stringify({
         candles: payloadCandles,
         indicators: payloadIndicators,
+        symbol: context?.symbol,
+        timeframe: context?.timeframe,
+        broker: context?.broker,
+        account_id: context?.account_id,
       }),
     });
 

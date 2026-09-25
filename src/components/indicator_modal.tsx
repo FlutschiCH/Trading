@@ -48,6 +48,7 @@ export default function IndicatorModal({
   const [selectedCatalogItem, setSelectedCatalogItem] = useState<CatalogIndicatorItem | null>(null);
   const [editingId, setEditingId] = useState<string | null>(initialEditingId);
   const [formParams, setFormParams] = useState<Record<string, any>>({});
+  const [selectedTimeframe, setSelectedTimeframe] = useState<string>('chart');
   const [color, setColor] = useState<string>('#3b82f6');
   const [lineWidth, setLineWidth] = useState<1 | 2 | 3 | 4>(2);
   const [lineStyle, setLineStyle] = useState<number>(0);
@@ -106,6 +107,7 @@ export default function IndicatorModal({
       defaults[pKey] = pDef.default;
     });
     setFormParams(defaults);
+    setSelectedTimeframe('chart');
 
     // Pick a complementary color based on category
     if (item.id === 'supertrend') setColor('#10b981');
@@ -127,6 +129,7 @@ export default function IndicatorModal({
     };
     setSelectedCatalogItem(catalogItem);
     setFormParams(ind.params || {});
+    setSelectedTimeframe(ind.timeframe || ind.params?.timeframe || 'chart');
     setColor(ind.color || '#3b82f6');
     setLineWidth(ind.lineWidth || 2);
     setLineStyle(ind.lineStyle || 0);
@@ -135,6 +138,11 @@ export default function IndicatorModal({
   const handleSaveIndicator = () => {
     if (!selectedCatalogItem) return;
 
+    const baseName = selectedCatalogItem.name.split('(')[0].trim();
+    const periodStr = formParams.period ? ` ${formParams.period}` : '';
+    const tfStr = selectedTimeframe && selectedTimeframe !== 'chart' ? ` [${selectedTimeframe.toUpperCase()}]` : '';
+    const computedLabel = `${baseName}${periodStr}${tfStr}`.trim();
+
     if (editingId) {
       // Update existing
       const updated = indicators.map((ind) => {
@@ -142,12 +150,13 @@ export default function IndicatorModal({
           return {
             ...ind,
             name: selectedCatalogItem.id,
-            label: `${selectedCatalogItem.name.split('(')[0].trim()} ${formParams.period ? formParams.period : ''}`.trim(),
+            label: computedLabel,
             pane: selectedCatalogItem.pane || 'overlay',
             color,
             lineWidth,
             lineStyle,
-            params: { ...formParams },
+            timeframe: selectedTimeframe || 'chart',
+            params: { ...formParams, timeframe: selectedTimeframe || 'chart' },
           };
         }
         return ind;
@@ -161,13 +170,14 @@ export default function IndicatorModal({
       const newInd: IndicatorConfig = {
         id: newId,
         name: selectedCatalogItem.id,
-        label: `${selectedCatalogItem.name.split('(')[0].trim()} ${formParams.period ? formParams.period : ''}`.trim(),
+        label: computedLabel,
         pane: selectedCatalogItem.pane || 'overlay',
         visible: true,
         color,
         lineWidth,
         lineStyle,
-        params: { ...formParams },
+        timeframe: selectedTimeframe || 'chart',
+        params: { ...formParams, timeframe: selectedTimeframe || 'chart' },
       };
       onSaveIndicators([...indicators, newInd]);
       setActiveTab('active');
@@ -496,6 +506,39 @@ export default function IndicatorModal({
 
             {/* Dynamic Inputs from Backend Schema */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '250px', overflowY: 'auto' }}>
+              {/* Universal Timeframe Selector for any Indicator */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label style={{ fontSize: '11px', fontWeight: 600, color: isLight ? '#64748b' : '#94a3b8' }}>
+                  Timeframe:
+                </label>
+                <select
+                  value={selectedTimeframe}
+                  onChange={(e) => setSelectedTimeframe(e.target.value)}
+                  style={{
+                    backgroundColor: isLight ? '#ffffff' : '#0f172a',
+                    border: isLight ? '1px solid #cbd5e1' : '1px solid #334155',
+                    borderRadius: '6px',
+                    padding: '6px 10px',
+                    color: isLight ? '#0f172a' : '#ffffff',
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                    outline: 'none',
+                  }}
+                >
+                  <option value="chart">CHART (Current Timeframe)</option>
+                  <option value="1m">1m</option>
+                  <option value="3m">3m</option>
+                  <option value="5m">5m</option>
+                  <option value="15m">15m</option>
+                  <option value="30m">30m</option>
+                  <option value="1h">1h</option>
+                  <option value="2h">2h</option>
+                  <option value="4h">4h</option>
+                  <option value="1d">1d</option>
+                  <option value="1w">1w</option>
+                </select>
+              </div>
+
               {selectedCatalogItem && Object.keys(selectedCatalogItem.params || {}).length > 0 ? (
                 Object.entries(selectedCatalogItem.params).map(([paramName, paramDef]) => {
                   const currVal = formParams[paramName] !== undefined ? formParams[paramName] : paramDef.default;

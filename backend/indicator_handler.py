@@ -591,10 +591,94 @@ class IndicatorHandler:
 
         return profiles
 
+    # --- Resampling and Multi-Timeframe Alignment Helpers ---
+    @staticmethod
+    def parse_timeframe_seconds(tf: str) -> int:
+        """Converts timeframe string like '1m', '5m', '1h', '4h', '1d' into seconds."""
+        if not tf or not isinstance(tf, str):
+            return 60
+        s = tf.strip().lower()
+        if s.endswith('m') and not s.endswith('mo'):
+            try: return int(s[:-1]) * 60
+            except: return 60
+        elif s.endswith('h'):
+            try: return int(s[:-1]) * 3600
+            except: return 3600
+        elif s.endswith('d'):
+            try: return int(s[:-1]) * 86400
+            except: return 86400
+        elif s.endswith('w'):
+            try: return int(s[:-1]) * 604800
+            except: return 604800
+        elif s.endswith('s'):
+            try: return int(s[:-1])
+            except: return 60
+        return 60
+
+    @staticmethod
+    def resample_candles(df: pd.DataFrame, target_timeframe: str) -> pd.DataFrame:
+        """
+        Resamples candle dataframe to a target timeframe.
+        """
+        if df.empty or 'time' not in df.columns:
+            return df
+
+        tf_seconds = IndicatorHandler.parse_timeframe_seconds(target_timeframe)
+        if tf_seconds <= 0:
+            return df
+
+        work_df = df.copy()
+        work_df['time'] = pd.to_numeric(work_df['time'])
+        # Bucket by integer seconds to prevent timezone shifts
+        work_df['bucket'] = (work_df['time'] // tf_seconds) * tf_seconds
+
+        agg_dict = {
+            'time': 'first',
+            'open': 'first',
+            'high': 'max',
+            'low': 'min',
+            'close': 'last',
+        }
+        if 'volume' in work_df.columns:
+            agg_dict['volume'] = 'sum'
+
+        resampled = work_df.groupby('bucket', as_index=False).agg(agg_dict)
+        resampled['time'] = resampled['bucket']
+        resampled = resampled.drop(columns=['bucket']).sort_values('time').reset_index(drop=True)
+        return resampled
+
+    @staticmethod
+    def align_to_base(base_times: list, source_times: list, indicator_res):
+        """
+        Aligns an indicator calculated on a different timeframe/index back to base chart timestamps
+        using backward lookup (pd.merge_asof).
+        """
+        if not base_times or not source_times:
+            return indicator_res
+
+        base_df = pd.DataFrame({'time': [int(t) for t in base_times]})
+        src_df = pd.DataFrame({'time': [int(t) for t in source_times]})
+
+        if isinstance(indicator_res, pd.Series):
+            src_df['val'] = indicator_res.values
+            merged = pd.merge_asof(base_df, src_df, on='time', direction='backward')
+            return pd.Series(merged['val'].values, index=base_df.index)
+
+        elif isinstance(indicator_res, pd.DataFrame):
+            for col in indicator_res.columns:
+                src_df[col] = indicator_res[col].values
+            merged = pd.merge_asof(base_df, src_df, on='time', direction='backward')
+            merged = merged.drop(columns=['time'])
+            return merged
+
+        return indicator_res
+
     # --- Dynamic Dispatcher & Catalog ---
     @staticmethod
     def compute(df: pd.DataFrame, name: str, **kwargs):
         """Dynamic indicator calculation by method name."""
+        # Pop non-indicator parameters like timeframe if present
+        kwargs.pop('timeframe', None)
         method_name = name.lower()
         if hasattr(IndicatorHandler, method_name):
             func = getattr(IndicatorHandler, method_name)
