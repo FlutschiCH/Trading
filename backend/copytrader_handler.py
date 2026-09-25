@@ -898,7 +898,7 @@ class CopytraderHandler:
                             print(f"   -> Order Execution Result on {slave_acc}: {res}", flush=True)
                             is_success = False
                             slave_ticket = None
-                            if isinstance(res, dict) and "error" not in res and res.get("code") != -2019:
+                            if isinstance(res, dict) and "error" not in res and res.get("status") != "error" and res.get("code") != -2019:
                                 if "main_order" in res and isinstance(res["main_order"], dict):
                                     slave_ticket = str(res["main_order"].get("orderId") or res["main_order"].get("clientOrderId") or "")
                                     if slave_ticket:
@@ -915,12 +915,20 @@ class CopytraderHandler:
                                 logPrint(f"[Copytrader] ✅ Trade copied to slave {slave_acc}: Master #{m_ticket} -> Slave #{slave_ticket} ({m_side} {slave_lots} {m_sym})")
                                 cls._record_mapping(cfg_id, m_ticket, slave_acc, slave_ticket, m_sym, m_side, slave_lots)
 
-                            if isinstance(res, dict) and ("error" in res or res.get("code") == -2019):
-                                err_text = str(res.get("error") or res.get("msg") or res.get("message") or "")
+                            if isinstance(res, dict) and ("error" in res or res.get("status") == "error" or res.get("code") == -2019):
+                                err_text = str(res.get("error") or res.get("message") or res.get("msg") or "")
                                 logPrint(f"[Copytrader Error] Failed to open {m_sym} on {slave_acc}: {err_text}")
                             
-                                # Check for insufficient margin
-                                if "margin is insufficient" in err_text.lower() or res.get("code") == -2019:
+                                # Check for insufficient margin / no money (Binance code -2019, MT5 retcode 10019 "No money", etc.)
+                                err_lower = err_text.lower()
+                                is_insufficient_margin = (
+                                    "margin is insufficient" in err_lower
+                                    or "no money" in err_lower
+                                    or "10019" in err_lower
+                                    or res.get("code") == -2019
+                                    or res.get("retcode") == 10019
+                                )
+                                if is_insufficient_margin:
                                     # Calculate required margin details
                                     margin_calc_str = ""
                                     try:

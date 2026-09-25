@@ -570,7 +570,7 @@ class MetaTraderHandler(BaseBrokerHandler):
         done_ret = getattr(mt5_inst, 'TRADE_RETCODE_DONE', 10009)
         if result.retcode != done_ret:
             NotificationHandler.send_notification(f"MT5 Order Failed: {result.comment} (retcode: {result.retcode})", sound_type="error")
-            return {"status": "error", "message": f"MT5 order failed: {result.comment} (retcode: {result.retcode})"}
+            return {"status": "error", "message": f"MT5 order failed: {result.comment} (retcode: {result.retcode})", "retcode": result.retcode}
             
         order_ticket = str(getattr(result, 'order', None) or getattr(result, 'deal', None) or f"slv_{int(time.time())}")
         msg = f"📈 New Trade Executed ({symbol} {side.upper()}) | Volume: {volume} | Ticket: {order_ticket}"
