@@ -168,6 +168,39 @@ class CopytraderHandler:
             return [dict(c) for c in cls._configs_cache.values()]
 
     @classmethod
+    def get_mappings(cls, config_id: str = None, slave_account: str = None, status: str = None, limit: int = 500):
+        cls.init_db()
+        conditions = []
+        params = []
+        if config_id and str(config_id).strip() and str(config_id).upper() != 'ALL':
+            conditions.append("config_id = %s")
+            params.append(str(config_id).strip())
+        if slave_account and str(slave_account).strip() and str(slave_account).upper() != 'ALL':
+            conditions.append("slave_account = %s")
+            params.append(str(slave_account).strip())
+        if status and str(status).strip() and str(status).upper() != 'ALL':
+            conditions.append("status = %s")
+            params.append(str(status).strip().lower())
+
+        where_clause = (" WHERE " + " AND ".join(conditions)) if conditions else ""
+        query_mysql = f"""
+        SELECT id, config_id, master_ticket, slave_account, slave_ticket, symbol, action, lots, status, created_at
+        FROM copytrader_mappings
+        {where_clause}
+        ORDER BY id DESC
+        LIMIT {int(limit)}
+        """
+        try:
+            rows = SQLHandler.execute_query(query_mysql, tuple(params) if params else None)
+            if rows is None:
+                query_sq = query_mysql.replace("%s", "?")
+                rows = SQLHandler.execute_query(query_sq, tuple(params) if params else None)
+            return rows or []
+        except Exception as e:
+            print(f"[Copytrader] Error fetching mappings: {e}", flush=True)
+            return []
+
+    @classmethod
     def get_config(cls, config_id: str):
         cls._ensure_cache_loaded()
         with cls._lock:

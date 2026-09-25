@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Users, Copy, Plus, Trash2, CheckCircle2, PauseCircle, Play, Laptop, Server, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Users, Copy, Plus, Trash2, CheckCircle2, PauseCircle, Play, Laptop, Server, RefreshCw, History, ArrowUpDown, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
 import { API_BASE_URL } from '../api';
 import { useAccountsStore } from '../services/accountsStore';
 import { useComputersStore, HARDCODED_HOSTS } from '../services/computersStore';
@@ -25,12 +25,37 @@ interface CopytraderConfig {
   slaves: SlaveAccount[];
 }
 
+interface CopytraderMapping {
+  id: number;
+  config_id: string;
+  master_ticket: string;
+  slave_account: string;
+  slave_ticket: string;
+  symbol: string;
+  action: string;
+  lots: number;
+  status: string;
+  created_at: string;
+}
+
 export const Copytrader: React.FC = () => {
   const { accounts, refreshAccounts } = useAccountsStore();
   const { computers, refreshComputers } = useComputersStore();
+  const [activeTab, setActiveTab] = useState<'rules' | 'history'>('rules');
   const [configs, setConfigs] = useState<CopytraderConfig[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
+
+  // History State
+  const [historyList, setHistoryList] = useState<CopytraderMapping[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState<boolean>(false);
+  const [filterAccount, setFilterAccount] = useState<string>('ALL');
+  const [filterConfigId, setFilterConfigId] = useState<string>('ALL');
+  const [filterStatus, setFilterStatus] = useState<string>('ALL');
+  const [sortField, setSortField] = useState<'created_at' | 'slave_account' | 'config_id' | 'symbol' | 'lots'>('created_at');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [historyPage, setHistoryPage] = useState<number>(1);
+  const HISTORY_PAGE_SIZE = 15;
 
   // Form State
   const [name, setName] = useState('');
@@ -43,11 +68,12 @@ export const Copytrader: React.FC = () => {
 
   useEffect(() => {
     fetchConfigs();
+    fetchHistory();
   }, []);
 
   const fetchAll = async () => {
     setRefreshing(true);
-    await Promise.all([fetchConfigs(), refreshAccounts(), refreshComputers()]);
+    await Promise.all([fetchConfigs(), fetchHistory(), refreshAccounts(), refreshComputers()]);
     setRefreshing(false);
   };
 
@@ -62,6 +88,93 @@ export const Copytrader: React.FC = () => {
       console.error('Failed to fetch copytrader configs', e);
     }
   };
+
+  const fetchHistory = async () => {
+    setLoadingHistory(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/copytrader/history`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ limit: 1000 })
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        setHistoryList(data.history || []);
+      }
+    } catch (e) {
+      console.error('Failed to fetch copytrader history', e);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  // Distinct account IDs for dropdown filter
+  const distinctSlaveAccounts = useMemo(() => {
+    const set = new Set<string>();
+    historyList.forEach(h => {
+      if (h.slave_account) set.add(String(h.slave_account));
+    });
+    return Array.from(set).sort();
+  }, [historyList]);
+
+  // Distinct config IDs for dropdown filter
+  const distinctConfigIds = useMemo(() => {
+    const set = new Set<string>();
+    historyList.forEach(h => {
+      if (h.config_id) set.add(String(h.config_id));
+    });
+    return Array.from(set).sort();
+  }, [historyList]);
+
+  // Filtered and Sorted History
+  const filteredAndSortedHistory = useMemo(() => {
+    let result = historyList.filter(item => {
+      if (filterAccount !== 'ALL' && String(item.slave_account) !== filterAccount) return false;
+      if (filterConfigId !== 'ALL' && String(item.config_id) !== filterConfigId) return false;
+      if (filterStatus !== 'ALL' && String(item.status).toLowerCase() !== filterStatus.toLowerCase()) return false;
+      return true;
+    });
+
+    result.sort((a, b) => {
+      let valA: any = a[sortField];
+      let valB: any = b[sortField];
+
+      if (sortField === 'lots') {
+        valA = Number(valA) || 0;
+        valB = Number(valB) || 0;
+      } else {
+        valA = String(valA || '').toLowerCase();
+        valB = String(valB || '').toLowerCase();
+      }
+
+      if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+      if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return result;
+  }, [historyList, filterAccount, filterConfigId, filterStatus, sortField, sortOrder]);
+
+  const totalHistoryPages = Math.max(1, Math.ceil(filteredAndSortedHistory.length / HISTORY_PAGE_SIZE));
+
+  useEffect(() => {
+    setHistoryPage(1);
+  }, [filterAccount, filterConfigId, filterStatus, sortField, sortOrder]);
+
+  const paginatedHistory = useMemo(() => {
+    const start = (historyPage - 1) * HISTORY_PAGE_SIZE;
+    return filteredAndSortedHistory.slice(start, start + HISTORY_PAGE_SIZE);
+  }, [filteredAndSortedHistory, historyPage]);
+
+  const toggleSort = (field: typeof sortField) => {
+    if (sortField === field) {
+      setSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortOrder(field === 'created_at' ? 'desc' : 'asc');
+    }
+  };
+
 
   const handleAddSlave = () => {
     setSlaves([
@@ -212,6 +325,53 @@ export const Copytrader: React.FC = () => {
           <DebugComponentBadge name="Copytrader" />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          {/* Tab buttons */}
+          <div style={{ display: 'flex', gap: '4px', backgroundColor: '#020617', padding: '2px', borderRadius: '4px', border: '1px solid #1e293b' }}>
+            <button
+              type="button"
+              onClick={() => setActiveTab('rules')}
+              style={{
+                backgroundColor: activeTab === 'rules' ? '#1e293b' : 'transparent',
+                color: activeTab === 'rules' ? '#f8fafc' : '#64748b',
+                border: 'none',
+                borderRadius: '3px',
+                padding: '3px 8px',
+                fontSize: '11px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+            >
+              <Users size={12} />
+              Setups & Rules ({configs.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('history');
+                fetchHistory();
+              }}
+              style={{
+                backgroundColor: activeTab === 'history' ? '#1e293b' : 'transparent',
+                color: activeTab === 'history' ? '#38bdf8' : '#64748b',
+                border: 'none',
+                borderRadius: '3px',
+                padding: '3px 8px',
+                fontSize: '11px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+            >
+              <History size={12} />
+              Copied History ({historyList.length})
+            </button>
+          </div>
+
           <span style={{
             fontSize: '10px',
             padding: '2px 6px',
@@ -242,13 +402,16 @@ export const Copytrader: React.FC = () => {
             }}
           >
             <RefreshCw style={{ width: '12px', height: '12px', animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
-            <span>{refreshing ? 'Refreshing...' : 'Refresh Configs'}</span>
+            <span>{refreshing ? 'Refreshing...' : 'Refresh All'}</span>
           </button>
         </div>
       </div>
 
-      {/* Editor / Configuration Form Panel */}
-      <div style={{
+      {/* TAB 1: Rules & Configuration */}
+      {activeTab === 'rules' && (
+        <>
+          {/* Editor / Configuration Form Panel */}
+          <div style={{
         backgroundColor: '#0f172a',
         border: '1px solid #1e293b',
         borderRadius: '6px',
@@ -749,6 +912,322 @@ export const Copytrader: React.FC = () => {
           </div>
         )}
       </div>
+        </>
+      )}
+
+      {/* TAB 2: Copied History */}
+      {activeTab === 'history' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {/* Filter and Sorting Toolbar */}
+          <div style={{
+            backgroundColor: '#0f172a',
+            border: '1px solid #1e293b',
+            borderRadius: '6px',
+            padding: '10px 12px',
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '10px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <Filter size={13} style={{ color: '#38bdf8' }} />
+
+              {/* Sort/Filter by Slave Account */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ fontSize: '10px', color: '#94a3b8' }}>Slave Acc:</span>
+                <select
+                  value={filterAccount}
+                  onChange={(e) => setFilterAccount(e.target.value)}
+                  style={{
+                    backgroundColor: '#1e293b',
+                    color: '#f8fafc',
+                    border: '1px solid #334155',
+                    borderRadius: '4px',
+                    padding: '4px 8px',
+                    fontSize: '11px'
+                  }}
+                >
+                  <option value="ALL">All Slave Accounts</option>
+                  {distinctSlaveAccounts.map(acc => (
+                    <option key={acc} value={acc}>Account #{acc}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Sort/Filter by Copytrader Config */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ fontSize: '10px', color: '#94a3b8' }}>Copytrader:</span>
+                <select
+                  value={filterConfigId}
+                  onChange={(e) => setFilterConfigId(e.target.value)}
+                  style={{
+                    backgroundColor: '#1e293b',
+                    color: '#f8fafc',
+                    border: '1px solid #334155',
+                    borderRadius: '4px',
+                    padding: '4px 8px',
+                    fontSize: '11px'
+                  }}
+                >
+                  <option value="ALL">All Setups / Configs</option>
+                  {distinctConfigIds.map(cid => {
+                    const cfg = configs.find(c => c.id === cid);
+                    const label = cfg ? `${cfg.name} (${cid})` : cid;
+                    return (
+                      <option key={cid} value={cid}>{label}</option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              {/* Status Filter */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ fontSize: '10px', color: '#94a3b8' }}>Status:</span>
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  style={{
+                    backgroundColor: '#1e293b',
+                    color: '#f8fafc',
+                    border: '1px solid #334155',
+                    borderRadius: '4px',
+                    padding: '4px 8px',
+                    fontSize: '11px'
+                  }}
+                >
+                  <option value="ALL">All (Open & Closed)</option>
+                  <option value="open">Open Positions</option>
+                  <option value="closed">Closed Trades</option>
+                </select>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '11px', color: '#94a3b8' }}>
+                Showing {filteredAndSortedHistory.length} copied deal(s)
+              </span>
+              <button
+                type="button"
+                onClick={fetchHistory}
+                disabled={loadingHistory}
+                style={{
+                  backgroundColor: '#1e293b',
+                  color: '#38bdf8',
+                  border: '1px solid #334155',
+                  borderRadius: '4px',
+                  padding: '4px 8px',
+                  fontSize: '10px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                <RefreshCw size={11} style={{ animation: loadingHistory ? 'spin 1s linear infinite' : 'none' }} />
+                <span>Reload</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Table Container */}
+          <div style={{
+            backgroundColor: '#0f172a',
+            border: '1px solid #1e293b',
+            borderRadius: '6px',
+            overflow: 'hidden'
+          }}>
+            {filteredAndSortedHistory.length === 0 ? (
+              <div style={{
+                padding: '30px',
+                textAlign: 'center',
+                color: '#64748b',
+                fontSize: '11px'
+              }}>
+                {loadingHistory ? 'Loading copied trade history from SQL...' : 'No copied trade records found matching your filters.'}
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: '#020617', borderBottom: '1px solid #1e293b', color: '#94a3b8' }}>
+                      <th
+                        onClick={() => toggleSort('created_at')}
+                        style={{ padding: '8px 10px', cursor: 'pointer', userSelect: 'none' }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          Copied At {sortField === 'created_at' && <ArrowUpDown size={11} style={{ color: '#38bdf8' }} />}
+                        </div>
+                      </th>
+                      <th
+                        onClick={() => toggleSort('config_id')}
+                        style={{ padding: '8px 10px', cursor: 'pointer', userSelect: 'none' }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          Copytrader Setup {sortField === 'config_id' && <ArrowUpDown size={11} style={{ color: '#38bdf8' }} />}
+                        </div>
+                      </th>
+                      <th
+                        onClick={() => toggleSort('slave_account')}
+                        style={{ padding: '8px 10px', cursor: 'pointer', userSelect: 'none' }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          Slave Account {sortField === 'slave_account' && <ArrowUpDown size={11} style={{ color: '#38bdf8' }} />}
+                        </div>
+                      </th>
+                      <th style={{ padding: '8px 10px' }}>Master Ticket</th>
+                      <th style={{ padding: '8px 10px' }}>Slave Ticket</th>
+                      <th
+                        onClick={() => toggleSort('symbol')}
+                        style={{ padding: '8px 10px', cursor: 'pointer', userSelect: 'none' }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          Symbol {sortField === 'symbol' && <ArrowUpDown size={11} style={{ color: '#38bdf8' }} />}
+                        </div>
+                      </th>
+                      <th style={{ padding: '8px 10px' }}>Action</th>
+                      <th
+                        onClick={() => toggleSort('lots')}
+                        style={{ padding: '8px 10px', cursor: 'pointer', userSelect: 'none' }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          Lots {sortField === 'lots' && <ArrowUpDown size={11} style={{ color: '#38bdf8' }} />}
+                        </div>
+                      </th>
+                      <th style={{ padding: '8px 10px' }}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedHistory.map((item) => {
+                      const cfg = configs.find(c => c.id === item.config_id);
+                      const isBuy = (item.action || '').toUpperCase() === 'BUY';
+                      const isOpen = (item.status || '').toLowerCase() === 'open';
+
+                      return (
+                        <tr
+                          key={item.id || `${item.config_id}_${item.master_ticket}_${item.slave_account}`}
+                          style={{
+                            borderBottom: '1px solid #1e293b',
+                            backgroundColor: 'transparent'
+                          }}
+                        >
+                          <td style={{ padding: '8px 10px', color: '#94a3b8', whiteSpace: 'nowrap' }}>
+                            {item.created_at || '-'}
+                          </td>
+                          <td style={{ padding: '8px 10px', color: '#f8fafc' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                              <span style={{ fontWeight: 'bold' }}>{cfg?.name || item.config_id}</span>
+                              {cfg?.name && <span style={{ fontSize: '9px', color: '#64748b' }}>{item.config_id}</span>}
+                            </div>
+                          </td>
+                          <td style={{ padding: '8px 10px', color: '#38bdf8', fontWeight: 'bold' }}>
+                            #{item.slave_account}
+                          </td>
+                          <td style={{ padding: '8px 10px', color: '#eab308', fontFamily: 'monospace' }}>
+                            {item.master_ticket}
+                          </td>
+                          <td style={{ padding: '8px 10px', color: '#a855f7', fontFamily: 'monospace' }}>
+                            {item.slave_ticket}
+                          </td>
+                          <td style={{ padding: '8px 10px', fontWeight: 'bold', color: '#f8fafc' }}>
+                            {item.symbol}
+                          </td>
+                          <td style={{ padding: '8px 10px' }}>
+                            <span style={{
+                              fontSize: '9px',
+                              padding: '1px 5px',
+                              borderRadius: '3px',
+                              fontWeight: 'bold',
+                              backgroundColor: isBuy ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                              color: isBuy ? '#10b981' : '#ef4444'
+                            }}>
+                              {item.action}
+                            </span>
+                          </td>
+                          <td style={{ padding: '8px 10px', color: '#f8fafc', fontWeight: 'bold' }}>
+                            {item.lots}
+                          </td>
+                          <td style={{ padding: '8px 10px' }}>
+                            <span style={{
+                              fontSize: '9px',
+                              padding: '1px 5px',
+                              borderRadius: '3px',
+                              fontWeight: 'bold',
+                              backgroundColor: isOpen ? '#064e3b' : '#1e293b',
+                              color: isOpen ? '#34d399' : '#94a3b8',
+                              textTransform: 'uppercase'
+                            }}>
+                              {item.status}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Pagination Controls */}
+            {totalHistoryPages > 1 && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '8px 12px',
+                borderTop: '1px solid #1e293b',
+                backgroundColor: '#020617'
+              }}>
+                <span style={{ fontSize: '10px', color: '#94a3b8' }}>
+                  Showing {(historyPage - 1) * HISTORY_PAGE_SIZE + 1}-{Math.min(historyPage * HISTORY_PAGE_SIZE, filteredAndSortedHistory.length)} of {filteredAndSortedHistory.length}
+                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <button
+                    disabled={historyPage <= 1}
+                    onClick={() => setHistoryPage(p => Math.max(1, p - 1))}
+                    style={{
+                      backgroundColor: '#1e293b',
+                      border: '1px solid #334155',
+                      color: historyPage <= 1 ? '#475569' : '#f8fafc',
+                      borderRadius: '4px',
+                      padding: '3px 8px',
+                      fontSize: '10px',
+                      cursor: historyPage <= 1 ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '2px'
+                    }}
+                  >
+                    <ChevronLeft size={11} /> Prev
+                  </button>
+                  <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#f8fafc', padding: '0 4px' }}>
+                    {historyPage} / {totalHistoryPages}
+                  </span>
+                  <button
+                    disabled={historyPage >= totalHistoryPages}
+                    onClick={() => setHistoryPage(p => Math.min(totalHistoryPages, p + 1))}
+                    style={{
+                      backgroundColor: '#1e293b',
+                      border: '1px solid #334155',
+                      color: historyPage >= totalHistoryPages ? '#475569' : '#f8fafc',
+                      borderRadius: '4px',
+                      padding: '3px 8px',
+                      fontSize: '10px',
+                      cursor: historyPage >= totalHistoryPages ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '2px'
+                    }}
+                  >
+                    Next <ChevronRight size={11} />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -61,3 +61,34 @@ def set_slave_status(config_id, slave_account_id):
         return jsonify({"status": "success", "message": f"Slave {slave_account_id} status set to '{status}'"})
     return jsonify({"status": "error", "message": "Slave or Config not found"}), 404
 
+@copytrader_routes.route('/copytrader/history', methods=['POST', 'GET'])
+def get_copytrader_history():
+    """
+    Retrieve past copied trades from SQL, filterable by config_id, slave_account, and status.
+    """
+    if request.method == 'POST':
+        payload = request.get_json(silent=True) or {}
+        config_id = payload.get("config_id")
+        slave_account = payload.get("slave_account")
+        status = payload.get("status")
+        limit = payload.get("limit", 500)
+    else:
+        config_id = request.args.get("config_id")
+        slave_account = request.args.get("slave_account")
+        status = request.args.get("status")
+        limit = request.args.get("limit", 500)
+
+    try:
+        limit = int(limit)
+    except Exception:
+        limit = 500
+
+    mappings = CopytraderHandler.get_mappings(
+        config_id=config_id,
+        slave_account=slave_account,
+        status=status,
+        limit=limit
+    )
+    return jsonify({"status": "success", "history": mappings, "count": len(mappings)})
+
+
