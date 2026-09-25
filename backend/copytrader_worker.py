@@ -79,6 +79,35 @@ from symbol_mapping_handler import SymbolMappingHandler
 from copytrader_handler import CopytraderHandler
 
 
+def is_process_running(pid: int) -> bool:
+    """
+    Checks if a process with the given PID is currently active.
+    """
+    if not pid or pid <= 0:
+        return False
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+            SYNCHRONIZE = 0x00100000
+            kernel32 = ctypes.windll.kernel32
+            handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, False, int(pid))
+            if not handle:
+                return False
+            exit_code = ctypes.c_ulong()
+            kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code))
+            kernel32.CloseHandle(handle)
+            return exit_code.value == 259  # STILL_ACTIVE
+        except Exception:
+            return False
+    else:
+        try:
+            os.kill(int(pid), 0)
+            return True
+        except (OSError, ProcessLookupError):
+            return False
+
+
 class CopytraderWorker:
     def __init__(self, config_id: str, sync_interval: float = 1.0):
         self.config_id = str(config_id)
@@ -91,20 +120,47 @@ class CopytraderWorker:
     def _acquire_instance_lock(self):
         """
         Ensures only one CopytraderWorker process runs for this configuration ID at any time.
-        If another instance is already running, this process exits immediately.
+        If another active instance is running, this process halts and exits.
         """
         lock_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".worker_locks")
         os.makedirs(lock_dir, exist_ok=True)
         lock_path = os.path.join(lock_dir, f"copytrader_worker_{self.config_id}.lock")
 
+        # Check existing PID inside lock file first
+        if os.path.exists(lock_path):
+            try:
+                with open(lock_path, "r") as existing_f:
+                    raw_pid = existing_f.read().strip()
+                    if raw_pid and raw_pid.isdigit():
+                        existing_pid = int(raw_pid)
+                        if existing_pid != os.getpid() and is_process_running(existing_pid):
+                            print(f"{Fore.YELLOW}[CopytraderWorker Duplicate Check]{Style.RESET_ALL} Worker for config '{self.config_id}' is already actively running in PID {existing_pid}.", flush=True)
+                            pause_and_exit(0, "Duplicate worker detected. Window will close automatically in 60 seconds (or press Enter)...", timeout=60)
+            except Exception:
+                pass
+
         try:
-            self.lock_file = open(lock_path, "w+")
+            self.lock_file = open(lock_path, "a+")
+            self.lock_file.seek(0)
             if sys.platform == "win32":
                 import msvcrt
                 try:
                     msvcrt.locking(self.lock_file.fileno(), msvcrt.LK_NBLCK, 1)
                 except (IOError, OSError):
-                    print(f"{Fore.YELLOW}[CopytraderWorker Duplicate Check]{Style.RESET_ALL} Worker for config '{self.config_id}' is already running in another process.", flush=True)
+                    # Check if file has active PID before assuming duplicate
+                    existing_pid = None
+                    try:
+                        self.lock_file.seek(0)
+                        pid_txt = self.lock_file.read().strip()
+                        if pid_txt.isdigit():
+                            existing_pid = int(pid_txt)
+                    except Exception:
+                        pass
+
+                    if existing_pid and is_process_running(existing_pid):
+                        print(f"{Fore.YELLOW}[CopytraderWorker Duplicate Check]{Style.RESET_ALL} Worker for config '{self.config_id}' is actively running in PID {existing_pid}.", flush=True)
+                    else:
+                        print(f"{Fore.YELLOW}[CopytraderWorker Duplicate Check]{Style.RESET_ALL} Worker for config '{self.config_id}' is locked by another process.", flush=True)
                     self.lock_file.close()
                     pause_and_exit(0, "Duplicate worker detected. Window will close automatically in 60 seconds (or press Enter)...", timeout=60)
             else:
