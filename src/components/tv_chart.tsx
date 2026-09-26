@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { createChart, ColorType, CandlestickSeries, HistogramSeries, LineSeries, createSeriesMarkers, CrosshairMode } from 'lightweight-charts';
 import type { ISeriesPrimitive, IPrimitivePaneView as SeriesPrimitivePaneView, IPrimitivePaneRenderer as SeriesPrimitivePaneRenderer } from 'lightweight-charts';
 import { Square, PenTool, Trash2, XCircle, RefreshCw, Maximize2, Minimize2, Settings, Play, Pause, SkipBack, SkipForward, X, Eye, EyeOff } from 'lucide-react';
