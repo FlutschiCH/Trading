@@ -1170,29 +1170,109 @@ export default function TVChart({
     if (subpaneChartRef.current) subpaneChartRef.current.applyOptions(locOpts);
   }, [sessionsTimezone]);
 
-  const toggleFullscreen = () => {
-    if (!isFullscreen) {
+  // Auto-adapt heights dynamically depending on how many panels are active below
+  const calculateDynamicHeights = useCallback(() => {
+    const isMobileSize = window.innerWidth < 768;
+    const hasSubpane = indicators.some(
+      (i) => (i.pane === 'subpane' || ['rsi', 'macd', 'stochastic', 'atr'].includes((i.name || '').toLowerCase())) && i.visible
+    );
+    const showVol = chartSettings.showVolume !== false;
+
+    // Check if in fullscreen
+    if (isFullscreen || document.getElementById('tv-chart-fullscreen-container')) {
       const totalH = window.innerHeight;
-      const isMobileSize = window.innerWidth < 768;
-      const hasSubpane = indicators.some((i) => (i.pane === 'subpane' || ['rsi', 'macd', 'stochastic', 'atr'].includes((i.name || '').toLowerCase())) && i.visible);
-      const newWeisH = chartSettings.showVolume !== false ? (isMobileSize ? 85 : 110) : 0;
+      const newWeisH = showVol ? (isMobileSize ? 85 : 110) : 0;
       const newSubpaneH = hasSubpane ? (isMobileSize ? 140 : 200) : 0;
-      const newChartH = totalH - (isMobileSize ? 180 : 220) - newWeisH - newSubpaneH;
-      setChartHeight(Math.max(200, newChartH));
-      setWeisHeight(newWeisH);
-      setSubpaneHeight(newSubpaneH);
-      setIsFullscreen(true);
-    } else {
-      const isMobileSize = window.innerWidth < 768;
-      const hasSubpane = indicators.some((i) => (i.pane === 'subpane' || ['rsi', 'macd', 'stochastic', 'atr'].includes((i.name || '').toLowerCase())) && i.visible);
-      setChartHeight(isMobileSize ? 360 : 640);
-      setWeisHeight(chartSettings.showVolume !== false ? (isMobileSize ? 85 : 110) : 0);
-      setSubpaneHeight(hasSubpane ? (isMobileSize ? 140 : 200) : 0);
-      setIsFullscreen(false);
+      const newChartH = Math.max(200, totalH - (isMobileSize ? 180 : 220) - newWeisH - newSubpaneH);
+      return { chartH: newChartH, weisH: newWeisH, subpaneH: newSubpaneH };
     }
+
+    // Check if constrained by a parent card container
+    const parentCard = chartContainerRef.current?.closest('.no-drag')?.parentElement;
+    const parentHeight = parentCard ? parentCard.clientHeight : 0;
+
+    if (parentHeight > 250) {
+      const usableHeight = parentHeight - 55;
+      if (showVol && hasSubpane) {
+        return {
+          chartH: Math.max(120, Math.floor(usableHeight * 0.52)),
+          weisH: Math.max(50, Math.floor(usableHeight * 0.16)),
+          subpaneH: Math.max(70, Math.floor(usableHeight * 0.32)),
+        };
+      } else if (showVol) {
+        return {
+          chartH: Math.max(120, Math.floor(usableHeight * 0.75)),
+          weisH: Math.max(60, Math.floor(usableHeight * 0.25)),
+          subpaneH: 0,
+        };
+      } else if (hasSubpane) {
+        return {
+          chartH: Math.max(120, Math.floor(usableHeight * 0.65)),
+          weisH: 0,
+          subpaneH: Math.max(70, Math.floor(usableHeight * 0.35)),
+        };
+      } else {
+        return {
+          chartH: usableHeight,
+          weisH: 0,
+          subpaneH: 0,
+        };
+      }
+    }
+
+    // Default container proportions (no parent card constraint)
+    const baseTotalH = isMobileSize ? 500 : 750;
+    if (showVol && hasSubpane) {
+      const weisH = isMobileSize ? 80 : 100;
+      const subH = isMobileSize ? 130 : 180;
+      return {
+        chartH: Math.max(200, baseTotalH - weisH - subH),
+        weisH,
+        subpaneH: subH,
+      };
+    } else if (showVol) {
+      const weisH = isMobileSize ? 85 : 110;
+      return {
+        chartH: Math.max(250, baseTotalH - weisH),
+        weisH,
+        subpaneH: 0,
+      };
+    } else if (hasSubpane) {
+      const subH = isMobileSize ? 140 : 200;
+      return {
+        chartH: Math.max(250, baseTotalH - subH),
+        weisH: 0,
+        subpaneH: subH,
+      };
+    } else {
+      return {
+        chartH: baseTotalH,
+        weisH: 0,
+        subpaneH: 0,
+      };
+    }
+  }, [indicators, chartSettings.showVolume, isFullscreen]);
+
+  // Keep heights ref updated & synchronize states reactively whenever panel configuration changes
+  useEffect(() => {
+    const { chartH, weisH, subpaneH } = calculateDynamicHeights();
+    setChartHeight(chartH);
+    setWeisHeight(weisH);
+    setSubpaneHeight(subpaneH);
+    chartHeightRef.current = chartH;
+    weisHeightRef.current = weisH;
+    subpaneHeightRef.current = subpaneH;
+  }, [calculateDynamicHeights]);
+
+  const toggleFullscreen = () => {
+    setIsFullscreen((prev) => !prev);
   };
 
   useEffect(() => {
+    chartHeightRef.current = chartHeight;
+    weisHeightRef.current = weisHeight;
+    subpaneHeightRef.current = subpaneHeight;
+
     if (chartRef.current && chartContainerRef.current) {
       chartRef.current.resize(chartContainerRef.current.clientWidth, chartHeight);
     }
