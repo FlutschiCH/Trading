@@ -165,15 +165,27 @@ def cleanup_stale_worker_locks():
                         print(f"  {Fore.YELLOW}•{Style.RESET_ALL} Terminated leftover worker PID {pid} ({fname})", flush=True)
                     except Exception:
                         pass
+                elif not pid and sys.platform == "win32":
+                    # Lock file had no readable PID and might be locked by an orphan process from an old session
+                    pass
 
-                try:
-                    os.remove(fpath)
-                    cleaned += 1
-                    if is_target:
-                        print(f"  {Fore.GREEN}>>> [DEBUG FOCUS] CLEARED target lock file: {fname} at startup!{Style.RESET_ALL}", flush=True)
-                except Exception as rem_err:
-                    if is_target:
-                        print(f"  {Fore.RED}>>> [DEBUG FOCUS] Failed to remove lock file {fname}: {rem_err}{Style.RESET_ALL}", flush=True)
+                # Attempt to remove lock file with short retry
+                removed = False
+                for attempt in range(3):
+                    try:
+                        os.remove(fpath)
+                        removed = True
+                        cleaned += 1
+                        if is_target:
+                            print(f"  {Fore.GREEN}>>> [DEBUG FOCUS] CLEARED target lock file: {fname} at startup!{Style.RESET_ALL}", flush=True)
+                        break
+                    except Exception as rem_err:
+                        import time
+                        time.sleep(0.1)
+
+                if not removed and is_target:
+                    print(f"  {Fore.YELLOW}>>> [DEBUG FOCUS] Lock file {fname} is currently in use; worker will auto-recover lock.{Style.RESET_ALL}", flush=True)
+
             except Exception:
                 pass
 
