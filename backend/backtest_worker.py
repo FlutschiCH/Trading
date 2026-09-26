@@ -29,6 +29,30 @@ def set_console_quick_edit(enabled: bool):
         except Exception:
             pass
 
+def wait_and_exit(code: int = 0, seconds: int = 60, reason: str = ""):
+    """
+    Enable QuickEdit and wait before exiting so the user can inspect errors and messages.
+    Allows pressing Enter to exit immediately.
+    """
+    set_console_quick_edit(True)
+    msg = f" ({reason})" if reason else ""
+    print(f"\n{Fore.YELLOW}[BacktestWorker]{Style.RESET_ALL} QuickEdit enabled. Window will close automatically in {seconds} seconds (or press Enter)...{msg}", flush=True)
+    try:
+        if sys.platform == "win32":
+            import msvcrt
+            start_wait = time.time()
+            while time.time() - start_wait < seconds:
+                if msvcrt.kbhit():
+                    ch = msvcrt.getch()
+                    if ch in (b'\r', b'\n'):
+                        break
+                time.sleep(0.5)
+        else:
+            time.sleep(seconds)
+    except Exception:
+        time.sleep(seconds)
+    sys.exit(code)
+
 # Ensure QuickEdit is turned off immediately so console clicks do not pause backtests
 set_console_quick_edit(False)
 
@@ -177,13 +201,13 @@ def run_worker(job_id: str, is_resume: bool = False):
     job = SQLHandler.get_backtest_job(job_id)
     if not job:
         print(f"{Fore.YELLOW}[BacktestWorker]{Style.RESET_ALL} Job {job_id} not found in database.", flush=True)
-        sys.exit(1)
+        wait_and_exit(1, seconds=60, reason="Job not found")
 
     job_host = (job.get('computer_name') or '').strip().lower()
     # If job has an assigned computer_name, verify it matches this local machine before proceeding
     if job_host and local_machine and job_host != local_machine:
         print(f"{Fore.RED}[BacktestWorker Host Mismatch]{Style.RESET_ALL} Job {job_id} was created by '{job_host}', but this worker is running on '{local_machine}'. Aborting execution to prevent cross-machine execution.", flush=True)
-        sys.exit(0)
+        wait_and_exit(0, seconds=60, reason="Host mismatch")
 
     raw_params = job.get('params', {})
     job_type = job.get('type', 'single')
@@ -559,46 +583,18 @@ def run_worker(job_id: str, is_resume: bool = False):
             send_local_update(progress=100.0, status='completed', step_info='Finished', results=res if isinstance(res, dict) else {})
 
     except Exception as err:
-        set_console_quick_edit(True)
-        print(f"{Fore.RED}[BacktestWorker]{Style.RESET_ALL} Error in worker execution for job {job_id}: {err}", flush=True)
+        print(f"\n{Fore.RED}[BacktestWorker]{Style.RESET_ALL} Error in worker execution for job {job_id}: {err}", flush=True)
         import traceback
         traceback.print_exc()
         try:
             send_local_update(progress=100.0, status='failed', step_info=f"Worker error: {str(err)}")
         except Exception:
             pass
-        print(f"\n{Fore.YELLOW}[BacktestWorker]{Style.RESET_ALL} QuickEdit enabled. Window will close automatically in 60 seconds (or press Enter)...", flush=True)
-        try:
-            if sys.platform == "win32":
-                import msvcrt
-                start_wait = time.time()
-                while time.time() - start_wait < 60:
-                    if msvcrt.kbhit():
-                        ch = msvcrt.getch()
-                        if ch in (b'\r', b'\n'):
-                            break
-                    time.sleep(0.5)
-            else:
-                time.sleep(60)
-        except Exception:
-            time.sleep(60)
+        wait_and_exit(1, seconds=60, reason="Worker error")
         return
 
-    print(f"\n{Fore.GREEN}[BacktestWorker]{Style.RESET_ALL} Worker execution finished. Window will close automatically in 60 seconds (or press Enter)...", flush=True)
-    try:
-        if sys.platform == "win32":
-            import msvcrt
-            start_wait = time.time()
-            while time.time() - start_wait < 60:
-                if msvcrt.kbhit():
-                    ch = msvcrt.getch()
-                    if ch in (b'\r', b'\n'):
-                        break
-                time.sleep(0.5)
-        else:
-            time.sleep(60)
-    except Exception:
-        time.sleep(60)
+    print(f"\n{Fore.GREEN}[BacktestWorker]{Style.RESET_ALL} Worker execution finished.")
+    wait_and_exit(0, seconds=60, reason="Worker finished")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Standalone Backtest Worker Process")
@@ -611,23 +607,8 @@ if __name__ == '__main__':
     try:
         run_worker(job_id=args.job_id, is_resume=args.resume)
     except Exception as e:
-        set_console_quick_edit(True)
         print(f"\n{Fore.RED}[BacktestWorker Fatal Error]{Style.RESET_ALL} Unhandled exception: {e}", flush=True)
         import traceback
         traceback.print_exc()
-        print(f"\n{Fore.YELLOW}[BacktestWorker]{Style.RESET_ALL} QuickEdit enabled. Window will close automatically in 60 seconds (or press Enter)...", flush=True)
-        try:
-            if sys.platform == "win32":
-                import msvcrt
-                start_wait = time.time()
-                while time.time() - start_wait < 60:
-                    if msvcrt.kbhit():
-                        ch = msvcrt.getch()
-                        if ch in (b'\r', b'\n'):
-                            break
-                    time.sleep(0.5)
-            else:
-                time.sleep(60)
-        except Exception:
-            time.sleep(60)
+        wait_and_exit(1, seconds=60, reason="Fatal error")
 
