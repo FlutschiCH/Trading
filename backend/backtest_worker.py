@@ -567,11 +567,21 @@ def run_worker(job_id: str, is_resume: bool = False):
             send_local_update(progress=100.0, status='failed', step_info=f"Worker error: {str(err)}")
         except Exception:
             pass
-        print(f"\n{Fore.YELLOW}[BacktestWorker]{Style.RESET_ALL} QuickEdit enabled. Press Enter to exit...", flush=True)
+        print(f"\n{Fore.YELLOW}[BacktestWorker]{Style.RESET_ALL} QuickEdit enabled. Window will close automatically in 60 seconds (or press Enter)...", flush=True)
         try:
-            input()
+            if sys.platform == "win32":
+                import msvcrt
+                start_wait = time.time()
+                while time.time() - start_wait < 60:
+                    if msvcrt.kbhit():
+                        ch = msvcrt.getch()
+                        if ch in (b'\r', b'\n'):
+                            break
+                    time.sleep(0.5)
+            else:
+                time.sleep(60)
         except Exception:
-            pass
+            time.sleep(60)
         return
 
     print(f"\n{Fore.GREEN}[BacktestWorker]{Style.RESET_ALL} Worker execution finished. Window will close automatically in 60 seconds (or press Enter)...", flush=True)
@@ -605,9 +615,19 @@ if __name__ == '__main__':
         print(f"\n{Fore.RED}[BacktestWorker Fatal Error]{Style.RESET_ALL} Unhandled exception: {e}", flush=True)
         import traceback
         traceback.print_exc()
-        print(f"\n{Fore.YELLOW}[BacktestWorker]{Style.RESET_ALL} QuickEdit enabled. Press Enter to exit...", flush=True)
+        print(f"\n{Fore.YELLOW}[BacktestWorker]{Style.RESET_ALL} QuickEdit enabled. Window will close automatically in 60 seconds (or press Enter)...", flush=True)
         try:
-            input()
+            if sys.platform == "win32":
+                import msvcrt
+                start_wait = time.time()
+                while time.time() - start_wait < 60:
+                    if msvcrt.kbhit():
+                        ch = msvcrt.getch()
+                        if ch in (b'\r', b'\n'):
+                            break
+                    time.sleep(0.5)
+            else:
+                time.sleep(60)
         except Exception:
-            pass
+            time.sleep(60)
 
