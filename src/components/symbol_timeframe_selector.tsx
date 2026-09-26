@@ -181,11 +181,11 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
       return Array.from(new Set([...effectiveAvailableSymbols, symbol].filter(Boolean)));
     }
     if (symbolSource === 'master') {
-      const defaultMasters = ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD', 'XAUUSD', 'BTCUSD', 'ETHUSD', 'GER40', 'US30', 'US100', 'NAS100', 'SPX500'];
+      const masterList = availableSymbols && availableSymbols.length > 0
+        ? availableSymbols
+        : mappedMasterSymbols.masterList;
       return Array.from(new Set([
-        ...defaultMasters,
-        ...mappedMasterSymbols.masterList,
-        ...effectiveAvailableSymbols,
+        ...masterList,
         symbol
       ].filter(Boolean))).sort();
     }
