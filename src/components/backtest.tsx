@@ -8,6 +8,7 @@ import SavedRuns from './saved_runs';
 import { SymbolTimeframeSelector } from './symbol_timeframe_selector';
 import DebugComponentBadge from './debug_component_badge';
 import LastTradeExecution from './LastTradeExecution';
+import * as apiService from '../services/apiService';
 
 const BacktestEquityChart = ({ backtestResults, backtestBalance }: { backtestResults: any; backtestBalance?: string }) => {
   const chartContainerRef = React.useRef<HTMLDivElement>(null);
@@ -556,6 +557,20 @@ export default function Backtester({
   // Symbol Mappings integration (from backend symbol_mapping_handler.py)
   const [symbolMappings, setSymbolMappings] = React.useState<any[]>([]);
 
+  React.useEffect(() => {
+    const loadSymbolMappings = async () => {
+      try {
+        const mappingsData = await apiService.fetchSymbolMappings();
+        if (mappingsData && mappingsData.status === 'success' && Array.isArray(mappingsData.data)) {
+          setSymbolMappings(mappingsData.data);
+        }
+      } catch (err) {
+        console.error("Error loading symbol mappings in Backtester:", err);
+      }
+    };
+    loadSymbolMappings();
+  }, []);
+
   // Indicator Confirmation Layer Rules State
   const [indicatorRules, setIndicatorRules] = React.useState<any[]>(() => {
     try {
@@ -972,18 +987,18 @@ export default function Backtester({
     return Array.from(new Set([...raw, timeframe, ...favoriteTimeframes].filter(Boolean)));
   }, [availableTimeframes, timeframe, favoriteTimeframes]);
 
-  // Sorted list: Favorites (★) top, then Master Mapped symbols (🔀), then Broker symbols
+  // Sorted list: Master Mapped symbols (🔀) FIRST, then Broker symbols
   const sortedSymbolsList = React.useMemo(() => {
     return [...baseSymbols].sort((a, b) => {
-      const aFav = favoriteSymbols.includes(a);
-      const bFav = favoriteSymbols.includes(b);
-      if (aFav && !bFav) return -1;
-      if (!aFav && bFav) return 1;
-
       const aMap = mappedMasterSymbols.masterList.includes(a);
       const bMap = mappedMasterSymbols.masterList.includes(b);
       if (aMap && !bMap) return -1;
       if (!aMap && bMap) return 1;
+
+      const aFav = favoriteSymbols.includes(a);
+      const bFav = favoriteSymbols.includes(b);
+      if (aFav && !bFav) return -1;
+      if (!aFav && bFav) return 1;
 
       return a.localeCompare(b);
     });

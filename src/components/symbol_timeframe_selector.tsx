@@ -103,13 +103,13 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
   const fetchConnectedBrokersAndMappings = async (force: boolean = false) => {
     setIsRefreshing(true);
     try {
-      // 1. Fetch symbol mappings (cached)
+      // 1. Fetch symbol mappings (cached / refreshed)
       const mappingsData = await apiService.fetchSymbolMappings(force);
       if (mappingsData && mappingsData.status === 'success' && Array.isArray(mappingsData.data)) {
         setSymbolMappings(mappingsData.data);
       }
 
-      // 2. Fetch connected brokers (cached)
+      // 2. Fetch connected brokers (cached / refreshed)
       const brokersData = await apiService.fetchConnectedBrokers(force);
       if (brokersData && brokersData.status === 'success' && Array.isArray(brokersData.data)) {
         const brokers: any[] = brokersData.data;
@@ -138,10 +138,8 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
   };
 
   useEffect(() => {
-    if (isOpen) {
-      fetchConnectedBrokersAndMappings();
-    }
-  }, [isOpen]);
+    fetchConnectedBrokersAndMappings();
+  }, [accountId]);
 
   const mappedMasterSymbols = useMemo(() => {
     const masterSet = new Set<string>();
@@ -189,10 +187,13 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
         symbol
       ].filter(Boolean))).sort();
     }
-    // symbolSource === 'both' (default view for chart & backtester)
+    // symbolSource === 'both' (default view for chart & backtester):
+    // Master mapped symbols FIRST, then connected broker symbols
+    const masterList = mappedMasterSymbols.masterList;
+    const rawBrokerList = effectiveAvailableSymbols.filter(s => !masterList.includes(s));
     return Array.from(new Set([
-      ...mappedMasterSymbols.masterList,
-      ...effectiveAvailableSymbols,
+      ...masterList,
+      ...rawBrokerList,
       symbol,
       ...favoriteSymbols
     ].filter(Boolean)));
@@ -227,11 +228,14 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
       setSymbolRect({
         top: rect.bottom + window.scrollY,
         left: rect.left + window.scrollX,
-        width: Math.max(rect.width, 240)
+        width: Math.max(rect.width, 260)
       });
     }
     setSymbolSearch('');
     setShowSymbolDropdown(true);
+    if (symbolMappings.length === 0) {
+      fetchConnectedBrokersAndMappings();
+    }
   };
 
   const openTimeframeDropdown = () => {
@@ -246,24 +250,30 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
     setShowTimeframeDropdown(prev => !prev);
   };
 
-  // Filtered & sorted symbol list
+  // Filtered & sorted symbol list:
+  // 1. Manually created maps (Master Symbols) listed FIRST
+  // 2. Broker symbols listed SECOND
   const sortedSymbols = useMemo(() => {
     return [...combinedSymbols]
       .filter(s => {
-        const q = symbolSearch.toLowerCase();
+        const q = symbolSearch.toLowerCase().trim();
+        if (!q) return true;
         const targets = mappedMasterSymbols.mainToBrokerMap[s] || [];
         return s.toLowerCase().includes(q) || targets.some(t => t.toLowerCase().includes(q));
       })
       .sort((a, b) => {
+        const aMap = mappedMasterSymbols.masterList.includes(a);
+        const bMap = mappedMasterSymbols.masterList.includes(b);
+        
+        // 1. Manually mapped master symbols ALWAYS first
+        if (aMap && !bMap) return -1;
+        if (!aMap && bMap) return 1;
+
+        // 2. Within the same category, starred favorites come first
         const aFav = favoriteSymbols.includes(a);
         const bFav = favoriteSymbols.includes(b);
         if (aFav && !bFav) return -1;
         if (!aFav && bFav) return 1;
-
-        const aMap = mappedMasterSymbols.masterList.includes(a);
-        const bMap = mappedMasterSymbols.masterList.includes(b);
-        if (aMap && !bMap) return -1;
-        if (!aMap && bMap) return 1;
 
         return a.localeCompare(b);
       });
@@ -509,7 +519,7 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
                   </button>
                 </div>
 
-                <div style={{ maxHeight: '240px', overflowY: 'auto', padding: '4px' }}>
+                <div style={{ maxHeight: '280px', overflowY: 'auto', padding: '4px' }}>
                   {sortedSymbols.length > 0 ? (
                     sortedSymbols.map((sym, idx) => {
                       const isSelected = multiSelect ? selectedSymbols.includes(sym) : symbol === sym;
@@ -517,53 +527,95 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
                       const isHighlighted = idx === highlightedIndex;
                       const mappedTargets = mappedMasterSymbols.mainToBrokerMap[sym];
                       const isMasterMap = mappedMasterSymbols.masterList.includes(sym);
+                      const isFirstMaster = idx === 0 && isMasterMap;
+                      const isFirstBroker = !isMasterMap && (idx === 0 || mappedMasterSymbols.masterList.includes(sortedSymbols[idx - 1]));
 
                       return (
-                        <div
-                          key={sym}
-                          onClick={() => handleSymbolSelect(sym)}
-                          style={{
-                            padding: '6px 10px',
-                            cursor: 'pointer',
-                            fontSize: '12px',
-                            color: isLight ? '#0f172a' : '#ffffff',
-                            backgroundColor: isSelected
-                              ? 'rgba(37, 99, 235, 0.2)'
-                              : isHighlighted
-                                ? (isLight ? '#f1f5f9' : '#1e293b')
-                                : 'transparent',
-                            transition: 'background-color 0.15s',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            borderRadius: '4px'
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            {multiSelect && <span style={{ fontSize: '12px' }}>{isSelected ? '☑' : '☐'}</span>}
-                            <div>
-                              <span style={{ fontWeight: isSelected ? 'bold' : 'normal' }}>{sym}</span>
-                              {isMasterMap && mappedTargets && (
-                                <span style={{ fontSize: '10px', color: '#a855f7', marginLeft: '6px', fontWeight: 'bold' }}>
-                                  [➔ {mappedTargets.join(', ')}]
-                                </span>
-                              )}
+                        <React.Fragment key={sym}>
+                          {isFirstMaster && (
+                            <div style={{
+                              padding: '4px 8px',
+                              fontSize: '10px',
+                              fontWeight: 700,
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.5px',
+                              color: '#a855f7',
+                              backgroundColor: 'rgba(168, 85, 247, 0.08)',
+                              borderRadius: '4px',
+                              marginBottom: '2px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between'
+                            }}>
+                              <span>🔀 Manual Mappings</span>
+                              <span style={{ fontSize: '9px', opacity: 0.8 }}>Master Maps</span>
                             </div>
-                          </div>
-                          <span
-                            onClick={(e) => toggleFavSymbol(sym, e)}
+                          )}
+                          {isFirstBroker && (
+                            <div style={{
+                              padding: '4px 8px',
+                              fontSize: '10px',
+                              fontWeight: 700,
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.5px',
+                              color: '#38bdf8',
+                              backgroundColor: 'rgba(56, 189, 248, 0.08)',
+                              borderRadius: '4px',
+                              marginTop: idx > 0 ? '6px' : '0',
+                              marginBottom: '2px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between'
+                            }}>
+                              <span>🏦 Broker Symbols</span>
+                              <span style={{ fontSize: '9px', opacity: 0.8 }}>Raw Broker Feeds</span>
+                            </div>
+                          )}
+                          <div
+                            onClick={() => handleSymbolSelect(sym)}
                             style={{
-                              color: isFav ? '#f59e0b' : '#64748b',
-                              fontSize: '14px',
-                              padding: '2px 4px',
+                              padding: '6px 10px',
                               cursor: 'pointer',
-                              transition: 'color 0.15s'
+                              fontSize: '12px',
+                              color: isLight ? '#0f172a' : '#ffffff',
+                              backgroundColor: isSelected
+                                ? 'rgba(37, 99, 235, 0.2)'
+                                : isHighlighted
+                                  ? (isLight ? '#f1f5f9' : '#1e293b')
+                                  : 'transparent',
+                              transition: 'background-color 0.15s',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              borderRadius: '4px'
                             }}
-                            title={isFav ? "Unstar symbol" : "Star favorite symbol"}
                           >
-                            {isFav ? '★' : '☆'}
-                          </span>
-                        </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              {multiSelect && <span style={{ fontSize: '12px' }}>{isSelected ? '☑' : '☐'}</span>}
+                              <div>
+                                <span style={{ fontWeight: isSelected ? 'bold' : 'normal', color: isMasterMap ? '#c084fc' : undefined }}>{sym}</span>
+                                {isMasterMap && mappedTargets && mappedTargets.length > 0 && (
+                                  <span style={{ fontSize: '10px', color: '#94a3b8', marginLeft: '6px', fontWeight: 'bold' }}>
+                                    ➔ <span style={{ color: '#a855f7' }}>{mappedTargets.join(', ')}</span>
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <span
+                              onClick={(e) => toggleFavSymbol(sym, e)}
+                              style={{
+                                color: isFav ? '#f59e0b' : '#64748b',
+                                fontSize: '14px',
+                                padding: '2px 4px',
+                                cursor: 'pointer',
+                                transition: 'color 0.15s'
+                              }}
+                              title={isFav ? "Unstar symbol" : "Star favorite symbol"}
+                            >
+                              {isFav ? '★' : '☆'}
+                            </span>
+                          </div>
+                        </React.Fragment>
                       );
                     })
                   ) : (
