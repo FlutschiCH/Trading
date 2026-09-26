@@ -1181,9 +1181,10 @@ export default function TVChart({
     // Check if in fullscreen
     if (isFullscreen || document.getElementById('tv-chart-fullscreen-container')) {
       const totalH = window.innerHeight;
+      const toolbarOffset = isMobileSize ? 160 : 120;
       const newWeisH = showVol ? (isMobileSize ? 85 : 110) : 0;
       const newSubpaneH = hasSubpane ? (isMobileSize ? 140 : 200) : 0;
-      const newChartH = Math.max(200, totalH - (isMobileSize ? 180 : 220) - newWeisH - newSubpaneH);
+      const newChartH = Math.max(200, totalH - toolbarOffset - newWeisH - newSubpaneH);
       return { chartH: newChartH, weisH: newWeisH, subpaneH: newSubpaneH };
     }
 
@@ -1192,39 +1193,33 @@ export default function TVChart({
     const parentHeight = parentCard ? parentCard.clientHeight : 0;
 
     if (parentHeight > 250) {
-      const usableHeight = parentHeight - 55;
+      // Account for card header (~42px), TVChart toolbar (~54px), internal padding (~32px), and gaps
+      const overhead = isMobileSize ? 130 : 140;
+      const usableHeight = Math.max(200, parentHeight - overhead);
+
       if (showVol && hasSubpane) {
-        return {
-          chartH: Math.max(120, Math.floor(usableHeight * 0.52)),
-          weisH: Math.max(50, Math.floor(usableHeight * 0.16)),
-          subpaneH: Math.max(70, Math.floor(usableHeight * 0.32)),
-        };
+        const weisH = Math.max(50, Math.floor(usableHeight * 0.18));
+        const subpaneH = Math.max(70, Math.floor(usableHeight * 0.28));
+        const chartH = Math.max(120, usableHeight - weisH - subpaneH);
+        return { chartH, weisH, subpaneH };
       } else if (showVol) {
-        return {
-          chartH: Math.max(120, Math.floor(usableHeight * 0.75)),
-          weisH: Math.max(60, Math.floor(usableHeight * 0.25)),
-          subpaneH: 0,
-        };
+        const weisH = Math.max(60, Math.floor(usableHeight * 0.22));
+        const chartH = Math.max(120, usableHeight - weisH);
+        return { chartH, weisH, subpaneH: 0 };
       } else if (hasSubpane) {
-        return {
-          chartH: Math.max(120, Math.floor(usableHeight * 0.65)),
-          weisH: 0,
-          subpaneH: Math.max(70, Math.floor(usableHeight * 0.35)),
-        };
+        const subpaneH = Math.max(70, Math.floor(usableHeight * 0.30));
+        const chartH = Math.max(120, usableHeight - subpaneH);
+        return { chartH, weisH: 0, subpaneH };
       } else {
-        return {
-          chartH: usableHeight,
-          weisH: 0,
-          subpaneH: 0,
-        };
+        return { chartH: usableHeight, weisH: 0, subpaneH: 0 };
       }
     }
 
-    // Default container proportions (no parent card constraint)
-    const baseTotalH = isMobileSize ? 500 : 750;
+    // Default container proportions (no fixed parent card height constraint)
+    const baseTotalH = isMobileSize ? 460 : 640;
     if (showVol && hasSubpane) {
-      const weisH = isMobileSize ? 80 : 100;
-      const subH = isMobileSize ? 130 : 180;
+      const weisH = isMobileSize ? 75 : 95;
+      const subH = isMobileSize ? 120 : 160;
       return {
         chartH: Math.max(200, baseTotalH - weisH - subH),
         weisH,
@@ -1233,14 +1228,14 @@ export default function TVChart({
     } else if (showVol) {
       const weisH = isMobileSize ? 85 : 110;
       return {
-        chartH: Math.max(250, baseTotalH - weisH),
+        chartH: Math.max(240, baseTotalH - weisH),
         weisH,
         subpaneH: 0,
       };
     } else if (hasSubpane) {
-      const subH = isMobileSize ? 140 : 200;
+      const subH = isMobileSize ? 130 : 180;
       return {
-        chartH: Math.max(250, baseTotalH - subH),
+        chartH: Math.max(240, baseTotalH - subH),
         weisH: 0,
         subpaneH: subH,
       };
@@ -2171,8 +2166,10 @@ export default function TVChart({
       const parentCard = chartContainerRef.current.closest('.no-drag')?.parentElement;
       if (parentCard) {
         const parentHeight = parentCard.clientHeight;
-        if (parentHeight > 200) {
-          const usableHeight = parentHeight - 55;
+        if (parentHeight > 250) {
+          const isMobileSize = window.innerWidth < 768;
+          const overhead = isMobileSize ? 130 : 140;
+          const usableHeight = Math.max(200, parentHeight - overhead);
           const hasSubpane = indicators.some((i) => (i.pane === 'subpane' || ['rsi', 'macd', 'stochastic', 'atr'].includes((i.name || '').toLowerCase())) && i.visible);
           const showVol = chartSettings.showVolume !== false;
 
@@ -2181,15 +2178,15 @@ export default function TVChart({
           let newSubpaneH = 0;
 
           if (showVol && hasSubpane) {
-            newChartH = Math.max(120, Math.floor(usableHeight * 0.52));
-            newWeisH = Math.max(50, Math.floor(usableHeight * 0.16));
-            newSubpaneH = Math.max(70, Math.floor(usableHeight * 0.32));
+            newWeisH = Math.max(50, Math.floor(usableHeight * 0.18));
+            newSubpaneH = Math.max(70, Math.floor(usableHeight * 0.28));
+            newChartH = Math.max(120, usableHeight - newWeisH - newSubpaneH);
           } else if (showVol) {
-            newChartH = Math.max(120, Math.floor(usableHeight * 0.75));
-            newWeisH = Math.max(60, Math.floor(usableHeight * 0.25));
+            newWeisH = Math.max(60, Math.floor(usableHeight * 0.22));
+            newChartH = Math.max(120, usableHeight - newWeisH);
           } else if (hasSubpane) {
-            newChartH = Math.max(120, Math.floor(usableHeight * 0.65));
-            newSubpaneH = Math.max(70, Math.floor(usableHeight * 0.35));
+            newSubpaneH = Math.max(70, Math.floor(usableHeight * 0.30));
+            newChartH = Math.max(120, usableHeight - newSubpaneH);
           } else {
             newChartH = usableHeight;
           }
