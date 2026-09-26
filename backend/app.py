@@ -26,6 +26,87 @@ def disable_quick_edit():
 
 disable_quick_edit()
 
+def cleanup_all_active_workers():
+    """
+    Terminates all running worker processes (Live Runner & Copytrader) and removes lock files.
+    """
+    try:
+        from live_runner_handler import LiveRunner
+        LiveRunner.stop()
+    except Exception:
+        pass
+    try:
+        from copytrader_handler import CopytraderHandler
+        CopytraderHandler.stop()
+    except Exception:
+        pass
+
+    # Also forcefully kill any active workers referenced by .worker_locks
+    try:
+        lock_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".worker_locks")
+        if os.path.exists(lock_dir):
+            curr_pid = os.getpid()
+            for fname in os.listdir(lock_dir):
+                if fname.endswith(".lock"):
+                    fpath = os.path.join(lock_dir, fname)
+                    try:
+                        with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
+                            pid_txt = f.read().strip()
+                            if pid_txt.isdigit():
+                                pid = int(pid_txt)
+                                if pid != curr_pid:
+                                    if sys.platform == "win32":
+                                        os.system(f"taskkill /F /PID {pid} >nul 2>&1")
+                                    else:
+                                        os.kill(pid, 9)
+                        os.remove(fpath)
+                    except Exception:
+                        pass
+    except Exception:
+        pass
+
+def register_console_close_handler():
+    """
+    Registers Windows console close handler (X button, logoff, shutdown) and POSIX signals
+    so closing app.py immediately terminates all child workers.
+    """
+    import atexit
+    import signal
+
+    atexit.register(cleanup_all_active_workers)
+
+    def handle_signal(sig=None, frame=None):
+        cleanup_all_active_workers()
+        sys.exit(0)
+
+    try:
+        signal.signal(signal.SIGINT, handle_signal)
+        signal.signal(signal.SIGTERM, handle_signal)
+        if hasattr(signal, "SIGBREAK"):
+            signal.signal(signal.SIGBREAK, handle_signal)
+    except Exception:
+        pass
+
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            PHANDLER_ROUTINE = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.DWORD)
+
+            def win_console_handler(dwCtrlType):
+                # 0: CTRL_C_EVENT, 1: CTRL_BREAK_EVENT, 2: CTRL_CLOSE_EVENT, 5: CTRL_LOGOFF_EVENT, 6: CTRL_SHUTDOWN_EVENT
+                cleanup_all_active_workers()
+                return False
+
+            global _win_console_handler_ref
+            _win_console_handler_ref = PHANDLER_ROUTINE(win_console_handler)
+            ctypes.windll.kernel32.SetConsoleCtrlHandler(_win_console_handler_ref, True)
+        except Exception:
+            pass
+
+register_console_close_handler()
+
 # from terminal_handler import TerminalHandler
 # TerminalHandler.init()
 
