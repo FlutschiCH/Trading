@@ -140,8 +140,8 @@ class CopytraderWorker:
 
             if existing_pid and existing_pid != os.getpid():
                 if is_process_running(existing_pid):
-                    print(f"{Fore.YELLOW}[CopytraderWorker Duplicate Check]{Style.RESET_ALL} Worker for config '{self.config_id}' is already actively running in PID {existing_pid} (current PID: {os.getpid()}).\n  -> Lock File: {self.lock_path}", flush=True)
-                    pause_and_exit(0, "Duplicate worker detected. Window will close automatically in 60 seconds (or press Enter)...", timeout=60)
+                    print(f"{Fore.YELLOW}[CopytraderWorker Duplicate Check]{Style.RESET_ALL} Worker for config '{self.config_id}' is already actively running in PID {existing_pid} (current PID: {os.getpid()}). Exiting duplicate.", flush=True)
+                    sys.exit(0)
                 else:
                     try:
                         os.remove(self.lock_path)
@@ -172,9 +172,9 @@ class CopytraderWorker:
                         pass
 
                     if existing_pid and is_process_running(existing_pid):
-                        print(f"{Fore.YELLOW}[CopytraderWorker Duplicate Check]{Style.RESET_ALL} Worker for config '{self.config_id}' is actively running in PID {existing_pid} (current PID: {os.getpid()}).\n  -> Lock File: {self.lock_path}", flush=True)
+                        print(f"{Fore.YELLOW}[CopytraderWorker Duplicate Check]{Style.RESET_ALL} Worker for config '{self.config_id}' is actively running in PID {existing_pid} (current PID: {os.getpid()}). Exiting duplicate.", flush=True)
                         self.lock_file.close()
-                        pause_and_exit(0, "Duplicate worker detected. Window will close automatically in 60 seconds (or press Enter)...", timeout=60)
+                        sys.exit(0)
                     elif existing_pid and not is_process_running(existing_pid):
                         print(f"{Fore.YELLOW}[CopytraderWorker Lock Notice]{Style.RESET_ALL} Previous PID {existing_pid} is dead. Recovering lock for config '{self.config_id}'...\n  -> Lock File: {self.lock_path}", flush=True)
                         self.lock_file.close()
@@ -189,17 +189,17 @@ class CopytraderWorker:
                         except Exception:
                             pass
                     else:
-                        print(f"{Fore.YELLOW}[CopytraderWorker Duplicate Check]{Style.RESET_ALL} Worker for config '{self.config_id}' is locked by another process (current PID: {os.getpid()}).\n  -> Lock File: {self.lock_path}", flush=True)
+                        print(f"{Fore.YELLOW}[CopytraderWorker Duplicate Check]{Style.RESET_ALL} Worker for config '{self.config_id}' is locked by another process (current PID: {os.getpid()}). Exiting duplicate.", flush=True)
                         self.lock_file.close()
-                        pause_and_exit(0, "Duplicate worker detected. Window will close automatically in 60 seconds (or press Enter)...", timeout=60)
+                        sys.exit(0)
             else:
                 import fcntl
                 try:
                     fcntl.flock(self.lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
                 except (IOError, OSError):
-                    print(f"{Fore.YELLOW}[CopytraderWorker Duplicate Check]{Style.RESET_ALL} Worker for config '{self.config_id}' is already running in another process.\n  -> Lock File: {self.lock_path}", flush=True)
+                    print(f"{Fore.YELLOW}[CopytraderWorker Duplicate Check]{Style.RESET_ALL} Worker for config '{self.config_id}' is already running in another process. Exiting duplicate.", flush=True)
                     self.lock_file.close()
-                    pause_and_exit(0, "Duplicate worker detected. Window will close automatically in 60 seconds (or press Enter)...", timeout=60)
+                    sys.exit(0)
 
             # Atomically write current PID
             self.lock_file.seek(0)

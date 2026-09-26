@@ -335,15 +335,72 @@ class CopytraderHandler:
     _stop_event = threading.Event()
     _supervisor_thread = None
 
+    @staticmethod
+    def _is_pid_running(pid: int) -> bool:
+        """
+        Checks if a process with the given PID is currently active.
+        """
+        if not pid or pid <= 0:
+            return False
+        if sys.platform == "win32":
+            try:
+                import ctypes
+                PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+                SYNCHRONIZE = 0x00100000
+                kernel32 = ctypes.windll.kernel32
+                handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, False, int(pid))
+                if not handle:
+                    return False
+                exit_code = ctypes.c_ulong()
+                kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code))
+                kernel32.CloseHandle(handle)
+                return exit_code.value == 259  # STILL_ACTIVE
+            except Exception:
+                return False
+        else:
+            try:
+                os.kill(int(pid), 0)
+                return True
+            except (OSError, ProcessLookupError):
+                return False
+
+    @classmethod
+    def is_worker_running(cls, config_id: str) -> bool:
+        """
+        Checks if an active worker process is currently running for this config ID.
+        """
+        with cls._lock:
+            proc = cls._workers.get(config_id)
+            if proc and proc.poll() is None:
+                return True
+
+            lock_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".worker_locks")
+            lock_path = os.path.join(lock_dir, f"copytrader_worker_{config_id}.lock")
+            if os.path.exists(lock_path):
+                try:
+                    with open(lock_path, "r", encoding="utf-8", errors="ignore") as f:
+                        raw_pid = f.read().strip()
+                        if raw_pid and raw_pid.isdigit():
+                            pid = int(raw_pid)
+                            if cls._is_pid_running(pid):
+                                return True
+                            else:
+                                try:
+                                    os.remove(lock_path)
+                                except Exception:
+                                    pass
+                except Exception:
+                    pass
+            return False
+
     @classmethod
     def spawn_worker(cls, config_id: str, quickedit: bool = False):
         """
         Spawns a dedicated Copytrader Worker console for a specific configuration ID.
         """
         with cls._lock:
-            existing_proc = cls._workers.get(config_id)
-            if existing_proc and existing_proc.poll() is None:
-                return existing_proc
+            if cls.is_worker_running(config_id):
+                return cls._workers.get(config_id)
 
             cfg = cls.get_config(config_id)
             if not cfg:
@@ -367,9 +424,9 @@ class CopytraderHandler:
             env["PYTHONIOENCODING"] = "utf-8"
             env["PYTHONUTF8"] = "1"
 
-            # Debounce spawn attempts (don't respawn within 5 seconds if previous spawn just exited)
+            # Debounce spawn attempts (don't respawn within 10 seconds if previous spawn just exited)
             last_spawn = cls._last_spawn_times.get(config_id, 0)
-            if time.time() - last_spawn < 5.0:
+            if time.time() - last_spawn < 10.0:
                 return None
             cls._last_spawn_times[config_id] = time.time()
 
@@ -416,6 +473,25 @@ class CopytraderHandler:
                 except Exception as ex:
                     print(f"[Copytrader Engine] Error stopping worker for {config_id}: {ex}", flush=True)
 
+            lock_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".worker_locks")
+            lock_path = os.path.join(lock_dir, f"copytrader_worker_{config_id}.lock")
+            if os.path.exists(lock_path):
+                try:
+                    with open(lock_path, "r", encoding="utf-8", errors="ignore") as f:
+                        raw = f.read().strip()
+                        if raw and raw.isdigit():
+                            pid = int(raw)
+                            if cls._is_pid_running(pid):
+                                import subprocess
+                                if sys.platform == "win32":
+                                    subprocess.run(["taskkill", "/F", "/PID", str(pid)], capture_output=True)
+                                else:
+                                    import signal
+                                    os.kill(pid, signal.SIGTERM)
+                    os.remove(lock_path)
+                except Exception:
+                    pass
+
     @classmethod
     def _supervisor_loop(cls):
         """
@@ -445,9 +521,7 @@ class CopytraderHandler:
                     if cls._stop_event.is_set():
                         break
                     c_id = cfg["id"]
-                    proc = cls._workers.get(c_id)
-                    is_dead = proc is None or proc.poll() is not None
-                    if is_dead:
+                    if not cls.is_worker_running(c_id):
                         cls.spawn_worker(c_id)
 
             except Exception as ex:
