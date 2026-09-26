@@ -204,10 +204,8 @@ def run_worker(job_id: str, is_resume: bool = False):
         wait_and_exit(1, seconds=60, reason="Job not found")
 
     job_host = (job.get('computer_name') or '').strip().lower()
-    # If job has an assigned computer_name, verify it matches this local machine before proceeding
     if job_host and local_machine and job_host != local_machine:
-        print(f"{Fore.RED}[BacktestWorker Host Mismatch]{Style.RESET_ALL} Job {job_id} was created by '{job_host}', but this worker is running on '{local_machine}'. Aborting execution to prevent cross-machine execution.", flush=True)
-        wait_and_exit(0, seconds=60, reason="Host mismatch")
+        print(f"{Fore.CYAN}[BacktestWorker Host Notice]{Style.RESET_ALL} Job {job_id} originated from '{job_host}', executing on '{local_machine}'.", flush=True)
 
     raw_params = job.get('params', {})
     job_type = job.get('type', 'single')
