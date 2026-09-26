@@ -159,13 +159,18 @@ let connectedBrokersCache: any = null;
 let connectedBrokersPromise: Promise<any> | null = null;
 
 export const fetchSymbolMappings = async (force: boolean = false) => {
-  if (symbolMappingsCache && !force) return symbolMappingsCache;
+  if (symbolMappingsCache && !force) {
+    console.log('[apiService] Returning cached symbolMappings:', symbolMappingsCache);
+    return symbolMappingsCache;
+  }
   if (symbolMappingsPromise && !force) return symbolMappingsPromise;
   
   symbolMappingsPromise = (async () => {
     try {
+      console.log(`[apiService] Fetching /api/symbol-mappings (force=${force})...`);
       const res = await fetch(`${API_BASE_URL}/api/symbol-mappings`);
       const data = await safeJsonParse(res);
+      console.log('[apiService] Received symbol-mappings response:', data);
       if (data && data.status === 'success') {
         symbolMappingsCache = data;
       }
@@ -178,13 +183,18 @@ export const fetchSymbolMappings = async (force: boolean = false) => {
 };
 
 export const fetchConnectedBrokers = async (force: boolean = false) => {
-  if (connectedBrokersCache && !force) return connectedBrokersCache;
+  if (connectedBrokersCache && !force) {
+    console.log('[apiService] Returning cached connectedBrokers:', connectedBrokersCache);
+    return connectedBrokersCache;
+  }
   if (connectedBrokersPromise && !force) return connectedBrokersPromise;
   
   connectedBrokersPromise = (async () => {
     try {
+      console.log(`[apiService] Fetching /api/symbol-mappings/connected-brokers (force=${force})...`);
       const res = await fetch(`${API_BASE_URL}/api/symbol-mappings/connected-brokers`);
       const data = await safeJsonParse(res);
+      console.log('[apiService] Received connected-brokers response:', data);
       if (data && data.status === 'success') {
         connectedBrokersCache = data;
       }

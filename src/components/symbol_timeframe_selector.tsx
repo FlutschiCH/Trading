@@ -105,12 +105,14 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
     try {
       // 1. Fetch symbol mappings (cached / refreshed)
       const mappingsData = await apiService.fetchSymbolMappings(force);
+      console.log('[SymbolTimeframeSelector] Received symbol mappings:', mappingsData);
       if (mappingsData && mappingsData.status === 'success' && Array.isArray(mappingsData.data)) {
         setSymbolMappings(mappingsData.data);
       }
 
       // 2. Fetch connected brokers (cached / refreshed)
       const brokersData = await apiService.fetchConnectedBrokers(force);
+      console.log('[SymbolTimeframeSelector] Received connected brokers:', brokersData);
       if (brokersData && brokersData.status === 'success' && Array.isArray(brokersData.data)) {
         const brokers: any[] = brokersData.data;
         const targetAccId = accountId || localStorage.getItem('broker_account') || localStorage.getItem('wyckoff_active_account_id') || localStorage.getItem('active_account_id') || localStorage.getItem('wyckoff_active_account');
@@ -159,18 +161,19 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
       }
     });
 
-    return {
+    const result = {
       masterList: Array.from(masterSet),
       mainToBrokerMap,
       brokerToMainMap
     };
+    console.log('[SymbolTimeframeSelector] Computed mappedMasterSymbols:', result);
+    return result;
   }, [symbolMappings]);
 
   const effectiveAvailableSymbols = useMemo(() => {
-    if (availableSymbols && availableSymbols.length > 0) {
-      return availableSymbols;
-    }
-    return fetchedBrokerSymbols;
+    // Combine passed-in availableSymbols and dynamically fetched broker symbols
+    const combined = [...(availableSymbols || []), ...(fetchedBrokerSymbols || [])];
+    return Array.from(new Set(combined.filter(Boolean)));
   }, [availableSymbols, fetchedBrokerSymbols]);
 
   // Combined symbols list based on symbolSource mode ('master' | 'fetched' | 'both')
@@ -179,9 +182,9 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
       return Array.from(new Set([...effectiveAvailableSymbols, symbol].filter(Boolean)));
     }
     if (symbolSource === 'master') {
-      const masterList = availableSymbols && availableSymbols.length > 0
-        ? availableSymbols
-        : mappedMasterSymbols.masterList;
+      const masterList = mappedMasterSymbols.masterList.length > 0
+        ? mappedMasterSymbols.masterList
+        : (availableSymbols && availableSymbols.length > 0 ? availableSymbols : []);
       return Array.from(new Set([
         ...masterList,
         symbol
@@ -191,12 +194,18 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
     // Master mapped symbols FIRST, then connected broker symbols
     const masterList = mappedMasterSymbols.masterList;
     const rawBrokerList = effectiveAvailableSymbols.filter(s => !masterList.includes(s));
-    return Array.from(new Set([
+    const finalSymbols = Array.from(new Set([
       ...masterList,
       ...rawBrokerList,
       symbol,
       ...favoriteSymbols
     ].filter(Boolean)));
+    console.log('[SymbolTimeframeSelector] Combined symbols (masterList first):', {
+      masterList,
+      rawBrokerList,
+      finalSymbols
+    });
+    return finalSymbols;
   }, [symbolSource, onlyUseAvailableSymbols, mappedMasterSymbols, effectiveAvailableSymbols, symbol, favoriteSymbols]);
 
   // Combined timeframes list

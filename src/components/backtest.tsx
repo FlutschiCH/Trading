@@ -561,6 +561,7 @@ export default function Backtester({
     const loadSymbolMappings = async () => {
       try {
         const mappingsData = await apiService.fetchSymbolMappings();
+        console.log('[Backtester] Loaded symbol mappings:', mappingsData);
         if (mappingsData && mappingsData.status === 'success' && Array.isArray(mappingsData.data)) {
           setSymbolMappings(mappingsData.data);
         }
