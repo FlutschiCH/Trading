@@ -49,12 +49,29 @@ def cleanup_all_active_workers():
                                 pid = int(pid_txt)
                                 if pid != curr_pid:
                                     if sys.platform == "win32":
-                                        os.system(f"taskkill /F /PID {pid} >nul 2>&1")
+                                        os.system(f"taskkill /F /T /PID {pid} >nul 2>&1")
                                     else:
                                         os.kill(pid, 9)
                         os.remove(fpath)
                     except Exception:
                         pass
+    except Exception:
+        pass
+
+    # Scan running processes to terminate any lingering copytrader or live workers
+    try:
+        import psutil
+        curr_pid = os.getpid()
+        for p in psutil.process_iter(['pid', 'name', 'cmdline']):
+            try:
+                if p.info['pid'] == curr_pid:
+                    continue
+                cmdline = p.info.get('cmdline') or []
+                cmd_str = " ".join(cmdline)
+                if ("copytrader_worker.py" in cmd_str or "live_worker.py" in cmd_str or "liquidity_worker.py" in cmd_str) and "backtest_worker.py" not in cmd_str:
+                    p.kill()
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                pass
     except Exception:
         pass
 
@@ -105,6 +122,24 @@ def cleanup_stale_worker_locks():
     If a lock references a dead PID, it is deleted immediately.
     If a process is still active from an old session, it terminates it and removes the lock.
     """
+    # 1. Kill any lingering copytrader or live workers from previous backend instance
+    try:
+        import psutil
+        curr_pid = os.getpid()
+        for p in psutil.process_iter(['pid', 'name', 'cmdline']):
+            try:
+                if p.info['pid'] == curr_pid:
+                    continue
+                cmdline = p.info.get('cmdline') or []
+                cmd_str = " ".join(cmdline)
+                if ("copytrader_worker.py" in cmd_str or "live_worker.py" in cmd_str or "liquidity_worker.py" in cmd_str) and "backtest_worker.py" not in cmd_str:
+                    print(f"  {Fore.YELLOW}•{Style.RESET_ALL} Terminated lingering worker {p.info['name']} (PID {p.info['pid']})", flush=True)
+                    p.kill()
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                pass
+    except Exception:
+        pass
+
     lock_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".worker_locks")
     if not os.path.exists(lock_dir):
         return
@@ -138,11 +173,9 @@ def cleanup_stale_worker_locks():
                 return False
 
     cleaned = 0
-    target_focus_cfg = "cfg_1786586458955"
     for fname in os.listdir(lock_dir):
         if fname.endswith(".lock"):
             fpath = os.path.join(lock_dir, fname)
-            is_target = target_focus_cfg in fname
             try:
                 pid = None
                 try:
@@ -153,21 +186,15 @@ def cleanup_stale_worker_locks():
                 except Exception:
                     pass
 
-                if is_target:
-                    print(f"  {Fore.YELLOW}>>> [DEBUG FOCUS]{Style.RESET_ALL} Found target lock file: {fname} (PID in lock: {pid})", flush=True)
-
                 if pid and is_pid_alive(pid):
                     try:
                         if sys.platform == "win32":
-                            os.system(f"taskkill /F /PID {pid} >nul 2>&1")
+                            os.system(f"taskkill /F /T /PID {pid} >nul 2>&1")
                         else:
                             os.kill(pid, 9)
                         print(f"  {Fore.YELLOW}•{Style.RESET_ALL} Terminated leftover worker PID {pid} ({fname})", flush=True)
                     except Exception:
                         pass
-                elif not pid and sys.platform == "win32":
-                    # Lock file had no readable PID and might be locked by an orphan process from an old session
-                    pass
 
                 # Attempt to remove lock file with short retry
                 removed = False
@@ -176,15 +203,10 @@ def cleanup_stale_worker_locks():
                         os.remove(fpath)
                         removed = True
                         cleaned += 1
-                        if is_target:
-                            print(f"  {Fore.GREEN}>>> [DEBUG FOCUS] CLEARED target lock file: {fname} at startup!{Style.RESET_ALL}", flush=True)
                         break
-                    except Exception as rem_err:
+                    except Exception:
                         import time
                         time.sleep(0.1)
-
-                if not removed and is_target:
-                    print(f"  {Fore.YELLOW}>>> [DEBUG FOCUS] Lock file {fname} is currently in use; worker will auto-recover lock.{Style.RESET_ALL}", flush=True)
 
             except Exception:
                 pass

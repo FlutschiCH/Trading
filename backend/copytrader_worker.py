@@ -402,7 +402,7 @@ if __name__ == '__main__':
     try:
         worker = CopytraderWorker(config_id=args.config_id, sync_interval=args.interval)
         worker.run()
-        pause_and_exit(0, "Worker stopped. Window will close automatically in 60 seconds (or press Enter)...", timeout=60)
+        sys.exit(0)
     except Exception as e:
         # Re-enable QuickEdit upon fatal error so user can inspect and select text
         set_console_quick_edit(True)
