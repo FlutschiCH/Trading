@@ -71,15 +71,23 @@ def cleanup_stale_worker_locks():
                 return False
 
     cleaned = 0
+    target_focus_cfg = "cfg_1786586458955"
     for fname in os.listdir(lock_dir):
         if fname.endswith(".lock"):
             fpath = os.path.join(lock_dir, fname)
+            is_target = target_focus_cfg in fname
             try:
                 pid = None
-                with open(fpath, "r") as f:
-                    content = f.read().strip()
-                    if content.isdigit():
-                        pid = int(content)
+                try:
+                    with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
+                        content = f.read().strip()
+                        if content.isdigit():
+                            pid = int(content)
+                except Exception:
+                    pass
+
+                if is_target:
+                    print(f"  {Fore.YELLOW}>>> [DEBUG FOCUS]{Style.RESET_ALL} Found target lock file: {fname} (PID in lock: {pid})", flush=True)
 
                 if pid and is_pid_alive(pid):
                     # Terminate leftover worker process from previous session
@@ -96,8 +104,11 @@ def cleanup_stale_worker_locks():
                 try:
                     os.remove(fpath)
                     cleaned += 1
-                except Exception:
-                    pass
+                    if is_target:
+                        print(f"  {Fore.GREEN}>>> [DEBUG FOCUS] CLEARED target lock file: {fname} at startup!{Style.RESET_ALL}", flush=True)
+                except Exception as rem_err:
+                    if is_target:
+                        print(f"  {Fore.RED}>>> [DEBUG FOCUS] Failed to remove lock file {fname}: {rem_err}{Style.RESET_ALL}", flush=True)
             except Exception:
                 pass
 
