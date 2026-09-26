@@ -409,7 +409,7 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
               readOnly={!showSymbolDropdown}
               disabled={disabled}
               placeholder={placeholder}
-              value={multiSelect ? (selectedSymbols.length > 0 ? selectedSymbols.join(', ') : symbol) : (showSymbolDropdown ? symbolSearch : symbol)}
+              value={multiSelect ? (selectedSymbols.length > 0 ? `${selectedSymbols.length} symbol${selectedSymbols.length > 1 ? 's' : ''} selected` : symbol) : (showSymbolDropdown ? symbolSearch : symbol)}
               onFocus={openSymbolDropdown}
               onClick={openSymbolDropdown}
               onChange={(e) => {
@@ -457,6 +457,77 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
               {showSymbolDropdown ? '▲' : '▼'}
             </button>
           </div>
+
+          {/* Multi-Select Selected Symbol Chips with small x */}
+          {multiSelect && selectedSymbols.length > 0 && (
+            <div style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '4px',
+              marginTop: '6px',
+              maxHeight: '80px',
+              overflowY: 'auto',
+              padding: '2px 0'
+            }}>
+              {selectedSymbols.map((sym) => {
+                const isMasterMap = mappedMasterSymbols.masterList.includes(sym);
+                return (
+                  <span
+                    key={sym}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '2px 6px 2px 8px',
+                      borderRadius: '4px',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      backgroundColor: isMasterMap ? 'rgba(168, 85, 247, 0.18)' : 'rgba(56, 189, 248, 0.18)',
+                      border: isMasterMap ? '1px solid rgba(168, 85, 247, 0.35)' : '1px solid rgba(56, 189, 248, 0.35)',
+                      color: isMasterMap ? '#d8b4fe' : '#7dd3fc',
+                      userSelect: 'none'
+                    }}
+                  >
+                    <span>{isMasterMap ? `🔀 ${sym}` : sym}</span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onSelectedSymbolsChange) {
+                          onSelectedSymbolsChange(selectedSymbols.filter(s => s !== sym));
+                        }
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#94a3b8',
+                        cursor: 'pointer',
+                        fontSize: '11px',
+                        fontWeight: 'bold',
+                        padding: '0 2px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        lineHeight: 1,
+                        borderRadius: '2px'
+                      }}
+                      onMouseOver={(e) => {
+                        e.currentTarget.style.color = '#ef4444';
+                        e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.2)';
+                      }}
+                      onMouseOut={(e) => {
+                        e.currentTarget.style.color = '#94a3b8';
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                      }}
+                      title={`Remove ${sym}`}
+                    >
+                      ✕
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
+          )}
 
           {/* Dropdown Popup via Portal */}
           {showSymbolDropdown && symbolRect && typeof document !== 'undefined' && createPortal(
@@ -711,11 +782,79 @@ export const SymbolTimeframeSelector: React.FC<SymbolTimeframeSelectorProps> = (
                 whiteSpace: 'nowrap',
                 maxWidth: '180px'
               }}>
-                {multiSelect ? (selectedTimeframes.length > 0 ? selectedTimeframes.join(', ') : timeframe) : timeframe}
+                {multiSelect ? (selectedTimeframes.length > 0 ? `${selectedTimeframes.length} timeframe${selectedTimeframes.length > 1 ? 's' : ''} selected` : timeframe) : timeframe}
               </span>
               <span style={{ fontSize: '10px', color: '#9ca3af' }}>{showTimeframeDropdown ? '▲' : '▼'}</span>
             </button>
           </div>
+
+          {/* Multi-Select Selected Timeframe Chips with small x */}
+          {multiSelect && selectedTimeframes.length > 0 && (
+            <div style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '4px',
+              marginTop: '6px',
+              maxHeight: '80px',
+              overflowY: 'auto',
+              padding: '2px 0'
+            }}>
+              {selectedTimeframes.map((tf) => (
+                <span
+                  key={tf}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '2px 6px 2px 8px',
+                    borderRadius: '4px',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    backgroundColor: 'rgba(59, 130, 246, 0.18)',
+                    border: '1px solid rgba(59, 130, 246, 0.35)',
+                    color: '#93c5fd',
+                    userSelect: 'none'
+                  }}
+                >
+                  <span>{tf}</span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onSelectedTimeframesChange) {
+                        onSelectedTimeframesChange(selectedTimeframes.filter(t => t !== tf));
+                      }
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#94a3b8',
+                      cursor: 'pointer',
+                      fontSize: '11px',
+                      fontWeight: 'bold',
+                      padding: '0 2px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      lineHeight: 1,
+                      borderRadius: '2px'
+                    }}
+                    onMouseOver={(e) => {
+                      e.currentTarget.style.color = '#ef4444';
+                      e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.2)';
+                    }}
+                    onMouseOut={(e) => {
+                      e.currentTarget.style.color = '#94a3b8';
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                    }}
+                    title={`Remove ${tf}`}
+                  >
+                    ✕
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
 
           {/* Timeframe Dropdown via Portal */}
           {showTimeframeDropdown && timeframeRect && typeof document !== 'undefined' && createPortal(
